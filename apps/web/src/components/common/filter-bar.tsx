@@ -1,14 +1,13 @@
 "use client";
 
 import { useRef, type ReactNode } from "react";
-import { SlidersHorizontal } from "lucide-react";
 import { Button, LinkButton } from "@/components/ui/button";
 
 /**
- * A GET form for list filters. Selects auto-submit; text inputs submit on Enter
- * or with the Apply button. Works without JavaScript as a normal form.
+ * Vertical filter sidebar (a GET form). Selects and checkboxes apply on change;
+ * text inputs apply on Enter or with the Apply button. Works without JavaScript.
  */
-export function FilterBar({ action, children, hasFilters }: { action: string; children: ReactNode; hasFilters: boolean }) {
+export function FilterBar({ action, title = "Filters", children, hasFilters }: { action: string; title?: string; children: ReactNode; hasFilters: boolean }) {
   const formRef = useRef<HTMLFormElement>(null);
   return (
     <form
@@ -17,23 +16,33 @@ export function FilterBar({ action, children, hasFilters }: { action: string; ch
       method="get"
       onChange={(e) => {
         const target = e.target as HTMLElement;
-        if (target.tagName === "SELECT" || (target as HTMLInputElement).type === "checkbox") {
+        if (target.tagName === "SELECT" || (target as HTMLInputElement).type === "checkbox" || (target as HTMLInputElement).type === "radio") {
           formRef.current?.requestSubmit();
         }
       }}
-      className="flex flex-wrap items-end gap-3 rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-200"
+      className="flex flex-col gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200"
     >
-      {children}
-      <div className="flex items-center gap-2">
-        <Button type="submit" variant="secondary" size="md">
-          <SlidersHorizontal className="h-4 w-4" /> Apply
-        </Button>
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-bold text-gray-900">{title}</h2>
         {hasFilters ? (
-          <LinkButton href={action} variant="ghost" size="md">
+          <LinkButton href={action} variant="ghost" size="sm">
             Clear
           </LinkButton>
         ) : null}
       </div>
+      {children}
+      <Button type="submit" variant="secondary" size="md" className="w-full">
+        Apply
+      </Button>
     </form>
+  );
+}
+
+export function FilterField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1 text-xs font-medium text-gray-600">
+      {label}
+      {children}
+    </label>
   );
 }

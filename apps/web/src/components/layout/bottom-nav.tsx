@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User } from "lucide-react";
+import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_TABS } from "./nav-tabs";
 import { UnreadBadge } from "./unread-badge";
@@ -15,10 +15,10 @@ export function BottomNav({ unread, userId }: { unread: number; userId: string |
   const tabs = [
     ...NAV_TABS,
     {
-      href: userId ? "/profile/me" : "/login",
-      label: userId ? "Profile" : "Log in",
-      icon: User,
-      match: (p: string) => p.startsWith("/profile") || p.startsWith("/settings") || p === "/login",
+      href: "/menu",
+      label: "Menu",
+      icon: Menu,
+      match: (p: string) => p === "/menu" || p.startsWith("/profile") || p.startsWith("/settings") || p.startsWith("/saved"),
     },
   ];
 

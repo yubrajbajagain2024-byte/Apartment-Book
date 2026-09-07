@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ApartmentFilters } from "@/components/apartments/apartment-filters";
 import { ApartmentFeed } from "@/components/feed/apartment-feed";
 import { PhotoRail, type RailItem } from "@/components/feed/photo-rail";
+import { FeedLayout } from "@/components/layout/feed-layout";
 import { ListingMap, type MapPin } from "@/components/map/listing-map";
 
 export default async function HomePage({
@@ -121,7 +122,8 @@ export default async function HomePage({
     cn("inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold", active ? "bg-brand-600 text-white" : "text-gray-700 hover:bg-gray-200");
 
   return (
-    <div className="flex flex-col gap-4">
+    <FeedLayout
+      header={
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
@@ -155,10 +157,10 @@ export default async function HomePage({
           </LinkButton>
         </div>
       </div>
-
+      }
+      filters={<ApartmentFilters universities={universities} values={{ ...filterValues, view }} hasFilters={hasFilters} />}
+    >
       {showRail ? <PhotoRail title={universityId ? "Closest to campus" : "Just listed"} items={railItems} /> : null}
-
-      <ApartmentFilters universities={universities} values={filterValues} hasFilters={hasFilters} />
 
       {view === "map" ? (
         <div className="flex flex-col gap-2">
@@ -199,6 +201,6 @@ export default async function HomePage({
           signedIn={Boolean(user)}
         />
       )}
-    </div>
+    </FeedLayout>
   );
 }

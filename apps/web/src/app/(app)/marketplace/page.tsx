@@ -19,6 +19,7 @@ import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ItemFeed } from "@/components/feed/item-feed";
 import { PhotoRail, type RailItem } from "@/components/feed/photo-rail";
+import { FeedLayout } from "@/components/layout/feed-layout";
 import { ItemFilters } from "@/components/marketplace/item-filters";
 
 export const metadata: Metadata = { title: "Marketplace" };
@@ -77,7 +78,8 @@ export default async function MarketplacePage({
   const hasFilters = Object.entries(values).some(([key, value]) => key !== "page" && value !== undefined && value !== "");
 
   return (
-    <div className="flex flex-col gap-4">
+    <FeedLayout
+      header={
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{activeUniversity ? `Marketplace at ${activeUniversity.name}` : "Marketplace"}</h1>
@@ -87,10 +89,10 @@ export default async function MarketplacePage({
           <Plus className="h-5 w-5" /> Sell something
         </LinkButton>
       </div>
-
+      }
+      filters={<ItemFilters universities={universities} values={{ ...values, university: universityId ?? "all" }} hasFilters={hasFilters} />}
+    >
       {showRail ? <PhotoRail title="Fresh finds" items={railItems} /> : null}
-
-      <ItemFilters universities={universities} values={{ ...values, university: universityId ?? "all" }} hasFilters={hasFilters} />
 
       {result.data.length === 0 ? (
         <EmptyState
@@ -118,6 +120,6 @@ export default async function MarketplacePage({
           signedIn={Boolean(user)}
         />
       )}
-    </div>
+    </FeedLayout>
   );
 }

@@ -15,6 +15,7 @@ import { firstParam, numberParam } from "@/lib/utils";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { RoommateFeed } from "@/components/feed/roommate-feed";
+import { FeedLayout } from "@/components/layout/feed-layout";
 import { RoommateFilters } from "@/components/roommates/roommate-filters";
 
 export const metadata: Metadata = { title: "Roommates" };
@@ -57,7 +58,8 @@ export default async function RoommatesPage({
   const hasFilters = Object.entries(values).some(([key, value]) => key !== "page" && value !== undefined && value !== "");
 
   return (
-    <div className="flex flex-col gap-4">
+    <FeedLayout
+      header={
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{activeUniversity ? `Roommates at ${activeUniversity.name}` : "Find a roommate"}</h1>
@@ -69,8 +71,9 @@ export default async function RoommatesPage({
           <Plus className="h-5 w-5" /> Create post
         </LinkButton>
       </div>
-
-      <RoommateFilters universities={universities} values={{ ...values, university: universityId ?? "all" }} hasFilters={hasFilters} />
+      }
+      filters={<RoommateFilters universities={universities} values={{ ...values, university: universityId ?? "all" }} hasFilters={hasFilters} />}
+    >
 
       {result.data.length === 0 ? (
         <EmptyState
@@ -98,6 +101,6 @@ export default async function RoommatesPage({
           signedIn={Boolean(user)}
         />
       )}
-    </div>
+    </FeedLayout>
   );
 }
