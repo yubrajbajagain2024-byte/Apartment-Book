@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, MapPin, School } from "lucide-react";
-import { budgetLabel, formatDistance, GENDER_PREFERENCES, getRoommatePost, isSaved, labelFor, photosFor } from "@apartment-book/shared";
+import { budgetLabel, formatDistance, GENDER_PREFERENCES, getRoommatePost, isSaved, labelFor, listingMedia, photosFor } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, timeAgo } from "@/lib/utils";
@@ -59,7 +59,7 @@ export default async function RoommatePostPage({ params }: Props) {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-4">
-          {post.images.length > 0 ? <PhotoHero photos={photosFor(post.images, post.image_meta)} alt={post.title} /> : null}
+          {post.images.length > 0 || post.has_video ? <PhotoHero photos={photosFor(post.images, post.image_meta)} media={listingMedia(post.images, post.image_meta, post.videos)} alt={post.title} /> : null}
           <Card>
             <CardBody className="flex flex-col gap-4">
               <div className="flex flex-wrap items-start gap-3">

@@ -17,7 +17,7 @@ import { createClient } from "@/lib/supabase/server";
 import { errorMessage, formToObject } from "@/lib/utils";
 import { formValues, type FormState } from "./types";
 
-const ARRAY_FIELDS = ["amenities", "images", "imageMeta"];
+const ARRAY_FIELDS = ["amenities", "images", "imageMeta", "videos"];
 
 export async function createApartmentAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("/apartments/new");
@@ -36,7 +36,7 @@ export async function createApartmentAction(_prev: FormState, formData: FormData
   }
 
   revalidatePath("/");
-  redirect(`/apartments/${id}`);
+  redirect(`/apartments/${id}?posted=${parsed.data.videos.length > 0 ? "video" : "photo"}`);
 }
 
 export async function updateApartmentAction(id: string, _prev: FormState, formData: FormData): Promise<FormState> {

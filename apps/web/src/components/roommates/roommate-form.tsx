@@ -18,6 +18,7 @@ import { Field, FormMessage } from "@/components/ui/field";
 import { Checkbox, Input, Select, Textarea } from "@/components/ui/input";
 import { ImageUploader } from "@/components/common/image-uploader";
 import { LocationPicker } from "@/components/map/location-picker";
+import { VideoUploader } from "@/components/video/video-uploader";
 import { UniversitySelect } from "@/components/common/university-select";
 
 export function RoommateForm({
@@ -149,7 +150,18 @@ export function RoommateForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Photos (optional)</CardTitle>
+          <CardTitle>Video (optional)</CardTitle>
+          <p className="mt-1 text-sm text-gray-600">Show your room or say hi on camera. Posts with a video rank higher.</p>
+        </CardHeader>
+        <CardBody>
+          <VideoUploader initial={initial?.videos} tour={false} max={1} />
+          {err?.videos ? <p className="mt-2 text-sm text-red-600">{err.videos[0]}</p> : null}
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Or add photos</CardTitle>
         </CardHeader>
         <CardBody>
           <ImageUploader kind="roommates" userId={userId} initial={initial ? photosFor(initial.images, initial.image_meta) : []} max={6} />

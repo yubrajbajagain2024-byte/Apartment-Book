@@ -42,6 +42,7 @@ export default async function HomePage({
     furnished: firstParam(params.furnished),
     pets: firstParam(params.pets),
     radius: firstParam(params.radius),
+    video: firstParam(params.video),
     sort: firstParam(params.sort),
     page: firstParam(params.page),
   };
@@ -61,6 +62,7 @@ export default async function HomePage({
     furnished: values.furnished === "1",
     petsAllowed: values.pets === "1",
     radiusKm: universityId && radiusMiles ? milesToKm(radiusMiles) : undefined,
+    videoOnly: values.video === "1",
     sort: (values.sort as ApartmentSort | undefined) ?? "newest",
     page: numberParam(params.page) ?? 1,
   };

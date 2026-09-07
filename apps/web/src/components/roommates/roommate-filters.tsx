@@ -1,5 +1,5 @@
 import { GENDER_PREFERENCES, RADIUS_OPTIONS_MILES, type University } from "@apartment-book/shared";
-import { Input, Select } from "@/components/ui/input";
+import { Checkbox, Input, Select } from "@/components/ui/input";
 import { FilterBar } from "@/components/common/filter-bar";
 
 export type RoommateFilterValues = {
@@ -9,6 +9,7 @@ export type RoommateFilterValues = {
   maxBudget?: string;
   gender?: string;
   radius?: string;
+  video?: string;
 };
 
 export function RoommateFilters({ universities, values, hasFilters }: { universities: University[]; values: RoommateFilterValues; hasFilters: boolean }) {
@@ -54,6 +55,9 @@ export function RoommateFilters({ universities, values, hasFilters }: { universi
           </Select>
         </label>
       ) : null}
+      <div className="flex h-10 items-center">
+        <Checkbox name="video" value="1" defaultChecked={values.video === "1"} label="Video only" />
+      </div>
       <label className="flex w-36 flex-col gap-1 text-xs font-medium text-gray-600">
         Open to
         <Select name="gender" defaultValue={values.gender ?? ""}>

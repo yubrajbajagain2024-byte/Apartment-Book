@@ -23,6 +23,18 @@ export type Conversation = Tables<"conversations">;
 export type ConversationMember = Tables<"conversation_members">;
 export type Message = Tables<"messages">;
 export type DevicePushToken = Tables<"device_push_tokens">;
+export type Media = Tables<"media">;
+export type MediaStatus = "uploading" | "processing" | "ready" | "failed";
+
+/** Snapshot of a ready video stored on a listing (videos jsonb). */
+export type ListingVideo = {
+  media_id: string;
+  playback_id: string;
+  poster_url: string | null;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+};
 export type PushPlatform = "ios" | "android" | "web";
 
 export type ListingStatus = Enums<"listing_status">;

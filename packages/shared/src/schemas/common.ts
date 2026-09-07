@@ -71,6 +71,32 @@ export const imageMeta = z.preprocess(
   z.array(photoMetaSchema).max(12),
 );
 
+/** Ready videos attached to a listing, submitted as JSON strings from hidden inputs. */
+export const listingVideoSchema = z.object({
+  media_id: z.uuid(),
+  playback_id: z.string().min(3).max(200),
+  poster_url: z.url().nullable(),
+  width: z.number().int().positive().nullable(),
+  height: z.number().int().positive().nullable(),
+  duration_seconds: z.number().nonnegative().nullable(),
+});
+export const listingVideos = z.preprocess(
+  (value) => {
+    const list = value === undefined || value === null || value === "" ? [] : Array.isArray(value) ? value : [value];
+    return list
+      .map((entry) => {
+        if (typeof entry !== "string") return entry;
+        try {
+          return JSON.parse(entry);
+        } catch {
+          return null;
+        }
+      })
+      .filter((entry) => entry !== null);
+  },
+  z.array(listingVideoSchema).max(3, "You can add up to 3 videos"),
+);
+
 export const uuid = z.uuid({ error: "Invalid id" });
 export const optionalUuid = z.preprocess(emptyToUndefined, uuid.optional());
 

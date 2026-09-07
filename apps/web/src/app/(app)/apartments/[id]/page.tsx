@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Bath, BedDouble, CalendarDays, Clock, ExternalLink, MapPin, Phone, School } from "lucide-react";
-import { AMENITIES, formatDistance, formatPrice, getApartment, isSaved, labelFor, photosFor } from "@apartment-book/shared";
+import { AMENITIES, formatDistance, formatPrice, getApartment, isSaved, labelFor, listingMedia, photosFor } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, timeAgo } from "@/lib/utils";
@@ -10,12 +10,13 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
 import { PhotoHero } from "@/components/photos/photo-hero";
+import { PostedBanner } from "@/components/video/posted-banner";
 import { ListingMap, type MapPin as Pin } from "@/components/map/listing-map";
 import { MessageButton } from "@/components/common/message-button";
 import { SaveButton } from "@/components/common/save-button";
 import { ApartmentOwnerActions } from "@/components/apartments/apartment-owner-actions";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
@@ -28,8 +29,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function ApartmentPage({ params }: Props) {
-  const { id } = await params;
+export default async function ApartmentPage({ params, searchParams }: Props) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const posted = typeof query.posted === "string" ? query.posted : null;
   const supabase = await createClient();
   const [apartment, user] = await Promise.all([getApartment(supabase, id), getCurrentUser()]);
   if (!apartment) notFound();
@@ -64,9 +66,11 @@ export default async function ApartmentPage({ params }: Props) {
         <ArrowLeft className="h-4 w-4" /> Back to apartments
       </Link>
 
+      {posted && isOwner ? <PostedBanner kind={posted === "video" ? "video" : "photo"} /> : null}
+
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-4">
-          <PhotoHero photos={photosFor(apartment.images, apartment.image_meta)} alt={apartment.title} />
+          <PhotoHero photos={photosFor(apartment.images, apartment.image_meta)} media={listingMedia(apartment.images, apartment.image_meta, apartment.videos)} alt={apartment.title} />
 
           <Card>
             <CardBody className="flex flex-col gap-4">

@@ -10,6 +10,7 @@ import {
   formBoolean,
   imageMeta,
   imageUrls,
+  listingVideos,
   optionalDate,
   optionalNumber,
   optionalText,
@@ -105,6 +106,7 @@ export const apartmentSchema = z.object({
   ),
   images: imageUrls,
   imageMeta,
+  videos: listingVideos,
   mapUrl: optionalUrl,
   contactPhone: optionalText(40),
   ...coordinateFields,
@@ -138,6 +140,7 @@ export const roommatePostSchema = z
     ),
     images: imageUrls,
     imageMeta,
+    videos: listingVideos,
     ...coordinateFields,
   })
   .refine(

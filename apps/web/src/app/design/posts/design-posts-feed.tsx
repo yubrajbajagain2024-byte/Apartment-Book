@@ -5,7 +5,7 @@ import { PostCard } from "@/components/posts/post-card";
 import { PostFeed } from "@/components/posts/post-feed";
 
 const photo = (seed: string): FeedMedia => ({ type: "photo", url: `https://picsum.photos/seed/${seed}/960/1200`, width: 960, height: 1200, blur: null });
-const sampleVideo: FeedMedia = { type: "video", playbackUrl: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", poster: null, width: 1920, height: 1080, durationSeconds: 634 };
+const sampleVideo: FeedMedia = { type: "video", playbackUrl: "https://stream.mux.com/O01x4Ox01Bd8IKkk00bsSnMqm00pxaK3tnK8UkS4DDc3AM00.m3u8", poster: "https://image.mux.com/O01x4Ox01Bd8IKkk00bsSnMqm00pxaK3tnK8UkS4DDc3AM00/thumbnail.jpg?time=1&width=1080&fit_mode=preserve", width: 640, height: 360, durationSeconds: 10 };
 
 type Sample = { id: string; title: string; caption: string; lead: string; subtitle: string; poster: { id: string; name: string; avatarUrl: string | null; verified: boolean }; media: FeedMedia[]; createdAt: string };
 

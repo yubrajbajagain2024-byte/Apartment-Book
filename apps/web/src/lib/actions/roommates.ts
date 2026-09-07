@@ -16,7 +16,7 @@ import { createClient } from "@/lib/supabase/server";
 import { errorMessage, formToObject } from "@/lib/utils";
 import { formValues, type FormState } from "./types";
 
-const ARRAY_FIELDS = ["images", "imageMeta"];
+const ARRAY_FIELDS = ["images", "imageMeta", "videos"];
 
 export async function createRoommatePostAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("/roommates/new");
@@ -32,7 +32,7 @@ export async function createRoommatePostAction(_prev: FormState, formData: FormD
     return { error: errorMessage(error), values: formValues(formData) };
   }
   revalidatePath("/roommates");
-  redirect(`/roommates/${id}`);
+  redirect(`/roommates/${id}?posted=${parsed.data.videos.length > 0 ? "video" : "photo"}`);
 }
 
 export async function updateRoommatePostAction(id: string, _prev: FormState, formData: FormData): Promise<FormState> {

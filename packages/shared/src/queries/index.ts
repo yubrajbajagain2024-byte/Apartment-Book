@@ -7,3 +7,4 @@ export * from "./saved";
 export * from "./messages";
 export * from "./storage";
 export * from "./push-tokens";
+export * from "./media";

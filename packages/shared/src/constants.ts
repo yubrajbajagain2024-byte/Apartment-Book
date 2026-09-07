@@ -124,3 +124,19 @@ export const DEFAULT_TILE_ATTRIBUTION =
 
 /** Push token platforms accepted by the device_push_tokens table. */
 export const PUSH_PLATFORMS = ["ios", "android", "web"] as const;
+
+/** Video */
+export const MAX_VIDEOS_PER_LISTING = 3;
+export const MAX_VIDEO_SIZE_BYTES = 2 * 1024 * 1024 * 1024;
+export const MUX_STREAM_BASE = "https://stream.mux.com";
+export const MUX_IMAGE_BASE = "https://image.mux.com";
+
+/** What to film for an apartment tour, shown as a checklist while recording. */
+export const TOUR_CHECKLIST = [
+  { key: "door", label: "Front door", hint: "Start outside and walk in" },
+  { key: "living", label: "Living room", hint: "Slow pan across the room" },
+  { key: "kitchen", label: "Kitchen", hint: "Counters, appliances, storage" },
+  { key: "bedroom", label: "Bedroom", hint: "Bed area, closet, window" },
+  { key: "bathroom", label: "Bathroom", hint: "Shower, sink, toilet" },
+  { key: "view", label: "View from the window", hint: "What do you see outside?" },
+] as const;

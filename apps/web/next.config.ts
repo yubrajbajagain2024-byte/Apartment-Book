@@ -36,6 +36,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
       // Sample photos for the design preview page
       { protocol: "https", hostname: "picsum.photos" },
+      // Video poster frames
+      { protocol: "https", hostname: "image.mux.com" },
     ],
   },
 };

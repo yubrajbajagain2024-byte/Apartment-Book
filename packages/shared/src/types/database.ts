@@ -115,6 +115,8 @@ export type Database = {
           amenities: string[];
           images: string[];
           image_meta: Json;
+          videos: Json;
+          has_video: boolean;
           map_url: string | null;
           contact_phone: string | null;
           latitude: number | null;
@@ -145,6 +147,8 @@ export type Database = {
           amenities?: string[];
           images?: string[];
           image_meta?: Json;
+          videos?: Json;
+          has_video?: boolean;
           map_url?: string | null;
           contact_phone?: string | null;
           latitude?: number | null;
@@ -174,6 +178,8 @@ export type Database = {
           amenities?: string[];
           images?: string[];
           image_meta?: Json;
+          videos?: Json;
+          has_video?: boolean;
           map_url?: string | null;
           contact_phone?: string | null;
           latitude?: number | null;
@@ -219,6 +225,8 @@ export type Database = {
           cleanliness: string | null;
           images: string[];
           image_meta: Json;
+          videos: Json;
+          has_video: boolean;
           latitude: number | null;
           longitude: number | null;
           distance_km: number | null;
@@ -246,6 +254,8 @@ export type Database = {
           cleanliness?: string | null;
           images?: string[];
           image_meta?: Json;
+          videos?: Json;
+          has_video?: boolean;
           latitude?: number | null;
           longitude?: number | null;
           distance_km?: number | null;
@@ -272,6 +282,8 @@ export type Database = {
           cleanliness?: string | null;
           images?: string[];
           image_meta?: Json;
+          videos?: Json;
+          has_video?: boolean;
           latitude?: number | null;
           longitude?: number | null;
           distance_km?: number | null;
@@ -542,6 +554,77 @@ export type Database = {
           {
             foreignKeyName: "device_push_tokens_user_id_fkey";
             columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      media: {
+        Row: {
+          id: string;
+          owner_id: string;
+          kind: string;
+          provider: string;
+          provider_upload_id: string | null;
+          provider_asset_id: string | null;
+          playback_id: string | null;
+          status: string;
+          error: string | null;
+          duration_seconds: number | null;
+          width: number | null;
+          height: number | null;
+          aspect_ratio: string | null;
+          poster_url: string | null;
+          size_bytes: number | null;
+          original_path: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          kind?: string;
+          provider?: string;
+          provider_upload_id?: string | null;
+          provider_asset_id?: string | null;
+          playback_id?: string | null;
+          status?: string;
+          error?: string | null;
+          duration_seconds?: number | null;
+          width?: number | null;
+          height?: number | null;
+          aspect_ratio?: string | null;
+          poster_url?: string | null;
+          size_bytes?: number | null;
+          original_path?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_id?: string;
+          kind?: string;
+          provider?: string;
+          provider_upload_id?: string | null;
+          provider_asset_id?: string | null;
+          playback_id?: string | null;
+          status?: string;
+          error?: string | null;
+          duration_seconds?: number | null;
+          width?: number | null;
+          height?: number | null;
+          aspect_ratio?: string | null;
+          poster_url?: string | null;
+          size_bytes?: number | null;
+          original_path?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "media_owner_id_fkey";
+            columns: ["owner_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];

@@ -34,7 +34,7 @@ export function ApartmentFeed({
   return (
     <PostFeed
       items={feed.items}
-      mediaOf={(a) => listingMedia(a.images, a.image_meta)}
+      mediaOf={(a) => listingMedia(a.images, a.image_meta, a.videos)}
       render={(a, compact, i) => (
         <PostCard
           href={`/apartments/${a.id}`}
@@ -42,7 +42,7 @@ export function ApartmentFeed({
           targetId={a.id}
           poster={{ id: a.owner.id, name: a.owner.full_name, avatarUrl: a.owner.avatar_url, verified: isVerifiedPoster(a.owner) }}
           subtitle={[a.distance_km !== null ? `${formatDistance(a.distance_km)} from campus` : null, a.city || a.address].filter(Boolean).join(" · ")}
-          media={listingMedia(a.images, a.image_meta)}
+          media={listingMedia(a.images, a.image_meta, a.videos)}
           title={a.title}
           caption={a.description}
           lead={apartmentLead(a)}

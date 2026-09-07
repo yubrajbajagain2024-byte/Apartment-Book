@@ -11,6 +11,7 @@ export type ApartmentFilterValues = {
   furnished?: string;
   pets?: string;
   radius?: string;
+  video?: string;
   sort?: string;
 };
 
@@ -75,6 +76,7 @@ export function ApartmentFilters({ universities, values, hasFilters }: { univers
         </Select>
       </label>
       <div className="flex h-10 items-center gap-4">
+        <Checkbox name="video" value="1" defaultChecked={values.video === "1"} label="Video tours only" />
         <Checkbox name="furnished" value="1" defaultChecked={values.furnished === "1"} label="Furnished" />
         <Checkbox name="pets" value="1" defaultChecked={values.pets === "1"} label="Pets OK" />
       </div>

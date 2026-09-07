@@ -34,6 +34,7 @@ export default async function RoommatesPage({
     maxBudget: firstParam(params.maxBudget),
     gender: firstParam(params.gender),
     radius: firstParam(params.radius),
+    video: firstParam(params.video),
     page: firstParam(params.page),
   };
   const universityId = values.university === "all" ? undefined : values.university || profile?.university_id || undefined;
@@ -45,6 +46,7 @@ export default async function RoommatesPage({
     maxBudget: numberParam(params.maxBudget),
     genderPreference: values.gender ? (values.gender as GenderPref) : undefined,
     radiusKm: universityId && numberParam(params.radius) ? milesToKm(numberParam(params.radius) as number) : undefined,
+    videoOnly: values.video === "1",
     page: numberParam(params.page) ?? 1,
   };
 

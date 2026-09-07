@@ -26,6 +26,18 @@ Photos are the product, so the pipeline never degrades them:
 
 Vercel's Hobby plan optimizes up to 5,000 distinct source images per month. If the site outgrows that, upgrade the Vercel plan or move rendition generation to Supabase image transformations (Pro plan).
 
+## Video tours (Mux)
+
+Video is the main attraction, so it gets a real pipeline:
+
+- **Upload straight to the provider.** `POST /api/video/uploads` creates a direct-upload URL at Mux and a `media` row; the browser (or the app, with `Authorization: Bearer <token>`) sends the untouched file there in resumable chunks with progress, so a dropped connection resumes instead of restarting. Nothing passes through our server.
+- **Processing.** Mux converts the original into adaptive streams (HLS, up to 4K with `video_quality: plus`) and a poster frame. `GET /api/video/{mediaId}` checks the provider and updates the row until it is `ready`; the uploader polls it. Optionally set `MUX_WEBHOOK_SECRET` and `SUPABASE_SERVICE_ROLE_KEY` and point a Mux webhook at `/api/video/webhooks/mux` for push updates.
+- **Listings** store a snapshot of ready videos in `videos` (jsonb); a trigger keeps `has_video` in sync. The feed query ranks `has_video` first, then newest, and the "Video tours only" filter uses the same column. Both rules live in the database, not in the web page.
+- **Recording in the browser.** "Record a tour" opens the camera with a room-by-room checklist (front door, living room, kitchen, bedroom, bathroom, window view). Phones can also open the camera app directly. Any phone format is accepted, iPhone .mov included, up to 2 GB.
+- **Playback.** Feed videos autoplay muted when in view, one at a time, with a shared mute button; detail pages show the video first in the gallery.
+
+Environment: `MUX_TOKEN_ID` and `MUX_TOKEN_SECRET` (Mux → Settings → Access Tokens, Mux Video read + write) on the server only. The `.env.example` lists them. Mux bills per minute stored and delivered.
+
 ## Architecture checklist
 
 | Decision | Status |

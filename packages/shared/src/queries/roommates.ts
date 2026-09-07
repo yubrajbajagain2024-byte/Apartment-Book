@@ -21,6 +21,8 @@ export type RoommateFilters = {
   genderPreference?: GenderPref;
   /** Only posts pinned within this many kilometres of the university's campus (needs universityId). */
   radiusKm?: number;
+  /** Only posts with a video. */
+  videoOnly?: boolean;
   page?: number;
   pageSize?: number;
 };
@@ -45,6 +47,7 @@ export async function listRoommatePosts(
   if (filters.universityId && !withinRadius) query = query.eq("university_id", filters.universityId);
   if (filters.postType) query = query.eq("post_type", filters.postType);
   if (filters.maxBudget !== undefined) query = query.lte("budget_max", filters.maxBudget);
+  if (filters.videoOnly) query = query.eq("has_video", true);
   if (filters.genderPreference && filters.genderPreference !== "any") {
     query = query.in("gender_preference", ["any", filters.genderPreference]);
   }
@@ -52,7 +55,8 @@ export async function listRoommatePosts(
   const q = sanitizeSearch(filters.q);
   if (q) query = query.or(searchOrFilter(["title", "description", "location"], q));
 
-  const { data, error, count } = await query.order("created_at", { ascending: false }).range(from, to);
+  // Backend ranking rule: posts with a video come first, then newest.
+  const { data, error, count } = await query.order("has_video", { ascending: false }).order("created_at", { ascending: false }).range(from, to);
   if (error) throw error;
   const total = count ?? 0;
   return {
@@ -118,6 +122,7 @@ function toRow(input: RoommatePostInput) {
     cleanliness: input.cleanliness ?? null,
     images: input.images,
     image_meta: input.imageMeta.filter((m) => input.images.includes(m.url)),
+    videos: input.videos,
     latitude: input.latitude ?? null,
     longitude: input.longitude ?? null,
   };

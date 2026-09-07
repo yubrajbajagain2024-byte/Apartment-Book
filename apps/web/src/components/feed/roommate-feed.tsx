@@ -31,9 +31,9 @@ export function RoommateFeed({
   return (
     <PostFeed
       items={feed.items}
-      mediaOf={(p) => listingMedia(p.images, p.image_meta)}
+      mediaOf={(p) => listingMedia(p.images, p.image_meta, p.videos)}
       render={(p, compact, i) => {
-        const media = listingMedia(p.images, p.image_meta);
+        const media = listingMedia(p.images, p.image_meta, p.videos);
         // Posts without any media keep the text card; posts with media become Instagram posts.
         if (media.length === 0) return <RoommateCard post={p} saved={saved.has(p.id)} signedIn={signedIn} />;
         const budget = budgetLabel(p);

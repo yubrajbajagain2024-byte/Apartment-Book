@@ -16,6 +16,8 @@ export type ApartmentFilters = {
   petsAllowed?: boolean;
   /** Only listings pinned within this many kilometres of the university's campus (needs universityId). */
   radiusKm?: number;
+  /** Only listings with a video tour. */
+  videoOnly?: boolean;
   sort?: ApartmentSort;
   page?: number;
   pageSize?: number;
@@ -46,6 +48,7 @@ export async function listApartments(
   if (filters.minBedrooms !== undefined) query = query.gte("bedrooms", filters.minBedrooms);
   if (filters.furnished) query = query.eq("furnished", true);
   if (filters.petsAllowed) query = query.eq("pets_allowed", true);
+  if (filters.videoOnly) query = query.eq("has_video", true);
 
   const q = sanitizeSearch(filters.q);
   if (q) query = query.or(searchOrFilter(["title", "description", "address", "city"], q));
@@ -61,7 +64,8 @@ export async function listApartments(
       query = query.order("distance_km", { ascending: true, nullsFirst: false });
       break;
     default:
-      query = query.order("created_at", { ascending: false });
+      // Backend ranking rule: posts with a video tour come first, then newest.
+      query = query.order("has_video", { ascending: false }).order("created_at", { ascending: false });
   }
 
   const { data, error, count } = await query.range(from, to);
@@ -129,6 +133,7 @@ function toRow(input: ApartmentInput) {
     amenities: input.amenities,
     images: input.images,
     image_meta: input.imageMeta.filter((m) => input.images.includes(m.url)),
+    videos: input.videos,
     map_url: input.mapUrl ?? null,
     contact_phone: input.contactPhone ?? null,
     latitude: input.latitude ?? null,
