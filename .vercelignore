@@ -1,0 +1,16 @@
+# Vercel CLI upload exclusions (build output and caches; the build regenerates them)
+.git
+node_modules
+**/node_modules
+.next
+**/.next
+.turbo
+**/.turbo
+dist
+**/dist
+*.tsbuildinfo
+**/*.tsbuildinfo
+.env
+.env.*
+**/.env.local
+.DS_Store

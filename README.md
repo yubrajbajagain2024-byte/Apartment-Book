@@ -132,7 +132,18 @@ Other scripts (all run through Turborepo): `npm run build`, `npm run lint`, `npm
 
 The website is designed for **Vercel** (the company behind Next.js; free Hobby plan is enough to start) with Supabase as the backend.
 
-### Deploy to Vercel
+### Current deployment
+
+The site is live at **https://apartment-book-vyass.vercel.app** (Vercel project `apartment-book` in the `vyass` team of the `yubrajbajagain2024-2020` account, Root Directory `apps/web`, production environment variables set, Deployment Protection turned off so the public can reach it). Supabase's auth Site URL points at that address. To ship a new version from this machine:
+
+```bash
+git push                 # keeps GitHub in sync (yubrajbajagain2024-byte/Apartment-Book)
+vercel deploy --prod --yes --archive=tgz   # from the repository root
+```
+
+To deploy automatically on every push instead, connect the GitHub repository in the Vercel dashboard (Project → Settings → Git). The `.vercelignore` file keeps build caches out of CLI uploads.
+
+### Deploy to Vercel (from scratch)
 
 1. Put the project on GitHub:
    ```bash

@@ -12,7 +12,8 @@
  *   node scripts/supabase-setup.mjs
  * It will run the migration + seed. You then fill in apps/web/.env.local yourself.
  *
- * Options: SITE_URL (default http://localhost:3000), SKIP_SEED=1, SKIP_MIGRATION=1
+ * Options: SITE_URL (default http://localhost:3000), SKIP_SEED=1, SKIP_MIGRATION=1,
+ *          SKIP_ENV=1 (do not rewrite apps/web/.env.local; use when pointing auth at production)
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -127,7 +128,8 @@ async function withManagementApi() {
   const anon = keys.find((k) => k.name === "anon") ?? keys.find((k) => k.type === "publishable") ?? keys.find((k) => /publishable/.test(k.name));
   if (!anon?.api_key) throw new Error(`Could not find the anon/publishable key. Keys: ${keys.map((k) => k.name).join(", ")}`);
   const url = `https://${ref}.supabase.co`;
-  writeEnv({ url, anonKey: anon.api_key, siteUrl });
+  if (process.env.SKIP_ENV === "1") done("kept existing apps/web/.env.local (SKIP_ENV=1)");
+  else writeEnv({ url, anonKey: anon.api_key, siteUrl });
 
   log("\nAuth settings");
   const current = await api("GET", `/v1/projects/${ref}/config/auth`);
