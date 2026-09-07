@@ -38,16 +38,23 @@ export function VideoPlayer({
     let hls: { destroy: () => void } | null = null;
     let cancelled = false;
     const isHls = /\.m3u8(\?|$)/.test(src);
-    if (isHls && !video.canPlayType("application/vnd.apple.mpegurl")) {
-      import("hls.js").then(({ default: Hls }) => {
-        if (cancelled || !Hls.isSupported()) return;
-        const instance = new Hls({ capLevelToPlayerSize: true, startLevel: -1 });
-        instance.loadSource(src);
-        instance.attachMedia(video);
-        hls = instance;
-      });
-    } else {
+    if (!isHls) {
       video.src = src;
+    } else {
+      // hls.js first wherever Media Source Extensions exist (Chrome, Firefox, desktop
+      // Safari). Chrome answers "maybe" to native HLS but cannot play it, so only fall
+      // back to the native player when hls.js is unsupported (iPhone Safari).
+      import("hls.js").then(({ default: Hls }) => {
+        if (cancelled) return;
+        if (Hls.isSupported()) {
+          const instance = new Hls({ capLevelToPlayerSize: true, startLevel: -1 });
+          instance.loadSource(src);
+          instance.attachMedia(video);
+          hls = instance;
+        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          video.src = src;
+        }
+      });
     }
     return () => {
       cancelled = true;
