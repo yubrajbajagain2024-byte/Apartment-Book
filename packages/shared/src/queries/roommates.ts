@@ -11,7 +11,7 @@ import type {
 import { pageRange, sanitizeSearch, searchOrFilter } from "../utils";
 
 export const ROOMMATE_SELECT =
-  "*, author:profiles!roommate_posts_author_id_fkey(id, full_name, avatar_url), university:universities(id, name, latitude, longitude)";
+  "*, author:profiles!roommate_posts_author_id_fkey(id, full_name, avatar_url, university:universities(email_domain)), university:universities(id, name, latitude, longitude)";
 
 export type RoommateFilters = {
   q?: string;

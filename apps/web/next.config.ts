@@ -34,6 +34,8 @@ const nextConfig: NextConfig = {
       { protocol: "http", hostname: "localhost" },
       // Google account avatars
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
+      // Sample photos for the design preview page
+      { protocol: "https", hostname: "picsum.photos" },
     ],
   },
 };

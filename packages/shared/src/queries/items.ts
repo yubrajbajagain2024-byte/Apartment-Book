@@ -4,7 +4,7 @@ import type { Client, Item, ItemCondition, ItemStatus, ItemWithSeller, Paginated
 import { pageRange, sanitizeSearch, searchOrFilter } from "../utils";
 
 export const ITEM_SELECT =
-  "*, seller:profiles!items_seller_id_fkey(id, full_name, avatar_url), university:universities(id, name, latitude, longitude)";
+  "*, seller:profiles!items_seller_id_fkey(id, full_name, avatar_url, university:universities(email_domain)), university:universities(id, name, latitude, longitude)";
 
 export type ItemFilters = {
   q?: string;

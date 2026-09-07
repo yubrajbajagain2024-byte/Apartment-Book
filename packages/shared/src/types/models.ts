@@ -53,20 +53,30 @@ export type ProfileWithUniversity = Profile & {
   university: (UniversitySummary & { email_domain: string | null }) | null;
 };
 
+/** Who posted something, with enough to show the "verified .edu" badge. */
+export type PosterSummary = ProfileSummary & {
+  university: { email_domain: string | null } | null;
+};
+
 export type ApartmentWithOwner = Apartment & {
-  owner: ProfileSummary;
+  owner: PosterSummary;
   university: UniversitySummary | null;
 };
 
 export type RoommatePostWithAuthor = RoommatePost & {
-  author: ProfileSummary;
+  author: PosterSummary;
   university: UniversitySummary | null;
 };
 
 export type ItemWithSeller = Item & {
-  seller: ProfileSummary;
+  seller: PosterSummary;
   university: UniversitySummary | null;
 };
+
+/** One item in a post's media strip. Videos arrive with the video pipeline. */
+export type FeedMedia =
+  | { type: "photo"; url: string; width: number | null; height: number | null; blur: string | null }
+  | { type: "video"; playbackUrl: string; poster: string | null; width: number | null; height: number | null; durationSeconds: number | null };
 
 export type MessageWithSender = Message & {
   sender: ProfileSummary | null;

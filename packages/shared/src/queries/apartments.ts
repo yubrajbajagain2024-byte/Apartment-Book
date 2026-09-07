@@ -4,7 +4,7 @@ import type { Apartment, ApartmentWithOwner, Client, ListingStatus, Paginated } 
 import { pageRange, sanitizeSearch, searchOrFilter } from "../utils";
 
 export const APARTMENT_SELECT =
-  "*, owner:profiles!apartments_owner_id_fkey(id, full_name, avatar_url), university:universities(id, name, latitude, longitude)";
+  "*, owner:profiles!apartments_owner_id_fkey(id, full_name, avatar_url, university:universities(email_domain)), university:universities(id, name, latitude, longitude)";
 
 export type ApartmentFilters = {
   q?: string;

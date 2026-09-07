@@ -89,6 +89,7 @@ export default async function RoommatesPage({
           }
         />
       ) : (
+        <div className="mx-auto w-full max-w-[640px]">
         <RoommateFeed
           key={JSON.stringify({ ...filters, page: undefined })}
           initial={result.data}
@@ -96,7 +97,9 @@ export default async function RoommatesPage({
           filters={{ ...filters, page: undefined }}
           savedIds={[...savedIds]}
           signedIn={Boolean(user)}
+          currentUserId={user?.id ?? null}
         />
+        </div>
       )}
     </div>
   );

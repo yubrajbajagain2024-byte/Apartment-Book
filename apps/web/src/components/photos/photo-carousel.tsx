@@ -4,11 +4,14 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, ImageOff } from "lucide-react";
-import type { PhotoMeta } from "@apartment-book/shared";
+import type { FeedMedia, PhotoMeta } from "@apartment-book/shared";
+import { VideoPlayer } from "./video-player";
 import { cn } from "@/lib/utils";
 
 export type PhotoCarouselProps = {
   photos: PhotoMeta[];
+  /** Mixed photos and videos; when given, `photos` is ignored for rendering. */
+  media?: FeedMedia[];
   alt: string;
   /** CSS aspect ratio of the frame ("4 / 3"). Omit to control it with className. */
   aspect?: string;
@@ -35,6 +38,7 @@ const DOUBLE_TAP_MS = 280;
 
 export function PhotoCarousel({
   photos,
+  media,
   alt,
   aspect,
   sizes = "100vw",
@@ -62,7 +66,8 @@ export function PhotoCarousel({
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const frameRef = useRef<HTMLDivElement>(null);
 
-  const count = photos.length;
+  const slides: FeedMedia[] = media ?? photos.map((p) => ({ type: "photo", url: p.url, width: p.width, height: p.height, blur: p.blur }));
+  const count = slides.length;
 
   useEffect(() => {
     if (href) router.prefetch(href);
@@ -194,21 +199,25 @@ export function PhotoCarousel({
           willChange: "transform",
         }}
       >
-        {photos.map((photo, i) => (
-          <div key={photo.url} className="relative h-full w-full shrink-0">
-            <Image
-              src={photo.url}
-              alt={i === 0 ? alt : `${alt} (photo ${i + 1})`}
-              fill
-              sizes={sizes}
-              quality={quality}
-              priority={priority && i === 0}
-              loading={priority && i === 0 ? undefined : Math.abs(i - index) <= 1 ? "eager" : "lazy"}
-              placeholder={photo.blur ? "blur" : "empty"}
-              blurDataURL={photo.blur ?? undefined}
-              draggable={false}
-              className={cn("pointer-events-none", fit === "cover" ? "object-cover" : "object-contain")}
-            />
+        {slides.map((slide, i) => (
+          <div key={slide.type === "photo" ? slide.url : slide.playbackUrl} className="relative h-full w-full shrink-0">
+            {slide.type === "video" ? (
+              <VideoPlayer src={slide.playbackUrl} poster={slide.poster} />
+            ) : (
+              <Image
+                src={slide.url}
+                alt={i === 0 ? alt : `${alt} (photo ${i + 1})`}
+                fill
+                sizes={sizes}
+                quality={quality}
+                priority={priority && i === 0}
+                loading={priority && i === 0 ? undefined : Math.abs(i - index) <= 1 ? "eager" : "lazy"}
+                placeholder={slide.blur ? "blur" : "empty"}
+                blurDataURL={slide.blur ?? undefined}
+                draggable={false}
+                className={cn("pointer-events-none", fit === "cover" ? "object-cover" : "object-contain")}
+              />
+            )}
           </div>
         ))}
       </div>
@@ -248,8 +257,8 @@ export function PhotoCarousel({
           ) : null}
           {showDots ? (
             <div className="pointer-events-none absolute bottom-2 left-1/2 z-20 flex -translate-x-1/2 gap-1">
-              {photos.slice(0, 12).map((p, i) => (
-                <span key={p.url} className={cn("h-1.5 rounded-full shadow transition-all", i === index ? "w-4 bg-white" : "w-1.5 bg-white/60")} />
+              {slides.slice(0, 12).map((slide, i) => (
+                <span key={slide.type === "photo" ? slide.url : slide.playbackUrl} className={cn("h-1.5 rounded-full shadow transition-all", i === index ? "w-4 bg-white" : "w-1.5 bg-white/60")} />
               ))}
             </div>
           ) : null}
