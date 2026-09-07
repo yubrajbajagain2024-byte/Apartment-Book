@@ -34,7 +34,9 @@ export function NotificationItem({ notification, onOpen, compact }: { notificati
       <span className="min-w-0 flex-1">
         <span className={cn("block truncate text-sm", unread ? "font-semibold text-gray-900" : "text-gray-800")}>{notification.title}</span>
         {notification.body ? <span className="line-clamp-2 text-sm text-gray-600">{notification.body}</span> : null}
-        <span className={cn("block text-xs", unread ? "font-medium text-brand-700" : "text-gray-500")}>{timeAgo(notification.created_at)}</span>
+        <span className={cn("block text-xs", unread ? "font-medium text-brand-700" : "text-gray-500")} suppressHydrationWarning>
+          {timeAgo(notification.created_at)}
+        </span>
       </span>
       {unread ? <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-brand-600" aria-label="Unread" /> : null}
     </button>
