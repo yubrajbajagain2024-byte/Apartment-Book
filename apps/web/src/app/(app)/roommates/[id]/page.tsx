@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, MapPin, School } from "lucide-react";
-import { budgetLabel, formatDistance, GENDER_PREFERENCES, getRoommatePost, isSaved, labelFor, listingMedia, photosFor } from "@apartment-book/shared";
+import { budgetLabel, formatDistance, GENDER_PREFERENCES, getListingStats, getRoommatePost, isSaved, labelFor, listingMedia, photosFor } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, timeAgo } from "@/lib/utils";
@@ -14,6 +14,8 @@ import { ListingMap, type MapPin as Pin } from "@/components/map/listing-map";
 import { MessageButton } from "@/components/common/message-button";
 import { SaveButton } from "@/components/common/save-button";
 import { RoommateOwnerActions } from "@/components/roommates/roommate-owner-actions";
+import { ListingStatsPanel } from "@/components/stats/listing-stats-panel";
+import { ViewTracker } from "@/components/stats/view-tracker";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -31,6 +33,7 @@ export default async function RoommatePostPage({ params }: Props) {
 
   const saved = user ? await isSaved(supabase, user.id, "roommate", post.id) : false;
   const isOwner = user?.id === post.author_id;
+  const stats = isOwner ? await getListingStats(supabase, "roommate", post.id).catch(() => null) : null;
   const budget = budgetLabel(post);
   const path = `/roommates/${post.id}`;
   const pinned = post.latitude !== null && post.longitude !== null;
@@ -57,6 +60,7 @@ export default async function RoommatePostPage({ params }: Props) {
         <ArrowLeft className="h-4 w-4" /> Back to roommates
       </Link>
 
+      <ViewTracker targetType="roommate" targetId={post.id} />
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-4">
           {post.images.length > 0 || post.has_video ? <PhotoHero photos={photosFor(post.images, post.image_meta)} media={listingMedia(post.images, post.image_meta, post.videos)} alt={post.title} /> : null}
@@ -120,11 +124,14 @@ export default async function RoommatePostPage({ params }: Props) {
               </Link>
               {!isOwner ? (
                 <div className="flex flex-col gap-2">
-                  <MessageButton userId={post.author.id} currentUserId={user?.id ?? null} returnTo={path} prefill={`Hi ${post.author.full_name.split(" ")[0]}! I saw your roommate post "${post.title}" and I'd like to chat.`} />
+                  <MessageButton userId={post.author.id} currentUserId={user?.id ?? null} returnTo={path} prefill={`Hi ${post.author.full_name.split(" ")[0]}! I saw your roommate post "${post.title}" and I'd like to chat.`} target={{ type: "roommate", id: post.id }} />
                   <SaveButton targetType="roommate" targetId={post.id} initialSaved={saved} signedIn={Boolean(user)} />
                 </div>
               ) : (
-                <RoommateOwnerActions post={post} />
+                <div className="flex flex-col gap-4">
+                  {stats ? <ListingStatsPanel stats={stats} /> : null}
+                  <RoommateOwnerActions post={post} />
+                </div>
               )}
             </CardBody>
           </Card>

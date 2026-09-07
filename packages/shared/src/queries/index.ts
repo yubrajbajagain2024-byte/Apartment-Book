@@ -9,3 +9,4 @@ export * from "./storage";
 export * from "./push-tokens";
 export * from "./media";
 export * from "./notifications";
+export * from "./stats";

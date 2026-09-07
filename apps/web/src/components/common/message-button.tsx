@@ -12,6 +12,7 @@ export function MessageButton({
   label = "Message",
   className,
   variant = "primary",
+  target,
 }: {
   userId: string;
   currentUserId: string | null;
@@ -21,6 +22,8 @@ export function MessageButton({
   className?: string;
   /** "action" renders a compact icon + label for post action bars. */
   variant?: "primary" | "action";
+  /** The listing this button sits on, so the contact is counted in its stats. */
+  target?: { type: "apartment" | "item" | "roommate"; id: string };
 }) {
   if (currentUserId === userId) return null;
 
@@ -38,6 +41,8 @@ export function MessageButton({
         <input type="hidden" name="userId" value={userId} />
         <input type="hidden" name="returnTo" value={returnTo} />
         {prefill ? <input type="hidden" name="prefill" value={prefill} /> : null}
+        {target ? <input type="hidden" name="targetType" value={target.type} /> : null}
+        {target ? <input type="hidden" name="targetId" value={target.id} /> : null}
         <button type="submit" className={classes}>
           <MessageCircle className="h-5 w-5" /> {label}
         </button>
@@ -59,6 +64,8 @@ export function MessageButton({
       <input type="hidden" name="userId" value={userId} />
       <input type="hidden" name="returnTo" value={returnTo} />
       {prefill ? <input type="hidden" name="prefill" value={prefill} /> : null}
+      {target ? <input type="hidden" name="targetType" value={target.type} /> : null}
+      {target ? <input type="hidden" name="targetId" value={target.id} /> : null}
       <Button type="submit" className="w-full">
         <MessageCircle className="h-5 w-5" />
         {label}

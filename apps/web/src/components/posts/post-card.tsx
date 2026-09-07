@@ -124,7 +124,7 @@ export function PostCard(props: PostCardProps) {
         >
           <Bookmark className={cn("h-5 w-5", save.saved && "fill-current")} /> {save.saved ? "Saved" : "Save"}
         </button>
-        <MessageButton userId={poster.id} currentUserId={props.currentUserId} returnTo={href} prefill={props.messagePrefill} variant="action" />
+        <MessageButton userId={poster.id} currentUserId={props.currentUserId} returnTo={href} prefill={props.messagePrefill} variant="action" target={{ type: props.targetType, id: props.targetId }} />
         <ShareButton path={href} title={title} />
       </div>
       <div className="px-3 pb-3 pt-1 text-sm text-gray-900">

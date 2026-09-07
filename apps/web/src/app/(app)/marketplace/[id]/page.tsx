@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin, School, Tag } from "lucide-react";
-import { formatPrice, getItem, isSaved, ITEM_CATEGORIES, ITEM_CONDITIONS, labelFor, photosFor } from "@apartment-book/shared";
+import { formatPrice, getItem, getListingStats, isSaved, ITEM_CATEGORIES, ITEM_CONDITIONS, labelFor, photosFor } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { timeAgo } from "@/lib/utils";
@@ -13,6 +13,8 @@ import { PhotoHero } from "@/components/photos/photo-hero";
 import { MessageButton } from "@/components/common/message-button";
 import { SaveButton } from "@/components/common/save-button";
 import { ItemOwnerActions } from "@/components/marketplace/item-owner-actions";
+import { ListingStatsPanel } from "@/components/stats/listing-stats-panel";
+import { ViewTracker } from "@/components/stats/view-tracker";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -31,6 +33,7 @@ export default async function ItemPage({ params }: Props) {
 
   const saved = user ? await isSaved(supabase, user.id, "item", item.id) : false;
   const isOwner = user?.id === item.seller_id;
+  const stats = isOwner ? await getListingStats(supabase, "item", item.id).catch(() => null) : null;
   const path = `/marketplace/${item.id}`;
 
   return (
@@ -39,6 +42,7 @@ export default async function ItemPage({ params }: Props) {
         <ArrowLeft className="h-4 w-4" /> Back to marketplace
       </Link>
 
+      <ViewTracker targetType="item" targetId={item.id} />
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-4">
           <PhotoHero photos={photosFor(item.images, item.image_meta)} alt={item.title} />
@@ -85,11 +89,14 @@ export default async function ItemPage({ params }: Props) {
               </Link>
               {!isOwner ? (
                 <div className="flex flex-col gap-2">
-                  <MessageButton userId={item.seller.id} currentUserId={user?.id ?? null} returnTo={path} prefill={`Hi! Is "${item.title}" still available?`} label="Message seller" />
+                  <MessageButton userId={item.seller.id} currentUserId={user?.id ?? null} returnTo={path} prefill={`Hi! Is "${item.title}" still available?`} label="Message seller" target={{ type: "item", id: item.id }} />
                   <SaveButton targetType="item" targetId={item.id} initialSaved={saved} signedIn={Boolean(user)} />
                 </div>
               ) : (
-                <ItemOwnerActions item={item} />
+                <div className="flex flex-col gap-4">
+                  {stats ? <ListingStatsPanel stats={stats} /> : null}
+                  <ItemOwnerActions item={item} />
+                </div>
               )}
             </CardBody>
           </Card>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Bath, BedDouble, CalendarDays, Clock, ExternalLink, MapPin, Phone, School } from "lucide-react";
-import { AMENITIES, formatDistance, formatPrice, getApartment, isSaved, labelFor, listingMedia, photosFor } from "@apartment-book/shared";
+import { AMENITIES, formatDistance, formatPrice, getApartment, getListingStats, getVideoVsPhotoStats, isSaved, labelFor, listingMedia, photosFor } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, timeAgo } from "@/lib/utils";
@@ -11,6 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
 import { PhotoHero } from "@/components/photos/photo-hero";
 import { PostedBanner } from "@/components/video/posted-banner";
+import { ListingStatsPanel } from "@/components/stats/listing-stats-panel";
+import { VideoNudge } from "@/components/stats/video-nudge";
+import { ViewTracker } from "@/components/stats/view-tracker";
 import { ListingMap, type MapPin as Pin } from "@/components/map/listing-map";
 import { MessageButton } from "@/components/common/message-button";
 import { SaveButton } from "@/components/common/save-button";
@@ -38,6 +41,12 @@ export default async function ApartmentPage({ params, searchParams }: Props) {
 
   const saved = user ? await isSaved(supabase, user.id, "apartment", apartment.id) : false;
   const isOwner = user?.id === apartment.owner_id;
+  const [stats, comparison] = isOwner
+    ? await Promise.all([
+        getListingStats(supabase, "apartment", apartment.id).catch(() => null),
+        apartment.has_video ? Promise.resolve(null) : getVideoVsPhotoStats(supabase).catch(() => null),
+      ])
+    : [null, null];
   const path = `/apartments/${apartment.id}`;
   const pinned = apartment.latitude !== null && apartment.longitude !== null;
   const campus =
@@ -66,7 +75,9 @@ export default async function ApartmentPage({ params, searchParams }: Props) {
         <ArrowLeft className="h-4 w-4" /> Back to apartments
       </Link>
 
-      {posted && isOwner ? <PostedBanner kind={posted === "video" ? "video" : "photo"} /> : null}
+      <ViewTracker targetType="apartment" targetId={apartment.id} />
+      {posted && isOwner ? <PostedBanner kind={posted === "video" ? "video" : "photo"} stats={stats} /> : null}
+      {isOwner && !apartment.has_video ? <VideoNudge editHref={`/apartments/${apartment.id}/edit`} comparison={comparison} /> : null}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-4">
@@ -149,6 +160,7 @@ export default async function ApartmentPage({ params, searchParams }: Props) {
                     returnTo={path}
                     prefill={`Hi! I'm interested in "${apartment.title}". Is it still available?`}
                     label="Message owner"
+                    target={{ type: "apartment", id: apartment.id }}
                   />
                   <SaveButton targetType="apartment" targetId={apartment.id} initialSaved={saved} signedIn={Boolean(user)} />
                   {apartment.contact_phone ? (
@@ -158,7 +170,10 @@ export default async function ApartmentPage({ params, searchParams }: Props) {
                   ) : null}
                 </div>
               ) : (
-                <ApartmentOwnerActions apartment={apartment} />
+                <div className="flex flex-col gap-4">
+                  {stats ? <ListingStatsPanel stats={stats} /> : null}
+                  <ApartmentOwnerActions apartment={apartment} />
+                </div>
               )}
             </CardBody>
           </Card>

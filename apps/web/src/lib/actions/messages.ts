@@ -9,6 +9,7 @@ import {
   getOrCreateDirectConversation,
   groupSchema,
   leaveConversation,
+  recordContact,
   renameGroup,
 } from "@apartment-book/shared";
 import { requireUser } from "@/lib/auth";
@@ -30,6 +31,12 @@ export async function startDirectConversationAction(formData: FormData): Promise
     conversationId = await getOrCreateDirectConversation(supabase, otherUserId);
   } catch (error) {
     redirect(`${returnTo}?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+  // Count this as a contact on the listing (owner stats). Never blocks the chat.
+  const targetType = String(formData.get("targetType") ?? "");
+  const targetId = String(formData.get("targetId") ?? "");
+  if ((targetType === "apartment" || targetType === "item" || targetType === "roommate") && targetId) {
+    await recordContact(supabase, targetType, targetId).catch(() => {});
   }
   const query = prefill ? `?prefill=${encodeURIComponent(prefill)}` : "";
   redirect(`/messages/${conversationId}${query}`);

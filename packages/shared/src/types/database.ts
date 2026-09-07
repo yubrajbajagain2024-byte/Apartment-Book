@@ -747,6 +747,32 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: number;
       };
+      record_view: {
+        Args: { p_target_type: string; p_target_id: string; p_viewer_key?: string | null };
+        Returns: undefined;
+      };
+      record_contact: {
+        Args: { p_target_type: string; p_target_id: string };
+        Returns: undefined;
+      };
+      listing_owner: {
+        Args: { p_target_type: string; p_target_id: string };
+        Returns: string | null;
+      };
+      listing_stats: {
+        Args: { p_target_type: string; p_target_id: string };
+        Returns: { views: number; saves: number; contacts: number }[];
+      };
+      video_vs_photo_stats: {
+        Args: { p_min?: number };
+        Returns: {
+          video_listings: number;
+          photo_listings: number;
+          video_contact_rate: number | null;
+          photo_contact_rate: number | null;
+          contact_multiplier: number | null;
+        }[];
+      };
     };
     Enums: {
       listing_status: "active" | "rented" | "archived";
