@@ -22,6 +22,7 @@ export async function updateProfile(
     graduationYear?: number | null;
     bio?: string | null;
     avatarUrl?: string | null;
+    notifyNearbyListings?: boolean;
   },
 ): Promise<Profile> {
   const { data, error } = await supabase
@@ -33,6 +34,7 @@ export async function updateProfile(
       graduation_year: input.graduationYear ?? null,
       bio: input.bio ?? null,
       avatar_url: input.avatarUrl ?? null,
+      ...(input.notifyNearbyListings === undefined ? {} : { notify_nearby_listings: input.notifyNearbyListings }),
     })
     .eq("id", id)
     .select("*")

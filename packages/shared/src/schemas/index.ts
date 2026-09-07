@@ -70,6 +70,7 @@ export const profileSchema = z.object({
   graduationYear: optionalNumber({ min: 2000, max: 2100, int: true }),
   bio: optionalText(600),
   avatarUrl: optionalUrl,
+  notifyNearbyListings: formBoolean,
 });
 export type ProfileInput = z.infer<typeof profileSchema>;
 

@@ -23,6 +23,9 @@ export type Conversation = Tables<"conversations">;
 export type ConversationMember = Tables<"conversation_members">;
 export type Message = Tables<"messages">;
 export type DevicePushToken = Tables<"device_push_tokens">;
+export type Notification = Tables<"notifications">;
+export type NotificationType = "message" | "listing_saved" | "nearby_listing" | "system";
+export type NotificationWithActor = Notification & { actor: ProfileSummary | null };
 export type PushPlatform = "ios" | "android" | "web";
 
 export type ListingStatus = Enums<"listing_status">;

@@ -5,6 +5,7 @@ import { getSupabaseEnv } from "@/lib/env";
 /** Routes that require a signed-in user. */
 const PROTECTED_PREFIXES = [
   "/messages",
+  "/notifications",
   "/settings",
   "/saved",
   "/profile/me",

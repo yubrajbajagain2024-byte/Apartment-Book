@@ -1,25 +1,27 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { Home } from "lucide-react";
-import { APP_NAME, getTotalUnread } from "@apartment-book/shared";
+import { APP_NAME, getTotalUnread, getUnreadNotificationCount } from "@apartment-book/shared";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { LinkButton } from "@/components/ui/button";
 import { BottomNav } from "./bottom-nav";
 import { CreateMenu, UserMenu } from "./menus";
 import { NavTabs } from "./nav-tabs";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { SearchBox } from "./search-box";
 
 export async function Navbar() {
   const user = await getCurrentUser();
   const profile = user ? await getCurrentProfile() : null;
   let unread = 0;
+  let unreadNotifications = 0;
   if (user) {
-    try {
-      unread = await getTotalUnread(await createClient());
-    } catch {
-      unread = 0;
-    }
+    const supabase = await createClient();
+    [unread, unreadNotifications] = await Promise.all([
+      getTotalUnread(supabase).catch(() => 0),
+      getUnreadNotificationCount(supabase).catch(() => 0),
+    ]);
   }
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "You";
 
@@ -47,6 +49,7 @@ export async function Navbar() {
             {user ? (
               <>
                 <CreateMenu />
+                <NotificationBell userId={user.id} initialCount={unreadNotifications} />
                 <UserMenu userId={user.id} name={displayName} avatarUrl={profile?.avatar_url ?? null} />
               </>
             ) : (
