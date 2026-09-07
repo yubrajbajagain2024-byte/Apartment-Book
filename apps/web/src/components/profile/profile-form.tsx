@@ -6,7 +6,7 @@ import { addUniversityAction, updateProfileAction } from "@/lib/actions/profile"
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FormMessage } from "@/components/ui/field";
-import { Input, Textarea } from "@/components/ui/input";
+import { Checkbox, Input, Textarea } from "@/components/ui/input";
 import { AvatarUploader } from "@/components/common/avatar-uploader";
 import { UniversitySelect } from "@/components/common/university-select";
 
@@ -43,6 +43,9 @@ export function ProfileForm({ profile, universities, welcome }: { profile: Profi
           <Field label="Bio" htmlFor="bio" error={err?.bio} className="sm:col-span-2" hint="A few words about you help roommates and sellers trust you.">
             <Textarea id="bio" name="bio" maxLength={600} defaultValue={def("bio", profile.bio)} />
           </Field>
+          <div className="sm:col-span-2">
+            <Checkbox name="notifyNearbyListings" label="Notify me when a new place is posted within 2 miles of my campus" defaultChecked={v ? v.notifyNearbyListings === "on" : profile.notify_nearby_listings} />
+          </div>
         </CardBody>
       </Card>
       <div className="flex justify-end">

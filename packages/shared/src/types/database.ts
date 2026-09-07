@@ -58,6 +58,7 @@ export type Database = {
           program: string | null;
           graduation_year: number | null;
           bio: string | null;
+          notify_nearby_listings: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -69,6 +70,7 @@ export type Database = {
           program?: string | null;
           graduation_year?: number | null;
           bio?: string | null;
+          notify_nearby_listings?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -80,6 +82,7 @@ export type Database = {
           program?: string | null;
           graduation_year?: number | null;
           bio?: string | null;
+          notify_nearby_listings?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -631,6 +634,60 @@ export type Database = {
           },
         ];
       };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          actor_id: string | null;
+          type: string;
+          title: string;
+          body: string | null;
+          link: string | null;
+          data: Json;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          actor_id?: string | null;
+          type: string;
+          title: string;
+          body?: string | null;
+          link?: string | null;
+          data?: Json;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          actor_id?: string | null;
+          type?: string;
+          title?: string;
+          body?: string | null;
+          link?: string | null;
+          data?: Json;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -681,6 +738,14 @@ export type Database = {
       allowed_email_domains: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
+      };
+      mark_notifications_read: {
+        Args: { p_ids?: string[] | null };
+        Returns: number;
+      };
+      unread_notification_count: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
       };
     };
     Enums: {
