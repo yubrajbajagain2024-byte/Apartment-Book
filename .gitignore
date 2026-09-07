@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# next.js
+apps/web/.next/
+apps/web/out/
+apps/web/next-env.d.ts
+
+# env files (never commit secrets)
+.env
+.env.*
+!.env.example
+apps/web/.env*
+!apps/web/.env.example
+
+# supabase local dev
+supabase/.branches
+supabase/.temp
+supabase/.env
+
+# misc
+.DS_Store
+*.log
+*.tsbuildinfo
+.vercel
+
+# turborepo
+.turbo/

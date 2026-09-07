@@ -1,0 +1,29 @@
+{
+  "name": "apartment-book",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Apartment Book - apartments, roommates, marketplace and messaging for university students",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "npm run start --workspace=web",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "db:setup": "node scripts/supabase-setup.mjs",
+    "db:check": "node scripts/e2e-check.mjs",
+    "check": "turbo run typecheck lint build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "dotenv": "^17.4.2",
+    "pg": "^8.23.0",
+    "turbo": "^2.10.12"
+  },
+  "packageManager": "npm@10.9.3"
+}
