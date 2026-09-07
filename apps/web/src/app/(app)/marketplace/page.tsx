@@ -1,20 +1,24 @@
 import type { Metadata } from "next";
 import { Plus, ShoppingBag } from "lucide-react";
 import {
+  formatPrice,
   getSavedIds,
+  isRecent,
   listItems,
   listUniversities,
+  photosFor,
   type ItemCondition,
   type ItemFilters as Filters,
   type ItemSort,
+  type ItemWithSeller,
 } from "@apartment-book/shared";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { firstParam, numberParam } from "@/lib/utils";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Pagination } from "@/components/ui/pagination";
-import { ItemCard } from "@/components/marketplace/item-card";
+import { ItemFeed } from "@/components/feed/item-feed";
+import { PhotoRail, type RailItem } from "@/components/feed/photo-rail";
 import { ItemFilters } from "@/components/marketplace/item-filters";
 
 export const metadata: Metadata = { title: "Marketplace" };
@@ -51,11 +55,24 @@ export default async function MarketplacePage({
     pageSize: 16,
   };
 
-  const [universities, result, savedIds] = await Promise.all([
+  const showRail = !values.q && !values.category && filters.page === 1;
+  const [universities, result, savedIds, railItemsRaw] = await Promise.all([
     listUniversities(supabase),
     listItems(supabase, filters),
     user ? getSavedIds(supabase, user.id, "item") : Promise.resolve(new Set<string>()),
+    showRail ? listItems(supabase, { universityId, sort: "newest", pageSize: 14 }).then((r) => r.data) : Promise.resolve([] as ItemWithSeller[]),
   ]);
+  const railItems: RailItem[] = railItemsRaw
+    .filter((i) => i.images.length > 0)
+    .slice(0, 12)
+    .map((i) => ({
+      id: i.id,
+      href: `/marketplace/${i.id}`,
+      photo: photosFor(i.images, i.image_meta)[0],
+      label: i.price === 0 ? "Free" : formatPrice(i.price, i.currency),
+      sublabel: i.title,
+      fresh: isRecent(i.created_at),
+    }));
   const activeUniversity = universities.find((u) => u.id === universityId);
   const hasFilters = Object.entries(values).some(([key, value]) => key !== "page" && value !== undefined && value !== "");
 
@@ -70,6 +87,8 @@ export default async function MarketplacePage({
           <Plus className="h-5 w-5" /> Sell something
         </LinkButton>
       </div>
+
+      {showRail ? <PhotoRail title="Fresh finds" items={railItems} /> : null}
 
       <ItemFilters universities={universities} values={{ ...values, university: universityId ?? "all" }} hasFilters={hasFilters} />
 
@@ -90,14 +109,15 @@ export default async function MarketplacePage({
           }
         />
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {result.data.map((item) => (
-            <ItemCard key={item.id} item={item} saved={savedIds.has(item.id)} signedIn={Boolean(user)} />
-          ))}
-        </div>
+        <ItemFeed
+          key={JSON.stringify({ ...filters, page: undefined })}
+          initial={result.data}
+          totalPages={result.totalPages}
+          filters={{ ...filters, page: undefined }}
+          savedIds={[...savedIds]}
+          signedIn={Boolean(user)}
+        />
       )}
-
-      <Pagination page={result.page} totalPages={result.totalPages} basePath="/marketplace" params={{ ...values, university: universityId ?? (values.university === "all" ? "all" : undefined) }} />
     </div>
   );
 }

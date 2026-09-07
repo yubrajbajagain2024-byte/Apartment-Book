@@ -16,7 +16,7 @@ import { createClient } from "@/lib/supabase/server";
 import { errorMessage, formToObject } from "@/lib/utils";
 import { formValues, type FormState } from "./types";
 
-const ARRAY_FIELDS = ["images"];
+const ARRAY_FIELDS = ["images", "imageMeta"];
 
 export async function createRoommatePostAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("/roommates/new");

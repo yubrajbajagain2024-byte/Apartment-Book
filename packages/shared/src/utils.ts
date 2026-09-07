@@ -1,4 +1,4 @@
-import type { LatLng } from "./types/models";
+import type { LatLng, PhotoMeta } from "./types/models";
 
 /** Escape a user search string so it is safe inside a PostgREST `or(...)` filter. */
 export function sanitizeSearch(q: string | undefined | null): string {
@@ -72,4 +72,23 @@ export function conversationTitle(
   if (type === "group") return name || "Group chat";
   if (otherMembers.length === 0) return "Deleted user";
   return otherMembers.map((m) => m.full_name).join(", ");
+}
+
+/** Merge the ordered image URLs with whatever metadata was stored for them. */
+export function photosFor(images: string[], meta: unknown): PhotoMeta[] {
+  const byUrl = new Map<string, PhotoMeta>();
+  if (Array.isArray(meta)) {
+    for (const m of meta) {
+      if (m && typeof m === "object" && typeof (m as PhotoMeta).url === "string") {
+        const item = m as Partial<PhotoMeta> & { url: string };
+        byUrl.set(item.url, {
+          url: item.url,
+          width: typeof item.width === "number" ? item.width : null,
+          height: typeof item.height === "number" ? item.height : null,
+          blur: typeof item.blur === "string" ? item.blur : null,
+        });
+      }
+    }
+  }
+  return images.map((url) => byUrl.get(url) ?? { url, width: null, height: null, blur: null });
 }

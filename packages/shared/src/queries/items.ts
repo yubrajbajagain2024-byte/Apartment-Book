@@ -100,6 +100,7 @@ function toRow(input: ItemInput) {
     university_id: input.universityId ?? null,
     pickup_location: input.pickupLocation ?? null,
     images: input.images,
+    image_meta: input.imageMeta.filter((m) => input.images.includes(m.url)),
   };
 }
 

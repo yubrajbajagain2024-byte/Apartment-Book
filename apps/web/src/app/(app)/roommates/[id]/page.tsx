@@ -2,18 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, MapPin, School } from "lucide-react";
-import { formatDistance, GENDER_PREFERENCES, getRoommatePost, isSaved, labelFor } from "@apartment-book/shared";
+import { budgetLabel, formatDistance, GENDER_PREFERENCES, getRoommatePost, isSaved, labelFor, photosFor } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, timeAgo } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
-import { ImageGallery } from "@/components/common/image-gallery";
+import { PhotoHero } from "@/components/photos/photo-hero";
 import { ListingMap, type MapPin as Pin } from "@/components/map/listing-map";
 import { MessageButton } from "@/components/common/message-button";
 import { SaveButton } from "@/components/common/save-button";
-import { budgetLabel } from "@/components/roommates/roommate-card";
 import { RoommateOwnerActions } from "@/components/roommates/roommate-owner-actions";
 
 type Props = { params: Promise<{ id: string }> };
@@ -60,7 +59,7 @@ export default async function RoommatePostPage({ params }: Props) {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-4">
-          {post.images.length > 0 ? <ImageGallery images={post.images} alt={post.title} /> : null}
+          {post.images.length > 0 ? <PhotoHero photos={photosFor(post.images, post.image_meta)} alt={post.title} /> : null}
           <Card>
             <CardBody className="flex flex-col gap-4">
               <div className="flex flex-wrap items-start gap-3">

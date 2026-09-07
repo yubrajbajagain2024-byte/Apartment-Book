@@ -14,6 +14,13 @@ const nextConfig: NextConfig = {
   // The shared package is plain TypeScript; let Next.js compile it.
   transpilePackages: ["@apartment-book/shared"],
   images: {
+    // Photos are the product: serve them sharp. Originals stay untouched in
+    // storage; these settings control the on-page renditions next/image makes.
+    qualities: [75, 85, 95],
+    formats: ["image/avif", "image/webp"],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [64, 96, 128, 256, 384, 512],
+    minimumCacheTTL: 60 * 60 * 24 * 30,
     remotePatterns: [
       // Supabase Storage (hosted)
       { protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/**" },

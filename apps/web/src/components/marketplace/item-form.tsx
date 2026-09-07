@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { CURRENCIES, ITEM_CATEGORIES, ITEM_CONDITIONS, type Item, type University } from "@apartment-book/shared";
+import { CURRENCIES, ITEM_CATEGORIES, ITEM_CONDITIONS, photosFor, type Item, type University } from "@apartment-book/shared";
 import type { FormState } from "@/lib/actions/types";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
@@ -87,7 +87,7 @@ export function ItemForm({
           <CardTitle>Photos</CardTitle>
         </CardHeader>
         <CardBody>
-          <ImageUploader name="images" kind="items" userId={userId} initial={initial?.images ?? []} />
+          <ImageUploader kind="items" userId={userId} initial={initial ? photosFor(initial.images, initial.image_meta) : []} />
           {err?.images ? <p className="mt-2 text-sm text-red-600">{err.images[0]}</p> : null}
         </CardBody>
       </Card>

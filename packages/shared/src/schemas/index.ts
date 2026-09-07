@@ -8,6 +8,7 @@ import {
 } from "../constants";
 import {
   formBoolean,
+  imageMeta,
   imageUrls,
   optionalDate,
   optionalNumber,
@@ -103,6 +104,7 @@ export const apartmentSchema = z.object({
     z.array(z.enum(AMENITY_VALUES)),
   ),
   images: imageUrls,
+  imageMeta,
   mapUrl: optionalUrl,
   contactPhone: optionalText(40),
   ...coordinateFields,
@@ -135,6 +137,7 @@ export const roommatePostSchema = z
       z.enum(CLEANLINESS_LEVELS).optional(),
     ),
     images: imageUrls,
+    imageMeta,
     ...coordinateFields,
   })
   .refine(
@@ -157,6 +160,7 @@ export const itemSchema = z.object({
   universityId: optionalUuid,
   pickupLocation: optionalText(160),
   images: imageUrls,
+  imageMeta,
 });
 export type ItemInput = z.infer<typeof itemSchema>;
 

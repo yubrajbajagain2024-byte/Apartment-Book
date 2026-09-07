@@ -114,6 +114,7 @@ export type Database = {
           lease_months: number | null;
           amenities: string[];
           images: string[];
+          image_meta: Json;
           map_url: string | null;
           contact_phone: string | null;
           latitude: number | null;
@@ -143,6 +144,7 @@ export type Database = {
           lease_months?: number | null;
           amenities?: string[];
           images?: string[];
+          image_meta?: Json;
           map_url?: string | null;
           contact_phone?: string | null;
           latitude?: number | null;
@@ -171,6 +173,7 @@ export type Database = {
           lease_months?: number | null;
           amenities?: string[];
           images?: string[];
+          image_meta?: Json;
           map_url?: string | null;
           contact_phone?: string | null;
           latitude?: number | null;
@@ -215,6 +218,7 @@ export type Database = {
           sleep_schedule: string | null;
           cleanliness: string | null;
           images: string[];
+          image_meta: Json;
           latitude: number | null;
           longitude: number | null;
           distance_km: number | null;
@@ -241,6 +245,7 @@ export type Database = {
           sleep_schedule?: string | null;
           cleanliness?: string | null;
           images?: string[];
+          image_meta?: Json;
           latitude?: number | null;
           longitude?: number | null;
           distance_km?: number | null;
@@ -266,6 +271,7 @@ export type Database = {
           sleep_schedule?: string | null;
           cleanliness?: string | null;
           images?: string[];
+          image_meta?: Json;
           latitude?: number | null;
           longitude?: number | null;
           distance_km?: number | null;
@@ -302,6 +308,7 @@ export type Database = {
           category: string;
           condition: Database["public"]["Enums"]["item_condition"];
           images: string[];
+          image_meta: Json;
           pickup_location: string | null;
           status: Database["public"]["Enums"]["item_status"];
           created_at: string;
@@ -318,6 +325,7 @@ export type Database = {
           category: string;
           condition?: Database["public"]["Enums"]["item_condition"];
           images?: string[];
+          image_meta?: Json;
           pickup_location?: string | null;
           status?: Database["public"]["Enums"]["item_status"];
           created_at?: string;
@@ -334,6 +342,7 @@ export type Database = {
           category?: string;
           condition?: Database["public"]["Enums"]["item_condition"];
           images?: string[];
+          image_meta?: Json;
           pickup_location?: string | null;
           status?: Database["public"]["Enums"]["item_status"];
           created_at?: string;

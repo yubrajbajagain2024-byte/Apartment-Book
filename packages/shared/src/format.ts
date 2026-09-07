@@ -1,3 +1,4 @@
+import { formatPrice } from "./utils";
 import { format, formatDistanceToNowStrict, isThisYear, isToday, isYesterday } from "date-fns";
 
 /** "3 minutes ago", "2 days ago" … */
@@ -44,4 +45,21 @@ export function formatDayLabel(iso: string): string {
 /** True when two timestamps fall on the same calendar day (device timezone). */
 export function isSameDay(a: string, b: string): boolean {
   return new Date(a).toDateString() === new Date(b).toDateString();
+}
+
+/** True when the timestamp is within the last `hours` hours (default 48). */
+export function isRecent(iso: string | null | undefined, hours = 48): boolean {
+  if (!iso) return false;
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) && Date.now() - t < hours * 60 * 60 * 1000;
+}
+
+/** "$500 – $700", "Up to $700", "From $500" or null when no budget is given. */
+export function budgetLabel(post: { budget_min: number | null; budget_max: number | null; currency: string }): string | null {
+  if (post.budget_min !== null && post.budget_max !== null) {
+    return `${formatPrice(post.budget_min, post.currency)} – ${formatPrice(post.budget_max, post.currency)}`;
+  }
+  if (post.budget_max !== null) return `Up to ${formatPrice(post.budget_max, post.currency)}`;
+  if (post.budget_min !== null) return `From ${formatPrice(post.budget_min, post.currency)}`;
+  return null;
 }

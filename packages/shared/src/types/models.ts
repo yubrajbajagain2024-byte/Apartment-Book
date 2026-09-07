@@ -38,6 +38,14 @@ export type SavedTargetType = "apartment" | "item" | "roommate";
 export type ProfileSummary = Pick<Profile, "id" | "full_name" | "avatar_url">;
 export type UniversitySummary = Pick<University, "id" | "name" | "latitude" | "longitude">;
 
+/** What we know about one uploaded photo. Width/height keep layouts stable; blur is a tiny data URL shown while the photo loads. */
+export type PhotoMeta = {
+  url: string;
+  width: number | null;
+  height: number | null;
+  blur: string | null;
+};
+
 /** A point on the map (WGS84). */
 export type LatLng = { latitude: number; longitude: number };
 

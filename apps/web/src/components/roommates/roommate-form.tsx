@@ -5,6 +5,7 @@ import {
   CLEANLINESS_LEVELS,
   CURRENCIES,
   GENDER_PREFERENCES,
+  photosFor,
   ROOMMATE_POST_TYPES,
   SLEEP_SCHEDULES,
   type RoommatePost,
@@ -151,7 +152,7 @@ export function RoommateForm({
           <CardTitle>Photos (optional)</CardTitle>
         </CardHeader>
         <CardBody>
-          <ImageUploader name="images" kind="roommates" userId={userId} initial={initial?.images ?? []} max={4} />
+          <ImageUploader kind="roommates" userId={userId} initial={initial ? photosFor(initial.images, initial.image_meta) : []} max={6} />
           {err?.images ? <p className="mt-2 text-sm text-red-600">{err.images[0]}</p> : null}
         </CardBody>
       </Card>

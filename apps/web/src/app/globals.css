@@ -35,3 +35,44 @@ body {
   width: auto !important;
   height: auto !important;
 }
+
+/* ---------- photo-first UI ---------- */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes ab-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.ab-skeleton {
+  background: linear-gradient(90deg, #e9ebee 25%, #f5f6f7 50%, #e9ebee 75%);
+  background-size: 200% 100%;
+  animation: ab-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes ab-burst {
+  0% { transform: scale(0); opacity: 0; }
+  20% { transform: scale(1.25); opacity: 1; }
+  45% { transform: scale(0.95); }
+  70% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.1); opacity: 0; }
+}
+.ab-burst {
+  animation: ab-burst 900ms ease-out forwards;
+}
+
+@keyframes ab-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ab-fade-in {
+  animation: ab-fade-in 320ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ab-skeleton, .ab-burst, .ab-fade-in { animation: none; }
+}

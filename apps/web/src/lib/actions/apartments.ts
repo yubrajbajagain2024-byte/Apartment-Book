@@ -17,7 +17,7 @@ import { createClient } from "@/lib/supabase/server";
 import { errorMessage, formToObject } from "@/lib/utils";
 import { formValues, type FormState } from "./types";
 
-const ARRAY_FIELDS = ["amenities", "images"];
+const ARRAY_FIELDS = ["amenities", "images", "imageMeta"];
 
 export async function createApartmentAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser("/apartments/new");

@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin, School, Tag } from "lucide-react";
-import { formatPrice, getItem, isSaved, ITEM_CATEGORIES, ITEM_CONDITIONS, labelFor } from "@apartment-book/shared";
+import { formatPrice, getItem, isSaved, ITEM_CATEGORIES, ITEM_CONDITIONS, labelFor, photosFor } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { timeAgo } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
-import { ImageGallery } from "@/components/common/image-gallery";
+import { PhotoHero } from "@/components/photos/photo-hero";
 import { MessageButton } from "@/components/common/message-button";
 import { SaveButton } from "@/components/common/save-button";
 import { ItemOwnerActions } from "@/components/marketplace/item-owner-actions";
@@ -41,7 +41,7 @@ export default async function ItemPage({ params }: Props) {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-4">
-          <ImageGallery images={item.images} alt={item.title} />
+          <PhotoHero photos={photosFor(item.images, item.image_meta)} alt={item.title} />
           <Card>
             <CardBody className="flex flex-col gap-4">
               <div className="flex flex-wrap items-start justify-between gap-3">

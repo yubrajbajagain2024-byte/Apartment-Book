@@ -14,8 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 import { firstParam, numberParam } from "@/lib/utils";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Pagination } from "@/components/ui/pagination";
-import { RoommateCard } from "@/components/roommates/roommate-card";
+import { RoommateFeed } from "@/components/feed/roommate-feed";
 import { RoommateFilters } from "@/components/roommates/roommate-filters";
 
 export const metadata: Metadata = { title: "Roommates" };
@@ -90,14 +89,15 @@ export default async function RoommatesPage({
           }
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {result.data.map((post) => (
-            <RoommateCard key={post.id} post={post} saved={savedIds.has(post.id)} signedIn={Boolean(user)} />
-          ))}
-        </div>
+        <RoommateFeed
+          key={JSON.stringify({ ...filters, page: undefined })}
+          initial={result.data}
+          totalPages={result.totalPages}
+          filters={{ ...filters, page: undefined }}
+          savedIds={[...savedIds]}
+          signedIn={Boolean(user)}
+        />
       )}
-
-      <Pagination page={result.page} totalPages={result.totalPages} basePath="/roommates" params={{ ...values, university: universityId ?? (values.university === "all" ? "all" : undefined) }} />
     </div>
   );
 }

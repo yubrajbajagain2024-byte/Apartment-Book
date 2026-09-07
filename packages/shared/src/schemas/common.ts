@@ -44,7 +44,31 @@ export const imageUrls = z.preprocess(
     if (typeof value === "string") return [value];
     return [];
   },
-  z.array(z.url()).max(8, "You can add up to 8 photos"),
+  z.array(z.url()).max(12, "You can add up to 12 photos"),
+);
+
+/** One entry per uploaded photo, submitted as JSON strings from hidden inputs (or objects from the mobile app). */
+export const photoMetaSchema = z.object({
+  url: z.url(),
+  width: z.number().int().positive().max(50000).nullable(),
+  height: z.number().int().positive().max(50000).nullable(),
+  blur: z.string().max(4000).nullable(),
+});
+export const imageMeta = z.preprocess(
+  (value) => {
+    const list = value === undefined || value === null || value === "" ? [] : Array.isArray(value) ? value : [value];
+    return list
+      .map((entry) => {
+        if (typeof entry !== "string") return entry;
+        try {
+          return JSON.parse(entry);
+        } catch {
+          return null;
+        }
+      })
+      .filter((entry) => entry !== null);
+  },
+  z.array(photoMetaSchema).max(12),
 );
 
 export const uuid = z.uuid({ error: "Invalid id" });

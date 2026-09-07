@@ -2,12 +2,15 @@ import Link from "next/link";
 import { Building2, List, Map as MapIcon, Plus } from "lucide-react";
 import {
   DEFAULT_MAP_CENTER,
+  formatDistance,
   formatPrice,
   getSavedIds,
+  isRecent,
   listApartments,
   listApartmentsForMap,
   listUniversities,
   milesToKm,
+  photosFor,
   type ApartmentFilters as Filters,
   type ApartmentSort,
   type ApartmentWithOwner,
@@ -17,9 +20,9 @@ import { createClient } from "@/lib/supabase/server";
 import { cn, firstParam, numberParam } from "@/lib/utils";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Pagination } from "@/components/ui/pagination";
-import { ApartmentCard } from "@/components/apartments/apartment-card";
 import { ApartmentFilters } from "@/components/apartments/apartment-filters";
+import { ApartmentFeed } from "@/components/feed/apartment-feed";
+import { PhotoRail, type RailItem } from "@/components/feed/photo-rail";
 import { ListingMap, type MapPin } from "@/components/map/listing-map";
 
 export default async function HomePage({
@@ -62,12 +65,28 @@ export default async function HomePage({
     page: numberParam(params.page) ?? 1,
   };
 
-  const [universities, result, savedIds, mapListings] = await Promise.all([
+  // A photo strip above the feed: closest to campus when a university is chosen, otherwise the newest.
+  const showRail = view === "list" && !values.q && filters.page === 1;
+  const [universities, result, savedIds, mapListings, railListings] = await Promise.all([
     listUniversities(supabase),
     listApartments(supabase, filters),
     user ? getSavedIds(supabase, user.id, "apartment") : Promise.resolve(new Set<string>()),
     view === "map" ? listApartmentsForMap(supabase, filters) : Promise.resolve([] as ApartmentWithOwner[]),
+    showRail
+      ? listApartments(supabase, { universityId, sort: universityId ? "distance" : "newest", pageSize: 14 }).then((r) => r.data)
+      : Promise.resolve([] as ApartmentWithOwner[]),
   ]);
+  const railItems: RailItem[] = railListings
+    .filter((a) => a.images.length > 0)
+    .slice(0, 12)
+    .map((a) => ({
+      id: a.id,
+      href: `/apartments/${a.id}`,
+      photo: photosFor(a.images, a.image_meta)[0],
+      label: formatPrice(a.price_per_month, a.currency),
+      sublabel: a.distance_km !== null ? `${formatDistance(a.distance_km)} to campus` : a.title,
+      fresh: isRecent(a.created_at),
+    }));
 
   const activeUniversity = universities.find((u) => u.id === universityId);
   const campus =
@@ -137,6 +156,8 @@ export default async function HomePage({
         </div>
       </div>
 
+      {showRail ? <PhotoRail title={universityId ? "Closest to campus" : "Just listed"} items={railItems} /> : null}
+
       <ApartmentFilters universities={universities} values={filterValues} hasFilters={hasFilters} />
 
       {view === "map" ? (
@@ -169,19 +190,15 @@ export default async function HomePage({
           }
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {result.data.map((apartment) => (
-            <ApartmentCard key={apartment.id} apartment={apartment} saved={savedIds.has(apartment.id)} signedIn={Boolean(user)} />
-          ))}
-        </div>
+        <ApartmentFeed
+          key={JSON.stringify({ ...filters, page: undefined })}
+          initial={result.data}
+          totalPages={result.totalPages}
+          filters={{ ...filters, page: undefined }}
+          savedIds={[...savedIds]}
+          signedIn={Boolean(user)}
+        />
       )}
-
-      <Pagination
-        page={result.page}
-        totalPages={result.totalPages}
-        basePath="/"
-        params={{ ...filterValues, university: universityId ?? (values.university === "all" ? "all" : undefined), view: view === "map" ? "map" : undefined }}
-      />
     </div>
   );
 }

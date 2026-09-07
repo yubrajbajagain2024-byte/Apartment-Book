@@ -13,6 +13,19 @@ Built with **Next.js 16 + TypeScript + Tailwind** on top of **Supabase** (Postgr
 | Messaging | Supabase Realtime over `conversations`, `conversation_members`, `messages`. Device push tokens stored in `device_push_tokens` for the future apps |
 | Login | `@txstate.edu` only. The allowed domains live on the `universities` table (`email_domain`), the sign-up form validates against them, a `before insert` trigger on `auth.users` rejects everything else, and new users are attached to their university automatically |
 
+## Photos: full quality, built to hook
+
+Photos are the product, so the pipeline never degrades them:
+
+- **Originals are stored untouched.** The browser uploads the exact file to Supabase Storage (JPG, PNG, WEBP, GIF or HEIC, up to 25 MB each, up to 12 per listing). Nothing is resized or re-encoded on upload.
+- **Sharp on every screen.** Feeds and detail pages render through Next.js image optimization at quality 85 to 90 in AVIF/WebP with a size chosen for the viewer's screen (`images.qualities`, `deviceSizes` and `formats` in `apps/web/next.config.ts`). The full-screen viewer shows the original file itself, and its "Original" button opens it directly.
+- **No blank boxes.** At upload time the browser reads each photo's dimensions and builds a tiny blurred preview (about 1 KB) that is saved as `image_meta` next to the listing. Feeds show the blur instantly and fade in the real photo, and layouts never jump.
+- **Instagram-style feed.** Cards are photo-first with swipeable multi-photo carousels, a photo counter and dots, price overlaid on the photo, a bookmark button, and double-tap to save with a burst animation. Feeds load more as you scroll ("You're all caught up" at the end) and open with a stories-style strip: closest to campus on Home, fresh finds on Marketplace.
+- **Detail pages.** Swipeable hero, thumbnail strip, and a full-screen viewer with swipe, arrow keys, double-tap zoom and the original download.
+- **Uploader.** Drag and drop or pick files, instant previews while uploading, per-photo progress and errors, reorder, and "Make cover".
+
+Vercel's Hobby plan optimizes up to 5,000 distinct source images per month. If the site outgrows that, upgrade the Vercel plan or move rendition generation to Supabase image transformations (Pro plan).
+
 ## Architecture checklist
 
 | Decision | Status |
@@ -141,7 +154,7 @@ git push                 # keeps GitHub in sync (yubrajbajagain2024-byte/Apartme
 vercel deploy --prod --yes --archive=tgz   # from the repository root
 ```
 
-To deploy automatically on every push instead, connect the GitHub repository in the Vercel dashboard (Project → Settings → Git). The `.vercelignore` file keeps build caches out of CLI uploads.
+To deploy automatically on every push instead, connect the GitHub repository in the Vercel dashboard (Project → Settings → Git). The `.vercelignore` file keeps build caches out of CLI uploads. Run each new file in `supabase/migrations/` on the live project (or `npm run db:setup`) before deploying code that depends on it.
 
 ### Deploy to Vercel (from scratch)
 

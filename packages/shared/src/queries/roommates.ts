@@ -117,6 +117,7 @@ function toRow(input: RoommatePostInput) {
     sleep_schedule: input.sleepSchedule ?? null,
     cleanliness: input.cleanliness ?? null,
     images: input.images,
+    image_meta: input.imageMeta.filter((m) => input.images.includes(m.url)),
     latitude: input.latitude ?? null,
     longitude: input.longitude ?? null,
   };

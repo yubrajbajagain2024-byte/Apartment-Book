@@ -3,7 +3,7 @@ import type { Client } from "../types/models";
 
 export type UploadKind = "apartments" | "items" | "roommates" | "avatars" | "messages";
 
-const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"]);
 
 function extensionFor(type: string, fallbackName?: string): string {
   switch (type) {
@@ -15,6 +15,9 @@ function extensionFor(type: string, fallbackName?: string): string {
       return "webp";
     case "image/gif":
       return "gif";
+    case "image/heic":
+    case "image/heif":
+      return "heic";
     default: {
       const fromName = fallbackName?.split(".").pop()?.toLowerCase();
       return fromName && fromName.length <= 5 ? fromName : "bin";
@@ -51,10 +54,10 @@ export async function uploadImage(
   const contentType = input.contentType || (isBlob ? (input.file as Blob).type : "") || "application/octet-stream";
   const size = isBlob ? (input.file as Blob).size : (input.file as ArrayBuffer | Uint8Array).byteLength;
   if (!ALLOWED_TYPES.has(contentType)) {
-    throw new Error("Only JPG, PNG, WEBP or GIF images are allowed");
+    throw new Error("Only JPG, PNG, WEBP, GIF or HEIC photos are allowed");
   }
   if (size > MAX_IMAGE_SIZE_BYTES) {
-    throw new Error("Images must be smaller than 5 MB");
+    throw new Error("Photos must be smaller than 25 MB");
   }
   const path = `${input.kind}/${input.userId}/${Date.now()}-${randomId()}.${extensionFor(contentType, input.fileName)}`;
   const { error } = await supabase.storage

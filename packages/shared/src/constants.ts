@@ -4,8 +4,9 @@ export const APP_TAGLINE =
 
 export const DEFAULT_PAGE_SIZE = 12;
 export const MESSAGES_PAGE_SIZE = 50;
-export const MAX_IMAGES_PER_LISTING = 8;
-export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+export const MAX_IMAGES_PER_LISTING = 12;
+/** Originals are stored untouched; 25 MB covers phone and camera photos. */
+export const MAX_IMAGE_SIZE_BYTES = 25 * 1024 * 1024;
 export const STORAGE_BUCKET = "uploads";
 
 export const CURRENCIES = ["USD", "CAD", "GBP", "EUR", "AUD", "NZD", "NPR", "INR", "SGD"] as const;

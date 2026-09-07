@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Bath, BedDouble, CalendarDays, Clock, ExternalLink, MapPin, Phone, School } from "lucide-react";
-import { AMENITIES, formatDistance, formatPrice, getApartment, isSaved, labelFor } from "@apartment-book/shared";
+import { AMENITIES, formatDistance, formatPrice, getApartment, isSaved, labelFor, photosFor } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, timeAgo } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
-import { ImageGallery } from "@/components/common/image-gallery";
+import { PhotoHero } from "@/components/photos/photo-hero";
 import { ListingMap, type MapPin as Pin } from "@/components/map/listing-map";
 import { MessageButton } from "@/components/common/message-button";
 import { SaveButton } from "@/components/common/save-button";
@@ -66,7 +66,7 @@ export default async function ApartmentPage({ params }: Props) {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-4">
-          <ImageGallery images={apartment.images} alt={apartment.title} />
+          <PhotoHero photos={photosFor(apartment.images, apartment.image_meta)} alt={apartment.title} />
 
           <Card>
             <CardBody className="flex flex-col gap-4">

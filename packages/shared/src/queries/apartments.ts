@@ -128,6 +128,7 @@ function toRow(input: ApartmentInput) {
     lease_months: input.leaseMonths ?? null,
     amenities: input.amenities,
     images: input.images,
+    image_meta: input.imageMeta.filter((m) => input.images.includes(m.url)),
     map_url: input.mapUrl ?? null,
     contact_phone: input.contactPhone ?? null,
     latitude: input.latitude ?? null,
