@@ -26,4 +26,3 @@ supabase/.env
 
 # turborepo
 .turbo/
-.env*
