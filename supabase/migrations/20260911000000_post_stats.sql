@@ -36,6 +36,20 @@ alter table public.listing_contacts enable row level security;
 -- No direct client access: rows are written through the functions below and
 -- read back only as aggregates by the listing owner.
 
+create or replace function public.listing_owner(p_target_type text, p_target_id uuid)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case p_target_type
+    when 'apartment' then (select owner_id from public.apartments where id = p_target_id)
+    when 'item' then (select seller_id from public.items where id = p_target_id)
+    when 'roommate' then (select author_id from public.roommate_posts where id = p_target_id)
+  end;
+$$;
+
 -- Count a view. Signed-in viewers are keyed by their id; anonymous visitors by
 -- a random key the client keeps for the session. One row per viewer per day.
 create or replace function public.record_view(p_target_type text, p_target_id uuid, p_viewer_key text default null)
@@ -48,6 +62,10 @@ declare
   v_key text;
 begin
   if p_target_type not in ('apartment', 'item', 'roommate') or p_target_id is null then
+    return;
+  end if;
+  -- Owners looking at their own listing do not count.
+  if auth.uid() is not null and public.listing_owner(p_target_type, p_target_id) = auth.uid() then
     return;
   end if;
   v_key := coalesce(auth.uid()::text, nullif(left(p_viewer_key, 64), ''));
@@ -77,19 +95,7 @@ begin
 end;
 $$;
 
-create or replace function public.listing_owner(p_target_type text, p_target_id uuid)
-returns uuid
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select case p_target_type
-    when 'apartment' then (select owner_id from public.apartments where id = p_target_id)
-    when 'item' then (select seller_id from public.items where id = p_target_id)
-    when 'roommate' then (select author_id from public.roommate_posts where id = p_target_id)
-  end;
-$$;
+
 
 -- Views, saves and messages for one listing. Only the owner may ask.
 create or replace function public.listing_stats(p_target_type text, p_target_id uuid)
