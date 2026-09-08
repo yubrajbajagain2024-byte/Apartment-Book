@@ -10,8 +10,6 @@ import { useLikeToggle } from "./like-button";
 export function PostEngagementPanel({
   targetType,
   targetId,
-  href,
-  title,
   ownerId,
   engagement,
   initialComments,
@@ -20,8 +18,6 @@ export function PostEngagementPanel({
 }: {
   targetType: SavedTargetType;
   targetId: string;
-  href: string;
-  title: string;
   ownerId: string;
   engagement: PostEngagement;
   initialComments: PostCommentWithAuthor[];
@@ -34,7 +30,7 @@ export function PostEngagementPanel({
   return (
     <div className="flex flex-col">
       <EngagementSummary likes={like.likes} comments={commentCount} onComments={() => setFocusToken((n) => n + 1)} className="pt-2.5" />
-      <EngagementBar like={like} onComment={() => setFocusToken((n) => n + 1)} share={{ path: href, title }} className={like.likes === 0 && commentCount === 0 ? "border-t-0" : undefined} />
+      <EngagementBar like={like} onComment={() => setFocusToken((n) => n + 1)} className={like.likes === 0 && commentCount === 0 ? "border-t-0" : undefined} />
       <CommentsSection
         targetType={targetType}
         targetId={targetId}

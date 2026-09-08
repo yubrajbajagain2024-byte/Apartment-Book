@@ -119,8 +119,6 @@ export default async function RoommatePostPage({ params }: Props) {
             <PostEngagementPanel
               targetType="roommate"
               targetId={post.id}
-              href={path}
-              title={post.title}
               ownerId={post.author.id}
               engagement={engagement}
               initialComments={comments}

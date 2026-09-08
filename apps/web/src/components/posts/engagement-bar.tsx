@@ -1,11 +1,10 @@
 "use client";
 
-import { Bookmark, MessageSquare, ThumbsUp } from "lucide-react";
+import Link from "next/link";
+import { MessageCircle, MessageSquare, ThumbsUp } from "lucide-react";
 import type { SavedTargetType } from "@apartment-book/shared";
 import { cn } from "@/lib/utils";
 import { MessageButton } from "@/components/common/message-button";
-import type { SaveController } from "@/components/common/save-button";
-import { ShareButton } from "@/components/common/share-button";
 import { actionButtonClasses, LikeButton, type LikeController } from "./like-button";
 
 /** "12 likes · 3 comments" line shown between the media and the buttons. */
@@ -35,31 +34,33 @@ export function EngagementSummary({ likes, comments, onComments, className }: { 
 }
 
 /**
- * Facebook-style action row: Like · Comment · Message take the width, Save and
- * Share collapse to icons on phones so everything fits on one line.
+ * Facebook-style action row: Like · Comment · Message share the width equally.
+ * Save and Share live in the post's ••• menu. On your own post, Message opens
+ * your inbox instead (you cannot message yourself).
  */
 export function EngagementBar({
   like,
   onComment,
   message,
-  save,
-  share,
   className,
 }: {
   like: LikeController;
   onComment: () => void;
   message?: { userId: string; currentUserId: string | null; returnTo: string; prefill?: string; target: { type: SavedTargetType; id: string } };
-  save?: SaveController;
-  share: { path: string; title: string };
   className?: string;
 }) {
+  const own = message !== undefined && message.currentUserId !== null && message.currentUserId === message.userId;
   return (
     <div className={cn("flex items-center gap-0.5 border-t border-gray-100 px-1.5 py-1", className)} data-testid="engagement-bar">
       <LikeButton controller={like} className="flex-1" />
       <button type="button" onClick={onComment} className={cn(actionButtonClasses, "flex-1")} aria-label="Comment">
         <MessageSquare className="h-5 w-5 shrink-0" /> <span>Comment</span>
       </button>
-      {message ? (
+      {own ? (
+        <Link href="/messages" className={cn(actionButtonClasses, "flex-1")} aria-label="Message">
+          <MessageCircle className="h-5 w-5 shrink-0" /> <span>Message</span>
+        </Link>
+      ) : message ? (
         <MessageButton
           userId={message.userId}
           currentUserId={message.currentUserId}
@@ -70,20 +71,6 @@ export function EngagementBar({
           className="flex flex-1 [&>*]:w-full [&>*]:justify-center [&>*]:px-1.5 [&>*]:text-[13px] sm:[&>*]:px-2 sm:[&>*]:text-sm"
         />
       ) : null}
-      {save ? (
-        <button
-          type="button"
-          onClick={save.toggle}
-          disabled={save.pending || !save.signedIn}
-          aria-pressed={save.saved}
-          aria-label={save.saved ? "Saved" : "Save"}
-          className={cn(actionButtonClasses, save.saved && "text-brand-700")}
-        >
-          <Bookmark className={cn("h-5 w-5 shrink-0", save.saved && "fill-current")} />
-          <span className="hidden sm:inline">{save.saved ? "Saved" : "Save"}</span>
-        </button>
-      ) : null}
-      <ShareButton path={share.path} title={share.title} compact className="px-1.5 text-[13px] sm:px-2 sm:text-sm" />
     </div>
   );
 }

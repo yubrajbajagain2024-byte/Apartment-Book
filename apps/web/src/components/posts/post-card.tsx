@@ -140,7 +140,7 @@ export function PostCard(props: PostCardProps) {
 
   if (facebook) {
     return (
-      <FacebookBody {...props} header={header} description={description} mediaBlock={mediaBlock} save={save} />
+      <FacebookBody {...props} header={header} description={description} mediaBlock={mediaBlock} />
     );
   }
 
@@ -186,9 +186,9 @@ export function PostCard(props: PostCardProps) {
 
 /** Header → title/description → media → counts → Like/Comment/Message → comments. */
 function FacebookBody(
-  props: PostCardProps & { header: ReactNode; description: ReactNode; mediaBlock: ReactNode; save: ReturnType<typeof useSaveToggle> },
+  props: PostCardProps & { header: ReactNode; description: ReactNode; mediaBlock: ReactNode },
 ) {
-  const { href, title, lead, poster, header, description, mediaBlock, save } = props;
+  const { href, title, lead, poster, header, description, mediaBlock } = props;
   const engagement = props.engagement ?? NO_ENGAGEMENT;
   const like = useLikeToggle(props.targetType, props.targetId, { liked: engagement.likedByMe, likes: engagement.likes }, props.signedIn);
   const [open, setOpen] = useState(Boolean(props.commentsOpen));
@@ -223,8 +223,6 @@ function FacebookBody(
         like={like}
         onComment={openComments}
         message={{ userId: poster.id, currentUserId: props.currentUserId, returnTo: href, prefill: props.messagePrefill, target: { type: props.targetType, id: props.targetId } }}
-        save={save}
-        share={{ path: href, title }}
       />
       {open ? (
         <CommentsSection

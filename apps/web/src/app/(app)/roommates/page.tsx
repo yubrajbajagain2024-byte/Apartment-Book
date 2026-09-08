@@ -97,7 +97,7 @@ export default async function RoommatesPage({
           }
         />
       ) : (
-        <div className="mx-auto w-full max-w-[640px]">
+        <div className="mx-auto w-full max-w-[500px]">
         <RoommateFeed
           key={JSON.stringify({ ...filters, page: undefined })}
           initial={result.data}
