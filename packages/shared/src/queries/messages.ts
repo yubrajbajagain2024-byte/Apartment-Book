@@ -123,12 +123,26 @@ export async function getConversation(
   };
 }
 
-/** Latest messages in a conversation, oldest first. Pass `before` to load older pages. */
+/**
+ * Messages in a conversation, oldest first. Pass `before` to load older pages,
+ * or `after` to catch up on anything newer than what you already have.
+ */
 export async function listMessages(
   supabase: Client,
   conversationId: string,
-  opts: { before?: string; limit?: number } = {},
+  opts: { before?: string; after?: string; limit?: number } = {},
 ): Promise<MessageWithSender[]> {
+  if (opts.after) {
+    const { data, error } = await supabase
+      .from("messages")
+      .select(MESSAGE_SELECT)
+      .eq("conversation_id", conversationId)
+      .gt("created_at", opts.after)
+      .order("created_at", { ascending: true })
+      .limit(opts.limit ?? MESSAGES_PAGE_SIZE);
+    if (error) throw error;
+    return data as MessageWithSender[];
+  }
   let query = supabase
     .from("messages")
     .select(MESSAGE_SELECT)

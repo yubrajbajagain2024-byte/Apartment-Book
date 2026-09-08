@@ -60,6 +60,10 @@ export function ChatWindow({
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [memberStatus, setMemberStatus] = useState<Record<string, MemberStatus>>(conversation.memberStatus);
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   const [text, setText] = useState(prefill ?? "");
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -117,7 +121,23 @@ export function ChatWindow({
             }));
           },
         )
-        .subscribe();
+        .subscribe((status) => {
+          if (status !== "SUBSCRIBED" || cancelled) return;
+          // Anything sent between the page render and this subscription would otherwise be missed.
+          const newest = [...messagesRef.current].reverse().find((m) => !m.pending && !m.failed)?.created_at;
+          listMessages(supabase, conversation.id, newest ? { after: newest } : {})
+            .then((rows) => {
+              if (cancelled || rows.length === 0) return;
+              setMessages((prev) => {
+                const fresh = rows.filter((r) => !prev.some((m) => m.id === r.id));
+                if (fresh.length === 0) return prev;
+                const withoutTemp = prev.filter((m) => !(m.pending && fresh.some((f) => f.sender_id === currentUserId && f.content === m.content)));
+                return [...withoutTemp, ...fresh].sort((a, b) => a.created_at.localeCompare(b.created_at));
+              });
+              if (rows.some((r) => r.sender_id !== currentUserId)) markConversationRead(supabase, conversation.id).catch(() => {});
+            })
+            .catch(() => {});
+        });
     });
 
     return () => {
