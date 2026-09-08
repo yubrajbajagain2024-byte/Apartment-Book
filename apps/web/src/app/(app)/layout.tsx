@@ -1,14 +1,19 @@
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentProfile } from "@/lib/auth";
 import { Navbar } from "@/components/layout/navbar";
 import { ChatDock, ChatDockProvider } from "@/components/messages/chat-dock";
+import { PresenceProvider } from "@/components/presence/presence-provider";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const user = await getCurrentUser();
+  const profile = await getCurrentProfile();
+  const userId = profile?.id ?? null;
+  const me = profile ? { id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url, show_active_status: profile.show_active_status } : null;
   return (
-    <ChatDockProvider userId={user?.id ?? null}>
-      <Navbar />
-      <main className="mx-auto w-full max-w-7xl flex-1 px-3 pb-24 pt-4 sm:px-4 md:pb-8">{children}</main>
-      <ChatDock userId={user?.id ?? null} />
-    </ChatDockProvider>
+    <PresenceProvider me={me}>
+      <ChatDockProvider userId={userId}>
+        <Navbar />
+        <main className="mx-auto w-full max-w-7xl flex-1 px-3 pb-24 pt-4 sm:px-4 md:pb-8">{children}</main>
+        <ChatDock userId={userId} />
+      </ChatDockProvider>
+    </PresenceProvider>
   );
 }

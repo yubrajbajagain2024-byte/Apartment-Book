@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { getTotalUnread } from "@apartment-book/shared";
+import { getTotalUnread, markDeliveredAll } from "@apartment-book/shared";
 import { createClient, ensureRealtimeAuth, uniqueChannelName } from "@/lib/supabase/client";
 
 /** Red counter on the Messages tab. Refreshes when new messages arrive. */
@@ -32,6 +32,8 @@ export function UnreadBadge({ initial, userId }: { initial: number; userId: stri
 
     // Reading a conversation lowers the count; refresh after navigation.
     refresh();
+    // The app is open, so every message has reached this device ("Delivered" for senders).
+    markDeliveredAll(supabase).catch(() => {});
 
     ensureRealtimeAuth(supabase).then((authed) => {
       if (cancelled || !authed) return;
@@ -39,7 +41,10 @@ export function UnreadBadge({ initial, userId }: { initial: number; userId: stri
         .channel(uniqueChannelName(`unread:${userId}`), { config: { postgres_changes_options: { wait: true } } })
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
           const row = payload.new as { sender_id: string | null };
-          if (row.sender_id !== userId) refresh();
+          if (row.sender_id !== userId) {
+            refresh();
+            markDeliveredAll(supabase).catch(() => {});
+          }
         })
         .subscribe();
     });

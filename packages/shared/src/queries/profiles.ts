@@ -23,6 +23,7 @@ export async function updateProfile(
     bio?: string | null;
     avatarUrl?: string | null;
     notifyNearbyListings?: boolean;
+    showActiveStatus?: boolean;
   },
 ): Promise<Profile> {
   const { data, error } = await supabase
@@ -35,6 +36,7 @@ export async function updateProfile(
       bio: input.bio ?? null,
       avatar_url: input.avatarUrl ?? null,
       ...(input.notifyNearbyListings === undefined ? {} : { notify_nearby_listings: input.notifyNearbyListings }),
+      ...(input.showActiveStatus === undefined ? {} : { show_active_status: input.showActiveStatus }),
     })
     .eq("id", id)
     .select("*")

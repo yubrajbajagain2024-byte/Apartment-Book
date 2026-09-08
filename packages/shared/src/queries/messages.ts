@@ -3,12 +3,32 @@ import type {
   Client,
   ConversationSummary,
   ConversationType,
+  MemberStatus,
   MessageWithSender,
   ProfileSummary,
 } from "../types/models";
 import { conversationTitle } from "../utils";
 
 export const MESSAGE_SELECT = "*, sender:profiles!messages_sender_id_fkey(id, full_name, avatar_url)";
+const MEMBER_SELECT = "conversation_id, user_id, last_read_at, last_delivered_at, profile:profiles!conversation_members_user_id_fkey(id, full_name, avatar_url, last_seen_at)";
+
+type MemberRow = {
+  conversation_id: string;
+  user_id: string;
+  last_read_at: string;
+  last_delivered_at: string;
+  profile: (ProfileSummary & { last_seen_at: string | null }) | null;
+};
+
+function memberStatusOf(rows: MemberRow[]): Record<string, MemberStatus> {
+  const out: Record<string, MemberStatus> = {};
+  for (const r of rows) out[r.user_id] = { lastReadAt: r.last_read_at, lastDeliveredAt: r.last_delivered_at, lastSeenAt: r.profile?.last_seen_at ?? null };
+  return out;
+}
+
+function summaryOf(rows: MemberRow[]): ProfileSummary[] {
+  return rows.map((r) => r.profile).filter((p): p is ProfileSummary & { last_seen_at: string | null } => p !== null).map(({ id, full_name, avatar_url }) => ({ id, full_name, avatar_url }));
+}
 
 /** All conversations the user belongs to, newest activity first, with unread counts. */
 export async function listConversations(supabase: Client, userId: string): Promise<ConversationSummary[]> {
@@ -24,20 +44,16 @@ export async function listConversations(supabase: Client, userId: string): Promi
   if (conversationIds.length === 0) return [];
 
   const [{ data: members, error: membersError }, { data: unread, error: unreadError }] = await Promise.all([
-    supabase
-      .from("conversation_members")
-      .select("conversation_id, profile:profiles!conversation_members_user_id_fkey(id, full_name, avatar_url)")
-      .in("conversation_id", conversationIds),
+    supabase.from("conversation_members").select(MEMBER_SELECT).in("conversation_id", conversationIds),
     supabase.rpc("get_unread_counts"),
   ]);
   if (membersError) throw membersError;
   if (unreadError) throw unreadError;
 
-  const membersByConversation = new Map<string, ProfileSummary[]>();
-  for (const row of members) {
-    if (!row.profile) continue;
+  const membersByConversation = new Map<string, MemberRow[]>();
+  for (const row of members as MemberRow[]) {
     const list = membersByConversation.get(row.conversation_id) ?? [];
-    list.push(row.profile);
+    list.push(row);
     membersByConversation.set(row.conversation_id, list);
   }
   const unreadByConversation = new Map<string, number>();
@@ -47,7 +63,8 @@ export async function listConversations(supabase: Client, userId: string): Promi
   for (const m of memberships) {
     const c = m.conversation;
     if (!c) continue;
-    const allMembers = membersByConversation.get(c.id) ?? [];
+    const rows = membersByConversation.get(c.id) ?? [];
+    const allMembers = summaryOf(rows);
     const otherMembers = allMembers.filter((p) => p.id !== userId);
     summaries.push({
       id: c.id,
@@ -58,6 +75,7 @@ export async function listConversations(supabase: Client, userId: string): Promi
       lastMessagePreview: c.last_message_preview,
       members: allMembers,
       otherMembers,
+      memberStatus: memberStatusOf(rows),
       unreadCount: unreadByConversation.get(c.id) ?? 0,
       title: conversationTitle(c.type as ConversationType, c.name, otherMembers),
     });
@@ -84,13 +102,11 @@ export async function getConversation(
   if (error) throw error;
   if (!c) return null;
 
-  const { data: members, error: membersError } = await supabase
-    .from("conversation_members")
-    .select("profile:profiles!conversation_members_user_id_fkey(id, full_name, avatar_url)")
-    .eq("conversation_id", conversationId);
+  const { data: members, error: membersError } = await supabase.from("conversation_members").select(MEMBER_SELECT).eq("conversation_id", conversationId);
   if (membersError) throw membersError;
 
-  const allMembers = members.map((m) => m.profile).filter((p): p is ProfileSummary => p !== null);
+  const rows = members as MemberRow[];
+  const allMembers = summaryOf(rows);
   const otherMembers = allMembers.filter((p) => p.id !== userId);
   return {
     id: c.id,
@@ -101,17 +117,32 @@ export async function getConversation(
     lastMessagePreview: c.last_message_preview,
     members: allMembers,
     otherMembers,
+    memberStatus: memberStatusOf(rows),
     unreadCount: 0,
     title: conversationTitle(c.type as ConversationType, c.name, otherMembers),
   };
 }
 
-/** Latest messages in a conversation, oldest first. Pass `before` to load older pages. */
+/**
+ * Messages in a conversation, oldest first. Pass `before` to load older pages,
+ * or `after` to catch up on anything newer than what you already have.
+ */
 export async function listMessages(
   supabase: Client,
   conversationId: string,
-  opts: { before?: string; limit?: number } = {},
+  opts: { before?: string; after?: string; limit?: number } = {},
 ): Promise<MessageWithSender[]> {
+  if (opts.after) {
+    const { data, error } = await supabase
+      .from("messages")
+      .select(MESSAGE_SELECT)
+      .eq("conversation_id", conversationId)
+      .gt("created_at", opts.after)
+      .order("created_at", { ascending: true })
+      .limit(opts.limit ?? MESSAGES_PAGE_SIZE);
+    if (error) throw error;
+    return data as MessageWithSender[];
+  }
   let query = supabase
     .from("messages")
     .select(MESSAGE_SELECT)
@@ -188,6 +219,28 @@ export async function leaveConversation(supabase: Client, conversationId: string
 export async function markConversationRead(supabase: Client, conversationId: string): Promise<void> {
   const { error } = await supabase.rpc("mark_conversation_read", { p_conversation_id: conversationId });
   if (error) throw error;
+}
+
+/** Every message in all my conversations reached this device ("Delivered" for senders). */
+export async function markDeliveredAll(supabase: Client): Promise<void> {
+  const { error } = await supabase.rpc("mark_delivered_all");
+  if (error) throw error;
+}
+
+/** Heartbeat while the app is open, for "Active 5m ago". Ignored when the user hides their active status. */
+export async function touchPresence(supabase: Client): Promise<void> {
+  const { error } = await supabase.rpc("touch_presence");
+  if (error) throw error;
+}
+
+/**
+ * Messenger-style state of one of your own messages: "seen" once any other
+ * member read it, "delivered" once any other member's app received it, else "sent".
+ */
+export function receiptFor(createdAt: string, others: MemberStatus[]): "sent" | "delivered" | "seen" {
+  if (others.some((s) => s.lastReadAt >= createdAt)) return "seen";
+  if (others.some((s) => s.lastDeliveredAt >= createdAt)) return "delivered";
+  return "sent";
 }
 
 export async function getTotalUnread(supabase: Client): Promise<number> {

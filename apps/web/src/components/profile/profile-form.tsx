@@ -45,6 +45,7 @@ export function ProfileForm({ profile, universities, welcome }: { profile: Profi
           </Field>
           <div className="sm:col-span-2">
             <Checkbox name="notifyNearbyListings" label="Notify me when a new place is posted within 2 miles of my campus" defaultChecked={v ? v.notifyNearbyListings === "on" : profile.notify_nearby_listings} />
+            <Checkbox name="showActiveStatus" label="Show when I'm active (green dot and 'Active now' in chats)" defaultChecked={v ? v.showActiveStatus === "on" : profile.show_active_status} />
           </div>
         </CardBody>
       </Card>

@@ -105,6 +105,19 @@ export type MessageWithSender = Message & {
   sender: ProfileSummary | null;
 };
 
+/** What a conversation member has received and read, plus when they were last active. */
+export type MemberStatus = {
+  lastReadAt: string;
+  lastDeliveredAt: string;
+  lastSeenAt: string | null;
+};
+
+/** Someone currently connected, as broadcast over the presence channel. */
+export type OnlineUser = ProfileSummary & { onlineAt: string };
+
+/** Delivery state of one of your own messages, Messenger style. */
+export type MessageReceipt = "sending" | "sent" | "delivered" | "seen";
+
 /** One row of the conversation list, ready to render. */
 export type ConversationSummary = {
   id: string;
@@ -116,6 +129,8 @@ export type ConversationSummary = {
   members: ProfileSummary[];
   /** Everyone except the current user. */
   otherMembers: ProfileSummary[];
+  /** Read/delivered/active times per member id, for receipts and "Active 5m ago". */
+  memberStatus: Record<string, MemberStatus>;
   unreadCount: number;
   /** Group name, or the other person's name for direct chats. */
   title: string;

@@ -23,6 +23,7 @@ export async function updateProfileAction(_prev: FormState, formData: FormData):
       bio: parsed.data.bio ?? null,
       avatarUrl: parsed.data.avatarUrl ?? null,
       notifyNearbyListings: parsed.data.notifyNearbyListings,
+      showActiveStatus: parsed.data.showActiveStatus,
     });
   } catch (error) {
     return { error: errorMessage(error), values: formValues(formData) };

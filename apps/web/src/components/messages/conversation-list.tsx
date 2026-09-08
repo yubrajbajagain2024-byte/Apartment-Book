@@ -9,6 +9,7 @@ import { useHydrated } from "@/lib/hooks";
 import { createClient, ensureRealtimeAuth, uniqueChannelName } from "@/lib/supabase/client";
 import { cn, timeAgo } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
+import { OnlineDot } from "@/components/presence/online-dot";
 
 export function ConversationAvatar({ conversation, size = "md" }: { conversation: ConversationSummary; size?: "sm" | "md" | "lg" }) {
   if (conversation.type === "group") {
@@ -19,7 +20,12 @@ export function ConversationAvatar({ conversation, size = "md" }: { conversation
     );
   }
   const other = conversation.otherMembers[0];
-  return <Avatar name={other?.full_name ?? "?"} src={other?.avatar_url} size={size === "md" ? "lg" : size} />;
+  return (
+    <span className="relative flex shrink-0">
+      <Avatar name={other?.full_name ?? "?"} src={other?.avatar_url} size={size === "md" ? "lg" : size} />
+      {other ? <OnlineDot userId={other.id} size={size === "sm" ? "sm" : "md"} /> : null}
+    </span>
+  );
 }
 
 export function ConversationList({ conversations, currentUserId }: { conversations: ConversationSummary[]; currentUserId: string }) {
