@@ -12,7 +12,7 @@ import {
   recordContact,
   renameGroup,
 } from "@apartment-book/shared";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser, requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { errorMessage } from "@/lib/utils";
 import type { FormState } from "./types";
@@ -40,6 +40,27 @@ export async function startDirectConversationAction(formData: FormData): Promise
   }
   const query = prefill ? `?prefill=${encodeURIComponent(prefill)}` : "";
   redirect(`/messages/${conversationId}${query}`);
+}
+
+/**
+ * Desktop chat dock: open (or create) the 1:1 chat and return its id instead of
+ * navigating. Records the listing contact like the redirecting version.
+ */
+export async function openDirectConversationAction(
+  otherUserId: string,
+  target?: { type: "apartment" | "item" | "roommate"; id: string } | null,
+): Promise<{ conversationId?: string; error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Sign in to send messages" };
+  if (!otherUserId || otherUserId === user.id) return { error: "Invalid user" };
+  try {
+    const supabase = await createClient();
+    const conversationId = await getOrCreateDirectConversation(supabase, otherUserId);
+    if (target) await recordContact(supabase, target.type, target.id).catch(() => {});
+    return { conversationId };
+  } catch (error) {
+    return { error: errorMessage(error) };
+  }
 }
 
 /** New conversation page: one person -> direct chat, several -> group. */
