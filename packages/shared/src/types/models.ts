@@ -24,6 +24,8 @@ export type ConversationMember = Tables<"conversation_members">;
 export type Message = Tables<"messages">;
 export type DevicePushToken = Tables<"device_push_tokens">;
 export type Media = Tables<"media">;
+export type PostLike = Tables<"post_likes">;
+export type PostComment = Tables<"post_comments">;
 export type MediaStatus = "uploading" | "processing" | "ready" | "failed";
 
 /** Snapshot of a ready video stored on a listing (videos jsonb). */
@@ -36,7 +38,7 @@ export type ListingVideo = {
   duration_seconds: number | null;
 };
 export type Notification = Tables<"notifications">;
-export type NotificationType = "message" | "listing_saved" | "nearby_listing" | "system";
+export type NotificationType = "message" | "listing_saved" | "nearby_listing" | "system" | "like" | "comment";
 export type NotificationWithActor = Notification & { actor: ProfileSummary | null };
 export type PushPlatform = "ios" | "android" | "web";
 
@@ -51,6 +53,12 @@ export type SavedTargetType = "apartment" | "item" | "roommate";
 
 /** The small slice of a profile shown next to listings and messages. */
 export type ProfileSummary = Pick<Profile, "id" | "full_name" | "avatar_url">;
+
+/** A comment with who wrote it. */
+export type PostCommentWithAuthor = PostComment & { author: ProfileSummary };
+
+/** Like/comment counts for a post plus whether the current user liked it. */
+export type PostEngagement = { likes: number; comments: number; likedByMe: boolean };
 export type UniversitySummary = Pick<University, "id" | "name" | "latitude" | "longitude">;
 
 /** What we know about one uploaded photo. Width/height keep layouts stable; blur is a tiny data URL shown while the photo loads. */

@@ -6,6 +6,7 @@ import { formatPrice, ITEM_CONDITIONS, labelFor, photosFor, timeAgo, type ItemWi
 import { Badge } from "@/components/ui/badge";
 import { SaveBurst, SaveToggleButton, useSaveToggle } from "@/components/common/save-button";
 import { PhotoCarousel } from "@/components/photos/photo-carousel";
+import { PostMenu } from "@/components/posts/post-menu";
 
 export function ItemCard({
   item,
@@ -52,15 +53,18 @@ export function ItemCard({
           <SaveToggleButton controller={save} size="sm" className="bg-white/90 shadow" />
         </div>
       </div>
-      <Link href={href} className="flex flex-1 flex-col gap-0.5 p-2.5">
-        <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900">{item.title}</h3>
-        <p className="truncate text-xs text-gray-500">
-          {labelFor(ITEM_CONDITIONS, item.condition)} · {item.pickup_location || item.university?.name || item.seller.full_name}
-        </p>
-        <p className="truncate text-xs text-gray-400" suppressHydrationWarning>
-          {timeAgo(item.created_at)}
-        </p>
-      </Link>
+      <div className="flex flex-1 items-start gap-1 p-2.5">
+        <Link href={href} className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900">{item.title}</h3>
+          <p className="truncate text-xs text-gray-500">
+            {labelFor(ITEM_CONDITIONS, item.condition)} · {item.pickup_location || item.university?.name || item.seller.full_name}
+          </p>
+          <p className="truncate text-xs text-gray-400" suppressHydrationWarning>
+            {timeAgo(item.created_at)}
+          </p>
+        </Link>
+        <PostMenu save={save} path={href} title={item.title} className="-mr-1.5 -mt-1" />
+      </div>
     </article>
   );
 }
