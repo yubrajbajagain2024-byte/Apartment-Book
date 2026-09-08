@@ -12,6 +12,7 @@ import { ShareButton } from "@/components/common/share-button";
 import { PhotoCarousel } from "@/components/photos/photo-carousel";
 import { CommentsSection } from "./comments-section";
 import { EngagementBar, EngagementSummary } from "./engagement-bar";
+import { PostMenu } from "./post-menu";
 import { useLikeToggle } from "./like-button";
 
 export type PostCardProps = {
@@ -88,6 +89,7 @@ export function PostCard(props: PostCardProps) {
           {timeAgo(createdAt)}
         </span>
       ) : null}
+      <PostMenu save={save} path={href} title={title} className={compact ? "-mr-1" : "-mr-1.5"} />
     </div>
   );
 
