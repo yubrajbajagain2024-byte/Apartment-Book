@@ -68,7 +68,7 @@ export function EngagementBar({
           prefill={message.prefill}
           variant="action"
           target={message.target}
-          className="flex flex-1 [&>*]:w-full [&>*]:justify-center [&>*]:px-1.5 [&>*]:text-[13px] sm:[&>*]:px-2 sm:[&>*]:text-sm"
+          className="min-w-0 flex-1 justify-center px-1.5 text-[13px] sm:px-2 sm:text-sm"
         />
       ) : null}
     </div>

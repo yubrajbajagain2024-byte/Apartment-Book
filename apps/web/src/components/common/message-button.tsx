@@ -67,14 +67,15 @@ export function MessageButton({
   }
 
   return (
-    <form action={startDirectConversationAction} className={className}>
+    // For the action variant the form is `contents`, so the button itself sits in the parent's flex row.
+    <form action={startDirectConversationAction} className={variant === "action" ? "contents" : className}>
       <input type="hidden" name="userId" value={userId} />
       <input type="hidden" name="returnTo" value={returnTo} />
       {prefill ? <input type="hidden" name="prefill" value={prefill} /> : null}
       {target ? <input type="hidden" name="targetType" value={target.type} /> : null}
       {target ? <input type="hidden" name="targetId" value={target.id} /> : null}
       {variant === "action" ? (
-        <button type="submit" onClick={onClick} disabled={pending} className={actionClasses}>
+        <button type="submit" onClick={onClick} disabled={pending} className={cn(actionClasses, className)}>
           <MessageCircle className="h-5 w-5" /> {label}
         </button>
       ) : (
