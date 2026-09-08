@@ -5,15 +5,23 @@ import Link from "next/link";
 import { ArrowLeft, Info, LogOut, UserPlus, X } from "lucide-react";
 import type { ConversationSummary, ProfileSummary } from "@apartment-book/shared";
 import { addMembersAction, leaveGroupAction, renameGroupAction } from "@/lib/actions/messages";
+import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useHydrated } from "@/lib/hooks";
+import { timeAgo } from "@/lib/utils";
+import { useIsOnline } from "@/components/presence/presence-provider";
 import { ConversationAvatar } from "./conversation-list";
 import { MemberPicker } from "./member-picker";
 
 export function ConversationHeader({ conversation, currentUserId }: { conversation: ConversationSummary; currentUserId: string }) {
   const [open, setOpen] = useState(false);
   const other = conversation.otherMembers[0];
+  const otherOnline = useIsOnline(other?.id);
+  const hydrated = useHydrated();
+  const lastSeen = other ? conversation.memberStatus[other.id]?.lastSeenAt ?? null : null;
+  const activity = conversation.type === "group" ? `${conversation.members.length} members` : otherOnline ? "Active now" : lastSeen && hydrated ? `Active ${timeAgo(lastSeen)}` : other ? "Direct message" : "";
 
   return (
     <div className="border-b border-gray-200">
@@ -24,8 +32,8 @@ export function ConversationHeader({ conversation, currentUserId }: { conversati
         <ConversationAvatar conversation={conversation} size="sm" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-gray-900">{conversation.title}</p>
-          <p className="truncate text-xs text-gray-500">
-            {conversation.type === "group" ? `${conversation.members.length} members` : other ? "Direct message" : ""}
+          <p className={cn("truncate text-xs", otherOnline ? "text-green-600" : "text-gray-500")} data-testid="activity" suppressHydrationWarning>
+            {activity}
           </p>
         </div>
         {conversation.type === "group" ? (

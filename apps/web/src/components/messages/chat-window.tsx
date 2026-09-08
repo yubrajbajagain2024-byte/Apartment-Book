@@ -2,17 +2,21 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { ImagePlus, Send } from "lucide-react";
+import { Check, Circle, ImagePlus, Send } from "lucide-react";
 import {
   MESSAGES_PAGE_SIZE,
   formatDayLabel,
   isSameDay,
   listMessages,
   markConversationRead,
+  receiptFor,
   sendMessage,
   uploadImage,
+  type ConversationMember,
   type ConversationSummary,
+  type MemberStatus,
   type Message,
+  type MessageReceipt,
   type MessageWithSender,
 } from "@apartment-book/shared";
 import { useHydrated } from "@/lib/hooks";
@@ -22,6 +26,26 @@ import { Avatar } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
 
 type ChatMessage = MessageWithSender & { pending?: boolean; failed?: boolean };
+
+/** Messenger-style state of my newest message: hollow circle (sending), check in a circle (sent), filled check (delivered). */
+function ReceiptIcon({ receipt }: { receipt: MessageReceipt }) {
+  const label = receipt === "sending" ? "Sending" : receipt === "sent" ? "Sent" : "Delivered";
+  return (
+    <span className="mb-4 flex h-3.5 w-3.5 shrink-0 items-center justify-center self-end" data-testid="receipt" data-receipt={receipt} aria-label={label} title={label} role="img">
+      {receipt === "sending" ? (
+        <Circle className="h-3.5 w-3.5 text-gray-400" />
+      ) : receipt === "sent" ? (
+        <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-gray-400">
+          <Check className="h-2 w-2 text-gray-400" strokeWidth={3} />
+        </span>
+      ) : (
+        <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gray-400">
+          <Check className="h-2 w-2 text-white" strokeWidth={3} />
+        </span>
+      )}
+    </span>
+  );
+}
 
 export function ChatWindow({
   conversation,
@@ -35,6 +59,7 @@ export function ChatWindow({
   prefill?: string;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  const [memberStatus, setMemberStatus] = useState<Record<string, MemberStatus>>(conversation.memberStatus);
   const [text, setText] = useState(prefill ?? "");
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -80,6 +105,18 @@ export function ChatWindow({
             if (row.sender_id !== currentUserId) markConversationRead(supabase, conversation.id).catch(() => {});
           },
         )
+        // Other members' read/delivered times, for the receipts under my messages.
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "conversation_members", filter: `conversation_id=eq.${conversation.id}` },
+          (payload) => {
+            const row = payload.new as ConversationMember;
+            setMemberStatus((prev) => ({
+              ...prev,
+              [row.user_id]: { lastReadAt: row.last_read_at, lastDeliveredAt: row.last_delivered_at, lastSeenAt: prev[row.user_id]?.lastSeenAt ?? null },
+            }));
+          },
+        )
         .subscribe();
     });
 
@@ -88,6 +125,24 @@ export function ChatWindow({
       if (channel) supabase.removeChannel(channel);
     };
   }, [conversation.id, currentUserId, membersById]);
+
+  // Receipts: where each other member has read up to, and the state of my newest message.
+  const others = conversation.otherMembers.map((m) => ({ member: m, status: memberStatus[m.id] })).filter((x): x is { member: (typeof conversation.otherMembers)[number]; status: MemberStatus } => Boolean(x.status));
+  const seenAt = new Map<string, typeof conversation.otherMembers>();
+  for (const { member, status } of others) {
+    let target: ChatMessage | undefined;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      // Messenger shows "seen" only under messages the reader did not send themselves.
+      if (!m.pending && !m.failed && m.sender_id !== member.id && m.created_at <= status.lastReadAt) {
+        target = m;
+        break;
+      }
+    }
+    if (target) seenAt.set(target.id, [...(seenAt.get(target.id) ?? []), member]);
+  }
+  const lastMine = [...messages].reverse().find((m) => m.sender_id === currentUserId && !m.failed);
+  const lastMineReceipt: MessageReceipt | null = lastMine ? (lastMine.pending ? "sending" : receiptFor(lastMine.created_at, others.map((o) => o.status))) : null;
 
   // Scroll to the newest message.
   const lastId = messages[messages.length - 1]?.id;
@@ -219,7 +274,15 @@ export function ChatWindow({
                       {m.failed ? "Failed to send" : m.pending ? "Sending…" : hydrated ? formatMessageTime(m.created_at) : "\u00a0"}
                     </span>
                   </div>
+                  {mine && m.id === lastMine?.id && lastMineReceipt && lastMineReceipt !== "seen" ? <ReceiptIcon receipt={lastMineReceipt} /> : null}
                 </div>
+                {seenAt.has(m.id) ? (
+                  <div className="flex justify-end gap-0.5 pr-0.5" data-testid="seen-by" aria-label={`Seen by ${seenAt.get(m.id)!.map((p) => p.full_name).join(", ")}`} title={`Seen by ${seenAt.get(m.id)!.map((p) => p.full_name).join(", ")}`}>
+                    {seenAt.get(m.id)!.map((p) => (
+                      <Avatar key={p.id} name={p.full_name} src={p.avatar_url} size="xs" className="h-4 w-4 text-[8px]" />
+                    ))}
+                  </div>
+                ) : null}
               </li>
             );
           })}

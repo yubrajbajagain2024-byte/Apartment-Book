@@ -59,6 +59,8 @@ export type Database = {
           graduation_year: number | null;
           bio: string | null;
           notify_nearby_listings: boolean;
+          last_seen_at: string | null;
+          show_active_status: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -71,6 +73,8 @@ export type Database = {
           graduation_year?: number | null;
           bio?: string | null;
           notify_nearby_listings?: boolean;
+          last_seen_at?: string | null;
+          show_active_status?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -83,6 +87,8 @@ export type Database = {
           graduation_year?: number | null;
           bio?: string | null;
           notify_nearby_listings?: boolean;
+          last_seen_at?: string | null;
+          show_active_status?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -456,18 +462,21 @@ export type Database = {
           user_id: string;
           joined_at: string;
           last_read_at: string;
+          last_delivered_at: string;
         };
         Insert: {
           conversation_id: string;
           user_id: string;
           joined_at?: string;
           last_read_at?: string;
+          last_delivered_at?: string;
         };
         Update: {
           conversation_id?: string;
           user_id?: string;
           joined_at?: string;
           last_read_at?: string;
+          last_delivered_at?: string;
         };
         Relationships: [
           {
@@ -826,6 +835,14 @@ export type Database = {
       listing_stats: {
         Args: { p_target_type: string; p_target_id: string };
         Returns: { views: number; saves: number; contacts: number }[];
+      };
+      touch_presence: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
+      mark_delivered_all: {
+        Args: Record<string, never>;
+        Returns: undefined;
       };
       post_engagement: {
         Args: { p_target_type: string; p_target_id: string };

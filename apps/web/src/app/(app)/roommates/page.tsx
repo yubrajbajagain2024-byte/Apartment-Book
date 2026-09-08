@@ -17,6 +17,7 @@ import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { RoommateFeed } from "@/components/feed/roommate-feed";
 import { RoommateFilters } from "@/components/roommates/roommate-filters";
+import { OnlineNow } from "@/components/presence/online-now";
 
 export const metadata: Metadata = { title: "Roommates" };
 
@@ -97,18 +98,27 @@ export default async function RoommatesPage({
           }
         />
       ) : (
-        <div className="mx-auto w-full max-w-[500px]">
-        <RoommateFeed
-          key={JSON.stringify({ ...filters, page: undefined })}
-          initial={result.data}
-          totalPages={result.totalPages}
-          filters={{ ...filters, page: undefined }}
-          savedIds={[...savedIds]}
-          signedIn={Boolean(user)}
-          currentUserId={user?.id ?? null}
-          currentUser={user && profile ? { id: user.id, name: profile.full_name, avatarUrl: profile.avatar_url } : null}
-          engagement={engagement}
-        />
+        <div className="grid gap-4 lg:grid-cols-[1fr_minmax(0,500px)_1fr] lg:gap-6">
+          <div className="hidden lg:block" />
+          <div className="min-w-0">
+            {user ? <OnlineNow currentUserId={user.id} layout="strip" className="-mx-3 mb-1 bg-white ring-1 ring-gray-200 sm:mx-0 sm:mb-0 sm:rounded-xl lg:hidden" /> : null}
+            <RoommateFeed
+              key={JSON.stringify({ ...filters, page: undefined })}
+              initial={result.data}
+              totalPages={result.totalPages}
+              filters={{ ...filters, page: undefined }}
+              savedIds={[...savedIds]}
+              signedIn={Boolean(user)}
+              currentUserId={user?.id ?? null}
+              currentUser={user && profile ? { id: user.id, name: profile.full_name, avatarUrl: profile.avatar_url } : null}
+              engagement={engagement}
+            />
+          </div>
+          {user ? (
+            <aside className="hidden lg:block">
+              <OnlineNow currentUserId={user.id} className="sticky top-20" />
+            </aside>
+          ) : null}
         </div>
       )}
     </div>

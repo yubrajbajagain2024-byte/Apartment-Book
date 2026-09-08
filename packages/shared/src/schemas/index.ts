@@ -72,6 +72,7 @@ export const profileSchema = z.object({
   bio: optionalText(600),
   avatarUrl: optionalUrl,
   notifyNearbyListings: formBoolean,
+  showActiveStatus: formBoolean,
 });
 export type ProfileInput = z.infer<typeof profileSchema>;
 
