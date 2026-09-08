@@ -32,11 +32,12 @@ export function UnreadBadge({ initial, userId }: { initial: number; userId: stri
 
     // Reading a conversation lowers the count; refresh after navigation.
     refresh();
-    // The app is open, so every message has reached this device ("Delivered" for senders).
-    markDeliveredAll(supabase).catch(() => {});
 
     ensureRealtimeAuth(supabase).then((authed) => {
       if (cancelled || !authed) return;
+      // The app is open, so every message has reached this device ("Delivered" for senders).
+      // Only once the session is loaded, or the call would run anonymously and touch nothing.
+      markDeliveredAll(supabase).catch(() => {});
       channel = supabase
         .channel(uniqueChannelName(`unread:${userId}`), { config: { postgres_changes_options: { wait: true } } })
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {

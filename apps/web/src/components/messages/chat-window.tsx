@@ -6,6 +6,7 @@ import { Check, Circle, ImagePlus, Send } from "lucide-react";
 import {
   MESSAGES_PAGE_SIZE,
   formatDayLabel,
+  getMemberStatus,
   isSameDay,
   listMessages,
   markConversationRead,
@@ -123,6 +124,12 @@ export function ChatWindow({
         )
         .subscribe((status) => {
           if (status !== "SUBSCRIBED" || cancelled) return;
+          // Receipts that changed before this subscription was streaming.
+          getMemberStatus(supabase, conversation.id)
+            .then((fresh) => {
+              if (!cancelled) setMemberStatus((prev) => ({ ...prev, ...fresh }));
+            })
+            .catch(() => {});
           // Anything sent between the page render and this subscription would otherwise be missed.
           const newest = [...messagesRef.current].reverse().find((m) => !m.pending && !m.failed)?.created_at;
           listMessages(supabase, conversation.id, newest ? { after: newest } : {})

@@ -221,6 +221,13 @@ export async function markConversationRead(supabase: Client, conversationId: str
   if (error) throw error;
 }
 
+/** Fresh read/delivered/active times for every member of a conversation. */
+export async function getMemberStatus(supabase: Client, conversationId: string): Promise<Record<string, MemberStatus>> {
+  const { data, error } = await supabase.from("conversation_members").select(MEMBER_SELECT).eq("conversation_id", conversationId);
+  if (error) throw error;
+  return memberStatusOf(data as MemberRow[]);
+}
+
 /** Every message in all my conversations reached this device ("Delivered" for senders). */
 export async function markDeliveredAll(supabase: Client): Promise<void> {
   const { error } = await supabase.rpc("mark_delivered_all");
