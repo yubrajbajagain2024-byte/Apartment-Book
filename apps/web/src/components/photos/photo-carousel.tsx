@@ -57,7 +57,10 @@ export function PhotoCarousel({
 }: PhotoCarouselProps) {
   const router = useRouter();
   const [internalIndex, setInternalIndex] = useState(0);
-  const index = Math.min(controlledIndex ?? internalIndex, Math.max(0, photos.length - 1));
+  const slides: FeedMedia[] = media ?? photos.map((p) => ({ type: "photo", url: p.url, width: p.width, height: p.height, blur: p.blur }));
+  const count = slides.length;
+  // Clamp against the slides actually rendered (not the photos prop, which may be empty when media is given).
+  const index = Math.min(controlledIndex ?? internalIndex, Math.max(0, count - 1));
   const [drag, setDrag] = useState(0);
   const [dragging, setDragging] = useState(false);
   const start = useRef<{ x: number; y: number; time: number; pointerType: string } | null>(null);
@@ -65,9 +68,6 @@ export function PhotoCarousel({
   const lastTap = useRef(0);
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const frameRef = useRef<HTMLDivElement>(null);
-
-  const slides: FeedMedia[] = media ?? photos.map((p) => ({ type: "photo", url: p.url, width: p.width, height: p.height, blur: p.blur }));
-  const count = slides.length;
 
   useEffect(() => {
     if (href) router.prefetch(href);
@@ -256,9 +256,24 @@ export function PhotoCarousel({
             </span>
           ) : null}
           {showDots ? (
-            <div className="pointer-events-none absolute bottom-2 left-1/2 z-20 flex -translate-x-1/2 gap-1">
+            <div className="absolute bottom-2 left-1/2 z-20 flex -translate-x-1/2 gap-1" role="tablist" aria-label="Choose photo">
               {slides.slice(0, 12).map((slide, i) => (
-                <span key={slide.type === "photo" ? slide.url : slide.playbackUrl} className={cn("h-1.5 rounded-full shadow transition-all", i === index ? "w-4 bg-white" : "w-1.5 bg-white/60")} />
+                <button
+                  key={slide.type === "photo" ? slide.url : slide.playbackUrl}
+                  type="button"
+                  role="tab"
+                  aria-selected={i === index}
+                  aria-label={`Go to ${slide.type === "video" ? "video" : "photo"} ${i + 1}`}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onPointerUp={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    go(i);
+                  }}
+                  className="flex h-4 items-center px-0.5"
+                >
+                  <span className={cn("block h-1.5 rounded-full shadow transition-all", i === index ? "w-4 bg-white" : "w-1.5 bg-white/60")} />
+                </button>
               ))}
             </div>
           ) : null}

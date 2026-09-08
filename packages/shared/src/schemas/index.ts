@@ -184,6 +184,14 @@ export const groupSchema = z.object({
 export type GroupInput = z.infer<typeof groupSchema>;
 
 // ---------------------------------------------------------------------------
+// Likes and comments
+// ---------------------------------------------------------------------------
+export const commentSchema = z.object({
+  body: z.string().trim().min(1, "Write a comment").max(1000, "Keep comments under 1,000 characters"),
+});
+export type CommentInput = z.infer<typeof commentSchema>;
+
+// ---------------------------------------------------------------------------
 // Push notifications (mobile apps)
 // ---------------------------------------------------------------------------
 export const pushTokenSchema = z.object({

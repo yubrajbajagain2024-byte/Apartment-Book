@@ -1,11 +1,11 @@
 "use client";
 
-import { Bell, Bookmark, MapPin, MessageCircle } from "lucide-react";
+import { Bell, Bookmark, MapPin, MessageCircle, MessageSquare, ThumbsUp } from "lucide-react";
 import { timeAgo, type NotificationWithActor } from "@apartment-book/shared";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 
-const ICONS = { message: MessageCircle, listing_saved: Bookmark, nearby_listing: MapPin, system: Bell } as const;
+const ICONS = { message: MessageCircle, listing_saved: Bookmark, nearby_listing: MapPin, system: Bell, like: ThumbsUp, comment: MessageSquare } as const;
 
 /** One row in the bell dropdown or the notifications page. */
 export function NotificationItem({ notification, onOpen, compact }: { notification: NotificationWithActor; onOpen: (n: NotificationWithActor) => void; compact?: boolean }) {

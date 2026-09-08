@@ -634,6 +634,70 @@ export type Database = {
           },
         ];
       };
+      post_likes: {
+        Row: {
+          target_type: string;
+          target_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          target_type: string;
+          target_id: string;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          target_type?: string;
+          target_id?: string;
+          user_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "post_likes_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      post_comments: {
+        Row: {
+          id: string;
+          target_type: string;
+          target_id: string;
+          user_id: string;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          target_type: string;
+          target_id: string;
+          user_id: string;
+          body: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          target_type?: string;
+          target_id?: string;
+          user_id?: string;
+          body?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "post_comments_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       notifications: {
         Row: {
           id: string;
@@ -762,6 +826,18 @@ export type Database = {
       listing_stats: {
         Args: { p_target_type: string; p_target_id: string };
         Returns: { views: number; saves: number; contacts: number }[];
+      };
+      post_engagement: {
+        Args: { p_target_type: string; p_target_id: string };
+        Returns: { likes: number; comments: number; liked_by_me: boolean }[];
+      };
+      post_engagement_many: {
+        Args: { p_target_type: string; p_target_ids: string[] };
+        Returns: { target_id: string; likes: number; comments: number; liked_by_me: boolean }[];
+      };
+      post_link: {
+        Args: { p_target_type: string; p_target_id: string };
+        Returns: string;
       };
       video_vs_photo_stats: {
         Args: { p_min?: number };

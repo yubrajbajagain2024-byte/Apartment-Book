@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, MapPin, School } from "lucide-react";
-import { budgetLabel, formatDistance, GENDER_PREFERENCES, getListingStats, getRoommatePost, isSaved, labelFor, listingMedia, photosFor } from "@apartment-book/shared";
-import { getCurrentUser } from "@/lib/auth";
+import { budgetLabel, formatDistance, GENDER_PREFERENCES, getListingStats, getPostEngagement, getRoommatePost, isSaved, labelFor, listComments, listingMedia, photosFor } from "@apartment-book/shared";
+import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, timeAgo } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
@@ -16,6 +16,7 @@ import { SaveButton } from "@/components/common/save-button";
 import { RoommateOwnerActions } from "@/components/roommates/roommate-owner-actions";
 import { ListingStatsPanel } from "@/components/stats/listing-stats-panel";
 import { ViewTracker } from "@/components/stats/view-tracker";
+import { PostEngagementPanel } from "@/components/posts/post-engagement-panel";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -28,8 +29,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function RoommatePostPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
-  const [post, user] = await Promise.all([getRoommatePost(supabase, id), getCurrentUser()]);
+  const [post, user, profile] = await Promise.all([getRoommatePost(supabase, id), getCurrentUser(), getCurrentProfile()]);
   if (!post) notFound();
+  const [engagement, comments] = await Promise.all([
+    getPostEngagement(supabase, "roommate", post.id).catch(() => ({ likes: 0, comments: 0, likedByMe: false })),
+    listComments(supabase, "roommate", post.id).catch(() => []),
+  ]);
 
   const saved = user ? await isSaved(supabase, user.id, "roommate", post.id) : false;
   const isOwner = user?.id === post.author_id;
@@ -109,6 +114,19 @@ export default async function RoommatePostPage({ params }: Props) {
                 </dl>
               </div>
             </CardBody>
+          </Card>
+          <Card>
+            <PostEngagementPanel
+              targetType="roommate"
+              targetId={post.id}
+              href={path}
+              title={post.title}
+              ownerId={post.author.id}
+              engagement={engagement}
+              initialComments={comments}
+              signedIn={Boolean(user)}
+              currentUser={user && profile ? { id: user.id, name: profile.full_name, avatarUrl: profile.avatar_url } : null}
+            />
           </Card>
         </div>
 

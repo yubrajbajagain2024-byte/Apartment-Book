@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus, Users } from "lucide-react";
 import {
+  getPostEngagementMany,
   getSavedIds,
   listRoommatePosts,
   listUniversities,
@@ -55,6 +56,11 @@ export default async function RoommatesPage({
     listRoommatePosts(supabase, filters),
     user ? getSavedIds(supabase, user.id, "roommate") : Promise.resolve(new Set<string>()),
   ]);
+  const engagement = await getPostEngagementMany(
+    supabase,
+    "roommate",
+    result.data.map((p) => p.id),
+  ).catch(() => ({}));
   const activeUniversity = universities.find((u) => u.id === universityId);
   const hasFilters = Object.entries(values).some(([key, value]) => key !== "page" && value !== undefined && value !== "");
 
@@ -100,6 +106,8 @@ export default async function RoommatesPage({
           savedIds={[...savedIds]}
           signedIn={Boolean(user)}
           currentUserId={user?.id ?? null}
+          currentUser={user && profile ? { id: user.id, name: profile.full_name, avatarUrl: profile.avatar_url } : null}
+          engagement={engagement}
         />
         </div>
       )}
