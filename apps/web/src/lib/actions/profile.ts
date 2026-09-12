@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createUniversity, flattenZodError, profileSchema, universitySchema, updateProfile } from "@apartment-book/shared";
+import { createUniversity, deleteMyAccount, flattenZodError, profileSchema, universitySchema, updateProfile } from "@apartment-book/shared";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { errorMessage, formToObject } from "@/lib/utils";
@@ -47,4 +47,13 @@ export async function addUniversityAction(_prev: FormState, formData: FormData):
   }
   revalidatePath("/", "layout");
   return { success: `${parsed.data.name} was added. You can now select it above.` };
+}
+
+/** Permanently delete the signed-in user's account, then sign out. */
+export async function deleteAccountAction(): Promise<void> {
+  await requireUser("/settings/profile");
+  const supabase = await createClient();
+  await deleteMyAccount(supabase);
+  await supabase.auth.signOut();
+  redirect("/?deleted=1");
 }

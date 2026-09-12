@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Bookmark, Check, MoreHorizontal, Share2 } from "lucide-react";
+import { Bookmark, Check, Flag, MoreHorizontal, Share2 } from "lucide-react";
+import type { ReportTargetType } from "@apartment-book/shared";
+import { ReportMenu } from "@/components/common/report-block";
 import { cn } from "@/lib/utils";
 import type { SaveController } from "@/components/common/save-button";
 import { useShare } from "@/components/common/share-button";
@@ -20,7 +22,8 @@ function placeBelow(button: HTMLButtonElement | null): { top: number; right: num
  * Facebook-style "•••" menu in a post header: Save/Unsave post and Share post.
  * The dropdown is position:fixed so the card's overflow-hidden can't clip it.
  */
-export function PostMenu({ save, path, title, className }: { save: SaveController; path: string; title: string; className?: string }) {
+export function PostMenu({ save, path, title, className, report }: { save: SaveController; path: string; title: string; className?: string; /** Enables "Report post" (omit on your own posts). */ report?: { targetType: ReportTargetType; targetId: string } }) {
+  const [reporting, setReporting] = useState(false);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -31,8 +34,10 @@ export function PostMenu({ save, path, title, className }: { save: SaveControlle
   function toggle() {
     if (open) {
       setOpen(false);
+      setReporting(false);
       return;
     }
+    setReporting(false);
     setPos(placeBelow(buttonRef.current));
     setOpen(true);
   }
@@ -115,6 +120,15 @@ export function PostMenu({ save, path, title, className }: { save: SaveControlle
             {copied ? <Check className="h-5 w-5 text-brand-600" /> : <Share2 className="h-5 w-5" />}
             {copied ? "Link copied" : "Share post"}
           </button>
+          {report && save.signedIn ? (
+            reporting ? (
+              <ReportMenu targetType={report.targetType} targetId={report.targetId} onDone={() => setOpen(false)} className="border-t border-gray-100 pt-1.5" />
+            ) : (
+              <button type="button" role="menuitem" onClick={() => setReporting(true)} className={cn(item, "text-red-600")}>
+                <Flag className="h-5 w-5" /> Report post
+              </button>
+            )
+          ) : null}
         </div>
       ) : null}
     </div>

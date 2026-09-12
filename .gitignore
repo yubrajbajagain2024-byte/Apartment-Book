@@ -12,6 +12,8 @@ apps/web/next-env.d.ts
 !.env.example
 apps/web/.env*
 !apps/web/.env.example
+# The mobile app's .env holds only EXPO_PUBLIC_* values (public anon key, site URL)
+!apps/mobile/.env
 
 # supabase local dev
 supabase/.branches

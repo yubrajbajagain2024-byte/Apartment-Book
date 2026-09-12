@@ -89,7 +89,7 @@ export function PostCard(props: PostCardProps) {
           {timeAgo(createdAt)}
         </span>
       ) : null}
-      <PostMenu save={save} path={href} title={title} className={compact ? "-mr-1" : "-mr-1.5"} />
+      <PostMenu save={save} path={href} title={title} className={compact ? "-mr-1" : "-mr-1.5"} report={props.currentUserId !== poster.id ? { targetType: props.targetType, targetId: props.targetId } : undefined} />
     </div>
   );
 

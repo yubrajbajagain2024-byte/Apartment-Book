@@ -5,6 +5,7 @@ import { getCurrentProfile, requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { firstParam } from "@/lib/utils";
 import { AddUniversityForm, ProfileForm } from "@/components/profile/profile-form";
+import { DeleteAccount } from "@/components/profile/delete-account";
 
 export const metadata: Metadata = { title: "Profile settings" };
 
@@ -29,6 +30,7 @@ export default async function ProfileSettingsPage({
       </div>
       <ProfileForm profile={profile} universities={universities} welcome={welcome} />
       <AddUniversityForm />
+      <DeleteAccount />
     </div>
   );
 }

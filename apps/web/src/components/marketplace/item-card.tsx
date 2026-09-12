@@ -63,7 +63,7 @@ export function ItemCard({
             {timeAgo(item.created_at)}
           </p>
         </Link>
-        <PostMenu save={save} path={href} title={item.title} className="-mr-1.5 -mt-1" />
+        <PostMenu save={save} path={href} title={item.title} className="-mr-1.5 -mt-1" report={{ targetType: "item", targetId: item.id }} />
       </div>
     </article>
   );

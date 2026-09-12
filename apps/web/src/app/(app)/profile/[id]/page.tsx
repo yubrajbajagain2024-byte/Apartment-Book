@@ -4,6 +4,7 @@ import { BadgeCheck, Building2, GraduationCap, School, Settings, ShoppingBag, Us
 import {
   getProfile,
   getSavedIds,
+  isBlocked,
   listApartmentsByOwner,
   listItemsBySeller,
   listRoommatePostsByAuthor,
@@ -17,6 +18,7 @@ import { LinkButton } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MessageButton } from "@/components/common/message-button";
+import { BlockButton } from "@/components/common/report-block";
 import { ApartmentCard } from "@/components/apartments/apartment-card";
 import { ItemCard } from "@/components/marketplace/item-card";
 import { RoommateCard } from "@/components/roommates/roommate-card";
@@ -36,6 +38,7 @@ export default async function ProfilePage({ params }: Props) {
   if (!profile) notFound();
 
   const isMe = user?.id === profile.id;
+  const blocked = user && !isMe ? await isBlocked(supabase, user.id, profile.id).catch(() => false) : false;
   const [apartments, posts, items, savedIds] = await Promise.all([
     listApartmentsByOwner(supabase, profile.id, { includeInactive: isMe }),
     listRoommatePostsByAuthor(supabase, profile.id, { includeInactive: isMe }),
@@ -81,7 +84,10 @@ export default async function ProfilePage({ params }: Props) {
                 <Settings className="h-4 w-4" /> Edit profile
               </LinkButton>
             ) : (
-              <MessageButton userId={profile.id} currentUserId={user?.id ?? null} returnTo={`/profile/${profile.id}`} />
+              <>
+                <MessageButton userId={profile.id} currentUserId={user?.id ?? null} returnTo={`/profile/${profile.id}`} />
+                {user ? <BlockButton otherId={profile.id} initialBlocked={blocked} name={profile.full_name} /> : null}
+              </>
             )}
           </div>
         </CardBody>

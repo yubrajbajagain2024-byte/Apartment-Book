@@ -1,0 +1,61 @@
+{
+  "expo": {
+    "name": "Apartment Book",
+    "slug": "apartment-book",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "apartmentbook",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.apartmentbook.app",
+      "buildNumber": "1",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Apartment Book uses the camera so you can film a video tour or take photos of your place and items.",
+        "NSPhotoLibraryUsageDescription": "Apartment Book needs your photo library to add photos and videos to your listings and profile.",
+        "NSMicrophoneUsageDescription": "Apartment Book records audio when you film a video tour.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.apartmentbook.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#1877f2",
+        "foregroundImage": "./assets/images/adaptive-icon.png"
+      },
+      "permissions": ["CAMERA", "RECORD_AUDIO", "READ_MEDIA_IMAGES", "READ_MEDIA_VIDEO"],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#1877f2",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 120
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Apartment Book needs your photo library to add photos and videos to your listings.",
+          "cameraPermission": "Apartment Book uses the camera to film video tours and take photos."
+        }
+      ],
+      ["expo-notifications", { "color": "#1877f2" }],
+      "expo-video",
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {}
+    }
+  }
+}
