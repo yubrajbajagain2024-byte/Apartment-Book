@@ -10,7 +10,6 @@
     "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.apartmentbook.app",
-      "buildNumber": "1",
       "supportsTablet": false,
       "infoPlist": {
         "NSCameraUsageDescription": "Apartment Book uses the camera so you can film a video tour or take photos of your place and items.",
@@ -21,7 +20,6 @@
     },
     "android": {
       "package": "com.apartmentbook.app",
-      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#1877f2",
         "foregroundImage": "./assets/images/adaptive-icon.png"
