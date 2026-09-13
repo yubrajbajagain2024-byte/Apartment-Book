@@ -1,0 +1,25 @@
+# EAS Workflow: production builds for both stores.
+# Runs on every push to main once the GitHub repo is linked to the EAS project
+# (expo.dev → project → GitHub; set the base directory to apps/mobile), or on
+# demand with: npx eas-cli workflow:run create-production-builds.yml
+name: Create production builds
+
+on:
+  push:
+    branches: ["main"]
+    paths: ["apps/mobile/**", "packages/shared/**"]
+
+jobs:
+  build_android:
+    name: Build Android app
+    type: build
+    params:
+      platform: android
+      profile: production
+
+  build_ios:
+    name: Build iOS app
+    type: build
+    params:
+      platform: ios
+      profile: production
