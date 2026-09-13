@@ -26,7 +26,12 @@
         "backgroundColor": "#1877f2",
         "foregroundImage": "./assets/images/adaptive-icon.png"
       },
-      "permissions": ["CAMERA", "RECORD_AUDIO", "READ_MEDIA_IMAGES", "READ_MEDIA_VIDEO"],
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -50,12 +55,19 @@
           "cameraPermission": "Apartment Book uses the camera to film video tours and take photos."
         }
       ],
-      ["expo-notifications", { "color": "#1877f2" }],
+      [
+        "expo-notifications",
+        {
+          "color": "#1877f2"
+        }
+      ],
       "expo-video",
       "expo-secure-store"
     ],
     "extra": {
-      "eas": {}
+      "eas": {
+        "projectId": "4e98759f-dbc5-4217-b4cb-ec8030ffce49"
+      }
     }
   }
 }
