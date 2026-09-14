@@ -1,0 +1,24 @@
+appId: host.exp.Exponent
+---
+- tapOn: "Roommates"
+- extendedWaitUntil:
+    visible: "Room in a quiet 3-bed house"
+    timeout: 30000
+- tapOn: "Message"
+- extendedWaitUntil:
+    visible: "UI Maya"
+    timeout: 30000
+- tapOn: "Aa"
+- inputText: "Hi! Can I come see the room this weekend?"
+- tapOn: "Send"
+- extendedWaitUntil:
+    visible: "Hi! Can I come see the room this weekend?"
+    timeout: 15000
+- hideKeyboard
+- takeScreenshot: 08-chat
+- back
+- tapOn: "Messages"
+- extendedWaitUntil:
+    visible: "UI Maya"
+    timeout: 30000
+- takeScreenshot: 09-messages-list

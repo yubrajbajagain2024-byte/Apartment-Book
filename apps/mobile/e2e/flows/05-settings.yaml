@@ -1,0 +1,14 @@
+appId: host.exp.Exponent
+---
+- tapOn: "Profile"
+- tapOn: "Settings"
+- extendedWaitUntil:
+    visible: "Delete my account"
+    timeout: 30000
+- takeScreenshot: 10-settings
+- back
+- tapOn: "Saved"
+- extendedWaitUntil:
+    visible: "Room in a quiet 3-bed house"
+    timeout: 30000
+- takeScreenshot: 11-saved

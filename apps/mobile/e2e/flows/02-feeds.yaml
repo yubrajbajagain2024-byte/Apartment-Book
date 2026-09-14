@@ -1,0 +1,17 @@
+appId: host.exp.Exponent
+---
+- tapOn: "Home"
+- extendedWaitUntil:
+    visible: "Sunny 2-bed near Sewell Park"
+    timeout: 30000
+- takeScreenshot: 03-home-feed
+- tapOn: "Roommates"
+- extendedWaitUntil:
+    visible: "Room in a quiet 3-bed house"
+    timeout: 30000
+- takeScreenshot: 04-roommates-feed
+- tapOn: "Marketplace"
+- extendedWaitUntil:
+    visible: "Queen mattress, 1 year old"
+    timeout: 30000
+- takeScreenshot: 05-marketplace

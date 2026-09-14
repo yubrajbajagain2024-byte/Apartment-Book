@@ -1,0 +1,25 @@
+# Opens the dev server in Expo Go and logs in with the seeded test user.
+appId: host.exp.Exponent
+env:
+  EMAIL: ${EMAIL}
+  PASSWORD: ${PASSWORD}
+---
+- openLink: exp://127.0.0.1:8081
+- extendedWaitUntil:
+    visible: "Apartment Book"
+    timeout: 90000
+- takeScreenshot: 01-home-signed-out
+- tapOn: "Profile"
+- tapOn: "Log in"
+- tapOn: "you@txstate.edu"
+- inputText: ${EMAIL}
+- tapOn: "••••••••"
+- inputText: ${PASSWORD}
+- hideKeyboard
+- tapOn:
+    text: "Log in"
+    index: 1
+- extendedWaitUntil:
+    visible: "Log out"
+    timeout: 30000
+- takeScreenshot: 02-profile-signed-in

@@ -1,0 +1,27 @@
+appId: host.exp.Exponent
+---
+- tapOn: "Roommates"
+- extendedWaitUntil:
+    visible: "Room in a quiet 3-bed house"
+    timeout: 30000
+- tapOn: "Like"
+- assertVisible: "Liked"
+- tapOn: "Post options"
+- assertVisible: "Save post"
+- assertVisible: "Share post"
+- takeScreenshot: 06-post-menu
+- tapOn: "Save post"
+- tapOn: "Room in a quiet 3-bed house"
+- extendedWaitUntil:
+    visible: "Comments"
+    timeout: 30000
+- assertVisible: "Still available! Message me for a visit."
+- tapOn: "Write a comment…"
+- inputText: "Is the room still free in January?"
+- tapOn: "Post comment"
+- extendedWaitUntil:
+    visible: "Is the room still free in January?"
+    timeout: 15000
+- hideKeyboard
+- takeScreenshot: 07-post-detail-comments
+- back
