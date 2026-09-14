@@ -1,75 +1,60 @@
-# Apartment Book – iOS / Android app
+# Apartment Book – mobile app (Expo)
 
-Expo (React Native) app that reuses `packages/shared` for every query, schema and
-type. Same Supabase backend and the same accounts as the website.
+React Native app for iOS and Android. All data access lives in `packages/shared`
+(the same code the website uses); this app only adds screens.
 
-## Run it locally
+## Run it
 
 ```bash
-npm install                       # from the repo root
+# from the repo root, once
+npm install
+
 cd apps/mobile
-npx expo start                    # then press i (iOS simulator), a (Android) or w (web)
+npx expo start          # press i for the iOS Simulator (needs Xcode), a for Android
+npx expo start --tunnel # phone anywhere with Expo Go: scan the QR code
 ```
 
-`apps/mobile/.env` holds the public Supabase URL/anon key and the website URL
-(the app calls the website's `/api/video/*` routes for video uploads). These are
-public values, safe to commit; row-level security protects the data.
+`.env` holds only public keys (Supabase URL + anon key, website URL). Row-level
+security protects the data, so they are safe to ship.
 
-## What the app does
+## Project state
 
-Home (apartments, video-first feed) · Roommates (with the "Online now" row) ·
-Marketplace · Messages (live chat with sent/delivered/seen receipts, active
-status) · Profile (saved, settings, privacy, terms). Create apartment, roommate
-and marketplace posts with photos and video tours. Like, comment, save, share,
-report, block, delete account. Push tokens are registered on real devices.
+- EAS project: `@apartmentbooks-team/apartment-book` (id in `app.json` → `extra.eas.projectId`)
+- Bundle id / package: `com.apartmentbook.app`
+- Build profiles: `eas.json` (`production` auto-increments build numbers on EAS)
+- Workflow: `.eas/workflows/create-production-builds.yml` builds both platforms on push to `main`
+  once the GitHub repo is linked on expo.dev (set base directory to `apps/mobile`).
+- Backend features the stores require are live: account deletion (Settings), report and
+  block (••• menu on posts, More on profiles), privacy policy and terms (website `/privacy`, `/terms`).
 
-## Ship to the App Store (one-time setup)
+## Ship to the App Store (first time, needs Xcode + Apple Developer account)
 
-1. **Apple Developer Program** ($99/year): https://developer.apple.com/programs/enroll/
-2. **Expo account** (free): https://expo.dev/signup, then `npm i -g eas-cli && eas login`.
-3. Link the project (writes `extra.eas.projectId` into `app.json`):
-   ```bash
-   cd apps/mobile
-   eas init
-   ```
-4. Build for TestFlight / the App Store. EAS creates and manages the signing
-   certificates for you when you sign in with your Apple ID during the first build:
-   ```bash
-   eas build --platform ios --profile production
-   ```
-5. Create the app record in App Store Connect (https://appstoreconnect.apple.com):
-   name **Apartment Book**, bundle id `com.apartmentbook.app`, primary category
-   **Lifestyle** (or Social Networking). Fill in:
-   - Privacy policy URL: `https://apartment-book-vyass.vercel.app/privacy`
-   - Support URL: the website
-   - App privacy answers: collects name, email, photos/videos, user content,
-     messages, device id (push token); not used for tracking, no ads.
-   - Age rating: 17+ is safest for user-generated content with messaging,
-     or 12+ with "Infrequent/Mild" user-generated content.
-   - Screenshots: 6.7" and 6.1" iPhone screenshots (take them in the simulator with
-     `npx expo start --ios`, then ⌘S). Put `_` in the `ascAppId` field of
-     `eas.json` `submit.production.ios` once the app record exists (the numeric App ID).
-6. Submit the build:
-   ```bash
-   eas submit --platform ios --latest
-   ```
-7. In App Store Connect add the build to the version, write the review notes,
-   and give the reviewer a test account. Because sign-ups need a `@txstate.edu`
-   email, create a reviewer account yourself (or temporarily add `apple.com` to
-   the allowed domains in the `universities` table) and put the email/password
-   in the "Sign-in required" review notes.
+```bash
+cd apps/mobile
+npx eas-cli@latest login
+npx eas-cli@latest build --profile production --platform ios   # sign in with your Apple ID when asked
+npx eas-cli@latest submit --platform ios --latest              # uploads to TestFlight / App Store Connect
+```
 
-Later releases: bump nothing by hand, `eas build --platform ios --profile
-production` auto-increments the build number, then `eas submit`.
+Before submitting, in App Store Connect create the app (name "Apartment Book",
+bundle id `com.apartmentbook.app`) and fill the listing: screenshots, description,
+privacy policy URL `https://apartment-book-vyass.vercel.app/privacy`, support URL,
+age rating, and the App Privacy questionnaire (email, name, photos, messages,
+user content; not used for tracking).
 
-## Google Play
+## Ship to Google Play
 
-`eas build --platform android --profile production` produces an `.aab`. Create
-the app in the Play Console, upload the bundle to Internal testing, fill in the
-Data safety form (same answers as above), then promote to production.
+```bash
+npx eas-cli@latest build --profile production --platform android
+npx eas-cli@latest submit --platform android --latest   # needs a Play Console service-account JSON
+```
 
-## Push notifications
+Or upload the `.aab` from the EAS build page by hand under Internal testing.
 
-The app stores an Expo push token per device in `device_push_tokens`. Sending
-pushes (for new messages) needs a small server job that calls the Expo push
-API; that is the next backend step.
+## After the first release
+
+Later builds and submissions run non-interactively, including from CI:
+
+```bash
+EXPO_TOKEN=... npx eas-cli@latest build --platform all --profile production --non-interactive
+```
