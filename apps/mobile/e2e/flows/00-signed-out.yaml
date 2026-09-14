@@ -1,28 +1,36 @@
 # Signed-out tour: the three feeds and the Profile tab's sign-in prompt.
 appId: host.exp.Exponent
 ---
+- extendedWaitUntil:
+    visible: "Continue|Search apartments"
+    timeout: 120000
 - runFlow:
     when:
       visible: "Continue"
     commands:
       - tapOn: "Continue"
+- runFlow:
+    when:
+      visible: "Close"
+    commands:
+      - tapOn: "Close"
 - extendedWaitUntil:
     visible: "Search apartments"
     timeout: 60000
 - takeScreenshot: e2e/screenshots/01-home
-- tapOn: "Roommates"
+- tapOn: "Roommates.*"
 - extendedWaitUntil:
     visible: "Search roommate posts"
     timeout: 30000
 - takeScreenshot: e2e/screenshots/02-roommates
-- tapOn: "Marketplace"
+- tapOn: "Marketplace.*"
 - extendedWaitUntil:
-    visible: "Search mattresses, desks, textbooks…"
+    visible: "Search mattresses.*"
     timeout: 30000
 - takeScreenshot: e2e/screenshots/03-marketplace
-- tapOn: "Messages"
+- tapOn: "Messages.*"
 - assertVisible: "Log in to see your messages"
-- tapOn: "Profile"
+- tapOn: "Profile.*"
 - assertVisible: "Join Apartment Book"
 - takeScreenshot: e2e/screenshots/04-profile-signed-out
 - tapOn: "Create account"

@@ -30,7 +30,7 @@ export function ItemTile({ item }: { item: ItemWithSeller }) {
 }
 
 const styles = StyleSheet.create({
-  tile: { flex: 1, backgroundColor: colors.card, borderRadius: radius.md, overflow: "hidden" },
+  tile: { flex: 1, maxWidth: "49%", backgroundColor: colors.card, borderRadius: radius.md, overflow: "hidden" },
   photo: { aspectRatio: 1, backgroundColor: colors.border },
   price: { position: "absolute", left: 8, bottom: 8, backgroundColor: "rgba(0,0,0,0.65)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   priceText: { color: "#fff", fontWeight: "700", fontSize: 13 },

@@ -83,6 +83,7 @@ function VideoSlide({ media, width, height, playing }: { media: Extract<FeedMedi
     p.muted = !soundOn;
   });
   const [muted, setMuted] = useState(!soundOn);
+  const [hasFrame, setHasFrame] = useState(false);
   useEffect(() => {
     if (playing) player.play();
     else player.pause();
@@ -91,9 +92,10 @@ function VideoSlide({ media, width, height, playing }: { media: Extract<FeedMedi
     player.muted = muted;
   }, [muted, player]);
   return (
-    <View style={{ width, height }}>
-      {media.poster ? <Image source={{ uri: media.poster }} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
-      <VideoView player={player} style={{ width, height }} contentFit="cover" nativeControls={false} />
+    <View style={{ width, height, backgroundColor: "#000" }}>
+      <VideoView player={player} style={{ width, height }} contentFit="cover" nativeControls={false} onFirstFrameRender={() => setHasFrame(true)} />
+      {/* Poster stays on top until the first video frame is painted, so the slide is never a black box. */}
+      {media.poster && !hasFrame ? <Image source={{ uri: media.poster }} style={StyleSheet.absoluteFill} contentFit="cover" pointerEvents="none" /> : null}
       <Pressable
         onPress={() => {
           soundOn = muted;
