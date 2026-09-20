@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { getOrCreateDirectConversation, reportContent, timeAgo, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType, REPORT_REASONS } from "@apartment-book/shared";
+import { getOrCreateDirectConversation, reportContent, timeAgo, type FeedMedia, type PostEngagement, type ReportReason, type PostTargetType, REPORT_REASONS } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { colors, radius } from "@/lib/theme";
@@ -12,13 +12,14 @@ import { EngagementBar, EngagementSummary, useLike, useSave } from "./engagement
 import { PhotoCarousel } from "./photo-carousel";
 
 export type PostCardProps = {
-  targetType: SavedTargetType;
+  targetType: PostTargetType;
   targetId: string;
   /** Web path, e.g. /roommates/abc, used for sharing and for opening the detail screen. */
   path: string;
   poster: { id: string; name: string; avatarUrl: string | null; verified: boolean };
   subtitle?: string;
-  title: string;
+  /** Listings have a title; Home-feed posts do not. */
+  title?: string;
   lead?: string;
   description?: string | null;
   media: FeedMedia[];
@@ -53,7 +54,7 @@ export function PostCard(props: PostCardProps) {
     if (own) return router.push("/(tabs)/messages");
     try {
       const id = await getOrCreateDirectConversation(supabase, poster.id);
-      router.push({ pathname: "/messages/[id]", params: { id, prefill: `Hi ${poster.name.split(" ")[0]}! I saw your post "${title}" and I'd like to chat.`, targetType: props.targetType, targetId: props.targetId } });
+      router.push({ pathname: "/messages/[id]", params: { id, prefill: title ? `Hi ${poster.name.split(" ")[0]}! I saw your post "${title}" and I'd like to chat.` : `Hi ${poster.name.split(" ")[0]}! I saw your post and I'd like to chat.`, ...(props.targetType === "post" ? {} : { targetType: props.targetType, targetId: props.targetId }) } });
     } catch (e) {
       alert(e instanceof Error ? e.message : "Could not open the chat");
     }
@@ -76,13 +77,13 @@ export function PostCard(props: PostCardProps) {
   function menu() {
     show([
       { label: save.saved ? "Unsave post" : "Save post", icon: save.saved ? "bookmark" : "bookmark-outline", onPress: () => void save.toggle() },
-      { label: "Share post", icon: "share-outline", onPress: () => void Share.share({ message: `${title} · ${SITE_URL}${path}`, url: `${SITE_URL}${path}` }) },
+      { label: "Share post", icon: "share-outline", onPress: () => void Share.share({ message: `${title ?? "Apartment Book"} · ${SITE_URL}${path}`, url: `${SITE_URL}${path}` }) },
       ...(own ? [] : [{ label: "Report post", icon: "flag-outline" as const, destructive: true, onPress: report }]),
     ]);
   }
 
   return (
-    <View style={styles.card} accessibilityLabel={`Post: ${title}`}>
+    <View style={styles.card} accessibilityLabel={`Post: ${title ?? description?.slice(0, 40) ?? "post"}`}>
       <View style={styles.header}>
         <Pressable onPress={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })}>
           <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.id} />
@@ -105,7 +106,7 @@ export function PostCard(props: PostCardProps) {
       </View>
 
       <Pressable onPress={() => openDetail()} style={styles.body}>
-        <Text style={styles.title}>{title}</Text>
+        {title ? <Text style={styles.title}>{title}</Text> : null}
         {lead ? <Text style={styles.lead}>{lead}</Text> : null}
         {text ? (
           <Text style={styles.description}>

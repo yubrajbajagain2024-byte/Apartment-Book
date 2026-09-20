@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { getPostEngagement, likePost, toggleSaved, unlikePost, type PostEngagement, type SavedTargetType } from "@apartment-book/shared";
+import { getPostEngagement, likePost, toggleSaved, unlikePost, type PostEngagement, type PostTargetType } from "@apartment-book/shared";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
 
-export function useLike(targetType: SavedTargetType, targetId: string, initial: PostEngagement | undefined, userId: string | null, onNeedLogin: () => void) {
+export function useLike(targetType: PostTargetType, targetId: string, initial: PostEngagement | undefined, userId: string | null, onNeedLogin: () => void) {
   const [state, setState] = useState({ liked: initial?.likedByMe ?? false, likes: initial?.likes ?? 0 });
   const [pending, setPending] = useState(false);
   const toggle = useCallback(async () => {
@@ -28,7 +28,7 @@ export function useLike(targetType: SavedTargetType, targetId: string, initial: 
   return { ...state, pending, toggle };
 }
 
-export function useSave(targetType: SavedTargetType, targetId: string, initial: boolean, userId: string | null, onNeedLogin: () => void) {
+export function useSave(targetType: PostTargetType, targetId: string, initial: boolean, userId: string | null, onNeedLogin: () => void) {
   const [saved, setSaved] = useState(initial);
   const toggle = useCallback(async () => {
     if (!userId) return onNeedLogin();
