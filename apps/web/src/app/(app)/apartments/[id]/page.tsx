@@ -71,7 +71,7 @@ export default async function ApartmentPage({ params, searchParams }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Link href="/" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
+      <Link href="/apartments" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
         <ArrowLeft className="h-4 w-4" /> Back to apartments
       </Link>
 

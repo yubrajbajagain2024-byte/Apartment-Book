@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MessageCircle } from "lucide-react";
+import type { PostTargetType } from "@apartment-book/shared";
 import { openDirectConversationAction, startDirectConversationAction } from "@/lib/actions/messages";
 import { cn } from "@/lib/utils";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -31,13 +32,14 @@ export function MessageButton({
   className?: string;
   /** "action" renders a compact icon + label for post action bars. */
   variant?: "primary" | "action";
-  /** The listing this button sits on, so the contact is counted in its stats. */
-  target?: { type: "apartment" | "item" | "roommate"; id: string };
+  /** The listing this button sits on, so the contact is counted in its stats. Home-feed posts have no contact stats. */
+  target?: { type: PostTargetType; id: string };
 }) {
   const dock = useChatDock();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   if (currentUserId === userId) return null;
+  const listing = target && target.type !== "post" ? { type: target.type, id: target.id } : null;
 
   const actionClasses = "inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-gray-800 hover:bg-gray-100 disabled:opacity-60";
 
@@ -60,7 +62,7 @@ export function MessageButton({
     if (!dock || !desktop) return; // let the form submit and navigate
     e.preventDefault();
     startTransition(async () => {
-      const result = await openDirectConversationAction(userId, target ?? null);
+      const result = await openDirectConversationAction(userId, listing);
       if (result.conversationId) dock.openChat(result.conversationId, { prefill });
       else router.push(`/messages`);
     });
@@ -72,8 +74,8 @@ export function MessageButton({
       <input type="hidden" name="userId" value={userId} />
       <input type="hidden" name="returnTo" value={returnTo} />
       {prefill ? <input type="hidden" name="prefill" value={prefill} /> : null}
-      {target ? <input type="hidden" name="targetType" value={target.type} /> : null}
-      {target ? <input type="hidden" name="targetId" value={target.id} /> : null}
+      {listing ? <input type="hidden" name="targetType" value={listing.type} /> : null}
+      {listing ? <input type="hidden" name="targetId" value={listing.id} /> : null}
       {variant === "action" ? (
         <button type="submit" onClick={onClick} disabled={pending} className={cn(actionClasses, className)}>
           <MessageCircle className="h-5 w-5" /> {label}

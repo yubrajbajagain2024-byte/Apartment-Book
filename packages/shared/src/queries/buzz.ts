@@ -69,30 +69,30 @@ export async function getBuzz(supabase: Client, id: string): Promise<BuzzPost | 
   return row ? toBuzzPost(row) : null;
 }
 
-/** Post anonymously. Returns the new thread's id. Upload photos with `kind: "buzz"` after re-encoding them. */
-export async function createBuzz(supabase: Client, userId: string, input: BuzzPostInput): Promise<string> {
-  const { data, error } = await supabase
-    .from("buzz_posts")
-    .insert({
-      author_id: userId,
-      topic: input.topic,
-      title: input.title,
-      body: input.body,
-      university_id: input.universityId ?? null,
-      images: input.images,
-      image_meta: input.imageMeta.filter((m) => input.images.includes(m.url)) as unknown as Json,
-      videos: input.videos as unknown as Json,
-    })
-    .select("id")
-    .single();
+/**
+ * Post anonymously. Returns the new thread's id. Upload photos with `kind: "buzz"`
+ * after re-encoding them: the server rejects photos stored anywhere else. Other
+ * people see the thread a random moment (up to a few minutes) later; you see it at once.
+ */
+export async function createBuzz(supabase: Client, _userId: string, input: BuzzPostInput): Promise<string> {
+  const { data, error } = await supabase.rpc("buzz_create", {
+    p_topic: input.topic,
+    p_title: input.title,
+    p_body: input.body,
+    p_university_id: input.universityId ?? null,
+    p_images: input.images,
+    p_image_meta: input.imageMeta.filter((m) => input.images.includes(m.url)) as unknown as Json,
+    p_videos: input.videos as unknown as Json,
+  });
   if (error) throw error;
-  return data.id;
+  return data;
 }
 
 /** Only works on your own threads. */
 export async function deleteBuzz(supabase: Client, id: string): Promise<void> {
-  const { error } = await supabase.from("buzz_posts").delete().eq("id", id);
+  const { data, error } = await supabase.from("buzz_posts").delete().eq("id", id).select("id");
   if (error) throw error;
+  if (!data || data.length === 0) throw new Error("You can only delete your own threads.");
 }
 
 /** 1 = upvote, -1 = downvote, 0 = clear. Returns the fresh score and your vote. */
@@ -109,9 +109,9 @@ export async function listBuzzComments(supabase: Client, postId: string): Promis
   return (data ?? []).map((c) => ({ id: c.id, parentId: c.parent_id, body: c.body, createdAt: c.created_at, alias: c.alias, isOp: c.is_op, isMine: c.is_mine }));
 }
 
-/** Reply anonymously. Re-fetch the list afterwards to get the reply with its alias. */
-export async function addBuzzComment(supabase: Client, userId: string, postId: string, body: string, parentId?: string | null): Promise<void> {
-  const { error } = await supabase.from("buzz_comments").insert({ post_id: postId, author_id: userId, body, parent_id: parentId ?? null });
+/** Reply anonymously. Re-fetch the list afterwards to get the reply with its alias (you see your own reply at once). */
+export async function addBuzzComment(supabase: Client, _userId: string, postId: string, body: string, parentId?: string | null): Promise<void> {
+  const { error } = await supabase.rpc("buzz_reply", { p_post_id: postId, p_body: body, p_parent_id: parentId ?? null });
   if (error) throw error;
 }
 
@@ -121,7 +121,12 @@ export async function deleteBuzzComment(supabase: Client, commentId: string): Pr
   if (error) throw error;
 }
 
-/** "Hide everything from this person" without learning who they are. Pass the thread or the reply. */
+/**
+ * Hide a thread (pass `postId`) or one person's replies inside a thread (pass `commentId`),
+ * without learning who they are. Deliberately scoped to that one thread: a campus-wide
+ * hide would make all of someone's threads vanish together and reveal they share an author.
+ * Blocking a profile never affects Buzz, for the same reason.
+ */
 export async function muteBuzzAuthor(supabase: Client, target: { postId: string } | { commentId: string }): Promise<void> {
   const { error } = await supabase.rpc("buzz_mute", "postId" in target ? { p_post_id: target.postId } : { p_comment_id: target.commentId });
   if (error) throw error;

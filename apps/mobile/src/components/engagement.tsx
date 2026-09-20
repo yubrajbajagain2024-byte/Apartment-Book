@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { getPostEngagement, likePost, toggleSaved, unlikePost, type PostEngagement, type PostTargetType } from "@apartment-book/shared";
@@ -8,10 +8,19 @@ import { colors } from "@/lib/theme";
 export function useLike(targetType: PostTargetType, targetId: string, initial: PostEngagement | undefined, userId: string | null, onNeedLogin: () => void) {
   const [state, setState] = useState({ liked: initial?.likedByMe ?? false, likes: initial?.likes ?? 0 });
   const [pending, setPending] = useState(false);
+  const busy = useRef(false);
+  // Feeds load the counts after the cards are already on screen: adopt them when they arrive (but never over a tap in progress).
+  const has = initial !== undefined;
+  const initialLiked = initial?.likedByMe ?? false;
+  const initialLikes = initial?.likes ?? 0;
+  useEffect(() => {
+    if (has && !busy.current) setState({ liked: initialLiked, likes: initialLikes });
+  }, [has, initialLiked, initialLikes]);
   const toggle = useCallback(async () => {
     if (!userId) return onNeedLogin();
     if (pending) return;
     const next = !state.liked;
+    busy.current = true;
     setPending(true);
     setState((s) => ({ liked: next, likes: Math.max(0, s.likes + (next ? 1 : -1)) }));
     try {
@@ -22,6 +31,7 @@ export function useLike(targetType: PostTargetType, targetId: string, initial: P
     } catch {
       setState((s) => ({ liked: !next, likes: Math.max(0, s.likes + (next ? -1 : 1)) }));
     } finally {
+      busy.current = false;
       setPending(false);
     }
   }, [userId, pending, state.liked, targetType, targetId, onNeedLogin]);
@@ -30,13 +40,22 @@ export function useLike(targetType: PostTargetType, targetId: string, initial: P
 
 export function useSave(targetType: PostTargetType, targetId: string, initial: boolean, userId: string | null, onNeedLogin: () => void) {
   const [saved, setSaved] = useState(initial);
+  const busy = useRef(false);
+  // The saved list arrives after the first render of a feed card.
+  useEffect(() => {
+    if (!busy.current) setSaved(initial);
+  }, [initial]);
   const toggle = useCallback(async () => {
     if (!userId) return onNeedLogin();
+    if (busy.current) return;
+    busy.current = true;
     setSaved((s) => !s);
     try {
       setSaved(await toggleSaved(supabase, userId, targetType, targetId));
     } catch {
       setSaved((s) => !s);
+    } finally {
+      busy.current = false;
     }
   }, [userId, targetType, targetId, onNeedLogin]);
   return { saved, toggle };

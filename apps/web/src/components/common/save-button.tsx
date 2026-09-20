@@ -3,7 +3,7 @@
 import { useCallback, useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
 import { Bookmark } from "lucide-react";
-import type { SavedTargetType } from "@apartment-book/shared";
+import type { PostTargetType } from "@apartment-book/shared";
 import { toggleSavedAction } from "@/lib/actions/saved";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +15,7 @@ export type SaveController = {
 };
 
 /** Optimistic save/unsave state shared by the bookmark button and double-tap. */
-export function useSaveToggle(targetType: SavedTargetType, targetId: string, initialSaved: boolean, signedIn: boolean): SaveController {
+export function useSaveToggle(targetType: PostTargetType, targetId: string, initialSaved: boolean, signedIn: boolean): SaveController {
   const [saved, setSaved] = useState(initialSaved);
   const [optimistic, setOptimistic] = useOptimistic(saved);
   const [pending, startTransition] = useTransition();
@@ -79,7 +79,7 @@ export function SaveButton({
   size = "md",
   className,
 }: {
-  targetType: SavedTargetType;
+  targetType: PostTargetType;
   targetId: string;
   initialSaved: boolean;
   signedIn: boolean;

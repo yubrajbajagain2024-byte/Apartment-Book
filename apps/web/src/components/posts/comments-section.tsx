@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { SendHorizonal, Trash2 } from "lucide-react";
-import { listComments, timeAgo, type PostCommentWithAuthor, type SavedTargetType } from "@apartment-book/shared";
+import { listComments, timeAgo, type PostCommentWithAuthor, type PostTargetType } from "@apartment-book/shared";
 import { addCommentAction, deleteCommentAction } from "@/lib/actions/engagement";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,7 @@ export function CommentsSection({
   initialComments,
   className,
 }: {
-  targetType: SavedTargetType;
+  targetType: PostTargetType;
   targetId: string;
   /** Count from the feed, so "View all N comments" is right before anything loads. */
   totalComments: number;

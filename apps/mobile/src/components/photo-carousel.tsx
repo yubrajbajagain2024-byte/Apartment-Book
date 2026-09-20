@@ -6,8 +6,11 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import type { FeedMedia } from "@apartment-book/shared";
 import { colors } from "@/lib/theme";
 
-/** Swipeable photos and videos, one slide at a time, with a 1/3 counter and dots. */
-export function PhotoCarousel({ media, aspect = 4 / 5, onPress, active = true }: { media: FeedMedia[]; aspect?: number; onPress?: () => void; active?: boolean }) {
+/**
+ * Swipeable photos and videos, one slide at a time, with a 1/3 counter and dots.
+ * `videoLabel` is the pill shown when the first slide is a video: "Video tour" suits listings; pass another word, or null for no pill.
+ */
+export function PhotoCarousel({ media, aspect = 4 / 5, onPress, active = true, videoLabel = "Video tour" }: { media: FeedMedia[]; aspect?: number; onPress?: () => void; active?: boolean; videoLabel?: string | null }) {
   const [width, setWidth] = useState(0);
   const [index, setIndex] = useState(0);
   const listRef = useRef<FlatList<FeedMedia>>(null);
@@ -65,10 +68,10 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, active = true }:
           </View>
         </>
       ) : null}
-      {media[0]?.type === "video" ? (
+      {videoLabel && media[0]?.type === "video" ? (
         <View style={styles.videoBadge}>
           <Ionicons name="videocam" size={13} color="#fff" />
-          <Text style={styles.videoBadgeText}>Video tour</Text>
+          <Text style={styles.videoBadgeText}>{videoLabel}</Text>
         </View>
       ) : null}
     </View>

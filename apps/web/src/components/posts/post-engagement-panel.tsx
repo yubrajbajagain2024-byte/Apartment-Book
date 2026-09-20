@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PostCommentWithAuthor, PostEngagement, SavedTargetType } from "@apartment-book/shared";
+import type { PostCommentWithAuthor, PostEngagement, PostTargetType } from "@apartment-book/shared";
 import { CommentsSection } from "./comments-section";
 import { EngagementBar, EngagementSummary } from "./engagement-bar";
 import { useLikeToggle } from "./like-button";
@@ -16,7 +16,7 @@ export function PostEngagementPanel({
   signedIn,
   currentUser,
 }: {
-  targetType: SavedTargetType;
+  targetType: PostTargetType;
   targetId: string;
   ownerId: string;
   engagement: PostEngagement;

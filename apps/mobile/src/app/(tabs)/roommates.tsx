@@ -8,7 +8,7 @@ import { Badge, Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { useEngagement } from "./index";
+import { useEngagement } from "@/lib/use-engagement";
 
 export default function RoommatesScreen() {
   const { user, profile } = useSession();

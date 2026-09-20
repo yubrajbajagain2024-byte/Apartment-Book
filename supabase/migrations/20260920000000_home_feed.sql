@@ -26,8 +26,9 @@ create table if not exists public.feed_posts (
   constraint feed_posts_author_id_fkey foreign key (author_id) references public.profiles (id) on delete cascade,
   constraint feed_posts_university_id_fkey foreign key (university_id) references public.universities (id) on delete set null,
   constraint feed_posts_not_empty check (char_length(btrim(body)) > 0 or cardinality(images) > 0 or jsonb_array_length(videos) > 0),
-  constraint feed_posts_reel_has_video check (kind <> 'reel' or jsonb_array_length(videos) > 0),
-  constraint feed_posts_max_images check (cardinality(images) <= 12)
+  constraint feed_posts_reel_has_video check (kind <> 'reel' or jsonb_array_length(videos) = 1),
+  constraint feed_posts_max_images check (cardinality(images) <= 12),
+  constraint feed_posts_json_shapes check (jsonb_typeof(videos) = 'array' and jsonb_typeof(image_meta) = 'array' and jsonb_array_length(videos) <= 3)
 );
 create index if not exists feed_posts_kind_created_idx on public.feed_posts (kind, created_at desc);
 create index if not exists feed_posts_author_idx on public.feed_posts (author_id, created_at desc);
@@ -35,6 +36,26 @@ create index if not exists feed_posts_author_idx on public.feed_posts (author_id
 drop trigger if exists feed_posts_set_has_video on public.feed_posts;
 create trigger feed_posts_set_has_video before insert or update of videos on public.feed_posts
   for each row execute function public.set_has_video();
+-- The server owns the clock and the identity columns: a client cannot post into
+-- the future, bump an old post to the top, or turn a post into a reel later.
+create or replace function public.feed_posts_guard()
+returns trigger
+language plpgsql
+as $$
+begin
+  if tg_op = 'INSERT' then
+    new.created_at := now();
+    new.updated_at := now();
+  else
+    new.created_at := old.created_at;
+    new.kind := old.kind;
+    new.author_id := old.author_id;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists feed_posts_guard on public.feed_posts;
+create trigger feed_posts_guard before insert or update on public.feed_posts for each row execute function public.feed_posts_guard();
 drop trigger if exists feed_posts_set_updated_at on public.feed_posts;
 create trigger feed_posts_set_updated_at before update on public.feed_posts
   for each row execute function public.set_updated_at();
@@ -90,6 +111,47 @@ as $$
   end || p_target_id;
 $$;
 
+-- Views are counted for posts too (never the author's own visits).
+create or replace function public.record_view(p_target_type text, p_target_id uuid, p_viewer_key text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_key text;
+  v_owner uuid;
+begin
+  if p_target_type not in ('apartment', 'item', 'roommate', 'post') or p_target_id is null then
+    return;
+  end if;
+  v_owner := public.listing_owner(p_target_type, p_target_id);
+  if v_owner is null or (auth.uid() is not null and v_owner = auth.uid()) then
+    return;
+  end if;
+  v_key := coalesce(auth.uid()::text, nullif(left(p_viewer_key, 64), ''));
+  if v_key is null then
+    return;
+  end if;
+  insert into public.post_views (target_type, target_id, viewer_id, viewer_key)
+  values (p_target_type, p_target_id, auth.uid(), v_key)
+  on conflict do nothing;
+end;
+$$;
+
+-- People you blocked (or who blocked you) cannot like or comment on your posts,
+-- so they cannot reach you through notifications either.
+drop policy if exists "post_likes_insert_own" on public.post_likes;
+create policy "post_likes_insert_own" on public.post_likes for insert to authenticated
+  with check (user_id = auth.uid() and not public.is_blocked_either_way(public.listing_owner(target_type, target_id)));
+drop policy if exists "post_comments_insert_own" on public.post_comments;
+create policy "post_comments_insert_own" on public.post_comments for insert to authenticated
+  with check (user_id = auth.uid() and not public.is_blocked_either_way(public.listing_owner(target_type, target_id)));
+
+-- notify() is for triggers only. It used to be callable through the API, which
+-- let anyone forge a notification to anyone.
+revoke all on function public.notify(uuid, uuid, text, text, text, text, jsonb, text) from public, anon, authenticated;
+
 -- Likes and comments disappear with the post.
 create or replace function public.cleanup_post_engagement()
 returns trigger
@@ -101,6 +163,7 @@ begin
   delete from public.post_likes where target_type = 'post' and target_id = old.id;
   delete from public.post_comments where target_type = 'post' and target_id = old.id;
   delete from public.saved_listings where target_type = 'post' and target_id = old.id;
+  delete from public.post_views where target_type = 'post' and target_id = old.id;
   return old;
 end;
 $$;
@@ -152,7 +215,8 @@ as $$
   join public.profiles pr on pr.id = s.author_id
   left join public.universities u on u.id = pr.university_id
   where (p_university_id is null or s.university_id = p_university_id)
-  order by s.created_at desc
+    and jsonb_typeof(s.video) = 'object'
+  order by s.created_at desc, s.source_id desc
   limit least(greatest(coalesce(p_limit, 10), 1), 30)
   offset greatest(coalesce(p_offset, 0), 0);
 $$;
@@ -166,9 +230,9 @@ $$;
 drop policy if exists "media_select" on public.media;
 create policy "media_select" on public.media for select using (owner_id = auth.uid());
 
--- (2) Buzz photos live under uploads/buzz/anon/… (no user id in the URL).
---     storage.objects.owner still records the uploader privately, so people can
---     delete their own files.
+-- (2) Buzz photos live under uploads/buzz/anon/… (no user id in the URL). The
+--     uploader is recorded privately by Storage so people can delete their own
+--     files, and the folder cannot be listed by others (file names carry upload times).
 drop policy if exists "uploads_insert_buzz" on storage.objects;
 create policy "uploads_insert_buzz" on storage.objects
   for insert to authenticated
@@ -176,19 +240,32 @@ create policy "uploads_insert_buzz" on storage.objects
 drop policy if exists "uploads_delete_buzz_own" on storage.objects;
 create policy "uploads_delete_buzz_own" on storage.objects
   for delete to authenticated
-  using (bucket_id = 'uploads' and (storage.foldername(name))[1] = 'buzz' and owner = auth.uid());
+  using (bucket_id = 'uploads' and (storage.foldername(name))[1] = 'buzz' and (owner = auth.uid() or owner_id = auth.uid()::text));
+drop policy if exists "uploads_public_read" on storage.objects;
+create policy "uploads_public_read" on storage.objects
+  for select using (
+    bucket_id = 'uploads'
+    and ((storage.foldername(name))[1] is distinct from 'buzz' or owner = auth.uid() or owner_id = auth.uid()::text)
+  );
 
--- (3) A secret salt for per-thread aliases. Without it, anyone could hash every
---     public profile id against a post id and find the author. RLS on, no policies.
+-- (3) Settings nobody can read through the API (RLS on, no policies, no grants):
+--     * salt: without it, anyone could hash every public profile id against a
+--       thread id and find the author from the alias.
+--     * jitter: threads and replies become visible a random moment after they were
+--       written, and only that later time is ever shown. This blunts "who was
+--       online at exactly 21:04?" timing guesses.
 create table if not exists public.buzz_secrets (
   id int primary key default 1 check (id = 1),
-  salt text not null default replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '')
+  salt text not null default replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''),
+  thread_jitter_seconds int not null default 180,
+  reply_jitter_seconds int not null default 45,
+  min_campus_size int not null default 20
 );
 alter table public.buzz_secrets enable row level security;
 insert into public.buzz_secrets (id) values (1) on conflict (id) do nothing;
 revoke all on public.buzz_secrets from anon, authenticated;
 
--- "Student 4821": stable for one person inside one thread, different in every other thread.
+-- "Student 48213": stable for one person inside one thread, different in every other thread.
 create or replace function public.buzz_alias(p_author uuid, p_post uuid)
 returns text
 language sql
@@ -196,7 +273,7 @@ stable
 security definer
 set search_path = public
 as $$
-  select 'Student ' || ((('x' || substr(encode(sha256(convert_to((select salt from public.buzz_secrets where id = 1) || p_author::text || p_post::text, 'UTF8')), 'hex'), 1, 6))::bit(24)::int % 9000) + 1000)::text;
+  select 'Student ' || ((('x' || substr(encode(sha256(convert_to((select salt from public.buzz_secrets where id = 1) || p_author::text || p_post::text, 'UTF8')), 'hex'), 1, 7))::bit(28)::int % 90000) + 10000)::text;
 $$;
 revoke all on function public.buzz_alias(uuid, uuid) from public, anon, authenticated;
 
@@ -211,16 +288,19 @@ create table if not exists public.buzz_posts (
   title text not null check (char_length(btrim(title)) between 3 and 160),
   body text not null default '' check (char_length(body) <= 6000),
   images text[] not null default '{}' check (cardinality(images) <= 6),
-  image_meta jsonb not null default '[]'::jsonb,
-  videos jsonb not null default '[]'::jsonb,
+  image_meta jsonb not null default '[]'::jsonb check (jsonb_typeof(image_meta) = 'array'),
+  videos jsonb not null default '[]'::jsonb check (jsonb_typeof(videos) = 'array' and jsonb_array_length(videos) <= 1),
   score int not null default 0,
   comment_count int not null default 0,
+  -- created_at is the real time and never leaves the database; visible_at is what people see.
   created_at timestamptz not null default now(),
+  visible_at timestamptz not null default now(),
   constraint buzz_posts_author_id_fkey foreign key (author_id) references public.profiles (id) on delete cascade,
   constraint buzz_posts_university_id_fkey foreign key (university_id) references public.universities (id) on delete set null
 );
-create index if not exists buzz_posts_created_idx on public.buzz_posts (created_at desc);
-create index if not exists buzz_posts_topic_idx on public.buzz_posts (topic, created_at desc);
+create index if not exists buzz_posts_visible_idx on public.buzz_posts (visible_at desc);
+create index if not exists buzz_posts_topic_idx on public.buzz_posts (topic, visible_at desc);
+create index if not exists buzz_posts_author_idx on public.buzz_posts (author_id, created_at desc);
 
 create table if not exists public.buzz_votes (
   post_id uuid not null references public.buzz_posts (id) on delete cascade,
@@ -236,17 +316,24 @@ create table if not exists public.buzz_comments (
   author_id uuid not null references public.profiles (id) on delete cascade,
   parent_id uuid references public.buzz_comments (id) on delete cascade,
   body text not null check (char_length(btrim(body)) between 1 and 2000),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  visible_at timestamptz not null default now(),
+  -- Arrival order, to list replies written in the same instant in the order they came.
+  seq bigint generated always as identity
 );
-create index if not exists buzz_comments_post_idx on public.buzz_comments (post_id, created_at);
+create index if not exists buzz_comments_post_idx on public.buzz_comments (post_id, visible_at);
+create index if not exists buzz_comments_author_idx on public.buzz_comments (author_id, created_at desc);
 
--- "Hide everything from whoever wrote this." Never readable, so it cannot be
--- used to learn who the author was.
+-- "Hide this person" is scoped to ONE thread. A campus-wide hide would make all
+-- of someone's threads vanish together and so reveal which threads share an
+-- author; blocking is not applied to Buzz at all for the same reason (block a
+-- suspect, watch a thread disappear). Never readable through the API.
 create table if not exists public.buzz_mutes (
   user_id uuid not null references public.profiles (id) on delete cascade,
+  post_id uuid not null references public.buzz_posts (id) on delete cascade,
   muted_id uuid not null references public.profiles (id) on delete cascade,
   created_at timestamptz not null default now(),
-  primary key (user_id, muted_id)
+  primary key (user_id, post_id, muted_id)
 );
 
 alter table public.buzz_posts enable row level security;
@@ -255,25 +342,22 @@ alter table public.buzz_comments enable row level security;
 alter table public.buzz_mutes enable row level security;
 revoke all on public.buzz_mutes from anon, authenticated;
 
--- Direct table access shows you only your own rows. Everyone else's content
--- comes from the functions below, without author_id.
+-- Direct table access shows you only your own rows, and nothing can be written
+-- directly: threads, replies and votes go through the functions below, which
+-- validate, rate-limit and stamp the time themselves.
 drop policy if exists "buzz_posts_select_own" on public.buzz_posts;
 create policy "buzz_posts_select_own" on public.buzz_posts for select to authenticated using (author_id = auth.uid());
 drop policy if exists "buzz_posts_insert_own" on public.buzz_posts;
-create policy "buzz_posts_insert_own" on public.buzz_posts for insert to authenticated
-  with check (author_id = auth.uid() and score = 0 and comment_count = 0);
 drop policy if exists "buzz_posts_delete_own" on public.buzz_posts;
 create policy "buzz_posts_delete_own" on public.buzz_posts for delete to authenticated using (author_id = auth.uid());
-
 drop policy if exists "buzz_votes_own" on public.buzz_votes;
 create policy "buzz_votes_own" on public.buzz_votes for select to authenticated using (user_id = auth.uid());
-
 drop policy if exists "buzz_comments_select_own" on public.buzz_comments;
 create policy "buzz_comments_select_own" on public.buzz_comments for select to authenticated using (author_id = auth.uid());
 drop policy if exists "buzz_comments_insert_own" on public.buzz_comments;
-create policy "buzz_comments_insert_own" on public.buzz_comments for insert to authenticated with check (author_id = auth.uid());
 
--- Counters
+-- Counter (used for ranking only; the number people see is counted live so a
+-- reply that is not visible yet does not show up in it).
 create or replace function public.buzz_sync_comment_count()
 returns trigger
 language plpgsql
@@ -292,7 +376,8 @@ $$;
 drop trigger if exists buzz_comments_count on public.buzz_comments;
 create trigger buzz_comments_count after insert or delete on public.buzz_comments for each row execute function public.buzz_sync_comment_count();
 
--- A reply notifies the thread's author, anonymously (no actor).
+-- A reply notifies the thread's author, anonymously (no actor), unless the
+-- author hid that person in this thread.
 create or replace function public.buzz_notify_reply()
 returns trigger
 language plpgsql
@@ -306,6 +391,9 @@ begin
   if v_owner is null or v_owner = new.author_id then
     return new;
   end if;
+  if exists (select 1 from public.buzz_mutes m where m.user_id = v_owner and m.post_id = new.post_id and m.muted_id = new.author_id) then
+    return new;
+  end if;
   perform public.notify(v_owner, null, 'comment', 'Someone replied to your Buzz post', left(new.body, 140), '/buzz/' || new.post_id,
     jsonb_build_object('target_type', 'buzz', 'target_id', new.post_id), null);
   return new;
@@ -315,21 +403,32 @@ drop trigger if exists buzz_comments_notify on public.buzz_comments;
 create trigger buzz_comments_notify after insert on public.buzz_comments for each row execute function public.buzz_notify_reply();
 
 -- -----------------------------------------------------------------------------
--- Buzz API (the only way to read other people's Buzz content)
+-- Buzz API (the only way to read other people's Buzz content, and the only way to write)
 -- -----------------------------------------------------------------------------
-create or replace function public.buzz_hidden(p_author uuid)
+drop function if exists public.buzz_hidden(uuid);
+create or replace function public.buzz_hidden(p_author uuid, p_post uuid)
 returns boolean
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select auth.uid() is not null and (
-    public.is_blocked_either_way(p_author)
-    or exists (select 1 from public.buzz_mutes m where m.user_id = auth.uid() and m.muted_id = p_author)
-  );
+  select auth.uid() is not null
+    and exists (select 1 from public.buzz_mutes m where m.user_id = auth.uid() and m.post_id = p_post and m.muted_id = p_author);
 $$;
-revoke all on function public.buzz_hidden(uuid) from public, anon, authenticated;
+revoke all on function public.buzz_hidden(uuid, uuid) from public, anon, authenticated;
+
+-- Can the caller see this thread right now? (published, or their own; not hidden by them)
+create or replace function public.buzz_can_see(p_post public.buzz_posts)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select (p_post.visible_at <= now() or p_post.author_id = auth.uid()) and not public.buzz_hidden(p_post.author_id, p_post.id);
+$$;
+revoke all on function public.buzz_can_see(public.buzz_posts) from public, anon, authenticated;
 
 drop function if exists public.buzz_feed(uuid, text, text, int, int, text);
 create or replace function public.buzz_feed(
@@ -349,21 +448,27 @@ stable
 security definer
 set search_path = public
 as $$
+  with q as (select nullif(regexp_replace(btrim(coalesce(p_q, '')), '[%_\\]', '', 'g'), '') as term)
   select
     b.id, b.topic, b.title, b.body, b.images, b.image_meta, b.videos, b.university_id,
-    b.score, b.comment_count, b.created_at,
+    b.score,
+    (select count(*)::int from public.buzz_comments c where c.post_id = b.id and (c.visible_at <= now() or c.author_id = auth.uid()) and not public.buzz_hidden(c.author_id, b.id)),
+    least(b.visible_at, now()),
     coalesce((select v.value from public.buzz_votes v where v.post_id = b.id and v.user_id = auth.uid()), 0)::smallint,
     coalesce(b.author_id = auth.uid(), false),
     public.buzz_alias(b.author_id, b.id)
-  from public.buzz_posts b
-  where (p_university_id is null or b.university_id = p_university_id)
+  from public.buzz_posts b, q
+  -- Threads without a campus (small campuses, see buzz_create) show up everywhere.
+  where (p_university_id is null or b.university_id is null or b.university_id = p_university_id)
     and (p_topic is null or b.topic = p_topic)
-    and (p_q is null or btrim(p_q) = '' or b.title ilike '%' || replace(replace(btrim(p_q), '%', ''), '_', '') || '%' or b.body ilike '%' || replace(replace(btrim(p_q), '%', ''), '_', '') || '%')
-    and not public.buzz_hidden(b.author_id)
+    and (q.term is null or b.title ilike '%' || q.term || '%' or b.body ilike '%' || q.term || '%')
+    and public.buzz_can_see(b)
   order by
     case when p_sort = 'top' then b.score end desc nulls last,
-    case when p_sort = 'hot' then (b.score + b.comment_count + 1) / power(extract(epoch from (now() - b.created_at)) / 3600.0 + 2, 1.5) end desc nulls last,
-    b.created_at desc
+    -- Reddit-style "hot": votes and replies count logarithmically, newer wins ties. No powers of negative numbers.
+    case when p_sort = 'hot' then sign(b.score + b.comment_count) * log(greatest(abs(b.score + b.comment_count), 1)) + extract(epoch from b.visible_at) / 45000.0 end desc nulls last,
+    b.visible_at desc,
+    b.id desc
   limit least(greatest(coalesce(p_limit, 20), 1), 50)
   offset greatest(coalesce(p_offset, 0), 0);
 $$;
@@ -380,12 +485,14 @@ set search_path = public
 as $$
   select
     b.id, b.topic, b.title, b.body, b.images, b.image_meta, b.videos, b.university_id,
-    b.score, b.comment_count, b.created_at,
+    b.score,
+    (select count(*)::int from public.buzz_comments c where c.post_id = b.id and (c.visible_at <= now() or c.author_id = auth.uid()) and not public.buzz_hidden(c.author_id, b.id)),
+    least(b.visible_at, now()),
     coalesce((select v.value from public.buzz_votes v where v.post_id = b.id and v.user_id = auth.uid()), 0)::smallint,
     coalesce(b.author_id = auth.uid(), false),
     public.buzz_alias(b.author_id, b.id)
   from public.buzz_posts b
-  where b.id = p_id and not public.buzz_hidden(b.author_id);
+  where b.id = p_id and public.buzz_can_see(b);
 $$;
 
 create or replace function public.buzz_comments_list(p_post_id uuid)
@@ -395,15 +502,122 @@ stable
 security definer
 set search_path = public
 as $$
-  select c.id, c.parent_id, c.body, c.created_at,
+  select c.id, c.parent_id, c.body, least(c.visible_at, now()),
     public.buzz_alias(c.author_id, c.post_id),
     c.author_id = b.author_id,
     coalesce(c.author_id = auth.uid(), false)
   from public.buzz_comments c
   join public.buzz_posts b on b.id = c.post_id
-  where c.post_id = p_post_id and not public.buzz_hidden(c.author_id) and not public.buzz_hidden(b.author_id)
-  order by c.created_at asc
+  where c.post_id = p_post_id
+    and public.buzz_can_see(b)
+    and (c.visible_at <= now() or c.author_id = auth.uid())
+    and not public.buzz_hidden(c.author_id, c.post_id)
+  order by c.visible_at asc, c.seq asc
   limit 500;
+$$;
+
+-- Start a thread. Validates what the app sends, because anonymity depends on it:
+-- photos must sit in the anonymous folder, the video is reduced to what a player needs.
+create or replace function public.buzz_create(
+  p_topic text,
+  p_title text,
+  p_body text default '',
+  p_university_id uuid default null,
+  p_images text[] default '{}',
+  p_image_meta jsonb default '[]'::jsonb,
+  p_videos jsonb default '[]'::jsonb
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_cfg public.buzz_secrets;
+  v_images text[] := coalesce(p_images, '{}');
+  v_meta jsonb;
+  v_videos jsonb;
+  v_university uuid;
+  v_id uuid;
+  v_url text;
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+  select * into v_cfg from public.buzz_secrets where id = 1;
+  if (select count(*) from public.buzz_posts b where b.author_id = v_me and b.created_at > now() - interval '1 hour') >= 5 then
+    raise exception 'You are posting a lot. Try again in a little while.';
+  end if;
+  foreach v_url in array v_images loop
+    if v_url !~ '^https://[a-z0-9-]+\.supabase\.co/storage/v1/object/public/uploads/buzz/anon/[A-Za-z0-9._-]+$' then
+      raise exception 'Buzz photos must be uploaded anonymously';
+    end if;
+  end loop;
+  -- Keep only meta for photos that are attached, and only the fields a layout needs.
+  select coalesce(jsonb_agg(jsonb_build_object('url', m ->> 'url', 'width', m -> 'width', 'height', m -> 'height', 'blur', case when (m ->> 'blur') like 'data:image/%' and length(m ->> 'blur') <= 4000 then m -> 'blur' else 'null'::jsonb end)), '[]'::jsonb)
+    into v_meta
+    from jsonb_array_elements(case when jsonb_typeof(p_image_meta) = 'array' then p_image_meta else '[]'::jsonb end) m
+    where m ->> 'url' = any (v_images);
+  -- One video at most; drop the uploader's media id, keep what a player needs.
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'media_id', '00000000-0000-0000-0000-000000000000',
+      'playback_id', v ->> 'playback_id',
+      'poster_url', case when (v ->> 'poster_url') like 'https://image.mux.com/%' then v -> 'poster_url' else 'null'::jsonb end,
+      'width', v -> 'width', 'height', v -> 'height', 'duration_seconds', v -> 'duration_seconds')), '[]'::jsonb)
+    into v_videos
+    from (select v from jsonb_array_elements(case when jsonb_typeof(p_videos) = 'array' then p_videos else '[]'::jsonb end) v
+          where (v ->> 'playback_id') ~ '^[A-Za-z0-9]{8,120}$' limit 1) t;
+  -- A campus tag on a tiny campus would point at a handful of people: leave it off.
+  select p_university_id into v_university
+    where p_university_id is not null
+      and (select count(*) from public.profiles pr where pr.university_id = p_university_id) >= v_cfg.min_campus_size;
+  insert into public.buzz_posts (author_id, university_id, topic, title, body, images, image_meta, videos, created_at, visible_at)
+  values (v_me, v_university, coalesce(p_topic, 'thoughts'), btrim(p_title), coalesce(btrim(p_body), ''), v_images, v_meta, v_videos,
+          now(), now() + make_interval(secs => random() * greatest(v_cfg.thread_jitter_seconds, 0)))
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+
+-- Reply anonymously.
+create or replace function public.buzz_reply(p_post_id uuid, p_body text, p_parent_id uuid default null)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_cfg public.buzz_secrets;
+  v_post public.buzz_posts;
+  v_id uuid;
+begin
+  if v_me is null then
+    raise exception 'Not authenticated';
+  end if;
+  select * into v_cfg from public.buzz_secrets where id = 1;
+  select * into v_post from public.buzz_posts b where b.id = p_post_id;
+  if v_post.id is null or not public.buzz_can_see(v_post) then
+    raise exception 'Thread not found';
+  end if;
+  if p_parent_id is not null and not exists (select 1 from public.buzz_comments c where c.id = p_parent_id and c.post_id = p_post_id) then
+    raise exception 'That reply belongs to another thread';
+  end if;
+  if (select count(*) from public.buzz_comments c where c.author_id = v_me and c.created_at > now() - interval '10 minutes') >= 30 then
+    raise exception 'You are replying a lot. Try again in a little while.';
+  end if;
+  -- A reply never becomes visible before the thread it is in, or before the reply it answers.
+  insert into public.buzz_comments (post_id, author_id, parent_id, body, created_at, visible_at)
+  values (p_post_id, v_me, p_parent_id, btrim(p_body), now(),
+    greatest(
+      now() + make_interval(secs => random() * greatest(v_cfg.reply_jitter_seconds, 0)),
+      v_post.visible_at,
+      coalesce((select c.visible_at from public.buzz_comments c where c.id = p_parent_id), '-infinity'::timestamptz)
+    ))
+  returning id into v_id;
+  return v_id;
+end;
 $$;
 
 -- Vote: 1 up, -1 down, 0 clears. Returns the fresh score and my vote.
@@ -415,6 +629,7 @@ set search_path = public
 as $$
 declare
   v_me uuid := auth.uid();
+  v_post public.buzz_posts;
   v_old int;
 begin
   if v_me is null then
@@ -423,9 +638,9 @@ begin
   if p_value not in (-1, 0, 1) then
     raise exception 'Invalid vote';
   end if;
-  perform 1 from public.buzz_posts b where b.id = p_post_id for update;
-  if not found then
-    raise exception 'Post not found';
+  select * into v_post from public.buzz_posts b where b.id = p_post_id for update;
+  if v_post.id is null or not public.buzz_can_see(v_post) then
+    raise exception 'Thread not found';
   end if;
   select v.value into v_old from public.buzz_votes v where v.post_id = p_post_id and v.user_id = v_me;
   v_old := coalesce(v_old, 0);
@@ -440,7 +655,7 @@ begin
 end;
 $$;
 
--- Delete a comment: its writer, or the thread's author.
+-- Delete a reply: its writer, or the thread's author.
 create or replace function public.buzz_delete_comment(p_comment_id uuid)
 returns void
 language plpgsql
@@ -462,7 +677,8 @@ begin
 end;
 $$;
 
--- "Hide posts from this person" without ever learning who they are.
+-- Hide a thread (pass the thread) or one person's replies inside a thread (pass the reply).
+-- Scoped to that thread only, and never reveals who they are.
 create or replace function public.buzz_mute(p_post_id uuid default null, p_comment_id uuid default null)
 returns void
 language plpgsql
@@ -472,25 +688,32 @@ as $$
 declare
   v_me uuid := auth.uid();
   v_author uuid;
+  v_post_id uuid;
+  v_post public.buzz_posts;
 begin
   if v_me is null then
     raise exception 'Not authenticated';
   end if;
   if p_comment_id is not null then
-    select author_id into v_author from public.buzz_comments where id = p_comment_id;
+    select c.author_id, c.post_id into v_author, v_post_id from public.buzz_comments c where c.id = p_comment_id and c.visible_at <= now();
   else
-    select author_id into v_author from public.buzz_posts where id = p_post_id;
+    select b.author_id, b.id into v_author, v_post_id from public.buzz_posts b where b.id = p_post_id;
   end if;
-  if v_author is null or v_author = v_me then
+  select * into v_post from public.buzz_posts b where b.id = v_post_id;
+  if v_author is null or v_author = v_me or v_post.id is null or not public.buzz_can_see(v_post) then
     return;
   end if;
-  insert into public.buzz_mutes (user_id, muted_id) values (v_me, v_author) on conflict do nothing;
+  insert into public.buzz_mutes (user_id, post_id, muted_id) values (v_me, v_post_id, v_author) on conflict do nothing;
 end;
 $$;
 
+revoke all on function public.buzz_create(text, text, text, uuid, text[], jsonb, jsonb) from public, anon;
+revoke all on function public.buzz_reply(uuid, text, uuid) from public, anon;
 revoke all on function public.buzz_vote(uuid, int) from public, anon;
 revoke all on function public.buzz_delete_comment(uuid) from public, anon;
 revoke all on function public.buzz_mute(uuid, uuid) from public, anon;
+grant execute on function public.buzz_create(text, text, text, uuid, text[], jsonb, jsonb) to authenticated;
+grant execute on function public.buzz_reply(uuid, text, uuid) to authenticated;
 grant execute on function public.buzz_vote(uuid, int) to authenticated;
 grant execute on function public.buzz_delete_comment(uuid) to authenticated;
 grant execute on function public.buzz_mute(uuid, uuid) to authenticated;

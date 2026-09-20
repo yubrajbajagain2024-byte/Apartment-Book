@@ -152,7 +152,7 @@ export function ApartmentForm({
       </Card>
 
       <div className="flex items-center justify-end gap-3">
-        <LinkButton href={initial ? `/apartments/${initial.id}` : "/"} variant="ghost">
+        <LinkButton href={initial ? `/apartments/${initial.id}` : "/apartments"} variant="ghost">
           Cancel
         </LinkButton>
         <Button type="submit" size="lg" loading={pending}>

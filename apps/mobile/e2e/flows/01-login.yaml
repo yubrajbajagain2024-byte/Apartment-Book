@@ -5,8 +5,9 @@ env:
   PASSWORD: ${PASSWORD}
 ---
 - openLink: exp://127.0.0.1:8081
+# Home opens on Posts; its top bar shows Reels | Buzz | Posts and the profile button.
 - extendedWaitUntil:
-    visible: "Apartment Book"
+    visible: "What's on your mind.*"
     timeout: 90000
 - takeScreenshot: 01-home-signed-out
 - tapOn: "Profile"
@@ -19,6 +20,15 @@ env:
 - tapOn:
     text: "Log in"
     index: 1
+# Logging in can land on Home: open Profile again from the header avatar if needed.
+- extendedWaitUntil:
+    visible: "Log out|What's on your mind.*"
+    timeout: 30000
+- runFlow:
+    when:
+      notVisible: "Log out"
+    commands:
+      - tapOn: "Profile"
 - extendedWaitUntil:
     visible: "Log out"
     timeout: 30000

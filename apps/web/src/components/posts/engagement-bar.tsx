@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { MessageCircle, MessageSquare, ThumbsUp } from "lucide-react";
-import type { SavedTargetType } from "@apartment-book/shared";
+import type { PostTargetType } from "@apartment-book/shared";
 import { cn } from "@/lib/utils";
 import { MessageButton } from "@/components/common/message-button";
 import { actionButtonClasses, LikeButton, type LikeController } from "./like-button";
@@ -46,7 +46,7 @@ export function EngagementBar({
 }: {
   like: LikeController;
   onComment: () => void;
-  message?: { userId: string; currentUserId: string | null; returnTo: string; prefill?: string; target: { type: SavedTargetType; id: string } };
+  message?: { userId: string; currentUserId: string | null; returnTo: string; prefill?: string; target: { type: PostTargetType; id: string } };
   className?: string;
 }) {
   const own = message !== undefined && message.currentUserId !== null && message.currentUserId === message.userId;

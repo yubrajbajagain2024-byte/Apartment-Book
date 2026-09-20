@@ -22,6 +22,8 @@ export default function RootLayout() {
                 <Stack.Screen name="apartments/[id]" options={{ title: "Apartment" }} />
                 <Stack.Screen name="roommates/[id]" options={{ title: "Roommate post" }} />
                 <Stack.Screen name="marketplace/[id]" options={{ title: "Item" }} />
+                <Stack.Screen name="posts/[id]" options={{ title: "Post" }} />
+                <Stack.Screen name="buzz/[id]" options={{ title: "Buzz" }} />
                 <Stack.Screen name="messages/[id]" options={{ title: "Chat" }} />
                 <Stack.Screen name="messages/new" options={{ title: "New message" }} />
                 <Stack.Screen name="profile/[id]" options={{ title: "Profile" }} />
@@ -30,6 +32,9 @@ export default function RootLayout() {
                 <Stack.Screen name="create/apartment" options={{ title: "List an apartment" }} />
                 <Stack.Screen name="create/roommate" options={{ title: "Roommate post" }} />
                 <Stack.Screen name="create/item" options={{ title: "Sell an item" }} />
+                <Stack.Screen name="create/post" options={{ title: "New post" }} />
+                <Stack.Screen name="create/reel" options={{ title: "New reel" }} />
+                <Stack.Screen name="create/buzz" options={{ title: "New Buzz post" }} />
               </Stack>
             </ActionSheetProvider>
           </PresenceProvider>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, MessageCircle, ShoppingBag, Users, type LucideIcon } from "lucide-react";
+import { Building2, Home, MessageCircle, ShoppingBag, Users, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UnreadBadge } from "./unread-badge";
 
@@ -14,11 +14,15 @@ export type NavTab = {
   match: (pathname: string) => boolean;
 };
 
+/** Home = Posts, Reels and Buzz. */
+const HOME_PREFIXES = ["/posts", "/reels", "/buzz"];
+
 export const NAV_TABS: NavTab[] = [
-  { href: "/", label: "Home", icon: Home, match: (p) => p === "/" || p.startsWith("/apartments") },
+  { href: "/", label: "Home", icon: Home, match: (p) => p === "/" || HOME_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`)) },
   { href: "/roommates", label: "Roommates", icon: Users, match: (p) => p.startsWith("/roommates") },
   { href: "/marketplace", label: "Marketplace", icon: ShoppingBag, match: (p) => p.startsWith("/marketplace") },
   { href: "/messages", label: "Messages", icon: MessageCircle, match: (p) => p.startsWith("/messages") },
+  { href: "/apartments", label: "Apartments", icon: Building2, match: (p) => p.startsWith("/apartments") },
 ];
 
 export function NavTabs({ unread, userId }: { unread: number; userId: string | null }) {
@@ -33,7 +37,7 @@ export function NavTabs({ unread, userId }: { unread: number; userId: string | n
             key={tab.href}
             href={tab.href}
             className={cn(
-              "relative flex w-24 flex-col items-center justify-center gap-0.5 border-b-[3px] text-xs font-medium transition-colors lg:w-28",
+              "relative flex w-20 flex-col items-center justify-center gap-0.5 border-b-[3px] text-xs font-medium transition-colors lg:w-24 xl:w-28",
               active
                 ? "border-brand-600 text-brand-600"
                 : "border-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800",

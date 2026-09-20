@@ -71,8 +71,9 @@ export async function createReel(supabase: Client, authorId: string, input: Reel
 }
 
 export async function deleteFeedPost(supabase: Client, id: string): Promise<void> {
-  const { error } = await supabase.from("feed_posts").delete().eq("id", id);
+  const { data, error } = await supabase.from("feed_posts").delete().eq("id", id).select("id");
   if (error) throw error;
+  if (!data || data.length === 0) throw new Error("You can only delete your own posts.");
 }
 
 /** Home → Reels: posted reels plus listing video tours, newest first. `offset` = how many you already have. */

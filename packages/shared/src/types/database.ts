@@ -852,6 +852,7 @@ export type Database = {
           score: number;
           comment_count: number;
           created_at: string;
+          visible_at: string;
         };
         Insert: {
           id?: string;
@@ -878,6 +879,8 @@ export type Database = {
           parent_id: string | null;
           body: string;
           created_at: string;
+          visible_at: string;
+          seq: number;
         };
         Insert: {
           id?: string;
@@ -1089,6 +1092,14 @@ export type Database = {
       buzz_comments_list: {
         Args: { p_post_id: string };
         Returns: { id: string; parent_id: string | null; body: string; created_at: string; alias: string; is_op: boolean; is_mine: boolean }[];
+      };
+      buzz_create: {
+        Args: { p_topic: string; p_title: string; p_body?: string; p_university_id?: string | null; p_images?: string[]; p_image_meta?: Json; p_videos?: Json };
+        Returns: string;
+      };
+      buzz_reply: {
+        Args: { p_post_id: string; p_body: string; p_parent_id?: string | null };
+        Returns: string;
       };
       buzz_vote: {
         Args: { p_post_id: string; p_value: number };

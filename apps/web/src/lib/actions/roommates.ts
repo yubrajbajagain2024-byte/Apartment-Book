@@ -32,6 +32,7 @@ export async function createRoommatePostAction(_prev: FormState, formData: FormD
     return { error: errorMessage(error), values: formValues(formData) };
   }
   revalidatePath("/roommates");
+  revalidatePath("/");
   redirect(`/roommates/${id}?posted=${parsed.data.videos.length > 0 ? "video" : "photo"}`);
 }
 
@@ -50,6 +51,7 @@ export async function updateRoommatePostAction(id: string, _prev: FormState, for
     return { error: errorMessage(error), values: formValues(formData) };
   }
   revalidatePath("/roommates");
+  revalidatePath("/");
   revalidatePath(`/roommates/${id}`);
   redirect(`/roommates/${id}`);
 }
@@ -58,6 +60,7 @@ export async function setRoommatePostActiveAction(id: string, isActive: boolean)
   await requireUser(`/roommates/${id}`);
   await setRoommatePostActive(await createClient(), id, isActive);
   revalidatePath("/roommates");
+  revalidatePath("/");
   revalidatePath(`/roommates/${id}`);
 }
 
@@ -65,5 +68,6 @@ export async function deleteRoommatePostAction(id: string): Promise<void> {
   await requireUser(`/roommates/${id}`);
   await deleteRoommatePost(await createClient(), id);
   revalidatePath("/roommates");
+  revalidatePath("/");
   redirect("/profile/me");
 }

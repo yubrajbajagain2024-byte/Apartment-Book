@@ -121,7 +121,7 @@ export function PostCard(props: PostCardProps) {
         {props.details ? <View style={styles.details}>{props.details}</View> : null}
       </Pressable>
 
-      {media.length > 0 ? <PhotoCarousel media={media} onPress={() => openDetail()} active={props.active} /> : null}
+      {media.length > 0 ? <PhotoCarousel media={media} onPress={() => openDetail()} active={props.active} videoLabel={props.targetType === "post" ? null : undefined} /> : null}
       <EngagementSummary likes={like.likes} comments={props.engagement?.comments ?? 0} onComments={() => openDetail(true)} />
       <EngagementBar liked={like.liked} likes={like.likes} onLike={() => void like.toggle()} onComment={() => openDetail(true)} onMessage={() => void message()} messageLabel={own ? "Inbox" : "Message"} />
     </View>

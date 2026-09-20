@@ -1,6 +1,6 @@
 import { ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { getApartmentsByIds, getItemsByIds, getRoommatePostsByIds, listSaved } from "@apartment-book/shared";
+import { getApartmentsByIds, getFeedPostsByIds, getItemsByIds, getRoommatePostsByIds, getSavedIds, listSaved, timeAgo } from "@apartment-book/shared";
 import { ItemTile } from "@/components/item-tile";
 import { Card, EmptyState, Loading } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
@@ -14,13 +14,25 @@ export default function SavedScreen() {
   const { data, loading } = useQuery(async () => {
     if (!user) return null;
     const saved = await listSaved(supabase, user.id);
-    const [apartments, roommates, items] = await Promise.all([getApartmentsByIds(supabase, saved.apartment), getRoommatePostsByIds(supabase, saved.roommate), getItemsByIds(supabase, saved.item)]);
-    return { apartments, roommates, items };
+    // listSaved groups ids by type; fall back to getSavedIds while it does not return Home-feed posts.
+    const postIds = (saved as { post?: string[] }).post ?? [...(await getSavedIds(supabase, user.id, "post").catch(() => new Set<string>()))];
+    const [apartments, roommates, items, posts] = await Promise.all([getApartmentsByIds(supabase, saved.apartment), getRoommatePostsByIds(supabase, saved.roommate), getItemsByIds(supabase, saved.item), getFeedPostsByIds(supabase, postIds).catch(() => [])]);
+    posts.sort((a, b) => postIds.indexOf(a.id) - postIds.indexOf(b.id));
+    return { apartments, roommates, items, posts };
   }, [user?.id]);
   if (loading) return <Loading />;
-  if (!data || data.apartments.length + data.roommates.length + data.items.length === 0) return <EmptyState icon="bookmark-outline" title="Nothing saved yet" body="Use the ••• menu on any post to save it for later." />;
+  if (!data || data.apartments.length + data.roommates.length + data.items.length + data.posts.length === 0) return <EmptyState icon="bookmark-outline" title="Nothing saved yet" body="Use the ••• menu on any post to save it for later." />;
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+      {data.posts.map((p) => {
+        const text = p.body?.trim().replace(/\s+/g, " ") ?? "";
+        return (
+          <Card key={p.id} style={{ padding: 12, gap: 2 }}>
+            <Text onPress={() => router.push({ pathname: "/posts/[id]", params: { id: p.id } } as never)} numberOfLines={2} style={{ fontWeight: "700", color: colors.text }}>{text || (p.kind === "reel" ? "Reel" : p.images.length > 0 ? "Photo post" : "Video post")}</Text>
+            <Text style={{ color: colors.muted }}>{p.author.full_name} · {timeAgo(p.created_at)}</Text>
+          </Card>
+        );
+      })}
       {data.apartments.map((a) => (
         <Card key={a.id} style={{ padding: 12, gap: 2 }}>
           <Text onPress={() => router.push({ pathname: "/apartments/[id]", params: { id: a.id } })} style={{ fontWeight: "700", color: colors.text }}>{a.title}</Text>

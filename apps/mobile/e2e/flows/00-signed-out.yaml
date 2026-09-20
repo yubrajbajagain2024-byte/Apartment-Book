@@ -1,8 +1,8 @@
-# Signed-out tour: the three feeds and the Profile tab's sign-in prompt.
+# Signed-out tour: Home (Reels | Buzz | Posts), the other tabs, and the profile sign-in prompt behind the header avatar.
 appId: host.exp.Exponent
 ---
 - extendedWaitUntil:
-    visible: "Continue|Search apartments"
+    visible: "Continue|Posts"
     timeout: 120000
 - runFlow:
     when:
@@ -15,9 +15,22 @@ appId: host.exp.Exponent
     commands:
       - tapOn: "Close"
 - extendedWaitUntil:
-    visible: "Search apartments"
+    visible: "What's on your mind.*"
     timeout: 60000
-- takeScreenshot: e2e/screenshots/01-home
+- assertVisible: "Reels"
+- assertVisible: "Buzz"
+- assertVisible: "Posts"
+- takeScreenshot: e2e/screenshots/01-home-posts
+- tapOn: "Buzz"
+- waitForAnimationToEnd
+- takeScreenshot: e2e/screenshots/01-home-buzz
+- tapOn: "Reels"
+- waitForAnimationToEnd
+- takeScreenshot: e2e/screenshots/01-home-reels
+- tapOn: "Posts"
+- extendedWaitUntil:
+    visible: "What's on your mind.*"
+    timeout: 30000
 - tapOn: "Roommates.*"
 - extendedWaitUntil:
     visible: "Search roommate posts"
@@ -30,9 +43,14 @@ appId: host.exp.Exponent
 - takeScreenshot: e2e/screenshots/03-marketplace
 - tapOn: "Messages.*"
 - assertVisible: "Log in to see your messages"
-- tapOn: "Profile.*"
+- tapOn: "Apartments.*"
+- extendedWaitUntil:
+    visible: "Search apartments"
+    timeout: 30000
+- takeScreenshot: e2e/screenshots/04-apartments
+- tapOn: "Profile"
 - assertVisible: "Join Apartment Book"
-- takeScreenshot: e2e/screenshots/04-profile-signed-out
+- takeScreenshot: e2e/screenshots/05-profile-signed-out
 - tapOn: "Create account"
 - assertVisible: "Create your account"
-- takeScreenshot: e2e/screenshots/05-signup
+- takeScreenshot: e2e/screenshots/06-signup

@@ -17,7 +17,7 @@ export async function boot() {
     create table auth.users (id uuid primary key default gen_random_uuid(), email text, raw_user_meta_data jsonb not null default '{}'::jsonb);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb ->> 'sub', '')::uuid $$;
     create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
-    create table storage.objects (id uuid default gen_random_uuid(), bucket_id text, name text, owner uuid); alter table storage.objects enable row level security;
+    create table storage.objects (id uuid default gen_random_uuid(), bucket_id text, name text, owner uuid, owner_id text); alter table storage.objects enable row level security;
     create function storage.foldername(name text) returns text[] language sql immutable as $$ select (string_to_array(name, '/'))[1 : array_length(string_to_array(name, '/'), 1) - 1] $$;
     create publication supabase_realtime; grant usage on schema public, auth, storage, extensions to anon, authenticated; grant all on storage.objects, storage.buckets to anon, authenticated;
     -- Supabase grants new public tables/functions to the API roles by default; migrations that revoke must win.

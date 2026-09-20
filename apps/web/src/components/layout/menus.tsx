@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Bookmark, Building2, ChevronDown, LogOut, Plus, Settings, ShoppingBag, User, Users } from "lucide-react";
+import { Bookmark, Building2, ChevronDown, Clapperboard, LogOut, MessagesSquare, PenSquare, Plus, Settings, ShoppingBag, User, Users } from "lucide-react";
 import { signOutAction } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
@@ -89,6 +89,16 @@ export function CreateMenu() {
       {(close) => (
         <>
           <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Create</p>
+          <MenuLink href="/posts/new" icon={PenSquare} onClick={close}>
+            Post
+          </MenuLink>
+          <MenuLink href="/reels/new" icon={Clapperboard} onClick={close}>
+            Reel
+          </MenuLink>
+          <MenuLink href="/buzz/new" icon={MessagesSquare} onClick={close}>
+            Buzz, anonymous
+          </MenuLink>
+          <div className="my-1 h-px bg-gray-100" />
           <MenuLink href="/apartments/new" icon={Building2} onClick={close}>
             Apartment listing
           </MenuLink>
@@ -125,7 +135,7 @@ export function UserMenu({ userId, name, avatarUrl }: { userId: string; name: st
           </Link>
           <div className="my-1 h-px bg-gray-100" />
           <MenuLink href="/profile/me" icon={User} onClick={close}>
-            My listings
+            My posts and listings
           </MenuLink>
           <MenuLink href="/saved" icon={Bookmark} onClick={close}>
             Saved
