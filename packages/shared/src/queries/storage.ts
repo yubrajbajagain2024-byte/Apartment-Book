@@ -1,7 +1,7 @@
 import { MAX_IMAGE_SIZE_BYTES, STORAGE_BUCKET } from "../constants";
 import type { Client } from "../types/models";
 
-export type UploadKind = "apartments" | "items" | "roommates" | "avatars" | "messages";
+export type UploadKind = "apartments" | "items" | "roommates" | "avatars" | "messages" | "posts" | "buzz";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"]);
 
@@ -39,7 +39,8 @@ export type UploadSource = Blob | ArrayBuffer | Uint8Array;
 
 /**
  * Upload an image to the public `uploads` bucket at `{kind}/{userId}/{random}.{ext}`
- * and return its public URL.
+ * and return its public URL. Buzz uploads (`kind: "buzz"`) go to `buzz/anon/…` instead;
+ * re-encode those on the device first (see BUZZ_IMAGE_MAX_DIMENSION) to drop camera metadata.
  *
  * Web: pass the `File` from an `<input type="file">`.
  * React Native (Expo): read the picked image as an ArrayBuffer, e.g.
@@ -59,7 +60,9 @@ export async function uploadImage(
   if (size > MAX_IMAGE_SIZE_BYTES) {
     throw new Error("Photos must be smaller than 25 MB");
   }
-  const path = `${input.kind}/${input.userId}/${Date.now()}-${randomId()}.${extensionFor(contentType, input.fileName)}`;
+  // Buzz is anonymous: its files go to buzz/anon/… so the public URL never contains the uploader's id.
+  const folder = input.kind === "buzz" ? "buzz/anon" : `${input.kind}/${input.userId}`;
+  const path = `${folder}/${Date.now()}-${randomId()}${randomId()}.${extensionFor(contentType, input.fileName)}`;
   const { error } = await supabase.storage
     .from(STORAGE_BUCKET)
     .upload(path, input.file, { contentType, cacheControl: "31536000", upsert: false });

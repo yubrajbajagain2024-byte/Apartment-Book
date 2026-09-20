@@ -1,9 +1,9 @@
-import type { Client, SavedTargetType } from "../types/models";
+import type { Client, PostTargetType } from "../types/models";
 
 export async function getSavedIds(
   supabase: Client,
   userId: string,
-  targetType?: SavedTargetType,
+  targetType?: PostTargetType,
 ): Promise<Set<string>> {
   let query = supabase.from("saved_listings").select("target_id, target_type").eq("user_id", userId);
   if (targetType) query = query.eq("target_type", targetType);
@@ -34,7 +34,7 @@ export async function listSaved(
 export async function isSaved(
   supabase: Client,
   userId: string,
-  targetType: SavedTargetType,
+  targetType: PostTargetType,
   targetId: string,
 ): Promise<boolean> {
   const { data, error } = await supabase
@@ -52,7 +52,7 @@ export async function isSaved(
 export async function toggleSaved(
   supabase: Client,
   userId: string,
-  targetType: SavedTargetType,
+  targetType: PostTargetType,
   targetId: string,
 ): Promise<boolean> {
   const saved = await isSaved(supabase, userId, targetType, targetId);

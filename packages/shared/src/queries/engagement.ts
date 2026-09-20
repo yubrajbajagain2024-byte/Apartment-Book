@@ -1,9 +1,9 @@
-import type { Client, PostCommentWithAuthor, PostEngagement, SavedTargetType } from "../types/models";
+import type { Client, PostCommentWithAuthor, PostEngagement, PostTargetType } from "../types/models";
 
 export const COMMENT_SELECT = "*, author:profiles!post_comments_user_id_fkey(id, full_name, avatar_url)";
 
 /** Like and comment counts for a post, plus whether the signed-in user liked it. */
-export async function getPostEngagement(supabase: Client, targetType: SavedTargetType, targetId: string): Promise<PostEngagement> {
+export async function getPostEngagement(supabase: Client, targetType: PostTargetType, targetId: string): Promise<PostEngagement> {
   const { data, error } = await supabase.rpc("post_engagement", { p_target_type: targetType, p_target_id: targetId });
   if (error) throw error;
   const row = data?.[0];
@@ -11,7 +11,7 @@ export async function getPostEngagement(supabase: Client, targetType: SavedTarge
 }
 
 /** Counts for many posts of one type at once (feed pages). Missing ids come back as zeros. */
-export async function getPostEngagementMany(supabase: Client, targetType: SavedTargetType, targetIds: string[]): Promise<Record<string, PostEngagement>> {
+export async function getPostEngagementMany(supabase: Client, targetType: PostTargetType, targetIds: string[]): Promise<Record<string, PostEngagement>> {
   const out: Record<string, PostEngagement> = {};
   if (targetIds.length === 0) return out;
   const { data, error } = await supabase.rpc("post_engagement_many", { p_target_type: targetType, p_target_ids: targetIds });
@@ -21,18 +21,18 @@ export async function getPostEngagementMany(supabase: Client, targetType: SavedT
   return out;
 }
 
-export async function likePost(supabase: Client, userId: string, targetType: SavedTargetType, targetId: string): Promise<void> {
+export async function likePost(supabase: Client, userId: string, targetType: PostTargetType, targetId: string): Promise<void> {
   const { error } = await supabase.from("post_likes").upsert({ user_id: userId, target_type: targetType, target_id: targetId }, { onConflict: "target_type,target_id,user_id", ignoreDuplicates: true });
   if (error) throw error;
 }
 
-export async function unlikePost(supabase: Client, userId: string, targetType: SavedTargetType, targetId: string): Promise<void> {
+export async function unlikePost(supabase: Client, userId: string, targetType: PostTargetType, targetId: string): Promise<void> {
   const { error } = await supabase.from("post_likes").delete().match({ user_id: userId, target_type: targetType, target_id: targetId });
   if (error) throw error;
 }
 
 /** Oldest first, like a comment thread. Pass `after` (created_at of the last row) to load newer ones. */
-export async function listComments(supabase: Client, targetType: SavedTargetType, targetId: string, opts: { limit?: number; after?: string } = {}): Promise<PostCommentWithAuthor[]> {
+export async function listComments(supabase: Client, targetType: PostTargetType, targetId: string, opts: { limit?: number; after?: string } = {}): Promise<PostCommentWithAuthor[]> {
   let query = supabase
     .from("post_comments")
     .select(COMMENT_SELECT)
@@ -46,7 +46,7 @@ export async function listComments(supabase: Client, targetType: SavedTargetType
   return data as PostCommentWithAuthor[];
 }
 
-export async function addComment(supabase: Client, userId: string, targetType: SavedTargetType, targetId: string, body: string): Promise<PostCommentWithAuthor> {
+export async function addComment(supabase: Client, userId: string, targetType: PostTargetType, targetId: string, body: string): Promise<PostCommentWithAuthor> {
   const { data, error } = await supabase
     .from("post_comments")
     .insert({ user_id: userId, target_type: targetType, target_id: targetId, body })

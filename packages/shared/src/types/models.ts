@@ -50,9 +50,58 @@ export type ConversationType = Enums<"conversation_type">;
 export type GenderPref = Enums<"gender_pref">;
 
 export type SavedTargetType = "apartment" | "item" | "roommate";
+/** Everything that can be liked, commented on, saved or viewed: listings plus Home-feed posts and reels. */
+export type PostTargetType = SavedTargetType | "post";
 
 /** The small slice of a profile shown next to listings and messages. */
 export type ProfileSummary = Pick<Profile, "id" | "full_name" | "avatar_url">;
+
+export type FeedPost = Tables<"feed_posts">;
+export type FeedPostKind = "post" | "reel";
+/** A Home-feed post or reel with its author (identified, unlike Buzz). */
+export type FeedPostWithAuthor = FeedPost & { author: PosterSummary };
+
+/** One item of the vertical Reels feed: a posted reel or a listing's video tour. */
+export type Reel = {
+  sourceType: "post" | "apartment" | "roommate";
+  sourceId: string;
+  author: { id: string; name: string; avatarUrl: string | null; verified: boolean };
+  /** Listing title for video tours; null for posted reels. */
+  title: string | null;
+  caption: string;
+  video: ListingVideo;
+  createdAt: string;
+  likes: number;
+  comments: number;
+  likedByMe: boolean;
+  savedByMe: boolean;
+};
+
+export type BuzzTopic = "thoughts" | "experience" | "advice" | "question" | "housing" | "campus" | "rant" | "other";
+export type BuzzSort = "hot" | "new" | "top";
+/**
+ * An anonymous Buzz thread as other people see it. There is deliberately no
+ * author here: the server never sends it. `alias` ("Student 4821") is stable
+ * inside one thread and different in every other thread.
+ */
+export type BuzzPost = {
+  id: string;
+  topic: BuzzTopic;
+  title: string;
+  body: string;
+  images: string[];
+  imageMeta: unknown;
+  videos: unknown;
+  universityId: string | null;
+  score: number;
+  commentCount: number;
+  createdAt: string;
+  /** 1 upvoted, -1 downvoted, 0 no vote. */
+  myVote: -1 | 0 | 1;
+  isMine: boolean;
+  alias: string;
+};
+export type BuzzComment = { id: string; parentId: string | null; body: string; createdAt: string; alias: string; isOp: boolean; isMine: boolean };
 
 /** A comment with who wrote it. */
 export type PostCommentWithAuthor = PostComment & { author: ProfileSummary };

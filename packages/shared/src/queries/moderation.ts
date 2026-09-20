@@ -1,6 +1,6 @@
 import type { Client } from "../types/models";
 
-export type ReportTargetType = "apartment" | "item" | "roommate" | "profile" | "message" | "comment";
+export type ReportTargetType = "apartment" | "item" | "roommate" | "profile" | "message" | "comment" | "post" | "buzz" | "buzz_comment";
 export type ReportReason = "spam" | "scam" | "harassment" | "inappropriate" | "other";
 
 export const REPORT_REASONS: { value: ReportReason; label: string }[] = [

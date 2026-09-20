@@ -1,4 +1,4 @@
-import type { Client, SavedTargetType } from "../types/models";
+import type { Client, PostTargetType } from "../types/models";
 
 export type ListingStats = { views: number; saves: number; contacts: number };
 export type VideoVsPhotoStats = {
@@ -15,19 +15,19 @@ export type VideoVsPhotoStats = {
  * Count a view of a listing. Signed-in viewers are deduplicated by user, others
  * by the `viewerKey` the client keeps (one per browser/app install). Once per day.
  */
-export async function recordView(supabase: Client, targetType: SavedTargetType, targetId: string, viewerKey?: string | null): Promise<void> {
+export async function recordView(supabase: Client, targetType: PostTargetType, targetId: string, viewerKey?: string | null): Promise<void> {
   const { error } = await supabase.rpc("record_view", { p_target_type: targetType, p_target_id: targetId, p_viewer_key: viewerKey ?? null });
   if (error) throw error;
 }
 
 /** Record that the signed-in user started a conversation from a listing. */
-export async function recordContact(supabase: Client, targetType: SavedTargetType, targetId: string): Promise<void> {
+export async function recordContact(supabase: Client, targetType: PostTargetType, targetId: string): Promise<void> {
   const { error } = await supabase.rpc("record_contact", { p_target_type: targetType, p_target_id: targetId });
   if (error) throw error;
 }
 
 /** Views, saves and messages for a listing (owner only). */
-export async function getListingStats(supabase: Client, targetType: SavedTargetType, targetId: string): Promise<ListingStats> {
+export async function getListingStats(supabase: Client, targetType: PostTargetType, targetId: string): Promise<ListingStats> {
   const { data, error } = await supabase.rpc("listing_stats", { p_target_type: targetType, p_target_id: targetId });
   if (error) throw error;
   const row = data?.[0];

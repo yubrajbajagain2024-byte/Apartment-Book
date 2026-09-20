@@ -140,3 +140,37 @@ export const TOUR_CHECKLIST = [
   { key: "bathroom", label: "Bathroom", hint: "Shower, sink, toilet" },
   { key: "view", label: "View from the window", hint: "What do you see outside?" },
 ] as const;
+
+/** Home feed */
+export const MAX_IMAGES_PER_POST = 12;
+export const MAX_IMAGES_PER_BUZZ = 6;
+export const REELS_PAGE_SIZE = 8;
+export const BUZZ_PAGE_SIZE = 20;
+/** The three sections of Home, left to right (like TikTok's top tabs). Posts is the landing tab. */
+export const HOME_SECTIONS = [
+  { value: "reels", label: "Reels" },
+  { value: "buzz", label: "Buzz" },
+  { value: "posts", label: "Posts" },
+] as const;
+export type HomeSection = (typeof HOME_SECTIONS)[number]["value"];
+export const DEFAULT_HOME_SECTION: HomeSection = "posts";
+
+export const BUZZ_TOPICS = [
+  { value: "thoughts", label: "Thoughts" },
+  { value: "experience", label: "Experiences" },
+  { value: "advice", label: "Advice" },
+  { value: "question", label: "Questions" },
+  { value: "housing", label: "Housing" },
+  { value: "campus", label: "Campus life" },
+  { value: "rant", label: "Rants" },
+  { value: "other", label: "Other" },
+] as const;
+export const BUZZ_TOPIC_VALUES = BUZZ_TOPICS.map((t) => t.value) as [(typeof BUZZ_TOPICS)[number]["value"], ...(typeof BUZZ_TOPICS)[number]["value"][]];
+export const BUZZ_SORTS = [
+  { value: "hot", label: "Hot" },
+  { value: "new", label: "New" },
+  { value: "top", label: "Top" },
+] as const;
+/** Buzz photos are re-encoded on the device before upload so camera metadata (GPS, device) cannot identify the author. */
+export const BUZZ_IMAGE_MAX_DIMENSION = 2560;
+export const BUZZ_IMAGE_QUALITY = 0.9;
