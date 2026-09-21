@@ -29,15 +29,15 @@ export async function Navbar() {
     <>
       <header className="sticky top-0 z-40 border-b border-gray-200 bg-white shadow-sm">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-3 sm:px-4">
-          <div className="flex min-w-0 flex-1 items-center gap-3 md:flex-none md:basis-72">
+          <div className="flex min-w-0 flex-1 items-center gap-3 md:flex-none md:basis-72 2xl:basis-[30rem]">
             <Link href="/" className="flex shrink-0 items-center gap-2 text-brand-600" aria-label={APP_NAME}>
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-600 text-white">
                 <Home className="h-6 w-6" />
               </span>
-              <span className="hidden text-xl font-bold lg:inline">{APP_NAME}</span>
+              <span className="hidden text-xl font-bold 2xl:inline">{APP_NAME}</span>
             </Link>
             <Suspense fallback={null}>
-              <SearchBox className="min-w-0 flex-1 md:w-56 md:flex-none lg:w-64" />
+              <SearchBox className="min-w-0 flex-1 md:w-56 md:flex-none 2xl:w-64" />
             </Suspense>
           </div>
 
@@ -45,7 +45,7 @@ export async function Navbar() {
             <NavTabs unread={unread} userId={user?.id ?? null} />
           </div>
 
-          <div className="flex shrink-0 items-center justify-end gap-2 md:basis-72">
+          <div className="flex shrink-0 items-center justify-end gap-2 md:basis-72 2xl:basis-[30rem]">
             {user ? (
               <>
                 <CreateMenu />
