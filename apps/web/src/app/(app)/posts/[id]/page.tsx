@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
-import { getFeedPost, getPostEngagement, isSaved, listComments, photosFor, type PostCommentWithAuthor, type PostEngagement } from "@apartment-book/shared";
+import { getFeedPost, getPostEngagement, getPostPreviewsMany, isSaved, listComments, photosFor, type PostCommentWithAuthor, type PostEngagement, type PostPreview } from "@apartment-book/shared";
 import { deletePostAction } from "@/lib/actions/posts";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -36,10 +36,11 @@ export default async function PostPage({ params }: Props) {
   const [post, user, profile] = await Promise.all([getFeedPost(supabase, id), getCurrentUser(), getCurrentProfile()]);
   if (!post) notFound();
 
-  const [engagement, comments, saved] = await Promise.all([
+  const [engagement, comments, saved, previews] = await Promise.all([
     getPostEngagement(supabase, "post", post.id).catch(() => NO_ENGAGEMENT),
     listComments(supabase, "post", post.id).catch(() => [] as PostCommentWithAuthor[]),
     user ? isSaved(supabase, user.id, "post", post.id).catch(() => false) : Promise.resolve(false),
+    getPostPreviewsMany(supabase, "post", [post.id]).catch(() => ({}) as Record<string, PostPreview>),
   ]);
   const isOwner = user?.id === post.author_id;
   const reel = post.kind === "reel";
@@ -66,6 +67,8 @@ export default async function PostPage({ params }: Props) {
           currentUserId={user?.id ?? null}
           currentUser={user && profile ? { id: user.id, name: profile.full_name, avatarUrl: profile.avatar_url } : null}
           engagement={engagement}
+          preview={previews[post.id]}
+          subtitle={post.university?.name}
           priority
           commentsOpen
           initialComments={comments}

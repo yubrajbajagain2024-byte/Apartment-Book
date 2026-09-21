@@ -3,14 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Newspaper } from "lucide-react";
-import { getPostEngagementMany, isVerifiedPoster, listFeedPosts, listingMedia, type FeedPostFilters, type FeedPostWithAuthor, type PostEngagement } from "@apartment-book/shared";
+import { getPostEngagementMany, getPostPreviewsMany, listFeedPosts, type FeedPostFilters, type FeedPostWithAuthor, type PostCommentWithAuthor, type PostEngagement, type PostPreview } from "@apartment-book/shared";
 import { createClient } from "@/lib/supabase/client";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { PostCard } from "@/components/posts/post-card";
 import { FeedFooter, SkeletonCard } from "@/components/feed/feed-bits";
 import { useInfinitePages } from "@/components/feed/use-infinite-pages";
-import { PostComposer } from "./post-composer";
+import { InstaPost } from "./insta-post";
 
 export type PostsFeedProps = {
   initial: FeedPostWithAuthor[];
@@ -22,13 +21,15 @@ export type PostsFeedProps = {
   currentUser: { id: string; name: string; avatarUrl: string | null } | null;
   /** Like/comment counts for the first page (server-rendered); later pages are fetched here. */
   engagement: Record<string, PostEngagement>;
+  /** "Liked by …" faces and the newest comment, same rule. */
+  previews: Record<string, PostPreview>;
   /** Which campus the feed is showing, for the "All universities" switch. */
   scope?: { universityName: string | null; hasHomeUniversity: boolean };
   /** University id -> name, shown under the author when browsing every campus. */
   universityNames?: Record<string, string>;
 };
 
-/** One Home-feed post (or reel) as a Facebook-style card. Shared by the feed, the post page, Saved and profiles. */
+/** One Home-feed post (or reel), Instagram style. Shared by the feed, the post page, Saved and profiles. */
 export function FeedPostCard({
   post,
   saved,
@@ -36,6 +37,7 @@ export function FeedPostCard({
   currentUserId,
   currentUser,
   engagement,
+  preview,
   subtitle,
   priority,
   commentsOpen,
@@ -47,28 +49,22 @@ export function FeedPostCard({
   currentUserId: string | null;
   currentUser: PostsFeedProps["currentUser"];
   engagement?: PostEngagement;
+  preview?: PostPreview;
   subtitle?: string;
   priority?: boolean;
   commentsOpen?: boolean;
-  initialComments?: React.ComponentProps<typeof PostCard>["initialComments"];
+  initialComments?: PostCommentWithAuthor[];
 }) {
   return (
-    <PostCard
-      layout="facebook"
-      href={`/posts/${post.id}`}
-      targetType="post"
-      targetId={post.id}
-      poster={{ id: post.author.id, name: post.author.full_name, avatarUrl: post.author.avatar_url, verified: isVerifiedPoster(post.author) }}
-      subtitle={subtitle}
-      media={listingMedia(post.images, post.image_meta, post.videos)}
-      caption={post.body}
-      createdAt={post.created_at}
+    <InstaPost
+      post={post}
       saved={saved}
       signedIn={signedIn}
       currentUserId={currentUserId}
       currentUser={currentUser}
       engagement={engagement}
-      messagePrefill={`Hi ${post.author.full_name.split(" ")[0]}! I saw your post on Apartment Book and wanted to say hi.`}
+      preview={preview}
+      subtitle={subtitle}
       priority={priority}
       commentsOpen={commentsOpen}
       initialComments={initialComments}
@@ -76,12 +72,13 @@ export function FeedPostCard({
   );
 }
 
-/** Home → Posts: a single column of posts by students, newest first. */
-export function PostsFeed({ initial, totalPages, filters, savedIds, signedIn, currentUserId, currentUser, engagement: initialEngagement, scope, universityNames }: PostsFeedProps) {
+/** Home → Posts: a single column of posts by students, newest first. New posts are made from "Create" in the top bar. */
+export function PostsFeed({ initial, totalPages, filters, savedIds, signedIn, currentUserId, currentUser, engagement: initialEngagement, previews: initialPreviews, scope, universityNames }: PostsFeedProps) {
   const load = useCallback(async (page: number) => (await listFeedPosts(createClient(), { ...filters, page })).data, [filters]);
   const feed = useInfinitePages({ initial, totalPages, load });
   const saved = new Set(savedIds);
   const [engagement, setEngagement] = useState(initialEngagement);
+  const [previews, setPreviews] = useState(initialPreviews);
 
   // Counts for posts that arrived through "load more".
   useEffect(() => {
@@ -102,14 +99,30 @@ export function PostsFeed({ initial, totalPages, filters, savedIds, signedIn, cu
     };
   }, [feed.items, engagement]);
 
+  // The same for the "Liked by …" line and the newest comment.
+  useEffect(() => {
+    const missing = feed.items.filter((p) => !(p.id in previews)).map((p) => p.id);
+    if (missing.length === 0) return;
+    let cancelled = false;
+    getPostPreviewsMany(createClient(), "post", missing)
+      .then((rows) => {
+        if (cancelled) return;
+        const filled: Record<string, PostPreview> = {};
+        for (const id of missing) filled[id] = rows[id] ?? { likers: [], lastComment: null };
+        setPreviews((prev) => ({ ...prev, ...filled }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [feed.items, previews]);
+
   const filtered = Boolean(filters.universityId);
 
   return (
-    <div className="-mx-3 flex flex-col gap-1 sm:mx-0 sm:gap-4" data-testid="posts-feed">
-      <PostComposer currentUser={currentUser} />
-
+    <div className="-mx-3 flex flex-col bg-white sm:mx-0 sm:gap-4 sm:bg-transparent" data-testid="posts-feed">
       {filtered || scope?.hasHomeUniversity ? (
-        <p className="px-3 text-xs text-gray-600 sm:px-1">
+        <p className="px-3 pt-2 text-xs text-gray-600 sm:px-1 sm:pt-0">
           {filtered ? (
             <>
               Showing posts from {scope?.universityName ?? "your university"} ·{" "}
@@ -157,6 +170,7 @@ export function PostsFeed({ initial, totalPages, filters, savedIds, signedIn, cu
               currentUserId={currentUserId}
               currentUser={currentUser}
               engagement={engagement[p.id]}
+              preview={previews[p.id]}
               subtitle={!filtered && p.university_id ? universityNames?.[p.university_id] : undefined}
               priority={i < 2}
             />

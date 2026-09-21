@@ -84,3 +84,18 @@ export function compactCount(n: number): string {
   if (abs < 1000000) return `${Math.round(n / 1000)}k`;
   return `${(n / 1000000).toFixed(1).replace(/\.0$/, "")}m`;
 }
+
+/** Splits a caption into plain text and #hashtags, so the tags can be coloured like Instagram. */
+export function captionParts(text: string): { text: string; tag: boolean }[] {
+  const parts: { text: string; tag: boolean }[] = [];
+  const pattern = /(^|[^\p{L}\p{M}\p{N}_#])(#[\p{L}\p{M}\p{N}_]{1,60})/gu;
+  let last = 0;
+  for (const m of text.matchAll(pattern)) {
+    const start = (m.index ?? 0) + m[1].length;
+    if (start > last) parts.push({ text: text.slice(last, start), tag: false });
+    parts.push({ text: m[2], tag: true });
+    last = start + m[2].length;
+  }
+  if (last < text.length) parts.push({ text: text.slice(last), tag: false });
+  return parts;
+}

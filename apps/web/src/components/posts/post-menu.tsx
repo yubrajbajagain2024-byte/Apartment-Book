@@ -22,7 +22,7 @@ function placeBelow(button: HTMLButtonElement | null): { top: number; right: num
  * Facebook-style "•••" menu in a post header: Save/Unsave post and Share post.
  * The dropdown is position:fixed so the card's overflow-hidden can't clip it.
  */
-export function PostMenu({ save, path, title, className, report }: { save: SaveController; path: string; title: string; className?: string; /** Enables "Report post" (omit on your own posts). */ report?: { targetType: ReportTargetType; targetId: string } }) {
+export function PostMenu({ save, path, title, className, report, extra }: { save: SaveController; path: string; title: string; className?: string; /** Enables "Report post" (omit on your own posts). */ report?: { targetType: ReportTargetType; targetId: string }; /** One more row between Share and Report, e.g. a Message button. */ extra?: React.ReactNode }) {
   const [reporting, setReporting] = useState(false);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
@@ -120,6 +120,8 @@ export function PostMenu({ save, path, title, className, report }: { save: SaveC
             {copied ? <Check className="h-5 w-5 text-brand-600" /> : <Share2 className="h-5 w-5" />}
             {copied ? "Link copied" : "Share post"}
           </button>
+          {/* Close on the next tick: a form inside `extra` must still be on the page when the browser submits it. */}
+          {extra && !reporting ? <div onClick={() => setTimeout(() => setOpen(false), 0)}>{extra}</div> : null}
           {report && save.signedIn ? (
             reporting ? (
               <ReportMenu targetType={report.targetType} targetId={report.targetId} onDone={() => setOpen(false)} className="border-t border-gray-100 pt-1.5" />

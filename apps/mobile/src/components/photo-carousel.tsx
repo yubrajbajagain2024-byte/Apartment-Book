@@ -6,11 +6,26 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import type { FeedMedia } from "@apartment-book/shared";
 import { colors } from "@/lib/theme";
 
+const DOUBLE_TAP_MS = 260;
+
+type PhotoCarouselProps = {
+  media: FeedMedia[];
+  aspect?: number;
+  onPress?: () => void;
+  /** Double tap, like Instagram. A single tap then waits a moment before it counts. */
+  onDoubleTap?: () => void;
+  active?: boolean;
+  videoLabel?: string | null;
+  /** Pass false to draw your own dots (Instagram puts them under the photo); `onIndexChange` tells you which slide is showing. */
+  dots?: boolean;
+  onIndexChange?: (index: number) => void;
+};
+
 /**
  * Swipeable photos and videos, one slide at a time, with a 1/3 counter and dots.
  * `videoLabel` is the pill shown when the first slide is a video: "Video tour" suits listings; pass another word, or null for no pill.
  */
-export function PhotoCarousel({ media, aspect = 4 / 5, onPress, active = true, videoLabel = "Video tour" }: { media: FeedMedia[]; aspect?: number; onPress?: () => void; active?: boolean; videoLabel?: string | null }) {
+export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, active = true, videoLabel = "Video tour", dots = true, onIndexChange }: PhotoCarouselProps) {
   const [width, setWidth] = useState(0);
   const [index, setIndex] = useState(0);
   const listRef = useRef<FlatList<FeedMedia>>(null);
@@ -20,11 +35,29 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, active = true, v
   const onScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       if (!width) return;
-      const i = Math.round(e.nativeEvent.contentOffset.x / width);
-      setIndex(Math.max(0, Math.min(count - 1, i)));
+      const i = Math.max(0, Math.min(count - 1, Math.round(e.nativeEvent.contentOffset.x / width)));
+      setIndex(i);
+      onIndexChange?.(i);
     },
-    [width, count],
+    [width, count, onIndexChange],
   );
+
+  const lastTap = useRef(0);
+  const single = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => void (single.current && clearTimeout(single.current)), []);
+  function tap() {
+    if (!onDoubleTap) return onPress?.();
+    const now = Date.now();
+    if (single.current) clearTimeout(single.current);
+    single.current = null;
+    if (now - lastTap.current < DOUBLE_TAP_MS) {
+      lastTap.current = 0;
+      onDoubleTap();
+      return;
+    }
+    lastTap.current = now;
+    if (onPress) single.current = setTimeout(onPress, DOUBLE_TAP_MS);
+  }
   const go = (i: number) => listRef.current?.scrollToIndex({ index: Math.max(0, Math.min(count - 1, i)), animated: true });
 
   if (count === 0) return null;
@@ -42,7 +75,7 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, active = true, v
           onScrollEndDrag={onScroll}
           getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
           renderItem={({ item, index: i }) => (
-            <Pressable onPress={onPress} style={{ width, height }}>
+            <Pressable onPress={tap} style={{ width, height }}>
               {item.type === "photo" ? (
                 <Image source={{ uri: item.url }} style={{ width, height }} contentFit="cover" transition={200} accessibilityLabel={`Photo ${i + 1} of ${count}`} />
               ) : (
@@ -61,11 +94,13 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, active = true, v
               {index + 1}/{count}
             </Text>
           </View>
-          <View style={styles.dots} accessibilityRole="tablist">
-            {media.map((_, i) => (
-              <Pressable key={i} onPress={() => go(i)} hitSlop={6} accessibilityRole="tab" accessibilityState={{ selected: i === index }} style={[styles.dot, i === index && styles.dotActive]} />
-            ))}
-          </View>
+          {dots ? (
+            <View style={styles.dots} accessibilityRole="tablist">
+              {media.map((_, i) => (
+                <Pressable key={i} onPress={() => go(i)} hitSlop={6} accessibilityRole="tab" accessibilityState={{ selected: i === index }} style={[styles.dot, i === index && styles.dotActive]} />
+              ))}
+            </View>
+          ) : null}
         </>
       ) : null}
       {videoLabel && media[0]?.type === "video" ? (

@@ -1,5 +1,5 @@
 import type { User } from "@supabase/supabase-js";
-import { getPostEngagementMany, getSavedIds, listFeedPosts, listUniversities, type Client, type FeedPostFilters, type PostEngagement, type ProfileWithUniversity } from "@apartment-book/shared";
+import { getPostEngagementMany, getPostPreviewsMany, getSavedIds, listFeedPosts, listUniversities, type Client, type FeedPostFilters, type PostEngagement, type PostPreview, type ProfileWithUniversity } from "@apartment-book/shared";
 import { firstParam } from "@/lib/utils";
 import type { PostsFeedProps } from "./posts-feed";
 
@@ -19,11 +19,11 @@ export async function loadPostsSection(supabase: Client, user: User | null, prof
     user ? getSavedIds(supabase, user.id, "post").catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
     listUniversities(supabase).catch(() => []),
   ]);
-  const engagement: Record<string, PostEngagement> = await getPostEngagementMany(
-    supabase,
-    "post",
-    result.data.map((p) => p.id),
-  ).catch(() => ({}));
+  const ids = result.data.map((p) => p.id);
+  const [engagement, previews] = await Promise.all([
+    getPostEngagementMany(supabase, "post", ids).catch(() => ({}) as Record<string, PostEngagement>),
+    getPostPreviewsMany(supabase, "post", ids).catch(() => ({}) as Record<string, PostPreview>),
+  ]);
 
   return {
     initial: result.data,
@@ -34,6 +34,7 @@ export async function loadPostsSection(supabase: Client, user: User | null, prof
     currentUserId: user?.id ?? null,
     currentUser: user && profile ? { id: user.id, name: profile.full_name, avatarUrl: profile.avatar_url } : null,
     engagement,
+    previews,
     scope: { universityName: universities.find((u) => u.id === universityId)?.name ?? null, hasHomeUniversity: Boolean(profile?.university_id) },
     universityNames: Object.fromEntries(universities.map((u) => [u.id, u.name])),
   };

@@ -1,19 +1,19 @@
-import { useEffect, useRef, useState } from "react";
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View, type ViewToken } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { FlatList, RefreshControl, Text, View, type ViewToken } from "react-native";
 import { useRouter } from "expo-router";
-import { isVerifiedPoster, listFeedPosts, listingMedia, type FeedPostWithAuthor } from "@apartment-book/shared";
-import { Avatar } from "@/components/avatar";
-import { FEED_GAP, FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
+import { listFeedPosts, type FeedPostWithAuthor } from "@apartment-book/shared";
+import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
+import { FEED_HEADER_PADDING } from "@/components/post-card";
 import { Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { useFeed } from "@/lib/hooks";
 import { onPostRemoved, takePostsStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors, radius } from "@/lib/theme";
-import { useEngagement } from "@/lib/use-engagement";
+import { colors } from "@/lib/theme";
+import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
+import { InstaPost } from "./insta-post";
 
-/** Home → Posts: Facebook-style posts from students, newest first. */
+/** Home → Posts: Instagram-style posts from students, newest first. New posts are made with the "+" in the top bar. */
 export function PostsSection({ active, topInset }: { active: boolean; topInset: number }) {
   const { user, profile } = useSession();
   const router = useRouter();
@@ -21,6 +21,13 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
   const universityId = allCampuses ? undefined : (profile?.university_id ?? undefined);
   const feed = useFeed<FeedPostWithAuthor>((page) => listFeedPosts(supabase, { universityId, page }), [universityId]);
   const { savedIds, engagement } = useEngagement("post", feed.items, user?.id ?? null);
+  const { previews, refresh: refreshPreview } = usePostPreviews("post", feed.items, user?.id ?? null);
+  /** Comments added or deleted in the sheet since the counts were loaded. */
+  const [commentDelta, setCommentDelta] = useState<Record<string, number>>({});
+  const [commenting, setCommenting] = useState<FeedPostWithAuthor | null>(null);
+  const commentsOf = (id: string) => Math.max(0, (engagement[id]?.comments ?? 0) + (commentDelta[id] ?? 0));
+  const commentingCount = commenting ? commentsOf(commenting.id) : 0;
+  const target = useMemo<CommentsTarget | null>(() => (commenting ? { targetType: "post", targetId: commenting.id, ownerId: commenting.author.id, comments: commentingCount } : null), [commenting, commentingCount]);
   const [visible, setVisible] = useState<Set<string>>(new Set());
   const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => setVisible(new Set(viewableItems.map((v) => String(v.key))))).current;
   const viewability = useRef({ itemVisiblePercentThreshold: 60 }).current;
@@ -43,43 +50,37 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
   // A post deleted on its own screen disappears here without a reload.
   useEffect(() => onPostRemoved((id) => setItems((prev) => prev.filter((p) => p.id !== id))), [setItems]);
 
-  const compose = () => router.push((user ? "/create/post" : "/(auth)/login") as never);
+  function closeComments() {
+    // The line under the post shows the newest comment: reload it for the post that was open.
+    if (commenting) refreshPreview(commenting.id);
+    setCommenting(null);
+  }
 
   return (
-    <View style={{ flex: 1, paddingTop: topInset }}>
+    <View style={{ flex: 1, paddingTop: topInset, backgroundColor: colors.card }}>
       <FlatList
         ref={listRef}
         data={feed.items}
         keyExtractor={(p) => p.id}
-        contentContainerStyle={{ gap: FEED_GAP, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         ListHeaderComponent={
-          <View style={{ gap: 8, paddingHorizontal: FEED_HEADER_PADDING, paddingTop: FEED_HEADER_PADDING, paddingBottom: 4 }}>
-            <Pressable onPress={compose} style={styles.composer} accessibilityRole="button" accessibilityLabel="Create a post">
-              {user ? <Avatar name={profile?.full_name} url={profile?.avatar_url} size="md" online={false} /> : <Ionicons name="person-circle-outline" size={40} color={colors.faint} />}
-              <View style={styles.composerInput}>
-                <Text style={{ color: colors.muted, fontSize: 15 }}>What's on your mind?</Text>
-              </View>
-              <Ionicons name="images-outline" size={22} color={colors.green} />
-            </Pressable>
-            {profile?.university_id ? (
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                <Chip label={allCampuses ? "All universities" : (profile.university?.name ?? "My campus")} icon="school-outline" active={!allCampuses} onPress={() => setAllCampuses((v) => !v)} />
-              </View>
-            ) : null}
-          </View>
+          profile?.university_id ? (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: FEED_HEADER_PADDING, paddingTop: 10, paddingBottom: 2 }}>
+              <Chip label={allCampuses ? "All universities" : (profile.university?.name ?? "My campus")} icon="school-outline" active={!allCampuses} onPress={() => setAllCampuses((v) => !v)} />
+            </View>
+          ) : null
         }
         renderItem={({ item: p }) => (
-          <PostCard
-            targetType="post"
-            targetId={p.id}
-            path={`/posts/${p.id}`}
-            poster={{ id: p.author.id, name: p.author.full_name, avatarUrl: p.author.avatar_url, verified: isVerifiedPoster(p.author) }}
-            description={p.body}
-            media={listingMedia(p.images, p.image_meta, p.videos)}
-            createdAt={p.created_at}
+          <InstaPost
+            post={p}
             saved={savedIds.has(p.id)}
             engagement={engagement[p.id]}
+            preview={previews[p.id]}
+            comments={commentsOf(p.id)}
+            subtitle={allCampuses || !profile?.university_id ? (p.university?.name ?? undefined) : undefined}
             active={active && visible.has(p.id)}
+            onComments={() => (user ? setCommenting(p) : router.push("/(auth)/login"))}
+            onDeleted={() => setItems((prev) => prev.filter((x) => x.id !== p.id))}
           />
         )}
         ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon="newspaper-outline" title="No posts yet" body={universityId ? "Say hello to your campus, or switch to all universities." : "Be the first to share something."} />}
@@ -90,11 +91,7 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
         viewabilityConfig={viewability}
         refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} />}
       />
+      <CommentsSheet target={target} onClose={closeComments} onCountChange={(d) => commenting && setCommentDelta((prev) => ({ ...prev, [commenting.id]: (prev[commenting.id] ?? 0) + d }))} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  composer: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.card, borderRadius: radius.lg, padding: 12 },
-  composerInput: { flex: 1, height: 40, borderRadius: radius.pill, backgroundColor: colors.input, justifyContent: "center", paddingHorizontal: 14 },
-});

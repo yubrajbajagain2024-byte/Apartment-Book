@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { BadgeCheck, Building2, GraduationCap, Newspaper, School, Settings, ShoppingBag, Users } from "lucide-react";
 import {
   getPostEngagementMany,
+  getPostPreviewsMany,
   getProfile,
   getSavedIds,
   isBlocked,
@@ -12,6 +13,7 @@ import {
   listRoommatePostsByAuthor,
   type FeedPostWithAuthor,
   type PostEngagement,
+  type PostPreview,
 } from "@apartment-book/shared";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -58,11 +60,11 @@ export default async function ProfilePage({ params }: Props) {
       .then(([a, b]) => [...a.data, ...b.data].sort((x, y) => y.created_at.localeCompare(x.created_at)).slice(0, PROFILE_POSTS))
       .catch(() => [] as FeedPostWithAuthor[]),
   ]);
-  const feedEngagement: Record<string, PostEngagement> = await getPostEngagementMany(
-    supabase,
-    "post",
-    feedPosts.map((p) => p.id),
-  ).catch(() => ({}));
+  const feedIds = feedPosts.map((p) => p.id);
+  const [feedEngagement, feedPreviews] = await Promise.all([
+    getPostEngagementMany(supabase, "post", feedIds).catch(() => ({}) as Record<string, PostEngagement>),
+    getPostPreviewsMany(supabase, "post", feedIds).catch(() => ({}) as Record<string, PostPreview>),
+  ]);
   const currentUser = user && viewer ? { id: user.id, name: viewer.full_name, avatarUrl: viewer.avatar_url } : null;
   const signedIn = Boolean(user);
   const firstName = profile.full_name.split(" ")[0];
@@ -128,7 +130,7 @@ export default async function ProfilePage({ params }: Props) {
         ) : (
           <div className="-mx-3 grid items-start gap-1 sm:mx-0 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
             {feedPosts.map((p) => (
-              <FeedPostCard key={p.id} post={p} saved={savedIds.has(p.id)} signedIn={signedIn} currentUserId={user?.id ?? null} currentUser={currentUser} engagement={feedEngagement[p.id]} />
+              <FeedPostCard key={p.id} post={p} saved={savedIds.has(p.id)} signedIn={signedIn} currentUserId={user?.id ?? null} currentUser={currentUser} engagement={feedEngagement[p.id]} preview={feedPreviews[p.id]} />
             ))}
           </div>
         )}

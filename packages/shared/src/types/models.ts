@@ -59,7 +59,7 @@ export type ProfileSummary = Pick<Profile, "id" | "full_name" | "avatar_url">;
 export type FeedPost = Tables<"feed_posts">;
 export type FeedPostKind = "post" | "reel";
 /** A Home-feed post or reel with its author (identified, unlike Buzz). */
-export type FeedPostWithAuthor = FeedPost & { author: PosterSummary };
+export type FeedPostWithAuthor = FeedPost & { author: PosterSummary; university: { id: string; name: string } | null };
 
 /** One item of the vertical Reels feed: a posted reel or a listing's video tour. */
 export type Reel = {
@@ -112,6 +112,10 @@ export type PostCommentWithAuthor = PostComment & { author: ProfileSummary };
 
 /** Like/comment counts for a post plus whether the current user liked it. */
 export type PostEngagement = { likes: number; comments: number; likedByMe: boolean };
+/** Someone who liked a post, for the "Liked by Maya and others" line. */
+export type PostLiker = { id: string; name: string; avatarUrl: string | null };
+/** The newest likers (up to 3) and the newest comment of a post, shown under it in the Posts feed. */
+export type PostPreview = { likers: PostLiker[]; lastComment: PostCommentWithAuthor | null };
 export type UniversitySummary = Pick<University, "id" | "name" | "latitude" | "longitude">;
 
 /** What we know about one uploaded photo. Width/height keep layouts stable; blur is a tiny data URL shown while the photo loads. */

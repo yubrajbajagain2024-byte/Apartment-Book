@@ -3,7 +3,7 @@
 appId: host.exp.Exponent
 ---
 - extendedWaitUntil:
-    visible: "Create a post"
+    visible: "Create"
     timeout: 120000
 - swipe:
     start: "88%,10%"

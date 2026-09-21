@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Bookmark } from "lucide-react";
-import { getApartmentsByIds, getFeedPostsByIds, getItemsByIds, getPostEngagementMany, getRoommatePostsByIds, listSaved, type PostEngagement } from "@apartment-book/shared";
+import { getApartmentsByIds, getFeedPostsByIds, getItemsByIds, getPostEngagementMany, getPostPreviewsMany, getRoommatePostsByIds, listSaved, type PostEngagement, type PostPreview } from "@apartment-book/shared";
 import { getCurrentProfile, requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -22,11 +22,11 @@ export default async function SavedPage() {
     getItemsByIds(supabase, saved.item),
     getFeedPostsByIds(supabase, saved.post).catch(() => []),
   ]);
-  const feedEngagement: Record<string, PostEngagement> = await getPostEngagementMany(
-    supabase,
-    "post",
-    unorderedFeedPosts.map((p) => p.id),
-  ).catch(() => ({}));
+  const feedIds = unorderedFeedPosts.map((p) => p.id);
+  const [feedEngagement, feedPreviews] = await Promise.all([
+    getPostEngagementMany(supabase, "post", feedIds).catch(() => ({}) as Record<string, PostEngagement>),
+    getPostPreviewsMany(supabase, "post", feedIds).catch(() => ({}) as Record<string, PostPreview>),
+  ]);
   const currentUser = { id: user.id, name: profile?.full_name || "You", avatarUrl: profile?.avatar_url ?? null };
   const order = (ids: string[]) => new Map(ids.map((id, i) => [id, i]));
   const byOrder = <T extends { id: string }>(list: T[], ids: string[]) => {
@@ -51,7 +51,7 @@ export default async function SavedPage() {
           <h2 className="text-lg font-semibold">Posts</h2>
           <div className="-mx-3 grid items-start gap-1 sm:mx-0 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
             {feedPosts.map((p) => (
-              <FeedPostCard key={p.id} post={p} saved signedIn currentUserId={user.id} currentUser={currentUser} engagement={feedEngagement[p.id]} />
+              <FeedPostCard key={p.id} post={p} saved signedIn currentUserId={user.id} currentUser={currentUser} engagement={feedEngagement[p.id]} preview={feedPreviews[p.id]} />
             ))}
           </div>
         </section>

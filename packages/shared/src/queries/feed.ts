@@ -4,7 +4,8 @@ import type { Client, FeedPost, FeedPostWithAuthor, ListingVideo, Paginated, Ree
 import type { Json } from "../types/database";
 import { pageRange } from "../utils";
 
-export const FEED_POST_SELECT = "*, author:profiles!feed_posts_author_id_fkey(id, full_name, avatar_url, university:universities(email_domain))";
+export const FEED_POST_SELECT =
+  "*, author:profiles!feed_posts_author_id_fkey(id, full_name, avatar_url, university:universities(email_domain)), university:universities!feed_posts_university_id_fkey(id, name)";
 
 export type FeedPostFilters = {
   /** "post" (default) for the Posts tab; "reel" lists someone's reels on their profile. */

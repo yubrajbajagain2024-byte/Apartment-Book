@@ -22,6 +22,25 @@ try {
     await D.getByText("First week back on campus").first().waitFor();
     await D.screenshot({ path: SHOTS + "web-01-posts.png" });
   });
+  await step("Posts look like Instagram: no composer box, heart / comment / share / bookmark, Liked by, caption with hashtags, newest comment, age", async () => {
+    if (await D.locator("[data-testid='post-composer'], [data-testid='fb-post']").count()) throw new Error("the Facebook composer or card is still on the Posts tab");
+    const post = D.locator("[data-testid='insta-post']").filter({ hasText: "First week back on campus" }).first(); await post.waitFor();
+    for (const name of ["Like", "Comment", "Share", "Save"]) if (!(await post.getByLabel(name, { exact: true }).count())) throw new Error(`no ${name} button`);
+    const liked = (await post.getByTestId("liked-by").innerText()).replace(/\s+/g, " "); if (!/Liked by UI Leo/.test(liked)) throw new Error("liked-by line: " + liked);
+    await post.getByText("View all 2 comments").waitFor(); await post.getByText("Saturday morning works for me").waitFor();
+    const caption = (await post.getByTestId("insta-caption").innerText()).replace(/\s+/g, " "); if (!caption.startsWith("UI Maya First week back")) throw new Error("caption: " + caption);
+    const carousel = D.locator("[data-testid='insta-post']").filter({ hasText: "Move-in day at the new place" }).first();
+    await carousel.getByLabel("1 of 3").waitFor();
+    const tag = carousel.locator("span", { hasText: /^#movein$/ }).first(); const color = await tag.evaluate((el) => getComputedStyle(el).color); if (color !== "rgb(0, 55, 107)") throw new Error("hashtag colour " + color);
+    const words = D.locator("[data-testid='insta-post']").filter({ hasText: "rec center is open during fall break" }).first(); await words.getByTestId("insta-text").waitFor();
+    await carousel.scrollIntoViewIfNeeded(); await D.screenshot({ path: SHOTS + "web-01b-posts-instagram.png" });
+    // Phone: the photo touches both edges of the screen.
+    await M.goto(BASE + "/"); const phonePost = M.locator("[data-testid='insta-post']").filter({ hasText: "Move-in day at the new place" }).first(); await phonePost.waitFor();
+    const frame = await phonePost.locator("img").nth(1).boundingBox(); const box = await phonePost.boundingBox();
+    if (!box || Math.round(box.x) !== 0 || Math.round(box.width) !== 390) throw new Error("post is not edge to edge: " + JSON.stringify(box));
+    if (!frame || frame.width < 389) throw new Error("photo is not edge to edge: " + JSON.stringify(frame));
+    await phonePost.scrollIntoViewIfNeeded(); await M.screenshot({ path: SHOTS + "web-04b-phone-posts-instagram.png" });
+  });
   await step("navigation: Home, Roommates, Marketplace, Messages, Apartments; the apartments feed lives at /apartments", async () => {
     const nav = (await D.locator("header nav[aria-label='Main'] a").allInnerTexts()).map((t) => t.trim().split("\n")[0]).filter(Boolean);
     for (const want of ["Home", "Roommates", "Marketplace", "Messages", "Apartments"]) if (!nav.includes(want)) throw new Error(`missing ${want} in ${nav.join(",")}`);
@@ -67,6 +86,17 @@ try {
     const mine = D.locator("[data-testid='buzz-reply']").filter({ hasText: String(stamp) }).first(); await mine.getByRole("button", { name: "Upvote" }).click();
     await mine.locator("button[aria-label='Upvote'][aria-pressed='true']").waitFor();
     await D.screenshot({ path: SHOTS + "web-05-buzz-thread.png" });
+  });
+  await step("signed in: heart a post and the count goes up, the comment icon opens the thread under the post, the bookmark saves it", async () => {
+    await D.goto(BASE + "/"); await D.waitForLoadState("networkidle");
+    const post = D.locator("[data-testid='insta-post']").filter({ hasText: "First week back on campus" }).first(); await post.waitFor();
+    await post.getByLabel("Like", { exact: true }).click(); await post.getByLabel("Unlike", { exact: true }).waitFor();
+    const liked = (await post.getByTestId("liked-by").innerText()).replace(/\s+/g, " "); if (!/Liked by UI Leo and 1 other/.test(liked)) throw new Error("liked-by after my like: " + liked);
+    await post.getByLabel("Comment", { exact: true }).click(); await post.getByTestId("comments").waitFor(); await post.getByText("Bring snacks and I will book a room.").waitFor();
+    await post.getByLabel("Save", { exact: true }).click(); await post.getByLabel("Unsave", { exact: true }).waitFor();
+    await D.screenshot({ path: SHOTS + "web-07-post-liked.png" });
+    await post.getByLabel("Unsave", { exact: true }).click(); await post.getByLabel("Save", { exact: true }).waitFor();
+    await post.getByLabel("Unlike", { exact: true }).click(); await post.getByLabel("Like", { exact: true }).waitFor();
   });
   await step("create pages render: /posts/new, /reels/new, /buzz/new (with the anonymity notice)", async () => {
     for (const p of ["/posts/new", "/reels/new", "/buzz/new"]) { const r = await D.goto(BASE + p); if (!r || r.status() >= 400) throw new Error(`${p} -> ${r?.status()}`); }
