@@ -128,8 +128,11 @@ await expectOk("buzz: photos must be this project's anonymous folder, a random n
   const row = await as(B, () => one(db.query("select images, image_meta from public.buzz_get($1)", [id])));
   if (row.images[0] !== good || row.image_meta.length !== 1 || row.image_meta[0].width !== null || row.image_meta[0].blur !== null || JSON.stringify(row).length > 600) throw new Error(JSON.stringify(row).slice(0, 300));
   await as(C, () => db.query("select public.buzz_delete($1)", [id]));
-  let threw = false; try { await as(B, () => db.query("insert into storage.objects (bucket_id, name, owner) values ('uploads','buzz/other/1.jpg',$1)", [B])); } catch { threw = true; }
-  if (!threw) throw new Error("buzz/other accepted");
+  for (const name of ["buzz/other/1.jpg", `buzz/${B}/1.jpg`]) {
+    let threw = false; try { await as(B, () => db.query("insert into storage.objects (bucket_id, name, owner) values ('uploads',$1,$2)", [name, B])); } catch { threw = true; }
+    if (!threw) throw new Error(name + " accepted");
+  }
+  await as(B, () => db.query("insert into storage.objects (bucket_id, name, owner) values ('uploads',$1,$2)", [`posts/${B}/1.jpg`, B]));
   if ((await as(C, () => db.query("select * from storage.objects where name like 'buzz/%' and owner <> $1", [C]))).rows.length !== 0) throw new Error("others can list buzz files");
   if ((await as(C, () => db.query("delete from storage.objects where owner=$1 returning id", [B]))).rows.length) throw new Error("someone else deleted my file");
   if (!(await as(B, () => db.query("delete from storage.objects where owner=$1 returning id", [B]))).rows.length) throw new Error("cannot delete own file");
