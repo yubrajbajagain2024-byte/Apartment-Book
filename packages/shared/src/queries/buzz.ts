@@ -1,6 +1,6 @@
 import { BUZZ_PAGE_SIZE } from "../constants";
 import type { BuzzPostInput } from "../schemas";
-import type { BuzzComment, BuzzPost, BuzzSort, BuzzTopic, Client } from "../types/models";
+import type { BuzzComment, BuzzCommentNode, BuzzCommentSort, BuzzPost, BuzzSort, BuzzTopic, Client } from "../types/models";
 import type { Json } from "../types/database";
 
 /**
@@ -105,7 +105,7 @@ export async function voteBuzz(supabase: Client, postId: string, value: -1 | 0 |
 export async function listBuzzComments(supabase: Client, postId: string): Promise<BuzzComment[]> {
   const { data, error } = await supabase.rpc("buzz_comments_list", { p_post_id: postId });
   if (error) throw error;
-  return (data ?? []).map((c) => ({ id: c.id, parentId: c.parent_id, body: c.body, createdAt: c.created_at, alias: c.alias, isOp: c.is_op, isMine: c.is_mine }));
+  return (data ?? []).map((c) => ({ id: c.id, parentId: c.parent_id, body: c.body, createdAt: c.created_at, alias: c.alias, isOp: c.is_op, isMine: c.is_mine, score: c.score ?? 0, myVote: ((c.my_vote ?? 0) > 0 ? 1 : (c.my_vote ?? 0) < 0 ? -1 : 0) as -1 | 0 | 1 }));
 }
 
 /** Reply anonymously. Re-fetch the list afterwards to get the reply with its alias (you see your own reply at once). */
@@ -135,4 +135,49 @@ export async function muteBuzzAuthor(supabase: Client, target: { postId: string 
 export async function unhideBuzzThread(supabase: Client, postId: string): Promise<void> {
   const { error } = await supabase.rpc("buzz_unmute", { p_post_id: postId });
   if (error) throw error;
+}
+
+/** Vote on a reply: 1 = upvote, -1 = downvote, 0 = clear. Returns the fresh score and your vote. */
+export async function voteBuzzComment(supabase: Client, commentId: string, value: -1 | 0 | 1): Promise<{ score: number; myVote: -1 | 0 | 1 }> {
+  const { data, error } = await supabase.rpc("buzz_comment_vote", { p_comment_id: commentId, p_value: value });
+  if (error) throw error;
+  const row = data?.[0];
+  return { score: row?.score ?? 0, myVote: ((row?.my_vote ?? 0) > 0 ? 1 : (row?.my_vote ?? 0) < 0 ? -1 : 0) as -1 | 0 | 1 };
+}
+
+export const BUZZ_COMMENT_SORTS: { value: BuzzCommentSort; label: string }[] = [
+  { value: "best", label: "Best" },
+  { value: "new", label: "New" },
+  { value: "old", label: "Old" },
+];
+/** Replies nest like Reddit; past this depth they stay at the same indent so phones stay readable. */
+export const BUZZ_MAX_DEPTH = 5;
+
+/**
+ * Turn the flat reply list into Reddit-style thread order: every reply followed by
+ * its own replies, siblings ordered by `sort`. Returns a flat list with `depth`
+ * (ready for a virtualized list). Replies whose parent is not visible (hidden or
+ * not published yet) are shown at the top level rather than dropped.
+ */
+export function threadBuzzComments(comments: BuzzComment[], sort: BuzzCommentSort = "best"): BuzzCommentNode[] {
+  const ids = new Set(comments.map((c) => c.id));
+  const children = new Map<string | null, BuzzComment[]>();
+  for (const c of comments) {
+    const key = c.parentId && ids.has(c.parentId) ? c.parentId : null;
+    const list = children.get(key) ?? [];
+    list.push(c);
+    children.set(key, list);
+  }
+  const order = (a: BuzzComment, b: BuzzComment) =>
+    sort === "new" ? b.createdAt.localeCompare(a.createdAt) : sort === "old" ? a.createdAt.localeCompare(b.createdAt) : b.score - a.score || a.createdAt.localeCompare(b.createdAt);
+  const countBelow = (id: string): number => (children.get(id) ?? []).reduce((n, c) => n + 1 + countBelow(c.id), 0);
+  const out: BuzzCommentNode[] = [];
+  const walk = (parent: string | null, depth: number) => {
+    for (const c of [...(children.get(parent) ?? [])].sort(order)) {
+      out.push({ ...c, depth: Math.min(depth, BUZZ_MAX_DEPTH), replyCount: countBelow(c.id) });
+      walk(c.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+  return out;
 }

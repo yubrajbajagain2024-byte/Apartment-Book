@@ -1034,7 +1034,7 @@ export type Database = {
       };
       buzz_comments_list: {
         Args: { p_post_id: string };
-        Returns: { id: string; parent_id: string | null; body: string; created_at: string; alias: string; is_op: boolean; is_mine: boolean }[];
+        Returns: { id: string; parent_id: string | null; body: string; created_at: string; alias: string; is_op: boolean; is_mine: boolean; score: number; my_vote: number }[];
       };
       buzz_create: {
         Args: { p_topic: string; p_title: string; p_body?: string; p_university_id?: string | null; p_images?: string[]; p_image_meta?: Json; p_videos?: Json };
@@ -1051,6 +1051,10 @@ export type Database = {
       buzz_delete: {
         Args: { p_id: string };
         Returns: undefined;
+      };
+      buzz_comment_vote: {
+        Args: { p_comment_id: string; p_value: number };
+        Returns: { score: number; my_vote: number }[];
       };
       buzz_vote: {
         Args: { p_post_id: string; p_value: number };

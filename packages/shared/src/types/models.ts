@@ -101,7 +101,11 @@ export type BuzzPost = {
   isMine: boolean;
   alias: string;
 };
-export type BuzzComment = { id: string; parentId: string | null; body: string; createdAt: string; alias: string; isOp: boolean; isMine: boolean };
+export type BuzzComment = { id: string; parentId: string | null; body: string; createdAt: string; alias: string; isOp: boolean; isMine: boolean; score: number; myVote: -1 | 0 | 1 };
+/** How replies under a thread are ordered (within each level of the tree). */
+export type BuzzCommentSort = "best" | "new" | "old";
+/** A reply placed in the thread tree: `depth` 0 is a reply to the thread itself. */
+export type BuzzCommentNode = BuzzComment & { depth: number; replyCount: number };
 
 /** A comment with who wrote it. */
 export type PostCommentWithAuthor = PostComment & { author: ProfileSummary };

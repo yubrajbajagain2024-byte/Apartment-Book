@@ -533,6 +533,8 @@ as $$
   where b.id = p_id and public.buzz_can_see(b);
 $$;
 
+-- (Later migrations widen this function's result, so drop first to stay re-runnable.)
+drop function if exists public.buzz_comments_list(uuid);
 create or replace function public.buzz_comments_list(p_post_id uuid)
 returns table (id uuid, parent_id uuid, body text, created_at timestamptz, alias text, is_op boolean, is_mine boolean)
 language sql
