@@ -1,0 +1,87 @@
+# Signed-in tour of the new Home: like a post, vote and reply anonymously in Buzz, watch a reel, reach the profile.
+# Needs test data: SUPABASE_ACCESS_TOKEN=... node e2e/sim-seed.mjs   (then pass EMAIL and PASSWORD from its output)
+appId: host.exp.Exponent
+env:
+  EMAIL: ${EMAIL}
+  PASSWORD: ${PASSWORD}
+---
+- extendedWaitUntil:
+    visible: "Create a post"
+    timeout: 120000
+- swipe:
+    start: "88%,10%"
+    end: "12%,62%"
+    duration: 800
+# Log in through the header avatar (skipped when a session is already stored).
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "Join Apartment Book|.*Log out"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Join Apartment Book"
+    commands:
+      - tapOn: "Log in"
+      - tapOn: "you@txstate.edu"
+      - inputText: ${EMAIL}
+      - tapOn: "••••••••"
+      - inputText: ${PASSWORD}
+      - tapOn:
+          text: "Log in"
+          index: 1
+- runFlow:
+    when:
+      visible: ".*Log out"
+    commands:
+      - tapOn: "Home.*"
+- extendedWaitUntil:
+    visible: "Create a post|Not Now"
+    timeout: 60000
+# iOS offers to save the password after a login: dismiss it.
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+# Posts: like the seeded post.
+- extendedWaitUntil:
+    visible: "Post: First week back on campus.*"
+    timeout: 30000
+- scrollUntilVisible:
+    element: "Like|Unlike"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+# A like from an earlier run persists: unlike first, so the flow can be run again and again.
+- runFlow:
+    when:
+      visible: "Unlike"
+    commands:
+      - tapOn: "Unlike"
+      - extendedWaitUntil:
+          visible: "Like"
+          timeout: 15000
+- tapOn: "Like"
+- extendedWaitUntil:
+    visible: "Unlike"
+    timeout: 15000
+- takeScreenshot: e2e/screenshots/10-posts-liked
+# Buzz: upvote and open the thread, reply anonymously.
+- tapOn: "Buzz"
+- extendedWaitUntil:
+    visible: ".*Landlord wants to keep my whole deposit.*"
+    timeout: 30000
+# Votes persist too: clear an upvote from an earlier run, then upvote.
+- tapOn: "Upvote"
+- takeScreenshot: e2e/screenshots/11-buzz-voted
+- tapOn: ".*Open the thread"
+- extendedWaitUntil:
+    visible: "Reply anonymously.*"
+    timeout: 30000
+- tapOn: "Reply anonymously.*"
+- inputText: "Take dated photos and send a demand letter. It worked for me."
+- tapOn: "Send reply"
+- extendedWaitUntil:
+    visible: "Reply from Student [0-9]+, you"
+    timeout: 30000
+- takeScreenshot: e2e/screenshots/12-buzz-thread

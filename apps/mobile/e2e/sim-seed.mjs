@@ -16,5 +16,15 @@ const { data: apt } = await admin.from("apartments").insert({ owner_id: other.id
 const { data: room } = await admin.from("roommate_posts").insert({ author_id: other.id, university_id: uni.id, post_type: "has_room", title: "Room in a quiet 3-bed house", description: "Furnished room with two grad students. Lease from January, looking for a quiet student.", budget_max: 650, location: "San Marcos", images: photos.slice(0, 2), image_meta: meta.slice(0, 2) }).select("id").single();
 const { data: item } = await admin.from("items").insert({ seller_id: other.id, university_id: uni.id, title: "Queen mattress, 1 year old", description: "Firm, clean, no stains. Pickup near campus.", price: 80, category: "mattress_bedding", condition: "good", images: [photos[0]], image_meta: [meta[0]] }).select("id").single();
 await admin.from("post_comments").insert({ target_type: "roommate", target_id: room.id, user_id: other.id, body: "Still available! Message me for a visit." });
-fs.writeFileSync(new URL(".sim-state.json", import.meta.url), JSON.stringify({ me, other, password, apartmentId: apt.id, roommateId: room.id, itemId: item.id }, null, 2));
-console.log(JSON.stringify({ me: me.email, password, apt: apt.id, room: room.id, item: item.id }));
+// Home feed: a post, a video tour (shows up in Reels) and an anonymous Buzz thread written by the other user.
+const SAMPLE = { media_id: "00000000-0000-0000-0000-000000000000", playback_id: "O01x4Ox01Bd8IKkk00bsSnMqm00pxaK3tnK8UkS4DDc3AM00", poster_url: "https://image.mux.com/O01x4Ox01Bd8IKkk00bsSnMqm00pxaK3tnK8UkS4DDc3AM00/thumbnail.jpg?time=1", width: 640, height: 360, duration_seconds: 10 };
+const { data: post } = await admin.from("feed_posts").insert({ author_id: other.id, university_id: uni.id, body: "First week back on campus. Anyone up for a study group at Alkek this weekend?", images: [photos[1]], image_meta: [meta[1]] }).select("id").single();
+await admin.from("feed_posts").insert({ author_id: other.id, university_id: uni.id, kind: "reel", body: "Quick tour of my new place near Sewell Park", videos: [SAMPLE] });
+await admin.from("buzz_secrets").update({ thread_jitter_seconds: 0, reply_jitter_seconds: 0 }).eq("id", 1); // so test threads are visible at once; sim-cleanup restores it
+const anonKey = keys.find((k) => k.name === "anon").api_key;
+const asOther = createClient(`https://${ref}.supabase.co`, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+await asOther.auth.signInWithPassword({ email: other.email, password });
+const buzz = await asOther.rpc("buzz_create", { p_topic: "advice", p_title: "Landlord wants to keep my whole deposit. What can I do?", p_body: "Moved out last month, left the place clean, and they are claiming 'general wear'. Has anyone here fought this and won?" });
+if (buzz.error) throw buzz.error;
+fs.writeFileSync(new URL(".sim-state.json", import.meta.url), JSON.stringify({ me, other, password, apartmentId: apt.id, roommateId: room.id, itemId: item.id, postId: post.id, buzzId: buzz.data }, null, 2));
+console.log(JSON.stringify({ me: me.email, password, post: post.id, buzz: buzz.data }));

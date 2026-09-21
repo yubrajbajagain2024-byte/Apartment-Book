@@ -126,7 +126,7 @@ export default function CreateBuzzScreen() {
         <Ionicons name="eye-off-outline" size={20} color={colors.brand} style={{ marginTop: 1 }} />
         <View style={{ flex: 1, gap: 4 }}>
           <Text style={styles.noticeTitle}>This post is anonymous</Text>
-          <Text style={styles.noticeText}>Your name and photo are never shown. People see a random name like "Student 4821".</Text>
+          <Text style={styles.noticeText}>Your name and photo are never shown. People see a random name like "Student 48213".</Text>
           <Text style={styles.noticeText}>Be kind. Do not share names or personal details of other people. Reported posts are reviewed by our team.</Text>
         </View>
       </View>

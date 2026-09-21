@@ -20,7 +20,7 @@ export function buzzTopicLabel(topic: BuzzTopic): string {
   return BUZZ_TOPICS.find((t) => t.value === topic)?.label ?? "Other";
 }
 
-/** "Student 4821 · 2h" plus the OP / You markers. Used by threads and replies. */
+/** "Student 48213 · 2h" plus the OP / You markers. Used by threads and replies. */
 export function BuzzByline({ alias, createdAt, isMine, isOp, className }: { alias: string; createdAt: string; isMine: boolean; isOp?: boolean; className?: string }) {
   return (
     <span className={cn("inline-flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-gray-500", className)}>

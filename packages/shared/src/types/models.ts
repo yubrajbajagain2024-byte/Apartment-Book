@@ -81,7 +81,7 @@ export type BuzzTopic = "thoughts" | "experience" | "advice" | "question" | "hou
 export type BuzzSort = "hot" | "new" | "top";
 /**
  * An anonymous Buzz thread as other people see it. There is deliberately no
- * author here: the server never sends it. `alias` ("Student 4821") is stable
+ * author here: the server never sends it. `alias` ("Student 48213") is stable
  * inside one thread and different in every other thread.
  */
 export type BuzzPost = {

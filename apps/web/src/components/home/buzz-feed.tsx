@@ -143,7 +143,7 @@ export function BuzzFeed({ initial, filters, signedIn, scope }: BuzzFeedProps) {
       <p className="flex items-start gap-1.5 px-3 text-xs text-gray-600 sm:px-1">
         <VenetianMask className="mt-px h-4 w-4 shrink-0 text-gray-500" />
         <span>
-          Buzz is anonymous. Nobody sees your name or profile here, only a random name like &quot;Student 4821&quot;. Be kind.
+          Buzz is anonymous. Nobody sees your name or profile here, only a random name like &quot;Student 48213&quot;. Be kind.
           {filters.universityId || scope?.hasHomeUniversity ? (
             <>
               {" "}

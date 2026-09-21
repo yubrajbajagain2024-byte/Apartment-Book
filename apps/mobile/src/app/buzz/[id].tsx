@@ -250,7 +250,7 @@ export default function BuzzThreadScreen() {
         renderItem={({ item: c }) => {
           const parent = c.parentId ? replies.find((r) => r.id === c.parentId) : undefined;
           return (
-            <Pressable onLongPress={() => replyMenu(c)} delayLongPress={300} style={[styles.reply, c.parentId ? styles.nested : null]} accessibilityLabel={`Reply from ${c.alias}`} accessibilityHint="Long press for options">
+            <Pressable onLongPress={() => replyMenu(c)} delayLongPress={300} style={[styles.reply, c.parentId ? styles.nested : null]} accessibilityLabel={`Reply from ${c.alias}${c.isMine ? ", you" : ""}${c.isOp ? ", who started the thread" : ""}`} accessibilityHint="Long press for options">
               <View style={styles.replyHead}>
                 <Text style={styles.alias} numberOfLines={1}>
                   {c.alias}

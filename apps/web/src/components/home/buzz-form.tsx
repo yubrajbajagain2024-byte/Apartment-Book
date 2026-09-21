@@ -23,7 +23,7 @@ export function BuzzForm({ action }: { action: (prev: FormState, formData: FormD
       <div className="flex items-start gap-3 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-900 ring-1 ring-brand-100" role="note">
         <VenetianMask className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />
         <ul className="flex list-disc flex-col gap-0.5 pl-4">
-          <li>This thread is anonymous. Your name and profile are never shown, only a random name like &quot;Student 4821&quot;.</li>
+          <li>This thread is anonymous. Your name and profile are never shown, only a random name like &quot;Student 48213&quot;.</li>
           <li>Be kind. Share thoughts, experiences and advice, not attacks.</li>
           <li>Do not post names or personal details of other people.</li>
           <li>Reports are reviewed, and threads that break the rules are removed.</li>

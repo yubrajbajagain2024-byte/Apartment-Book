@@ -6,5 +6,8 @@ const admin = createClient(`https://${ref}.supabase.co`, keys.find((k) => k.name
 const s = JSON.parse(fs.readFileSync(new URL(".sim-state.json", import.meta.url), "utf8"));
 const { data: convs } = await admin.from("conversation_members").select("conversation_id").in("user_id", [s.me.id, s.other.id]);
 for (const c of new Set((convs ?? []).map((c) => c.conversation_id))) await admin.from("conversations").delete().eq("id", c);
+if (s.buzzId) await admin.from("buzz_posts").delete().eq("id", s.buzzId); // threads outlive accounts by design, so remove the test one explicitly
+await admin.from("buzz_posts").delete().is("author_id", null).like("title", "%(sim test)%");
+await admin.from("buzz_secrets").update({ thread_jitter_seconds: 180, reply_jitter_seconds: 45 }).eq("id", 1);
 for (const id of [s.me.id, s.other.id]) await admin.auth.admin.deleteUser(id);
 console.log("cleaned up sim users and their data");

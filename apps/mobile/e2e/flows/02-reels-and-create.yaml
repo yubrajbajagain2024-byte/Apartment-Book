@@ -1,0 +1,29 @@
+# Reels and the create menu, signed in (run 01-signed-in.yaml first so a session is stored).
+appId: host.exp.Exponent
+---
+- extendedWaitUntil:
+    visible: "Create a post"
+    timeout: 120000
+- swipe:
+    start: "88%,10%"
+    end: "12%,62%"
+    duration: 800
+# Reels
+- tapOn: "Reels"
+- extendedWaitUntil:
+    visible: "Turn sound on|Turn sound off"
+    timeout: 30000
+- assertVisible: "Pause|Play"
+- takeScreenshot: e2e/screenshots/13-reels
+- tapOn: "Posts"
+# Create menu
+- tapOn: "Create"
+- assertVisible: "Post"
+- assertVisible: "Reel"
+- assertVisible: "Buzz \\(anonymous\\)"
+- takeScreenshot: e2e/screenshots/14-create-menu
+- tapOn: "Buzz \\(anonymous\\)"
+- extendedWaitUntil:
+    visible: ".*anonymous.*"
+    timeout: 30000
+- takeScreenshot: e2e/screenshots/15-create-buzz

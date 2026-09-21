@@ -15,8 +15,13 @@ appId: host.exp.Exponent
     commands:
       - tapOn: "Close"
 - extendedWaitUntil:
-    visible: "What's on your mind.*"
+    visible: "Create a post"
     timeout: 60000
+# Expo Go's floating developer gear sits on top of the header avatar: drag it out of the way (not present in real builds).
+- swipe:
+    start: "88%,10%"
+    end: "12%,62%"
+    duration: 800
 - assertVisible: "Reels"
 - assertVisible: "Buzz"
 - assertVisible: "Posts"
@@ -29,7 +34,7 @@ appId: host.exp.Exponent
 - takeScreenshot: e2e/screenshots/01-home-reels
 - tapOn: "Posts"
 - extendedWaitUntil:
-    visible: "What's on your mind.*"
+    visible: "Create a post"
     timeout: 30000
 - tapOn: "Roommates.*"
 - extendedWaitUntil:
