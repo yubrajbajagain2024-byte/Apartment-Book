@@ -61,8 +61,11 @@ export async function uploadImage(
     throw new Error("Photos must be smaller than 25 MB");
   }
   // Buzz is anonymous: its files go to buzz/anon/… so the public URL never contains the uploader's id.
-  const folder = input.kind === "buzz" ? "buzz/anon" : `${input.kind}/${input.userId}`;
-  const path = `${folder}/${Date.now()}-${randomId()}${randomId()}.${extensionFor(contentType, input.fileName)}`;
+  // Their names are random only: a timestamp in a public URL would give away when the author was online.
+  const anonymous = input.kind === "buzz";
+  const folder = anonymous ? "buzz/anon" : `${input.kind}/${input.userId}`;
+  const name = anonymous ? `${randomId()}${randomId()}${randomId()}` : `${Date.now()}-${randomId()}${randomId()}`;
+  const path = `${folder}/${name}.${extensionFor(contentType, anonymous ? undefined : input.fileName)}`;
   const { error } = await supabase.storage
     .from(STORAGE_BUCKET)
     .upload(path, input.file, { contentType, cacheControl: "31536000", upsert: false });

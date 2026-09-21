@@ -838,63 +838,6 @@ export type Database = {
           },
         ];
       };
-      buzz_posts: {
-        Row: {
-          id: string;
-          author_id: string;
-          university_id: string | null;
-          topic: string;
-          title: string;
-          body: string;
-          images: string[];
-          image_meta: Json;
-          videos: Json;
-          score: number;
-          comment_count: number;
-          created_at: string;
-          visible_at: string;
-        };
-        Insert: {
-          id?: string;
-          author_id: string;
-          university_id?: string | null;
-          topic?: string;
-          title: string;
-          body?: string;
-          images?: string[];
-          image_meta?: Json;
-          videos?: Json;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-        };
-        Relationships: [];
-      };
-      buzz_comments: {
-        Row: {
-          id: string;
-          post_id: string;
-          author_id: string;
-          parent_id: string | null;
-          body: string;
-          created_at: string;
-          visible_at: string;
-          seq: number;
-        };
-        Insert: {
-          id?: string;
-          post_id: string;
-          author_id: string;
-          parent_id?: string | null;
-          body: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-        };
-        Relationships: [];
-      };
       notifications: {
         Row: {
           id: string;
@@ -1100,6 +1043,14 @@ export type Database = {
       buzz_reply: {
         Args: { p_post_id: string; p_body: string; p_parent_id?: string | null };
         Returns: string;
+      };
+      buzz_unmute: {
+        Args: { p_post_id: string };
+        Returns: undefined;
+      };
+      buzz_delete: {
+        Args: { p_id: string };
+        Returns: undefined;
       };
       buzz_vote: {
         Args: { p_post_id: string; p_value: number };

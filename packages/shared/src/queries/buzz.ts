@@ -6,8 +6,8 @@ import type { Json } from "../types/database";
 /**
  * Buzz is anonymous. Other people's threads and replies are only reachable
  * through the `buzz_*` database functions, which never return who wrote them.
- * Do not add queries that select from `buzz_posts` / `buzz_comments` for
- * anyone but the signed-in user: row-level security returns nothing anyway.
+ * The tables themselves are closed to the API (no grants at all), so every read and
+ * write here is an RPC. Threads outlive their author's account, detached.
  */
 
 type BuzzRow = {
@@ -90,9 +90,8 @@ export async function createBuzz(supabase: Client, _userId: string, input: BuzzP
 
 /** Only works on your own threads. */
 export async function deleteBuzz(supabase: Client, id: string): Promise<void> {
-  const { data, error } = await supabase.from("buzz_posts").delete().eq("id", id).select("id");
+  const { error } = await supabase.rpc("buzz_delete", { p_id: id });
   if (error) throw error;
-  if (!data || data.length === 0) throw new Error("You can only delete your own threads.");
 }
 
 /** 1 = upvote, -1 = downvote, 0 = clear. Returns the fresh score and your vote. */
@@ -129,5 +128,11 @@ export async function deleteBuzzComment(supabase: Client, commentId: string): Pr
  */
 export async function muteBuzzAuthor(supabase: Client, target: { postId: string } | { commentId: string }): Promise<void> {
   const { error } = await supabase.rpc("buzz_mute", "postId" in target ? { p_post_id: target.postId } : { p_comment_id: target.commentId });
+  if (error) throw error;
+}
+
+/** Undo a hide: brings the thread (and anyone you hid inside it) back. */
+export async function unhideBuzzThread(supabase: Client, postId: string): Promise<void> {
+  const { error } = await supabase.rpc("buzz_unmute", { p_post_id: postId });
   if (error) throw error;
 }
