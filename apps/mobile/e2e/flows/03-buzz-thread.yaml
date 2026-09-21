@@ -1,0 +1,61 @@
+# Reddit-style thread: vote on a reply, reply to a reply (nesting), sort, collapse a branch, jump to the next reply.
+# Needs: node e2e/sim-seed.mjs && node e2e/sim-seed-thread.mjs, and a stored session (run 01-signed-in.yaml first).
+appId: host.exp.Exponent
+---
+- extendedWaitUntil:
+    visible: "Create a post"
+    timeout: 120000
+- swipe:
+    start: "88%,10%"
+    end: "12%,62%"
+    duration: 800
+# SAFETY: these flows tap, vote and post. They must only ever run as a seeded test account (ui-sim-…),
+# never as a real person who happens to be signed in on this simulator. Fails here otherwise.
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "Join Apartment Book|.*Log out"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: ".*Log out"
+    commands:
+      - assertVisible: "ui-sim-.*@txstate.edu"
+- assertVisible: ".*Log out"
+- tapOn: "Home.*"
+- tapOn: "Buzz"
+- extendedWaitUntil:
+    visible: ".*Landlord wants to keep my whole deposit.*"
+    timeout: 40000
+- tapOn: ".*Open the thread"
+- extendedWaitUntil:
+    visible: "Sort replies: Best"
+    timeout: 40000
+- takeScreenshot: e2e/screenshots/30-thread-top
+# Vote on the first reply.
+- tapOn:
+    text: "Upvote reply"
+    index: 0
+- takeScreenshot: e2e/screenshots/31-reply-voted
+# Sort sheet
+- tapOn: "Sort replies: Best"
+- assertVisible: "New"
+- assertVisible: "Old"
+- tapOn: "New"
+- extendedWaitUntil:
+    visible: "Sort replies: New"
+    timeout: 10000
+- tapOn: "Sort replies: New"
+- tapOn: "Best"
+# Reply to a reply
+- tapOn:
+    text: "Reply to Student [0-9]+"
+    index: 0
+- assertVisible: "Cancel replying to this person"
+- inputText: "Nested reply from the simulator"
+- tapOn: "Send reply"
+- extendedWaitUntil:
+    visible: "Reply from Student [0-9]+, you"
+    timeout: 30000
+- takeScreenshot: e2e/screenshots/32-nested-reply
+- tapOn: "Jump to the next reply"
+- takeScreenshot: e2e/screenshots/33-jumped

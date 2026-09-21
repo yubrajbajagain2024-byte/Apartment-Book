@@ -1,41 +1,19 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { EyeOff, Flag, MessageSquare, MoreHorizontal, Trash2 } from "lucide-react";
-import { BUZZ_TOPICS, listingMedia, timeAgo, type BuzzPost, type BuzzTopic } from "@apartment-book/shared";
+import { EyeOff, Flag, MessageCircle, MoreHorizontal, Play, Trash2 } from "lucide-react";
+import { compactCount, listingMedia, type BuzzPost, type BuzzTopic, type FeedMedia } from "@apartment-book/shared";
 import { deleteBuzzAction, muteBuzzAuthorAction } from "@/lib/actions/buzz";
 import { cn } from "@/lib/utils";
 import { ReportMenu } from "@/components/common/report-block";
-import { ShareButton } from "@/components/common/share-button";
 import { PhotoCarousel } from "@/components/photos/photo-carousel";
+import { BUZZ_HOME, BUZZ_PILL, BuzzAge, BuzzBadges, BuzzSharePill, BuzzTopicIcon, buzzTopicLabel } from "./buzz-bits";
 import { BuzzVote } from "./buzz-vote";
 
-// Buzz is anonymous: there is no author here, only an alias. Never add avatars, profile links or a message button.
-
-export const BUZZ_HOME = "/?tab=buzz";
-
-export function buzzTopicLabel(topic: BuzzTopic): string {
-  return BUZZ_TOPICS.find((t) => t.value === topic)?.label ?? "Other";
-}
-
-/** "Student 48213 · 2h" plus the OP / You markers. Used by threads and replies. */
-export function BuzzByline({ alias, createdAt, isMine, isOp, className }: { alias: string; createdAt: string; isMine: boolean; isOp?: boolean; className?: string }) {
-  return (
-    <span className={cn("inline-flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-gray-500", className)}>
-      <span className="font-semibold text-gray-700">{alias}</span>
-      {isOp ? <span className="rounded bg-brand-50 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-brand-700">OP</span> : null}
-      {isMine ? (
-        <span className="rounded bg-gray-900 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-white" title="Only you can see this marker">
-          You
-        </span>
-      ) : null}
-      <span aria-hidden="true">·</span>
-      <span suppressHydrationWarning>{timeAgo(createdAt)}</span>
-    </span>
-  );
-}
+// Buzz is anonymous: there is no author here, only an alias. Never add avatars of people, profile links or a message button.
 
 const MENU_WIDTH = 240; // w-60
 
@@ -132,7 +110,7 @@ export function BuzzMenu({
   const item = "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-gray-900 hover:bg-gray-100 disabled:opacity-50";
 
   return (
-    <div ref={rootRef} className={cn("relative shrink-0", className)}>
+    <div ref={rootRef} className={cn("relative shrink-0", className, open && "z-50")}>
       <button ref={buttonRef} type="button" onClick={toggle} aria-label={label} aria-haspopup="menu" aria-expanded={open} aria-controls={open ? menuId : undefined} className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-900">
         <MoreHorizontal className="h-5 w-5" />
       </button>
@@ -192,30 +170,9 @@ export function BuzzMenu({
   );
 }
 
-/**
- * One anonymous thread, Reddit style: votes on the left, then topic, alias, title, text, media and a quiet footer.
- * `full` is the thread page (whole text, no link on the title).
- */
-export function BuzzCard({
-  post,
-  signedIn,
-  full,
-  priority,
-  onRemoved,
-  topicHref,
-}: {
-  post: BuzzPost;
-  signedIn: boolean;
-  full?: boolean;
-  priority?: boolean;
-  /** The feed drops the card (deleted or hidden). Without it the card goes back to Buzz. */
-  onRemoved?: (id: string, why: "deleted" | "hidden") => void;
-  /** The feed builds topic links that keep its sort and "All universities" choice. */
-  topicHref?: (topic: BuzzTopic) => string;
-}) {
+/** Report / Hide / Delete for one thread, wired the same way in the feed and on the thread page. */
+export function BuzzThreadMenu({ post, signedIn, onRemoved, className }: { post: BuzzPost; signedIn: boolean; onRemoved?: (id: string, why: "deleted" | "hidden") => void; className?: string }) {
   const router = useRouter();
-  const href = `/buzz/${post.id}`;
-  const media = listingMedia(post.images, post.imageMeta, post.videos);
 
   function leave(why: "deleted" | "hidden") {
     if (onRemoved) {
@@ -228,75 +185,185 @@ export function BuzzCard({
   }
 
   return (
-    <article className="flex gap-1 bg-white py-2 pl-1 pr-3 shadow-sm ring-1 ring-gray-200 sm:rounded-xl sm:pl-1.5" data-testid="buzz-card">
-      <BuzzVote postId={post.id} score={post.score} myVote={post.myVote} signedIn={signedIn} />
-
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <Link href={topicHref ? topicHref(post.topic) : `${BUZZ_HOME}&topic=${post.topic}`} className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700 hover:bg-brand-100">
-              {buzzTopicLabel(post.topic)}
-            </Link>
-            <BuzzByline alias={post.alias} createdAt={post.createdAt} isMine={post.isMine} />
-          </div>
-          <BuzzMenu
-            label="Thread options"
-            signedIn={signedIn}
-            loginPath={href}
-            report={post.isMine ? undefined : { targetType: "buzz", targetId: post.id }}
-            onHide={
-              post.isMine
-                ? undefined
-                : async () => {
-                    const result = await muteBuzzAuthorAction({ postId: post.id }, { stayQuiet: !onRemoved });
-                    if (!result.error) leave("hidden");
-                    return result;
-                  }
+    <BuzzMenu
+      label="Thread options"
+      signedIn={signedIn}
+      loginPath={`/buzz/${post.id}`}
+      report={post.isMine ? undefined : { targetType: "buzz", targetId: post.id }}
+      onHide={
+        post.isMine
+          ? undefined
+          : async () => {
+              const result = await muteBuzzAuthorAction({ postId: post.id }, { stayQuiet: !onRemoved });
+              if (!result.error) leave("hidden");
+              return result;
             }
-            onDelete={
-              post.isMine
-                ? async () => {
-                    const result = await deleteBuzzAction(post.id, { stayQuiet: !onRemoved });
-                    if (!result.error) leave("deleted");
-                    return result;
-                  }
-                : undefined
+      }
+      onDelete={
+        post.isMine
+          ? async () => {
+              const result = await deleteBuzzAction(post.id, { stayQuiet: !onRemoved });
+              if (!result.error) leave("deleted");
+              return result;
             }
-            deleteConfirm="Delete this thread and all its replies? This cannot be undone."
-          />
-        </div>
+          : undefined
+      }
+      deleteConfirm="Delete this thread and all its replies? This cannot be undone."
+      className={className}
+    />
+  );
+}
 
-        {full ? (
-          <h1 className="text-xl font-bold leading-snug text-gray-900 [overflow-wrap:anywhere]">{post.title}</h1>
-        ) : (
-          <h2 className="text-base font-bold leading-snug text-gray-900 [overflow-wrap:anywhere]">
-            <Link href={href} className="hover:underline">
+/** The small rounded picture at the right of a feed row: the first photo, or the video's still with a play badge. */
+function BuzzThumb({ media, href, alt, priority, small }: { media: FeedMedia[]; href: string; alt: string; priority?: boolean; small?: boolean }) {
+  const first = media[0];
+  if (!first) return null;
+  const src = first.type === "video" ? first.poster : first.url;
+  return (
+    <Link href={href} tabIndex={-1} aria-hidden="true" className={cn("relative z-10 shrink-0 overflow-hidden rounded-xl bg-gray-100 ring-1 ring-black/5", small ? "h-[54px] w-[72px]" : "h-[72px] w-24")} data-testid="buzz-thumb">
+      {src ? <Image src={src} alt={alt} fill sizes="96px" priority={priority} className="object-cover" /> : null}
+      {first.type === "video" ? (
+        <span className="absolute bottom-1 left-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white">
+          <Play className="h-3 w-3 fill-current" />
+        </span>
+      ) : media.length > 1 ? (
+        <span className="absolute bottom-1 right-1 rounded-full bg-black/70 px-1.5 text-[10px] font-semibold leading-4 text-white">{media.length}</span>
+      ) : null}
+    </Link>
+  );
+}
+
+function RepliesPill({ href, count }: { href: string; count: number }) {
+  return (
+    <Link href={`${href}#replies`} aria-label={count === 1 ? "1 reply" : `${count} replies`} className={cn(BUZZ_PILL, "relative z-10")} data-testid="buzz-replies-link">
+      <MessageCircle className="h-[18px] w-[18px]" />
+      <span className="tabular-nums">{compactCount(count)}</span>
+    </Link>
+  );
+}
+
+/**
+ * One thread in the Buzz feed, laid out like a row of Reddit's home feed: topic and age, bold title, a short grey
+ * preview, a small picture at the right, then the vote, replies and share pills. The whole row opens the thread.
+ */
+export function BuzzRow({
+  post,
+  signedIn,
+  priority,
+  onRemoved,
+  topicHref,
+}: {
+  post: BuzzPost;
+  signedIn: boolean;
+  priority?: boolean;
+  /** The feed drops the row (deleted or hidden). */
+  onRemoved?: (id: string, why: "deleted" | "hidden") => void;
+  /** The feed builds topic links that keep its sort and "All universities" choice. */
+  topicHref?: (topic: BuzzTopic) => string;
+}) {
+  const href = `/buzz/${post.id}`;
+  const media = listingMedia(post.images, post.imageMeta, post.videos);
+
+  return (
+    <article className="relative px-4 pb-2.5 pt-2 transition-colors hover:bg-gray-50" data-testid="buzz-card">
+      <div className="flex items-center gap-2">
+        <Link href={topicHref ? topicHref(post.topic) : `${BUZZ_HOME}&topic=${post.topic}`} className="relative z-10 flex min-w-0 items-center gap-2 hover:underline">
+          <BuzzTopicIcon topic={post.topic} />
+          <span className="truncate text-[13px] font-bold text-gray-900">{buzzTopicLabel(post.topic)}</span>
+        </Link>
+        <BuzzAge iso={post.createdAt} className="shrink-0 text-[13px] text-gray-500" />
+        <BuzzBadges isMine={post.isMine} />
+        <BuzzThreadMenu post={post} signedIn={signedIn} onRemoved={onRemoved} className="z-10 -mr-2 ml-auto" />
+      </div>
+
+      <div className="mt-0.5 flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[17px] font-bold leading-snug text-gray-900 [overflow-wrap:anywhere]">
+            {/* The title link covers the whole row; the pills and the menu sit above it. */}
+            <Link href={href} className="after:absolute after:inset-0">
               {post.title}
             </Link>
           </h2>
-        )}
-
-        {post.body ? (
-          full ? (
-            <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-gray-800 [overflow-wrap:anywhere]">{post.body}</p>
-          ) : (
-            <Link href={href} tabIndex={-1} aria-hidden="true" className="line-clamp-4 whitespace-pre-wrap text-sm leading-relaxed text-gray-700 [overflow-wrap:anywhere]">
-              {post.body}
-            </Link>
-          )
-        ) : null}
-
-        {media.length > 0 ? (
-          <PhotoCarousel photos={[]} media={media} alt={post.title} aspect="4 / 3" href={full ? undefined : href} fit={full ? "contain" : "cover"} priority={priority} sizes="(min-width: 640px) 450px, 100vw" className={cn("mt-0.5 rounded-lg", full && "bg-gray-900")} />
-        ) : null}
-
-        <div className="-ml-2 flex items-center gap-1">
-          <Link href={`${href}#replies`} className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-gray-800 hover:bg-gray-100" data-testid="buzz-replies-link">
-            <MessageSquare className="h-5 w-5 shrink-0" />
-            {post.commentCount === 0 ? "Reply" : `${post.commentCount} ${post.commentCount === 1 ? "reply" : "replies"}`}
-          </Link>
-          <ShareButton path={href} title={post.title} />
+          {post.body ? <p className="mt-1 line-clamp-3 whitespace-pre-line text-sm leading-snug text-gray-600 [overflow-wrap:anywhere]">{post.body}</p> : null}
         </div>
+        <BuzzThumb media={media} href={href} alt={post.title} priority={priority} />
+      </div>
+
+      <div className="mt-2.5 flex items-center gap-2">
+        <BuzzVote postId={post.id} score={post.score} myVote={post.myVote} signedIn={signedIn} className="relative z-10" />
+        <RepliesPill href={href} count={post.commentCount} />
+        <BuzzSharePill path={href} title={post.title} className="relative z-10 ml-auto" />
+      </div>
+    </article>
+  );
+}
+
+/** A search result, as compact as Reddit's: topic and age, the title, then "12 upvotes · 7 comments". */
+export function BuzzSearchRow({ post }: { post: BuzzPost }) {
+  const href = `/buzz/${post.id}`;
+  const media = listingMedia(post.images, post.imageMeta, post.videos);
+  return (
+    <article className="relative flex items-start gap-3 px-4 py-3 transition-colors hover:bg-gray-50" data-testid="buzz-card">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 text-[13px] text-gray-500">
+          <BuzzTopicIcon topic={post.topic} />
+          <span className="truncate font-semibold text-gray-700">{buzzTopicLabel(post.topic)}</span>
+          <span aria-hidden="true">•</span>
+          <BuzzAge iso={post.createdAt} className="shrink-0" />
+          <BuzzBadges isMine={post.isMine} />
+        </div>
+        <h2 className="mt-1.5 text-base leading-snug text-gray-900 [overflow-wrap:anywhere]">
+          <Link href={href} className="after:absolute after:inset-0">
+            {post.title}
+          </Link>
+        </h2>
+        <p className="mt-1.5 text-[13px] text-gray-500">
+          {compactCount(post.score)} {post.score === 1 ? "upvote" : "upvotes"} <span aria-hidden="true">•</span> {compactCount(post.commentCount)} {post.commentCount === 1 ? "comment" : "comments"}
+        </p>
+      </div>
+      <BuzzThumb media={media} href={href} alt={post.title} small />
+    </article>
+  );
+}
+
+/** The top of the thread page: topic, alias in blue, the big title, the whole text, media as wide as the column, pills. */
+export function BuzzPostBlock({ post, signedIn, replyCount }: { post: BuzzPost; signedIn: boolean; replyCount: number }) {
+  const href = `/buzz/${post.id}`;
+  const media = listingMedia(post.images, post.imageMeta, post.videos);
+  // The frame takes the shape of the first photo or video (between 4:5 and 16:9, like Reddit), so it fills the
+  // column from edge to edge with no dark bars. A single picture that is only a little taller or wider than that is
+  // trimmed to fill; a very long one (a screenshot, say) and the other slides of a gallery are shown whole.
+  const first = media[0];
+  const natural = first?.width && first?.height ? first.width / first.height : null;
+  const ratio = natural ? Math.min(16 / 9, Math.max(4 / 5, natural)) : 4 / 3;
+  const fills = media.length === 1 && natural !== null && Math.abs(natural / ratio - 1) < 0.2;
+  return (
+    <article className="pb-3 pt-1" data-testid="buzz-card">
+      <div className="flex items-center gap-2.5 px-4">
+        <BuzzTopicIcon topic={post.topic} size="md" />
+        <div className="min-w-0 text-[13px] leading-tight">
+          <Link href={`${BUZZ_HOME}&topic=${post.topic}`} className="font-bold text-gray-700 hover:underline">
+            {buzzTopicLabel(post.topic)}
+          </Link>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-gray-500">
+            <span className="font-medium text-brand-700">{post.alias}</span>
+            <span aria-hidden="true">•</span>
+            <BuzzAge iso={post.createdAt} />
+            <BuzzBadges isOp isMine={post.isMine} />
+          </div>
+        </div>
+      </div>
+
+      <h1 className="mt-2.5 px-4 text-[22px] font-bold leading-tight text-gray-900 [overflow-wrap:anywhere]">{post.title}</h1>
+      {post.body ? <p className="mt-2 whitespace-pre-wrap px-4 text-[15px] leading-relaxed text-gray-900 [overflow-wrap:anywhere]">{post.body}</p> : null}
+
+      {/* Photos and video run from one edge of the column to the other, with no box around them. */}
+      {media.length > 0 ? <PhotoCarousel photos={[]} media={media} alt={post.title} aspect={ratio.toFixed(4)} fit={fills ? "cover" : "contain"} priority sizes="(min-width: 640px) 500px, 100vw" className="mt-3 bg-gray-900" /> : null}
+
+      <div className="mt-3 flex items-center gap-2 px-4">
+        <BuzzVote postId={post.id} score={post.score} myVote={post.myVote} signedIn={signedIn} />
+        <RepliesPill href={href} count={replyCount} />
+        <BuzzSharePill path={href} title={post.title} className="ml-auto" />
       </div>
     </article>
   );

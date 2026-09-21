@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { getBuzz, listBuzzComments, type BuzzComment } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -27,10 +25,8 @@ export default async function BuzzThreadPage({ params }: Props) {
   const comments = await listBuzzComments(supabase, post.id).catch(() => [] as BuzzComment[]);
 
   return (
-    <div className="mx-auto flex w-full max-w-[500px] flex-col gap-3">
-      <Link href="/?tab=buzz" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
-        <ArrowLeft className="h-4 w-4" /> Buzz
-      </Link>
+    // The thread brings its own Reddit-style header (close, search, options).
+    <div className="mx-auto w-full max-w-[500px]">
       <BuzzThread key={post.id} post={post} comments={comments} signedIn={Boolean(user)} />
     </div>
   );

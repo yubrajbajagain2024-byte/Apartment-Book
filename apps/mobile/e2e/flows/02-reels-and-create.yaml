@@ -8,6 +8,19 @@ appId: host.exp.Exponent
     start: "88%,10%"
     end: "12%,62%"
     duration: 800
+# SAFETY: these flows tap, vote and post. They must only ever run as a seeded test account (ui-sim-…),
+# never as a real person who happens to be signed in on this simulator. Fails here otherwise.
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "Join Apartment Book|.*Log out"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: ".*Log out"
+    commands:
+      - assertVisible: "ui-sim-.*@txstate.edu"
+- assertVisible: ".*Log out"
+- tapOn: "Home.*"
 # Reels
 - tapOn: "Reels"
 - extendedWaitUntil:

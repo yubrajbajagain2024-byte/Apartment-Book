@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FlatList, RefreshControl, Text, View } from "react-native";
 import { formatDistance, formatPrice, isVerifiedPoster, listApartments, listingMedia, type ApartmentWithOwner } from "@apartment-book/shared";
 import { Fab, FeedHeader } from "@/components/feed-header";
-import { PostCard } from "@/components/post-card";
+import { FEED_GAP, FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
 import { Badge, Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -23,12 +23,14 @@ export default function ApartmentsScreen() {
       <FlatList
         data={feed.items}
         keyExtractor={(a) => a.id}
-        contentContainerStyle={{ padding: 12, gap: 12, paddingBottom: 90 }}
+        contentContainerStyle={{ gap: FEED_GAP, paddingBottom: 90 }}
         ListHeaderComponent={
-          <FeedHeader placeholder="Search apartments" value={q} onChange={setQ}>
-            <Chip label="Video tours only" icon="videocam-outline" active={videoOnly} onPress={() => setVideoOnly((v) => !v)} />
-            {profile?.university_id ? <Chip label={allCampuses ? "All universities" : (profile.university?.name ?? "My campus")} icon="school-outline" active={!allCampuses} onPress={() => setAllCampuses((v) => !v)} /> : null}
-          </FeedHeader>
+          <View style={{ paddingHorizontal: FEED_HEADER_PADDING, paddingTop: FEED_HEADER_PADDING, paddingBottom: 4 }}>
+            <FeedHeader placeholder="Search apartments" value={q} onChange={setQ}>
+              <Chip label="Video tours only" icon="videocam-outline" active={videoOnly} onPress={() => setVideoOnly((v) => !v)} />
+              {profile?.university_id ? <Chip label={allCampuses ? "All universities" : (profile.university?.name ?? "My campus")} icon="school-outline" active={!allCampuses} onPress={() => setAllCampuses((v) => !v)} /> : null}
+            </FeedHeader>
+          </View>
         }
         renderItem={({ item: a }) => (
           <PostCard
@@ -53,7 +55,7 @@ export default function ApartmentsScreen() {
             }
           />
         )}
-        ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <ErrorBanner message={feed.error} onRetry={feed.refresh} /> : <EmptyState icon="home-outline" title="No apartments yet" body={universityId ? "Try all universities, or be the first to list a place." : "Be the first to list a place."} />}
+        ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon="home-outline" title="No apartments yet" body={universityId ? "Try all universities, or be the first to list a place." : "Be the first to list a place."} />}
         ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ textAlign: "center", color: "#8a8d91", padding: 12 }}>Loading more…</Text> : null}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}

@@ -29,10 +29,12 @@ env:
       - tapOn:
           text: "Log in"
           index: 1
+# SAFETY: never act as a real person who happens to be signed in on this simulator.
 - runFlow:
     when:
       visible: ".*Log out"
     commands:
+      - assertVisible: "ui-sim-.*@txstate.edu"
       - tapOn: "Home.*"
 - extendedWaitUntil:
     visible: "Create a post|Not Now"
@@ -66,8 +68,10 @@ env:
     visible: "Unlike"
     timeout: 15000
 - takeScreenshot: e2e/screenshots/10-posts-liked
-# Buzz: upvote and open the thread, reply anonymously.
+# Buzz (Reddit-style rows): upvote in the feed, open the thread from the replies pill, reply anonymously from the
+# "Join the conversation" bar (its label is "Reply anonymously"; tapping it opens the composer with the same label).
 - tapOn: "Buzz"
+- assertVisible: "Search Buzz"
 - extendedWaitUntil:
     visible: ".*Landlord wants to keep my whole deposit.*"
     timeout: 30000
@@ -84,4 +88,6 @@ env:
 - extendedWaitUntil:
     visible: "Reply from Student [0-9]+, you"
     timeout: 30000
+- assertVisible: "Upvote reply"
+- assertVisible: "Post options"
 - takeScreenshot: e2e/screenshots/12-buzz-thread

@@ -28,9 +28,11 @@ try {
     if (nav.indexOf("Home") > nav.indexOf("Roommates") || nav.indexOf("Messages") > nav.indexOf("Apartments")) throw new Error("order: " + nav.join(","));
     await D.goto(BASE + "/apartments?university=all"); await D.getByText("Sunny 2-bed near Sewell Park").first().waitFor();
   });
-  await step("Buzz tab: anonymous thread with an alias, no author name, no profile link, no Message button", async () => {
-    await D.goto(BASE + "/?tab=buzz&sort=new"); const card = D.locator("article, [data-testid='buzz-card']").filter({ hasText: "Landlord wants to keep my whole deposit" }).first(); await card.waitFor();
-    const text = await card.innerText(); if (!/Student \d{5}/.test(text)) throw new Error("no alias: " + text.slice(0, 120));
+  await step("Buzz tab: Reddit-style row (topic, age, vote / replies / share pills), no author name, no profile link, no Message button", async () => {
+    await D.goto(BASE + "/?tab=buzz&sort=new"); const card = D.locator("[data-testid='buzz-card']").filter({ hasText: "Landlord wants to keep my whole deposit" }).first(); await card.waitFor();
+    // Like Reddit's feed, a row shows the topic and a short age ("6d"); the alias only appears inside the thread.
+    const text = await card.innerText(); if (!/(^|\s)(now|\d+(m|h|d|mo|y))(\s|$)/.test(text)) throw new Error("no short age: " + text.slice(0, 120));
+    for (const [what, sel] of [["vote pill", "[data-testid='buzz-vote']"], ["replies pill", "[data-testid='buzz-replies-link']"], ["share pill", "button[aria-label='Share']"]]) if (!(await card.locator(sel).count())) throw new Error(`no ${what} on the row`);
     if (text.includes(state.other.name)) throw new Error("author name shown");
     if (await card.locator("a[href^='/profile/']").count()) throw new Error("profile link on a Buzz card");
     if (await card.getByRole("button", { name: "Message" }).count()) throw new Error("Message button on a Buzz card");
@@ -55,12 +57,15 @@ try {
     await D.waitForURL(/\/buzz\/[0-9a-f-]{36}/); await D.waitForLoadState("networkidle"); // hydrated before typing
     const box = D.getByTestId("buzz-reply-input"); const stamp = Date.now(); await box.fill(`Small claims court worked for my roommate (web ${stamp})`);
     await D.locator("form").filter({ has: box }).getByRole("button", { name: "Reply" }).click();
-    await D.getByText(/Small claims court worked for my roommate/).first().waitFor();
+    await D.locator("[data-testid='buzz-reply']").filter({ hasText: String(stamp) }).first().waitFor();
     // What another viewer receives must not contain either participant's id or name.
-    await M.goto(D.url()); await M.getByText(/Small claims court worked for my roommate/).first().waitFor();
+    await M.goto(D.url()); await M.locator("[data-testid='buzz-reply']").filter({ hasText: String(stamp) }).first().waitFor();
     const theirs = await M.content();
     for (const [who, u] of [["replier", state.me], ["thread author", state.other]]) if (theirs.includes(u.id) || theirs.includes(u.name)) throw new Error(`the ${who}'s identity is in the HTML other people receive`);
     const aliases = [...new Set(theirs.match(/Student \d{5}/g) ?? [])]; if (aliases.length < 2) throw new Error("expected two different aliases (author and replier), got " + aliases.join(","));
+    // Votes on replies: the score moves by one and the arrow stays pressed.
+    const mine = D.locator("[data-testid='buzz-reply']").filter({ hasText: String(stamp) }).first(); await mine.getByRole("button", { name: "Upvote" }).click();
+    await mine.locator("button[aria-label='Upvote'][aria-pressed='true']").waitFor();
     await D.screenshot({ path: SHOTS + "web-05-buzz-thread.png" });
   });
   await step("create pages render: /posts/new, /reels/new, /buzz/new (with the anonymity notice)", async () => {

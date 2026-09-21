@@ -28,6 +28,8 @@ appId: host.exp.Exponent
 - takeScreenshot: e2e/screenshots/01-home-posts
 - tapOn: "Buzz"
 - waitForAnimationToEnd
+- assertVisible: "Search Buzz"
+- assertVisible: "Post anonymously on Buzz"
 - takeScreenshot: e2e/screenshots/01-home-buzz
 - tapOn: "Reels"
 - waitForAnimationToEnd

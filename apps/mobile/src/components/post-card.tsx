@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { getOrCreateDirectConversation, reportContent, timeAgo, type FeedMedia, type PostEngagement, type ReportReason, type PostTargetType, REPORT_REASONS } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { colors, radius } from "@/lib/theme";
+import { colors } from "@/lib/theme";
 import { useActionSheet } from "./action-sheet";
 import { Avatar } from "./avatar";
 import { EngagementBar, EngagementSummary, useLike, useSave } from "./engagement";
@@ -32,8 +32,16 @@ export type PostCardProps = {
 };
 
 const LIMIT = 140;
+/** The grey band between two full-width cards in a feed. */
+export const FEED_GAP = 8;
+/** Side padding for a feed's header (search, chips, composer): the cards themselves have none. */
+export const FEED_HEADER_PADDING = 12;
 
-/** Facebook-style post: header → title/description → media → counts → Like / Comment / Message. */
+/**
+ * Facebook-style post: header → title/description → media → counts → Like / Comment / Message.
+ * The card has no side margins and no rounded corners: it spans the whole screen so photos and videos touch both edges.
+ * Feeds separate cards with an 8px grey band (FEED_GAP) and must not add horizontal padding around them.
+ */
 export function PostCard(props: PostCardProps) {
   const { poster, title, lead, description, media, createdAt, path } = props;
   const router = useRouter();
@@ -129,7 +137,7 @@ export function PostCard(props: PostCardProps) {
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.card, borderRadius: radius.lg, overflow: "hidden" },
+  card: { width: "100%", backgroundColor: colors.card },
   header: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, paddingBottom: 6 },
   name: { fontSize: 15, fontWeight: "700", color: colors.text, flexShrink: 1 },
   meta: { fontSize: 12, color: colors.muted },

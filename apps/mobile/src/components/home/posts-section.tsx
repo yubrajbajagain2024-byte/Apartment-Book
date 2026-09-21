@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { isVerifiedPoster, listFeedPosts, listingMedia, type FeedPostWithAuthor } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
-import { PostCard } from "@/components/post-card";
+import { FEED_GAP, FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
 import { Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { useFeed } from "@/lib/hooks";
 import { onPostRemoved, takePostsStale } from "@/lib/posts-events";
@@ -51,9 +51,9 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
         ref={listRef}
         data={feed.items}
         keyExtractor={(p) => p.id}
-        contentContainerStyle={{ padding: 12, gap: 12, paddingBottom: 40 }}
+        contentContainerStyle={{ gap: FEED_GAP, paddingBottom: 40 }}
         ListHeaderComponent={
-          <View style={{ gap: 8 }}>
+          <View style={{ gap: 8, paddingHorizontal: FEED_HEADER_PADDING, paddingTop: FEED_HEADER_PADDING, paddingBottom: 4 }}>
             <Pressable onPress={compose} style={styles.composer} accessibilityRole="button" accessibilityLabel="Create a post">
               {user ? <Avatar name={profile?.full_name} url={profile?.avatar_url} size="md" online={false} /> : <Ionicons name="person-circle-outline" size={40} color={colors.faint} />}
               <View style={styles.composerInput}>
@@ -82,7 +82,7 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
             active={active && visible.has(p.id)}
           />
         )}
-        ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <ErrorBanner message={feed.error} onRetry={feed.refresh} /> : <EmptyState icon="newspaper-outline" title="No posts yet" body={universityId ? "Say hello to your campus, or switch to all universities." : "Be the first to share something."} />}
+        ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon="newspaper-outline" title="No posts yet" body={universityId ? "Say hello to your campus, or switch to all universities." : "Be the first to share something."} />}
         ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : null}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
