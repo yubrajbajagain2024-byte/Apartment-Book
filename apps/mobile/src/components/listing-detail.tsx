@@ -55,7 +55,7 @@ export function ListingDetail({
 
   async function message() {
     if (!user) return needLogin();
-    if (own) return router.push("/(tabs)/messages");
+    if (own) return router.push("/messages");
     try {
       const id = await getOrCreateDirectConversation(supabase, poster.id);
       recordContact(supabase, targetType, targetId).catch(() => {});

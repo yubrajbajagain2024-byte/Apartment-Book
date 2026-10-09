@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { NAV_TABS } from "./nav-tabs";
+import { PHONE_TABS } from "./nav-tabs";
 import { UnreadBadge } from "./unread-badge";
 
 export function BottomNav({ unread, userId }: { unread: number; userId: string | null }) {
@@ -11,8 +11,8 @@ export function BottomNav({ unread, userId }: { unread: number; userId: string |
   // Hide the bar inside an open chat so the composer has the full screen.
   if (/^\/messages\/[^/]+$/.test(pathname) && pathname !== "/messages/new") return null;
 
-  // Profile lives in the header (avatar menu) so the bar stays at four tabs: Home, Housing, Marketplace, Messages.
-  const tabs = NAV_TABS;
+  // Home, Housing, Marketplace, Profile, like the app; Messages and Search live in the header.
+  const tabs = PHONE_TABS;
 
   return (
     <nav
@@ -20,7 +20,7 @@ export function BottomNav({ unread, userId }: { unread: number; userId: string |
       aria-label="Main"
     >
       {tabs.map((tab) => {
-        const active = tab.match(pathname);
+        const active = tab.match(pathname, userId);
         const Icon = tab.icon;
         return (
           <Link

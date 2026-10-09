@@ -30,7 +30,8 @@ export default function SignupScreen() {
     setBusy(false);
     if (err) return setError(/database error saving new user/i.test(err.message) ? "Only verified university email addresses can join. Use your @txstate.edu email." : err.message);
     if (data.user && data.user.identities?.length === 0) return setError("An account with this email already exists. Try logging in.");
-    if (data.session) return router.dismissTo("/(tabs)");
+    // Close only this modal: the screen underneath re-renders signed in.
+    if (data.session) return router.canGoBack() ? router.back() : router.replace("/(tabs)");
     setDone(true);
   }
 

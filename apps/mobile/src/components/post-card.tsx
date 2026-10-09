@@ -59,7 +59,7 @@ export function PostCard(props: PostCardProps) {
 
   async function message() {
     if (!user) return needLogin();
-    if (own) return router.push("/(tabs)/messages");
+    if (own) return router.push("/messages");
     try {
       const id = await getOrCreateDirectConversation(supabase, poster.id);
       router.push({ pathname: "/messages/[id]", params: { id, prefill: title ? `Hi ${poster.name.split(" ")[0]}! I saw your post "${title}" and I'd like to chat.` : `Hi ${poster.name.split(" ")[0]}! I saw your post and I'd like to chat.`, ...(props.targetType === "post" ? {} : { targetType: props.targetType, targetId: props.targetId }) } });

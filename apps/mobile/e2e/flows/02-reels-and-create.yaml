@@ -10,7 +10,7 @@ appId: host.exp.Exponent
     duration: 800
 # SAFETY: these flows tap, vote and post. They must only ever run as a seeded test account (ui-sim-…),
 # never as a real person who happens to be signed in on this simulator. Fails here otherwise.
-- tapOn: "Profile"
+- tapOn: "Profile.*"
 - extendedWaitUntil:
     visible: "Join Apartment Book|.*Log out"
     timeout: 30000

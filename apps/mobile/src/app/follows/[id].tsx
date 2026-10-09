@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { compactCount, getFollowStats, isVerifiedPoster, listFollowers, listFollowing, type FollowListEntry, type FollowStats } from "@apartment-book/shared";
-import { Avatar } from "@/components/avatar";
-import { FollowButton, useFollowStatsMany } from "@/components/follow-button";
+import { compactCount, getFollowStats, listFollowers, listFollowing, type FollowListEntry, type FollowStats } from "@apartment-book/shared";
+import { useFollowStatsMany } from "@/components/follow-button";
+import { PersonRow } from "@/components/person-row";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { useFeed, useQuery } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -75,7 +74,7 @@ function PeopleList({ userId, kind, viewerId, onRowChange, onRefresh }: { userId
       data={feed.items}
       keyExtractor={(r) => r.id}
       contentContainerStyle={{ flexGrow: 1, paddingVertical: space.sm, paddingBottom: 40 }}
-      renderItem={({ item }) => <PersonRow entry={item} stats={rowStats[item.id]} userId={viewerId} onNeedLogin={needLogin} onChange={onRowChange} onPress={() => router.push({ pathname: "/profile/[id]", params: { id: item.id } })} />}
+      renderItem={({ item }) => <PersonRow person={item.profile} stats={rowStats[item.id]} userId={viewerId} onNeedLogin={needLogin} onChange={onRowChange} onPress={() => router.push({ pathname: "/profile/[id]", params: { id: item.id } })} />}
       ListEmptyComponent={
         feed.loading ? (
           <Loading />
@@ -93,28 +92,6 @@ function PeopleList({ userId, kind, viewerId, onRowChange, onRefresh }: { userId
   );
 }
 
-/** Avatar, name and university domain (verified people only) open the profile; the button beside them stays its own control for VoiceOver. */
-function PersonRow({ entry, stats, userId, onNeedLogin, onChange, onPress }: { entry: Row; stats: FollowStats | undefined; userId: string | null; onNeedLogin: () => void; onChange?: (stats: FollowStats) => void; onPress: () => void }) {
-  const p = entry.profile;
-  return (
-    <View style={styles.row}>
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={p.full_name} style={({ pressed }) => [styles.person, pressed && { opacity: 0.7 }]}>
-        <Avatar name={p.full_name} url={p.avatar_url} size="md" userId={p.id} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text numberOfLines={1} style={styles.personName}>{p.full_name}</Text>
-          {isVerifiedPoster(p) ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <Ionicons name="checkmark-circle" size={13} color={colors.brand} />
-              <Text numberOfLines={1} style={styles.domain}>{p.university?.email_domain}</Text>
-            </View>
-          ) : null}
-        </View>
-      </Pressable>
-      {p.id !== userId ? <FollowButton targetId={p.id} stats={stats} userId={userId} onNeedLogin={onNeedLogin} compact onChange={onChange} /> : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.card },
   name: { textAlign: "center", color: colors.muted, fontSize: 13, paddingTop: space.sm },
@@ -123,9 +100,5 @@ const styles = StyleSheet.create({
   segmentText: { fontSize: 15, fontWeight: "600", color: colors.muted },
   segmentTextActive: { color: colors.text, fontWeight: "800" },
   underline: { height: 2, alignSelf: "stretch", backgroundColor: "transparent" },
-  row: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: 10 },
-  person: { flex: 1, flexDirection: "row", alignItems: "center", gap: space.md },
-  personName: { fontSize: 15, fontWeight: "700", color: colors.text },
-  domain: { fontSize: 13, color: colors.muted },
   more: { textAlign: "center", color: colors.faint, padding: 12 },
 });

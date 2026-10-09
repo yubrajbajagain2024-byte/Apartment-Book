@@ -26,6 +26,8 @@ export default function ProfileTab() {
     );
   }
   const rows: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }[] = [
+    // Messages left the bottom bar for the top-right corner; this row is the second way in, for people who look here first.
+    { icon: "chatbubble-outline", label: "Messages", onPress: () => router.push("/messages") },
     { icon: "person-outline", label: "My posts and profile", onPress: () => user && router.push({ pathname: "/profile/[id]", params: { id: user.id } }) },
     { icon: "bookmark-outline", label: "Saved", onPress: () => router.push("/saved") },
     { icon: "settings-outline", label: "Settings", onPress: () => router.push("/settings") },

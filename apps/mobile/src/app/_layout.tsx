@@ -24,8 +24,10 @@ export default function RootLayout() {
                 <Stack.Screen name="marketplace/[id]" options={{ title: "Item" }} />
                 <Stack.Screen name="posts/[id]" options={{ title: "Post" }} />
                 <Stack.Screen name="buzz/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="messages/index" options={{ title: "Messages" }} />
                 <Stack.Screen name="messages/[id]" options={{ title: "Chat" }} />
                 <Stack.Screen name="messages/new" options={{ title: "New message" }} />
+                <Stack.Screen name="search" options={{ title: "Search" }} />
                 <Stack.Screen name="profile/[id]" options={{ title: "Profile" }} />
                 <Stack.Screen name="follows/[id]" options={{ title: "Followers" }} />
                 <Stack.Screen name="saved" options={{ title: "Saved" }} />

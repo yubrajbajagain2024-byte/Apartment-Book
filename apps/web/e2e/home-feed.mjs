@@ -1,5 +1,6 @@
-// Browser check of the website's Home (For you | Buzz | Posts | Reels), Housing (Apartments | Roommates) and following (the Follow button on a profile, the follower list,
-// Home → Posts → Following), signed out and signed in, on a desktop and a phone viewport.
+// Browser check of the website's navigation (desktop tabs Home | Housing | Marketplace | Messages next to the search box, phone bottom bar Home | Housing | Marketplace | Profile),
+// Home (For you | Buzz | Posts | Reels), Housing (Apartments | Roommates) and following (the Follow button on a profile, the follower list, Home → Posts → Following),
+// signed out and signed in, on a desktop and a phone viewport.
 // Usage: start the site (npm run dev -w web -- -p 3060), seed test data (SUPABASE_ACCESS_TOKEN=... node apps/mobile/e2e/sim-seed.mjs),
 // then: BASE=http://localhost:3060 node apps/web/e2e/home-feed.mjs      (reads apps/mobile/e2e/.sim-state.json; Chromium only: the phone swipes go through a CDP session)
 import fs from "node:fs";
@@ -62,9 +63,16 @@ try {
     if (!frame || frame.width < 389) throw new Error("photo is not edge to edge: " + JSON.stringify(frame));
     await phonePost.scrollIntoViewIfNeeded(); await M.screenshot({ path: SHOTS + "web-04b-phone-posts-instagram.png" });
   });
-  await step("navigation: Home, Housing, Marketplace, Messages; Housing opens on /apartments with an Apartments | Roommates bar, Roommates leads to /roommates", async () => {
+  await step("Search tab: /search lists people to follow before anything is typed; searching a name puts the account first with a Follow button", async () => {
+    await D.goto(BASE + "/search"); await D.locator("[data-testid='search-people'] [data-testid='person-row']").first().waitFor();
+    await D.goto(BASE + "/search?q=" + encodeURIComponent(state.other.name)); const row = D.locator("[data-testid='search-people'] [data-testid='person-row']").filter({ hasText: state.other.name }).first(); await row.waitFor();
+    if (!(await row.locator("[data-testid='follow-button']").count())) throw new Error("no Follow button on the search result");
+    if (!(await row.locator(`a[href='/profile/${state.other.id}']`).count())) throw new Error("the result does not link to the profile");
+    await D.screenshot({ path: SHOTS + "web-10-search-people.png" });
+  });
+  await step("navigation: Home, Housing, Marketplace, Messages next to the header search box; Housing opens on /apartments with an Apartments | Roommates bar, Roommates leads to /roommates", async () => {
     const nav = (await D.locator("header nav[aria-label='Main'] a").allInnerTexts()).map((t) => t.trim().split("\n")[0]).filter(Boolean);
-    if (nav.join("|") !== "Home|Housing|Marketplace|Messages") throw new Error("main tabs (Roommates and Apartments merged into Housing): " + nav.join("|"));
+    if (nav.join("|") !== "Home|Housing|Marketplace|Messages") throw new Error("main tabs (Search left the bar for the header box, Profile is the phone bar's fourth tab): " + nav.join("|"));
     await D.goto(BASE + "/apartments?university=all"); await D.getByText("Sunny 2-bed near Sewell Park").first().waitFor();
     // The Housing main tab links to /apartments and stays lit on both halves; the sticky bar under the navbar picks the half.
     const housingLit = () => D.locator("header nav[aria-label='Main'] a[aria-current='page']").filter({ hasText: "Housing" }).count();
@@ -98,11 +106,12 @@ try {
     const button = D.getByTestId("follow-button"); if (!(await button.count())) throw new Error("no Follow button for a signed-out visitor");
     await button.click(); await D.waitForURL(/\/login/);
   });
-  await step("phone: bottom bar is Home, Housing, Marketplace, Messages", async () => {
+  await step("phone: bottom bar is Home, Housing, Marketplace, Profile like the app (Profile links to /profile/me; Search is the header box, Messages a header icon once signed in)", async () => {
     await M.goto(BASE + "/?tab=posts"); await M.getByText("First week back on campus").first().waitFor();
-    const items = (await M.locator("nav[aria-label='Main'] a").filter({ visible: true }).allInnerTexts()).map((t) => t.trim().split("\n").pop()).filter(Boolean);
-    if (items.join("|") !== "Home|Housing|Marketplace|Messages") throw new Error("bottom bar: " + items.join("|"));
-    if (items.includes("Profile")) throw new Error("Profile is still in the bottom bar");
+    const bar = M.locator("nav[aria-label='Main'] a").filter({ visible: true }); const items = (await bar.allInnerTexts()).map((t) => t.trim().split("\n").pop()).filter(Boolean);
+    if (items.join("|") !== "Home|Housing|Marketplace|Profile") throw new Error("bottom bar: " + items.join("|"));
+    if (!items.includes("Profile")) throw new Error("Profile is missing from the bottom bar");
+    if (!(await bar.filter({ hasText: "Profile" }).and(M.locator("a[href='/profile/me']")).count())) throw new Error("the Profile tab does not link to /profile/me");
     await M.screenshot({ path: SHOTS + "web-04-phone-posts.png" });
   });
   await step("phone: swiping left on For you slides to Buzz", async () => {
