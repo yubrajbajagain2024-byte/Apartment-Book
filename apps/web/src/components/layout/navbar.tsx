@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { Home, MessageCircle, Search } from "lucide-react";
+import { Home, Search } from "lucide-react";
 import { APP_NAME, getTotalUnread, getUnreadNotificationCount } from "@apartment-book/shared";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -10,7 +10,6 @@ import { CreateMenu, UserMenu } from "./menus";
 import { NavTabs } from "./nav-tabs";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { SearchBox } from "./search-box";
-import { UnreadBadge } from "./unread-badge";
 
 export async function Navbar() {
   const user = await getCurrentUser();
@@ -54,13 +53,6 @@ export async function Navbar() {
             {user ? (
               <>
                 <CreateMenu />
-                {/* Phones only: Messages is no longer a bottom tab (Home, Housing, Marketplace, Profile, like the app), so the inbox sits up here beside the bell, TikTok style. Desktop keeps the Messages tab. */}
-                <Link href="/messages" aria-label="Messages" className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-gray-800 hover:bg-gray-300 md:hidden">
-                  <span className="relative">
-                    <MessageCircle className="h-5 w-5" />
-                    <UnreadBadge initial={unread} userId={user.id} />
-                  </span>
-                </Link>
                 <NotificationBell userId={user.id} initialCount={unreadNotifications} />
                 <UserMenu userId={user.id} name={displayName} avatarUrl={profile?.avatar_url ?? null} />
               </>

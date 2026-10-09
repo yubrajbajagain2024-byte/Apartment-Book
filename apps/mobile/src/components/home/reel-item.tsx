@@ -1,15 +1,15 @@
-import { memo, useEffect, useState, useSyncExternalStore } from "react";
-import { Alert, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { memo, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Alert, Animated, Easing, Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { deleteFeedPost, getOrCreateDirectConversation, likePost, muxPlaybackUrl, muxPosterUrl, reelPath, reportContent, REPORT_REASONS, toggleSaved, unlikePost, type Reel, type ReportReason } from "@apartment-book/shared";
+import { hapticLike } from "@/lib/haptics";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
 import { useActionSheet } from "../action-sheet";
-import { Avatar } from "../avatar";
 
 /** Sound is one switch for the whole Reels feed (starts muted, like every other feed video in the app). */
 let reelsMuted = true;
@@ -62,10 +62,23 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
   const [expanded, setExpanded] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
   const [messageBusy, setMessageBusy] = useState(false);
+  /** The rail heart's pop (scale) and the big heart a double tap flashes over the video, like Instagram. */
+  const pop = useRef(new Animated.Value(1)).current;
+  const bigHeart = useRef(new Animated.Value(0)).current;
+  const popAnim = useRef<Animated.CompositeAnimation | null>(null);
+  const burstAnim = useRef<Animated.CompositeAnimation | null>(null);
+  /** Single tap pauses, double tap likes: the pause waits a beat to see whether a second tap follows. */
+  const lastTap = useRef(0);
+  const pendingTap = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => void (pendingTap.current && clearTimeout(pendingTap.current)), []);
 
   const key = reelKey(reel);
   const own = user?.id === reel.author.id;
   const isTour = reel.sourceType !== "post";
+  /** Collapsed, the description is one line like Instagram's. Whether it was cut is measured, not guessed (see onTextLayout). */
+  const oneLine = [reel.title, reel.caption].filter(Boolean).join(" · ");
+  const [clipped, setClipped] = useState(false);
+  const canExpand = clipped || oneLine.includes("\n");
   const poster = reel.video.poster_url ?? muxPosterUrl(reel.video.playback_id);
   const login = () => router.push("/(auth)/login");
 
@@ -77,11 +90,39 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
     }
   }, [playing]);
 
+  /** The heart jumps when it fills and dips when it empties, so the tap is felt even before the count moves. */
+  function animateHeart(liked: boolean) {
+    popAnim.current?.stop();
+    pop.setValue(1);
+    // RN's default rest thresholds (0.001) keep a lively spring "settling" for a second or more; these end it once it looks still.
+    const settle = { useNativeDriver: true, restDisplacementThreshold: 0.01, restSpeedThreshold: 2 } as const;
+    popAnim.current = Animated.sequence(
+      liked
+        ? [Animated.timing(pop, { toValue: 1.35, duration: 110, easing: Easing.out(Easing.quad), useNativeDriver: true }), Animated.spring(pop, { toValue: 1, friction: 5, tension: 180, ...settle })]
+        : [Animated.timing(pop, { toValue: 0.82, duration: 90, useNativeDriver: true }), Animated.spring(pop, { toValue: 1, friction: 6, tension: 160, ...settle })],
+    );
+    popAnim.current.start();
+  }
+
+  /** About a second on screen; a second double tap restarts it instead of being cut short by the first run. */
+  function burst() {
+    burstAnim.current?.stop();
+    bigHeart.setValue(0);
+    burstAnim.current = Animated.sequence([
+      Animated.spring(bigHeart, { toValue: 1, friction: 6, tension: 200, useNativeDriver: true, restDisplacementThreshold: 0.01, restSpeedThreshold: 2 }),
+      Animated.delay(300),
+      Animated.timing(bigHeart, { toValue: 0, duration: 160, useNativeDriver: true }),
+    ]);
+    burstAnim.current.start();
+  }
+
   async function toggleLike() {
     if (!user) return login();
     if (likeBusy) return;
     const next = !reel.likedByMe;
     const before = { likedByMe: reel.likedByMe, likes: reel.likes };
+    animateHeart(next);
+    if (next) hapticLike();
     setLikeBusy(true);
     onPatch(key, { likedByMe: next, likes: Math.max(0, reel.likes + (next ? 1 : -1)) });
     try {
@@ -103,6 +144,26 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
     } catch {
       onPatch(key, { savedByMe: before });
     }
+  }
+
+  /** Double tap on the video: like (never unlike) with a big heart, like Instagram; a lone tap still pauses. */
+  function onVideoTap() {
+    const now = Date.now();
+    if (pendingTap.current) {
+      clearTimeout(pendingTap.current);
+      pendingTap.current = null;
+    }
+    if (now - lastTap.current < 260) {
+      lastTap.current = 0;
+      burst();
+      if (!reel.likedByMe) void toggleLike();
+      return;
+    }
+    lastTap.current = now;
+    pendingTap.current = setTimeout(() => {
+      pendingTap.current = null;
+      setUserPaused((p) => !p);
+    }, 260);
   }
 
   function share() {
@@ -162,9 +223,11 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
     ]);
   }
 
+  // The overlay is name and caption only (like TikTok), so the listing and the chat live behind "…".
   function more() {
     show([
       ...(isTour ? [{ label: "View listing", icon: "open-outline" as const, onPress: openListing }] : []),
+      ...(own ? [] : [{ label: `Message ${reel.author.name.split(" ")[0]}`, icon: "chatbubble-ellipses-outline" as const, onPress: () => void message() }]),
       ...(own && !isTour ? [{ label: "Delete reel", icon: "trash-outline" as const, destructive: true, onPress: confirmDelete }] : []),
       ...(own ? [] : [{ label: "Report", icon: "flag-outline" as const, destructive: true, onPress: report }]),
     ]);
@@ -174,7 +237,7 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
     <View style={{ width, height, backgroundColor: "#000" }}>
       {near ? <ReelVideo playbackId={reel.video.playback_id} poster={poster} playing={playing && !userPaused} muted={muted} /> : <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} contentFit="cover" />}
 
-      <Pressable style={StyleSheet.absoluteFill} onPress={() => setUserPaused((p) => !p)} accessibilityRole="button" accessibilityLabel={userPaused ? "Play" : "Pause"}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onVideoTap} accessibilityRole="button" accessibilityLabel={userPaused ? "Play" : "Pause"}>
         {userPaused ? (
           <View style={styles.center} pointerEvents="none">
             <View style={styles.playBadge}>
@@ -182,6 +245,9 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
             </View>
           </View>
         ) : null}
+        <Animated.View pointerEvents="none" style={[styles.center, styles.bigHeart, { opacity: bigHeart, transform: [{ scale: bigHeart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
+          <Ionicons name="heart" size={110} color="#fff" />
+        </Animated.View>
       </Pressable>
 
       {/* Soft shade so white text stays readable over bright video. */}
@@ -203,42 +269,49 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
             </Text>
             {reel.author.verified ? <Ionicons name="checkmark-circle" size={15} color="#4da3ff" accessibilityLabel="Verified student" /> : null}
           </Pressable>
-          {reel.title ? (
-            <Text style={styles.title} numberOfLines={2}>
-              {reel.title}
-            </Text>
-          ) : null}
-          {reel.caption ? (
-            <Pressable onPress={() => setExpanded((v) => !v)} accessibilityRole="button" accessibilityLabel={expanded ? "Show less" : "Show more"}>
-              <Text style={styles.caption} numberOfLines={expanded ? 12 : 2}>
-                {reel.caption}
+          {/* Short by default, like TikTok: one line of title and one of caption, "… more" opens the rest. */}
+          {oneLine ? (
+            expanded ? (
+              <View style={{ gap: 2 }}>
+                {reel.title ? (
+                  <Text style={styles.title} numberOfLines={3}>
+                    {reel.title}
+                  </Text>
+                ) : null}
+                {reel.caption ? (
+                  <Text style={styles.caption} numberOfLines={10}>
+                    {reel.caption}
+                  </Text>
+                ) : null}
+                <Text onPress={() => setExpanded(false)} style={styles.more} accessibilityRole="button" accessibilityLabel="Show less">
+                  less
+                </Text>
+              </View>
+            ) : (
+              /* One line with a tail "…", like Instagram; the line itself is the button, so VoiceOver reads the text and the hint. */
+              <Text
+                style={styles.caption}
+                numberOfLines={1}
+                onPress={canExpand ? () => setExpanded(true) : undefined}
+                accessibilityRole={canExpand ? "button" : "text"}
+                accessibilityHint={canExpand ? "Shows the full description" : undefined}
+                // The first laid-out line carries less than the whole text when it was truncated.
+                onTextLayout={(e) => {
+                  const first = e.nativeEvent.lines[0]?.text ?? "";
+                  setClipped(e.nativeEvent.lines.length > 1 || first.replace(/…$/, "").trim().length < oneLine.trim().length);
+                }}
+              >
+                {oneLine}
               </Text>
-            </Pressable>
-          ) : null}
-          {isTour ? (
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
-              <Pressable onPress={openListing} style={styles.pill} accessibilityRole="button" accessibilityLabel="View listing">
-                <Ionicons name="videocam" size={14} color="#fff" />
-                <Text style={styles.pillText}>Video tour · View listing</Text>
-              </Pressable>
-              {own ? null : (
-                <Pressable onPress={() => void message()} style={[styles.pill, styles.pillSolid, messageBusy && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Message">
-                  <Ionicons name="chatbubble-ellipses" size={14} color="#fff" />
-                  <Text style={styles.pillText}>Message</Text>
-                </Pressable>
-              )}
-            </View>
+            )
           ) : null}
         </View>
 
         <View style={styles.rail}>
-          <Pressable onPress={() => router.push({ pathname: "/profile/[id]", params: { id: reel.author.id } })} style={styles.avatarRing} accessibilityRole="link" accessibilityLabel={`${reel.author.name}'s profile`}>
-            <Avatar name={reel.author.name} url={reel.author.avatarUrl} size="md" online={false} />
-          </Pressable>
-          <RailButton icon={reel.likedByMe ? "heart" : "heart-outline"} color={reel.likedByMe ? "#ff3b5c" : "#fff"} label={compact(reel.likes)} onPress={() => void toggleLike()} a11y={reel.likedByMe ? "Unlike" : "Like"} selected={reel.likedByMe} />
-          <RailButton icon="chatbubble-ellipses" label={compact(reel.comments)} onPress={() => onOpenComments(reel)} a11y="Comments" />
+          <RailButton icon={reel.likedByMe ? "heart" : "heart-outline"} color={reel.likedByMe ? "#ff3b5c" : "#fff"} label={compact(reel.likes)} onPress={() => void toggleLike()} a11y={reel.likedByMe ? "Unlike" : "Like"} selected={reel.likedByMe} scale={pop} />
+          <RailButton icon="chatbubble-ellipses-outline" label={compact(reel.comments)} onPress={() => onOpenComments(reel)} a11y="Comments" />
+          <RailButton icon="paper-plane-outline" label="Share" onPress={share} a11y="Share" />
           <RailButton icon={reel.savedByMe ? "bookmark" : "bookmark-outline"} color={reel.savedByMe ? colors.amber : "#fff"} label={reel.savedByMe ? "Saved" : "Save"} onPress={() => void toggleSave()} a11y={reel.savedByMe ? "Unsave" : "Save"} selected={reel.savedByMe} />
-          <RailButton icon="arrow-redo" label="Share" onPress={share} a11y="Share" />
           <RailButton icon="ellipsis-horizontal" onPress={more} a11y="More options" small />
         </View>
       </View>
@@ -246,10 +319,12 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
   );
 });
 
-function RailButton({ icon, label, color = "#fff", onPress, a11y, selected, small }: { icon: keyof typeof Ionicons.glyphMap; label?: string; color?: string; onPress: () => void; a11y: string; selected?: boolean; small?: boolean }) {
+function RailButton({ icon, label, color = "#fff", onPress, a11y, selected, small, scale }: { icon: keyof typeof Ionicons.glyphMap; label?: string; color?: string; onPress: () => void; a11y: string; selected?: boolean; small?: boolean; scale?: Animated.Value }) {
   return (
     <Pressable onPress={onPress} hitSlop={6} style={({ pressed }) => [styles.railButton, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={a11y} accessibilityState={selected === undefined ? undefined : { selected }}>
-      <Ionicons name={icon} size={small ? 24 : 32} color={color} style={styles.iconShadow} />
+      <Animated.View style={scale ? { transform: [{ scale }] } : undefined}>
+        <Ionicons name={icon} size={small ? 30 : 34} color={color} style={styles.iconShadow} />
+      </Animated.View>
       {label ? <Text style={styles.railLabel}>{label}</Text> : null}
     </Pressable>
   );
@@ -283,19 +358,18 @@ const shadow = { textShadowColor: "rgba(0,0,0,0.6)", textShadowOffset: { width: 
 const styles = StyleSheet.create({
   center: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
   playBadge: { width: 84, height: 84, borderRadius: 42, backgroundColor: "rgba(0,0,0,0.35)", alignItems: "center", justifyContent: "center" },
+  bigHeart: { shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 3 } },
   shade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 260 },
   mute: { position: "absolute", right: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
-  overlay: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "flex-end", paddingLeft: 14, paddingRight: 8, paddingBottom: 18, gap: 10 },
+  // Instagram's geometry on an iPhone: the "…" centre 46pt above the tab bar, then save, share, comment and like every 73pt or so; the caption line level with "…".
+  overlay: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "flex-end", paddingLeft: 14, paddingRight: 8, paddingBottom: 31, gap: 10 },
   info: { flex: 1, gap: 6, paddingBottom: 2 },
   author: { color: "#fff", fontSize: 16, fontWeight: "800", flexShrink: 1, ...shadow },
   title: { color: "#fff", fontSize: 15, fontWeight: "700", ...shadow },
   caption: { color: "#fff", fontSize: 14, lineHeight: 19, ...shadow },
-  pill: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.22)", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
-  pillSolid: { backgroundColor: colors.brand },
-  pillText: { color: "#fff", fontSize: 13, fontWeight: "700" },
-  rail: { width: 56, alignItems: "center", gap: 16 },
-  avatarRing: { borderWidth: 2, borderColor: "#fff", borderRadius: 24, marginBottom: 2 },
-  railButton: { alignItems: "center", gap: 2, minWidth: 48 },
+  more: { color: "rgba(255,255,255,0.85)", fontSize: 13, fontWeight: "700", ...shadow },
+  rail: { width: 60, alignItems: "center", gap: 21 },
+  railButton: { alignItems: "center", gap: 3, minWidth: 48 },
   railLabel: { color: "#fff", fontSize: 12, fontWeight: "700", ...shadow },
   iconShadow: { textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
 });

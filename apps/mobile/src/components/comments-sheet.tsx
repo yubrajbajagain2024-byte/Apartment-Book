@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Keyboard, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { PostTargetType } from "@apartment-book/shared";
@@ -12,6 +12,7 @@ export type CommentsTarget = { targetType: PostTargetType; targetId: string; own
 export function CommentsSheet({ target, onClose, onCountChange }: { target: CommentsTarget | null; onClose: () => void; onCountChange: (delta: number) => void }) {
   const insets = useSafeAreaInsets();
   const drag = useRef(new Animated.Value(0)).current;
+  const scrollRef = useRef<ScrollView>(null);
   const closeRef = useRef(onClose);
   // Keep showing the last thread while the sheet slides away, so it does not go blank mid-animation.
   const [shown, setShown] = useState<CommentsTarget | null>(target);
@@ -26,6 +27,13 @@ export function CommentsSheet({ target, onClose, onCountChange }: { target: Comm
   useEffect(() => {
     if (open) drag.setValue(0);
   }, [open, drag]);
+  // iOS leaves a focused input where it is when the keyboard comes up (Android scrolls it into view itself). The composer and its
+  // "Replying to" chip sit at the top of the thread, so after a "Reply" tapped far down the list, come back up to them.
+  useEffect(() => {
+    if (!open || Platform.OS !== "ios") return;
+    const sub = Keyboard.addListener("keyboardDidShow", () => scrollRef.current?.scrollTo({ y: 0, animated: true }));
+    return () => sub.remove();
+  }, [open]);
 
   // Pull the handle down to close, like every other sheet on the phone.
   const pan = useMemo(
@@ -60,7 +68,7 @@ export function CommentsSheet({ target, onClose, onCountChange }: { target: Comm
               </Pressable>
             </View>
             {shown ? (
-              <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 14, paddingBottom: Math.max(insets.bottom, 12) + 12 }}>
+              <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ padding: 14, paddingBottom: Math.max(insets.bottom, 12) + 12 }}>
                 <Comments key={`${shown.targetType}:${shown.targetId}`} targetType={shown.targetType} targetId={shown.targetId} ownerId={shown.ownerId} onCountChange={onCountChange} />
               </ScrollView>
             ) : null}

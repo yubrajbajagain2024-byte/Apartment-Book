@@ -99,7 +99,7 @@ export function AnonAvatar({ alias, size = 28 }: { alias: string; size?: number 
 export type Vote = { score: number; myVote: -1 | 0 | 1 };
 
 /**
- * Votes on their way to the server, by "thread:<id>" or "reply:<id>". The same thread or reply can be on screen twice
+ * Votes on their way to the server, by "thread:<id>", "reply:<id>" or "comment:<id>" (a post's comment). The same row can be on screen twice
  * (a feed row and its thread screen, or a reply that was folded away and came back), and each copy has its own
  * useVote. Chaining them here means there is never more than one vote request per target at a time.
  * Each entry resolves to what the server last confirmed, or null when nothing is known.
@@ -107,11 +107,11 @@ export type Vote = { score: number; myVote: -1 | 0 | 1 };
 const votesInFlight = new Map<string, Promise<Vote | null>>();
 
 /**
- * Optimistic voting for a thread or a reply. Votes go to the server one at a time, so quick taps can never
+ * Optimistic voting for a Buzz thread or reply, or a post's comment. Votes go to the server one at a time, so quick taps can never
  * arrive out of order: only the latest tap is sent next, and the server's answer always wins in the end.
  * `onConfirmed` gets only the vote: the parent must merge it into its newest data (a functional update), never into a captured copy.
  */
-export function useVote(kind: "thread" | "reply", id: string, initial: Vote, send: (value: Vote["myVote"]) => Promise<Vote>, onConfirmed?: (vote: Vote) => void) {
+export function useVote(kind: "thread" | "reply" | "comment", id: string, initial: Vote, send: (value: Vote["myVote"]) => Promise<Vote>, onConfirmed?: (vote: Vote) => void) {
   const router = useRouter();
   const { user } = useSession();
   const key = `${kind}:${id}`;

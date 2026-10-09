@@ -40,6 +40,8 @@ function PostDetail({ post, engagement, saved, preview, focusComments }: { post:
   const [comments, setComments] = useState(engagement.comments);
   const scroll = useRef<ScrollView>(null);
   const commentsY = useRef(0);
+  /** Bring the thread, composer first, to the top of the screen. */
+  const showThread = () => scroll.current?.scrollTo({ y: commentsY.current, animated: true });
 
   function deleted() {
     // Home drops it straight away: Posts and For you remove the post (For you shows reels too), Reels reloads next time it is opened.
@@ -59,11 +61,11 @@ function PostDetail({ post, engagement, saved, preview, focusComments }: { post:
         comments={comments}
         subtitle={post.university?.name}
         detail
-        onComments={() => (user ? scroll.current?.scrollTo({ y: commentsY.current, animated: true }) : router.push("/(auth)/login"))}
+        onComments={() => (user ? showThread() : router.push("/(auth)/login"))}
         onDeleted={deleted}
       />
       <View style={styles.thread} onLayout={(e) => (commentsY.current = e.nativeEvent.layout.y)}>
-        <Comments targetType="post" targetId={post.id} ownerId={post.author.id} autoFocus={focusComments} onCountChange={(d) => setComments((n) => Math.max(0, n + d))} />
+        <Comments targetType="post" targetId={post.id} ownerId={post.author.id} autoFocus={focusComments} revealComposer={showThread} onCountChange={(d) => setComments((n) => Math.max(0, n + d))} />
       </View>
     </ScrollView>
   );

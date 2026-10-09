@@ -2,7 +2,6 @@ import { useCallback, useEffect } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { listConversations, timeAgo, type ConversationSummary } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
@@ -11,12 +10,10 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
 
-/** Your chats, newest first: a stack screen behind the inbox icon in the top-right corner (and the Messages row of the Profile tab), not a bottom tab. */
+/** Your chats, newest first: the Messages tab, between Housing and Marketplace in the bottom bar. */
 export default function MessagesScreen() {
   const { user, loading: sessionLoading } = useSession();
   const router = useRouter();
-  // No tab bar under this screen any more, so the list and the button keep clear of the home indicator themselves.
-  const insets = useSafeAreaInsets();
   const userId = user?.id ?? null;
   const { data, error, loading, refresh } = useQuery(() => (userId ? listConversations(supabase, userId) : Promise.resolve([] as ConversationSummary[])), [userId]);
 
@@ -45,7 +42,7 @@ export default function MessagesScreen() {
       <FlatList
         data={data ?? []}
         keyExtractor={(c) => c.id}
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: 8 + insets.bottom }}
+        contentContainerStyle={{ paddingVertical: 8 }}
         renderItem={({ item: c }) => {
           const other = c.otherMembers[0];
           return (
@@ -78,7 +75,7 @@ export default function MessagesScreen() {
         }}
         ListEmptyComponent={loading ? <Loading /> : error ? <ErrorBanner message={error} onRetry={refresh} /> : <EmptyState icon="chatbubbles-outline" title="No chats yet" body="Message someone from a post, or start a new chat." />}
       />
-      <Pressable onPress={() => router.push("/messages/new")} style={[styles.fab, { bottom: 20 + insets.bottom }]} accessibilityRole="button" accessibilityLabel="New message">
+      <Pressable onPress={() => router.push("/messages/new")} style={styles.fab} accessibilityRole="button" accessibilityLabel="New message">
         <Ionicons name="create-outline" size={24} color="#fff" />
       </Pressable>
     </View>

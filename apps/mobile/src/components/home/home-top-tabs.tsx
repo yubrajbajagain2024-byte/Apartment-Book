@@ -13,7 +13,7 @@ import { colors } from "@/lib/theme";
 export const HOME_TOP_TABS_ROW = 48;
 
 /**
- * Floating top bar of Home, TikTok style: "+" on the left, For you | Buzz | Posts | Reels in the middle, Messages and Search on the right.
+ * Floating top bar of Home, TikTok style: "+" on the left, For you | Buzz | Posts | Reels in the middle, the Search magnifier on the right.
  * `overVideo` = the Reels page is showing, so the bar is see-through with white text. `scrollX` is the pager's offset in
  * points and `pageWidth` the width of one page: the underline slides between the labels with the finger instead of
  * jumping once a swipe settles. The label colours still snap with `section`.
@@ -46,7 +46,7 @@ export function HomeTopTabs({ section, onSelect, overVideo, onLayout, scrollX, p
           <Ionicons name="add-circle-outline" size={30} color={fg} />
         </Pressable>
         <SlidingTabs sections={HOME_SECTIONS} section={section} onSelect={onSelect} scrollX={scrollX} pageWidth={pageWidth} tint={ink} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} />
-        <View style={styles.actions}>
+        <View style={styles.side}>
           <HeaderActions color={fg} />
         </View>
       </View>
@@ -60,7 +60,5 @@ const styles = StyleSheet.create({
   clear: { backgroundColor: "transparent", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "transparent" },
   row: { height: HOME_TOP_TABS_ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: 12 },
   side: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  // Two 36pt buttons and a 4pt gap. On a 375pt phone that leaves 375 - 24 - 40 - 76 = 235pt for the four labels, which need about 219 at gap 18.
-  actions: { width: 76, height: 40, alignItems: "center", justifyContent: "center" },
   shadow: { textShadowColor: "rgba(0,0,0,0.45)", textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
 });

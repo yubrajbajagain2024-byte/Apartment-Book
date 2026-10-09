@@ -19,8 +19,8 @@ security protects the data, so they are safe to ship.
 
 ## Home and the tabs
 
-The bottom bar has four tabs: Home, Housing, Marketplace, Profile. Search (find accounts by name and follow them) and
-Messages (with the unread badge) are the two icons in the top-right corner of every tab, like TikTok; on Home they sit in
+The bottom bar has five tabs: Home, Housing, Messages, Marketplace, Profile. Search (find accounts by name and follow them)
+is the magnifier in the top-right corner of every tab, like TikTok; on Home it sits in
 the floating top bar. Home opens on **For you**, a blend of posts, reels and hot anonymous Buzz threads
 (the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
 four pages, For you | Buzz | Posts | Reels, sit side by side in a pager: swipe left or right to move
@@ -30,7 +30,8 @@ moves to Roommates and back, and the floating "+" follows the visible half ("Lis
 "Create roommate post"). The order comes from `HOUSING_SECTIONS` in `packages/shared/src/constants.ts`.
 Profiles work like Instagram too: a Follow button (it reads "Following" once you follow), follower / following
 counts that open the two lists, and, signed in, a Following chip on the Posts page that keeps only the posts
-of people you follow.
+of people you follow. Comments can be liked, disliked (the score sits between the two thumbs) and replied to, with the
+answer nested under the comment, and a like on a post, a reel or a comment buzzes the phone through `expo-haptics`.
 
 The Maestro flows in `e2e/flows/` check this in Expo Go on the booted iOS Simulator and save
 screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.dev) installed in
@@ -39,8 +40,8 @@ screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.de
 ```bash
 cd apps/mobile
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts; prints the login, writes e2e/.sim-state.json
-e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you, swipes to Buzz, opens Search and Messages from the top-right icons, Housing (Apartments, Roommates, swipe back), Marketplace, Profile (several flows at once is fine)
-EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # likes, votes, replies and follows as the seeded account
+e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you, swipes to Buzz, opens Search from the top-right magnifier, Messages (bottom tab), Housing (Apartments, Roommates, swipe back), Marketplace, Profile (several flows at once is fine)
+EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # likes, comments (write, thumbs up, reply, delete), votes, replies and follows as the seeded account
 node e2e/sim-seed-thread.mjs                            # nested replies and votes for 03-buzz-thread.yaml
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards
 ```

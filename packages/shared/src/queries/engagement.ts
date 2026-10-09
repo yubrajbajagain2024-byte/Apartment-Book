@@ -1,4 +1,4 @@
-import type { Client, PostCommentWithAuthor, PostEngagement, PostLiker, PostPreview, PostTargetType } from "../types/models";
+import type { Client, CommentVote, PostCommentNode, PostCommentWithAuthor, PostEngagement, PostLiker, PostPreview, PostTargetType } from "../types/models";
 
 export const COMMENT_SELECT = "*, author:profiles!post_comments_user_id_fkey(id, full_name, avatar_url)";
 
@@ -81,21 +81,69 @@ export async function listComments(supabase: Client, targetType: PostTargetType,
     .eq("target_type", targetType)
     .eq("target_id", targetId)
     .order("created_at", { ascending: true })
-    .limit(opts.limit ?? 50);
+    .limit(opts.limit ?? 500);
   if (opts.after) query = query.gt("created_at", opts.after);
   const { data, error } = await query;
   if (error) throw error;
   return data as PostCommentWithAuthor[];
 }
 
-export async function addComment(supabase: Client, userId: string, targetType: PostTargetType, targetId: string, body: string): Promise<PostCommentWithAuthor> {
+/** A comment on the post, or with `parentId` a reply to another comment of the same post (the server checks). */
+export async function addComment(supabase: Client, userId: string, targetType: PostTargetType, targetId: string, body: string, parentId?: string | null): Promise<PostCommentWithAuthor> {
   const { data, error } = await supabase
     .from("post_comments")
-    .insert({ user_id: userId, target_type: targetType, target_id: targetId, body })
+    .insert({ user_id: userId, target_type: targetType, target_id: targetId, body, parent_id: parentId ?? null })
     .select(COMMENT_SELECT)
     .single();
   if (error) throw error;
   return data as PostCommentWithAuthor;
+}
+
+/** The viewer's own votes on some comments: comment id -> 1 or -1. Nothing signed out. */
+export async function getMyCommentVotes(supabase: Client, viewerId: string | null, commentIds: string[]): Promise<Record<string, -1 | 1>> {
+  if (!viewerId || commentIds.length === 0) return {};
+  const { data, error } = await supabase.from("post_comment_votes").select("comment_id, value").eq("user_id", viewerId).in("comment_id", commentIds);
+  if (error) throw error;
+  const out: Record<string, -1 | 1> = {};
+  for (const row of data ?? []) out[row.comment_id] = row.value > 0 ? 1 : -1;
+  return out;
+}
+
+/** Thumbs up (1), thumbs down (-1) or clear (0) on a comment. Returns the fresh score and your vote. */
+export async function voteComment(supabase: Client, commentId: string, value: -1 | 0 | 1): Promise<CommentVote> {
+  const { data, error } = await supabase.rpc("post_comment_vote", { p_comment_id: commentId, p_value: value });
+  if (error) throw error;
+  const row = data?.[0];
+  return { score: Number(row?.score ?? 0), myVote: ((row?.my_vote ?? 0) > 0 ? 1 : (row?.my_vote ?? 0) < 0 ? -1 : 0) as -1 | 0 | 1 };
+}
+
+/** Replies that nest deeper than this stay at the same indent, so phones stay readable. */
+export const COMMENT_MAX_DEPTH = 3;
+
+/**
+ * Puts comments in thread order: each comment is followed by its replies, oldest first on every level (Instagram's
+ * order), with `depth`, `replyCount` (all descendants) and the viewer's vote. A reply whose parent is not in the list
+ * (hidden by a block, say) is shown at the top level rather than dropped.
+ */
+export function threadComments(comments: PostCommentWithAuthor[], myVotes: Record<string, -1 | 1> = {}): PostCommentNode[] {
+  const ids = new Set(comments.map((c) => c.id));
+  const children = new Map<string | null, PostCommentWithAuthor[]>();
+  for (const c of comments) {
+    const key = c.parent_id && ids.has(c.parent_id) ? c.parent_id : null;
+    const list = children.get(key) ?? [];
+    list.push(c);
+    children.set(key, list);
+  }
+  const countBelow = (id: string): number => (children.get(id) ?? []).reduce((n, c) => n + 1 + countBelow(c.id), 0);
+  const out: PostCommentNode[] = [];
+  const walk = (parent: string | null, depth: number) => {
+    for (const c of [...(children.get(parent) ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at))) {
+      out.push({ ...c, depth: Math.min(depth, COMMENT_MAX_DEPTH), replyCount: countBelow(c.id), myVote: myVotes[c.id] ?? 0 });
+      walk(c.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+  return out;
 }
 
 /** Your own comment, or any comment on your post. */
