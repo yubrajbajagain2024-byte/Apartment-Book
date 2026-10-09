@@ -170,7 +170,8 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
         <Pressable onPress={() => openProfile(author.id)} accessibilityLabel={`${author.full_name}'s profile`}>
           <Avatar name={author.full_name} url={author.avatar_url} size="sm" userId={author.id} />
         </Pressable>
-        <Pressable style={{ flex: 1, minWidth: 0 }} onPress={() => openProfile(author.id)}>
+        {/* Labelled with the name alone: the verified icon would otherwise join the label and hide the name from assistive tech (and Maestro). */}
+        <Pressable style={{ flex: 1, minWidth: 0 }} onPress={() => openProfile(author.id)} accessibilityRole="button" accessibilityLabel={author.full_name}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
             <Text style={styles.name} numberOfLines={1}>
               {author.full_name}

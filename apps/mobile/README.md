@@ -27,6 +27,9 @@ between them, or tap a label in the floating top bar. Housing works the same way
 **Apartments | Roommates**: it opens on Apartments, a swipe or a tap on the label above the pager
 moves to Roommates and back, and the floating "+" follows the visible half ("List an apartment" or
 "Create roommate post"). The order comes from `HOUSING_SECTIONS` in `packages/shared/src/constants.ts`.
+Profiles work like Instagram too: a Follow button (it reads "Following" once you follow), follower / following
+counts that open the two lists, and, signed in, a Following chip on the Posts page that keeps only the posts
+of people you follow.
 
 The Maestro flows in `e2e/flows/` check this in Expo Go on the booted iOS Simulator and save
 screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.dev) installed in
@@ -36,7 +39,7 @@ screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.de
 cd apps/mobile
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts; prints the login, writes e2e/.sim-state.json
 e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you, swipes to Buzz, Housing (Apartments, Roommates, swipe back), every other tab (several flows at once is fine)
-EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # likes, votes and replies as the seeded account
+EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # likes, votes, replies and follows as the seeded account
 node e2e/sim-seed-thread.mjs                            # nested replies and votes for 03-buzz-thread.yaml
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards
 ```

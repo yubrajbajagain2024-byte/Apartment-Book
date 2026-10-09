@@ -1,4 +1,4 @@
-// Creates a test user and sample posts for simulator runs (SUPABASE_ACCESS_TOKEN env).
+// Creates test users, sample posts and a follow for simulator runs (SUPABASE_ACCESS_TOKEN env).
 // Writes .sim-state.json (git-ignored); run sim-cleanup.mjs afterwards.
 import fs from "node:fs";
 import { createClient } from "@supabase/supabase-js";
@@ -10,6 +10,7 @@ const mk = async (name) => { const email = `ui-${name.toLowerCase()}-${stamp}@tx
 const me = await mk("Sim"); const other = await mk("Maya"); const leo = await mk("Leo");
 const { data: uni } = await admin.from("universities").select("id").eq("email_domain", "txstate.edu").single();
 await admin.from("profiles").update({ university_id: uni.id }).in("id", [me.id, other.id, leo.id]);
+await admin.from("follows").insert({ follower_id: leo.id, followee_id: other.id }); // Leo follows Maya, so her profile starts with one follower and she gets the "started following you" notification (admin bypasses RLS)
 const photos = ["https://picsum.photos/seed/sim-a/900/1125", "https://picsum.photos/seed/sim-b/900/1125", "https://picsum.photos/seed/sim-c/900/1125"];
 const meta = photos.map((u) => ({ url: u, width: 900, height: 1125, blur: null }));
 const { data: apt } = await admin.from("apartments").insert({ owner_id: other.id, university_id: uni.id, title: "Sunny 2-bed near Sewell Park", description: "Bright two-bedroom with a balcony, five minutes from campus on the bus line. Utilities included, laundry in unit, parking for one car.", price_per_month: 1150, address: "100 Sessom Dr", city: "San Marcos", bedrooms: 2, bathrooms: 1, furnished: true, utilities_included: true, images: photos, image_meta: meta }).select("id").single();

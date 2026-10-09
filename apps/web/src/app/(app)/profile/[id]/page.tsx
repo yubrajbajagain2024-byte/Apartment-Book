@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BadgeCheck, Building2, GraduationCap, Newspaper, School, Settings, ShoppingBag, Users } from "lucide-react";
 import {
+  getFollowStats,
   getPostEngagementMany,
   getPostPreviewsMany,
   getProfile,
@@ -11,6 +12,7 @@ import {
   listFeedPosts,
   listItemsBySeller,
   listRoommatePostsByAuthor,
+  NO_FOLLOW_STATS,
   type FeedPostWithAuthor,
   type PostEngagement,
   type PostPreview,
@@ -23,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FollowButton, FollowCounts } from "@/components/common/follow-button";
 import { MessageButton } from "@/components/common/message-button";
 import { BlockButton } from "@/components/common/report-block";
 import { ApartmentCard } from "@/components/apartments/apartment-card";
@@ -49,17 +52,19 @@ export default async function ProfilePage({ params }: Props) {
 
   const isMe = user?.id === profile.id;
   const blocked = user && !isMe ? await isBlocked(supabase, user.id, profile.id).catch(() => false) : false;
-  const [apartments, posts, items, savedIds, viewer, feedPosts] = await Promise.all([
+  const [apartments, posts, items, savedIds, viewer, feed, stats] = await Promise.all([
     listApartmentsByOwner(supabase, profile.id, { includeInactive: isMe }),
     listRoommatePostsByAuthor(supabase, profile.id, { includeInactive: isMe }),
     listItemsBySeller(supabase, profile.id, { includeInactive: isMe }),
     user ? getSavedIds(supabase, user.id) : Promise.resolve(new Set<string>()),
     user ? getCurrentProfile() : Promise.resolve(null),
-    // Home posts and reels by this person, newest first.
+    // Home posts and reels by this person, newest first; the two counts make the "n posts" next to their followers.
     Promise.all([listFeedPosts(supabase, { kind: "post", authorId: profile.id, pageSize: PROFILE_POSTS }), listFeedPosts(supabase, { kind: "reel", authorId: profile.id, pageSize: PROFILE_POSTS })])
-      .then(([a, b]) => [...a.data, ...b.data].sort((x, y) => y.created_at.localeCompare(x.created_at)).slice(0, PROFILE_POSTS))
-      .catch(() => [] as FeedPostWithAuthor[]),
+      .then(([a, b]) => ({ items: [...a.data, ...b.data].sort((x, y) => y.created_at.localeCompare(x.created_at)).slice(0, PROFILE_POSTS), count: a.count + b.count }))
+      .catch(() => ({ items: [] as FeedPostWithAuthor[], count: 0 })),
+    getFollowStats(supabase, profile.id).catch(() => NO_FOLLOW_STATS),
   ]);
+  const feedPosts = feed.items;
   const feedIds = feedPosts.map((p) => p.id);
   const [feedEngagement, feedPreviews] = await Promise.all([
     getPostEngagementMany(supabase, "post", feedIds).catch(() => ({}) as Record<string, PostEngagement>),
@@ -83,6 +88,9 @@ export default async function ProfilePage({ params }: Props) {
                 </Badge>
               ) : null}
             </div>
+            <div className="mt-1.5">
+              <FollowCounts userId={profile.id} stats={stats} posts={feed.count} />
+            </div>
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
               {profile.university ? (
                 <span className="flex items-center gap-1">
@@ -99,13 +107,15 @@ export default async function ProfilePage({ params }: Props) {
             </div>
             {profile.bio ? <p className="mt-3 whitespace-pre-line text-gray-800">{profile.bio}</p> : null}
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 flex-wrap gap-2">
             {isMe ? (
               <LinkButton href="/settings/profile" variant="secondary">
                 <Settings className="h-4 w-4" /> Edit profile
               </LinkButton>
             ) : (
               <>
+                {/* Blocking them removed the follows both ways; the Block button's re-render brings this back after an unblock. */}
+                {!blocked ? <FollowButton userId={profile.id} initial={stats} signedIn={signedIn} /> : null}
                 <MessageButton userId={profile.id} currentUserId={user?.id ?? null} returnTo={`/profile/${profile.id}`} />
                 {user ? <BlockButton otherId={profile.id} initialBlocked={blocked} name={profile.full_name} /> : null}
               </>
