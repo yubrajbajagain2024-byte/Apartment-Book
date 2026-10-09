@@ -1,4 +1,4 @@
-import { createContext, createElement, useContext, useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { getTotalUnread } from "@apartment-book/shared";
 import { supabase } from "@/lib/supabase";
 
@@ -27,18 +27,3 @@ export function useUnreadCount(userId: string | null) {
   return count;
 }
 
-const UnreadContext = createContext(0);
-
-/**
- * Subscribes once for the whole tab navigator. Every tab header and Home's floating bar shows the badge, and each of them
- * subscribing on its own would mean one realtime channel and one count query per header for every incoming message.
- */
-export function UnreadProvider({ userId, children }: { userId: string | null; children: ReactNode }) {
-  const count = useUnreadCount(userId);
-  return createElement(UnreadContext.Provider, { value: count }, children);
-}
-
-/** The shared unread count from the nearest UnreadProvider (0 outside one). */
-export function useUnread(): number {
-  return useContext(UnreadContext);
-}

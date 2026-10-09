@@ -1,4 +1,4 @@
-# Signed-in tour of the new Home: like a post, vote and reply anonymously in Buzz, watch a reel, reach the profile, follow Maya.
+# Signed-in tour of the new Home: like a post, comment on it (thumbs up, reply, delete), vote and reply anonymously in Buzz, watch a reel, reach the profile, follow Maya.
 # Needs test data: SUPABASE_ACCESS_TOKEN=... node e2e/sim-seed.mjs   (then pass EMAIL and PASSWORD from its output)
 appId: host.exp.Exponent
 env:
@@ -81,6 +81,42 @@ env:
     visible: "No comments yet"
     timeout: 15000
 - takeScreenshot: e2e/screenshots/10b-posts-comments-sheet
+# Comment threads: write a comment, thumb it up (the score reads 1) and tap again to clear, answer it from "Reply" (the chip
+# reads "Replying to UI Sim"), then delete both so the flow can run again and again. Maestro reads text as a regex, hence the
+# escaped parentheses. The reply (the second "Delete comment" on the screen) goes first: deleting the parent would take it along.
+- tapOn: "Write a comment"
+- inputText: "Looks great (sim)"
+- tapOn: "Post comment"
+- extendedWaitUntil:
+    visible: ".*Looks great \\(sim\\).*"
+    timeout: 30000
+- tapOn: "Like comment"
+- extendedWaitUntil:
+    visible: "Score 1"
+    timeout: 15000
+- tapOn: "Like comment"
+- tapOn: "Reply"
+- assertVisible: "Replying to.*"
+- tapOn: "Write a comment"
+- inputText: "Thanks!"
+- tapOn: "Post comment"
+- extendedWaitUntil:
+    visible: ".*Thanks!.*"
+    timeout: 30000
+- takeScreenshot: e2e/screenshots/17-comment-thread
+- tapOn:
+    text: "Delete comment"
+    index: 1
+- extendedWaitUntil:
+    notVisible: ".*Thanks!.*"
+    timeout: 15000
+- tapOn: "Delete comment"
+- extendedWaitUntil:
+    notVisible: ".*Looks great \\(sim\\).*"
+    timeout: 15000
+- extendedWaitUntil:
+    visible: "No comments yet"
+    timeout: 15000
 - tapOn: "Close"
 # Further down: a post with comments shows "View all 2 comments" and the newest one.
 - scrollUntilVisible:

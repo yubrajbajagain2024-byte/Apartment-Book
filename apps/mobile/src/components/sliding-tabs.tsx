@@ -67,7 +67,7 @@ export function SlidingTabs<T extends string>({
 }
 
 const styles = StyleSheet.create({
-  // 18 between four labels at 15pt leaves room on a 375pt phone between Home's 40pt "+" slot and its 76pt Messages + Search slot.
+  // 18 between four labels at 15pt leaves room on a 375pt phone between Home's two 40pt side slots ("+" and the Search magnifier).
   labels: { flex: 1, alignSelf: "stretch", flexDirection: "row", alignItems: "stretch", justifyContent: "center", gap: 18 },
   // Stretched to the row's height so the underline below lands at the same place in a 48pt bar (Home) and a 44pt one (Housing).
   tab: { alignItems: "center", justifyContent: "center" },

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { getPostEngagement, likePost, toggleSaved, unlikePost, type PostEngagement, type PostTargetType } from "@apartment-book/shared";
+import { hapticLike } from "@/lib/haptics";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
 
@@ -20,6 +21,7 @@ export function useLike(targetType: PostTargetType, targetId: string, initial: P
     if (!userId) return onNeedLogin();
     if (pending) return;
     const next = !state.liked;
+    if (next) hapticLike();
     busy.current = true;
     setPending(true);
     setState((s) => ({ liked: next, likes: Math.max(0, s.likes + (next ? 1 : -1)) }));

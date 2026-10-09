@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -50,6 +50,10 @@ export function ListingDetail({
   const like = useLike(targetType, targetId, engagement ?? undefined, user?.id ?? null, needLogin);
   const save = useSave(targetType, targetId, savedInitial ?? false, user?.id ?? null, needLogin);
   const [commentCount, setCommentCount] = useState<number | null>(null);
+  const scroll = useRef<ScrollView>(null);
+  const engagementY = useRef(0);
+  /** Bring the likes row, the comment thread and its composer to the top of the screen. */
+  const showThread = () => scroll.current?.scrollTo({ y: engagementY.current, animated: true });
   const own = user?.id === poster.id;
   useQuery(() => recordView(supabase, targetType, targetId).catch(() => {}), [targetType, targetId]);
 
@@ -95,7 +99,7 @@ export function ListingDetail({
 
   const comments = commentCount ?? engagement?.comments ?? 0;
   return (
-    <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scroll} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
       {media.length > 0 ? <PhotoCarousel media={media} aspect={4 / 5} /> : null}
       <View style={styles.section}>
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
@@ -123,15 +127,16 @@ export function ListingDetail({
         {own && ownerActions ? <View style={{ marginTop: 12 }}>{ownerActions}</View> : null}
       </View>
 
-      <View style={[styles.section, { paddingHorizontal: 0, paddingVertical: 0 }]}>
+      <View style={[styles.section, { paddingHorizontal: 0, paddingVertical: 0 }]} onLayout={(e) => (engagementY.current = e.nativeEvent.layout.y)}>
         <EngagementSummary likes={like.likes} comments={comments} />
-        <EngagementBar liked={like.liked} likes={like.likes} onLike={() => void like.toggle()} onComment={() => {}} onMessage={() => void message()} messageLabel={own ? "Inbox" : "Message"} />
+        <EngagementBar liked={like.liked} likes={like.likes} onLike={() => void like.toggle()} onComment={showThread} onMessage={() => void message()} messageLabel={own ? "Inbox" : "Message"} />
         <View style={{ padding: 16 }}>
           <Comments
             targetType={targetType}
             targetId={targetId}
             ownerId={poster.id}
             autoFocus={focusComments}
+            revealComposer={showThread}
             onCountChange={(d) => {
               setCommentCount((n) => Math.max(0, (n ?? engagement?.comments ?? 0) + d));
               setData((prev) => (prev ? { ...prev, comments: Math.max(0, prev.comments + d) } : prev));

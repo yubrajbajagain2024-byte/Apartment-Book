@@ -32,10 +32,10 @@ const PROFILE: NavTab = {
 };
 
 /** Desktop header tabs. Search is not a tab: the header's search box is the search entry point on every screen, like TikTok's magnifier. */
-export const NAV_TABS: NavTab[] = [HOME, HOUSING, MARKETPLACE, MESSAGES];
+export const NAV_TABS: NavTab[] = [HOME, HOUSING, MESSAGES, MARKETPLACE];
 
-/** Phone bottom bar, mirroring the app: Home, Housing, Marketplace, Profile. Messages and Search live in the header. */
-export const PHONE_TABS: NavTab[] = [HOME, HOUSING, MARKETPLACE, PROFILE];
+/** Phone bottom bar, mirroring the app: Home, Housing, Messages, Marketplace, Profile. Search lives in the header (a magnifier on phones). */
+export const PHONE_TABS: NavTab[] = [HOME, HOUSING, MESSAGES, MARKETPLACE, PROFILE];
 
 export function NavTabs({ unread, userId }: { unread: number; userId: string | null }) {
   const pathname = usePathname();

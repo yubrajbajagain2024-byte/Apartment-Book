@@ -29,6 +29,7 @@ export function useLikeToggle(targetType: PostTargetType, targetId: string, init
       return;
     }
     const next = !optimistic.liked;
+    if (next && typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(12);
     startTransition(async () => {
       setOptimistic({ liked: next, likes: Math.max(0, optimistic.likes + (next ? 1 : -1)) });
       const result = await toggleLikeAction(targetType, targetId, next);

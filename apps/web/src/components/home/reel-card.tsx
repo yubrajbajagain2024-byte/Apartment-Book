@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BadgeCheck, Bookmark, Check, Heart, MessageCircle, Play, Plus, Share2, Video, Volume2, VolumeX } from "lucide-react";
+import { BadgeCheck, Bookmark, Check, Heart, MessageCircle, Play, Plus, Share2, Volume2, VolumeX } from "lucide-react";
 import { muxPlaybackUrl, muxPosterUrl, reelPath, timeAgo, type Reel } from "@apartment-book/shared";
 import { cn } from "@/lib/utils";
-import { Avatar } from "@/components/ui/avatar";
-import { MessageButton } from "@/components/common/message-button";
 import { useSaveToggle } from "@/components/common/save-button";
 import { useShare } from "@/components/common/share-button";
 import { useLikeToggle } from "@/components/posts/like-button";
@@ -80,7 +78,32 @@ export function ReelCard({
   const save = useSaveToggle(reel.sourceType, reel.sourceId, reel.savedByMe, signedIn);
   const { share, copied } = useShare(path, reel.title ?? `${reel.author.name} on Apartment Book`);
   const [expanded, setExpanded] = useState(false);
-  const longCaption = reel.caption.length > 90 || reel.caption.includes("\n");
+  /** Bumped on every like so the heart replays its pop, and on every double tap so the big heart flashes again. */
+  const [pop, setPop] = useState(0);
+  const [burst, setBurst] = useState(0);
+  /** Collapsed, the description is one line like Instagram's. Whether it was cut is measured on the clamped span, not guessed. */
+  const oneLine = [reel.title, reel.caption].filter(Boolean).join(" · ");
+  const clampRef = useRef<HTMLSpanElement>(null);
+  const [clipped, setClipped] = useState(false);
+  const descRef = useRef<HTMLButtonElement>(null);
+  const lessRef = useRef<HTMLButtonElement>(null);
+  /** Set by the toggles, so focus only moves after a keyboard/click toggle and never on mount or when a reel scrolls away. */
+  const toggled = useRef(false);
+  useEffect(() => {
+    if (!toggled.current) return;
+    toggled.current = false;
+    (expanded ? lessRef : descRef).current?.focus({ preventScroll: true });
+  }, [expanded]);
+  useLayoutEffect(() => {
+    const el = clampRef.current;
+    if (!el) return;
+    const check = () => setClipped(el.scrollHeight > el.clientHeight + 1);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [expanded, oneLine]);
+  const canExpand = clipped || oneLine.includes("\n");
 
   /** Likes, saves and comments need an account; send people to log in and bring them back to Reels. */
   function needsLogin(): boolean {
@@ -89,10 +112,27 @@ export function ReelCard({
     return true;
   }
 
+  function toggleLike() {
+    if (needsLogin()) return;
+    if (!like.liked) setPop((k) => k + 1);
+    like.toggle();
+  }
+
+  /** Double click or double tap on the video: like (never unlike) with a big heart, like Instagram. */
+  function doubleTap() {
+    setBurst((k) => k + 1);
+    if (!like.liked) toggleLike();
+  }
+
   return (
     <section data-reel data-index={index} aria-label={`Reel by ${reel.author.name}`} className="flex h-full w-full snap-start snap-always items-center justify-center sm:py-2">
       <div className="relative h-full w-full overflow-hidden bg-black sm:aspect-[9/16] sm:w-auto sm:max-w-full sm:rounded-2xl sm:shadow-lg">
-        <ReelVideo src={muxPlaybackUrl(reel.video.playback_id)} poster={reel.video.poster_url ?? muxPosterUrl(reel.video.playback_id)} active={active} near={near} eager={index === 0} />
+        <ReelVideo src={muxPlaybackUrl(reel.video.playback_id)} poster={reel.video.poster_url ?? muxPosterUrl(reel.video.playback_id)} active={active} near={near} eager={index === 0} onDoubleTap={doubleTap} />
+        {burst > 0 ? (
+          <span key={burst} className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+            <Heart className="ab-burst h-28 w-28 fill-white text-white drop-shadow-[0_4px_14px_rgba(0,0,0,0.5)]" />
+          </span>
+        ) : null}
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
 
@@ -108,20 +148,10 @@ export function ReelCard({
         </div>
 
         {/* Actions */}
-        <div className="absolute bottom-4 right-2 z-20 flex flex-col items-center gap-3.5 text-white">
-          <Link href={`/profile/${reel.author.id}`} aria-label={`${reel.author.name}'s profile`} className="rounded-full ring-2 ring-white">
-            <Avatar name={reel.author.name} src={reel.author.avatarUrl} size="md" />
-          </Link>
-          <ActionButton
-            label={like.liked ? "Unlike" : "Like"}
-            count={like.likes}
-            pressed={like.liked}
-            disabled={like.pending}
-            onClick={() => {
-              if (!needsLogin()) like.toggle();
-            }}
-          >
-            <Heart className={cn("h-6 w-6", like.liked && "fill-current text-red-500")} />
+        <div className="absolute bottom-4 right-2 z-20 flex flex-col items-center gap-2 text-white">
+          <ActionButton label={like.liked ? "Unlike" : "Like"} count={like.likes} pressed={like.liked} disabled={like.pending} onClick={toggleLike}>
+            {/* A new key on every like restarts the pop. */}
+            <Heart key={pop} className={cn("h-7 w-7", like.liked && "fill-current text-red-500", like.liked && pop > 0 && "ab-pop")} />
           </ActionButton>
           <ActionButton
             label="Comments"
@@ -130,7 +160,10 @@ export function ReelCard({
               if (!needsLogin()) onOpenComments();
             }}
           >
-            <MessageCircle className="h-6 w-6" />
+            <MessageCircle className="h-7 w-7" />
+          </ActionButton>
+          <ActionButton label="Share" text={copied ? "Copied" : "Share"} onClick={() => void share()}>
+            {copied ? <Check className="h-7 w-7" /> : <Share2 className="h-7 w-7" />}
           </ActionButton>
           <ActionButton
             label={save.saved ? "Saved" : "Save"}
@@ -141,10 +174,7 @@ export function ReelCard({
               if (!needsLogin()) save.toggle();
             }}
           >
-            <Bookmark className={cn("h-6 w-6", save.saved && "fill-current")} />
-          </ActionButton>
-          <ActionButton label="Share" text={copied ? "Copied" : "Share"} onClick={() => void share()}>
-            {copied ? <Check className="h-6 w-6" /> : <Share2 className="h-6 w-6" />}
+            <Bookmark className={cn("h-7 w-7", save.saved && "fill-current")} />
           </ActionButton>
         </div>
 
@@ -160,32 +190,54 @@ export function ReelCard({
               · {timeAgo(reel.createdAt)}
             </span>
           </div>
-          {reel.title ? <p className="line-clamp-2 text-sm font-semibold">{reel.title}</p> : null}
-          {reel.caption ? (
-            <div className={cn("text-sm", expanded && "max-h-40 overflow-y-auto pr-1")}>
-              <p className={cn("whitespace-pre-line break-words", !expanded && "line-clamp-2")}>{reel.caption}</p>
-              {longCaption ? (
-                <button type="button" onClick={() => setExpanded((v) => !v)} className="font-semibold text-white/90 hover:underline">
-                  {expanded ? "less" : "more"}
+          {/* Collapsed: one line with a tail ellipsis, like Instagram; the line is the button. Expanded: title (a tour's title opens its listing, which has the Message button), caption, "less". */}
+          {oneLine ? (
+            expanded ? (
+              <>
+                {reel.title ? (
+                  isTour ? (
+                    <Link href={path} className="line-clamp-3 text-sm font-semibold hover:underline" data-testid="reel-listing-link">
+                      {reel.title}
+                    </Link>
+                  ) : (
+                    <p className="line-clamp-3 text-sm font-semibold">{reel.title}</p>
+                  )
+                ) : null}
+                {reel.caption ? <p className="max-h-40 overflow-y-auto whitespace-pre-line break-words pr-1 text-sm">{reel.caption}</p> : null}
+                {/* Outside the scroll box, so a long description can always be folded back. */}
+                <button
+                  ref={lessRef}
+                  type="button"
+                  onClick={() => {
+                    toggled.current = true;
+                    setExpanded(false);
+                  }}
+                  aria-expanded="true"
+                  className="self-start text-sm font-semibold text-white/90 hover:underline"
+                >
+                  less
                 </button>
-              ) : null}
-            </div>
-          ) : null}
-          {isTour && !isMine ? (
-            <div className="mt-0.5 flex flex-wrap items-center gap-2 [text-shadow:none]">
-              <Link href={path} className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-[13px] font-semibold text-gray-900 hover:bg-gray-100">
-                <Video className="h-4 w-4 text-brand-600" /> Video tour · View listing
-              </Link>
-              <MessageButton
-                userId={reel.author.id}
-                currentUserId={currentUserId}
-                returnTo={REELS_PATH}
-                variant="action"
-                target={{ type: reel.sourceType === "apartment" ? "apartment" : "roommate", id: reel.sourceId }}
-                prefill={`Hi ${reel.author.name.split(" ")[0]}! I watched your video tour${reel.title ? ` of "${reel.title}"` : ""} and I'd like to know more.`}
-                className="h-8 rounded-full bg-white/20 px-3 text-[13px] text-white backdrop-blur hover:bg-white/30"
-              />
-            </div>
+              </>
+            ) : (
+              <button
+                ref={descRef}
+                type="button"
+                onClick={() => {
+                  toggled.current = true;
+                  setExpanded(true);
+                }}
+                disabled={!canExpand}
+                aria-expanded="false"
+                title={canExpand ? "Show the full description" : undefined}
+                className="w-full text-left text-sm disabled:cursor-default"
+                data-testid="reel-description"
+              >
+                {/* The clamp lives on its own span (a -webkit-box, so block-level by itself): Safari does not let a button become one. */}
+                <span ref={clampRef} className="line-clamp-1">
+                  {oneLine}
+                </span>
+              </button>
+            )
           ) : null}
         </div>
       </div>
@@ -212,7 +264,7 @@ function ActionButton({
 }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} aria-label={label} aria-pressed={pressed} className="group flex flex-col items-center gap-0.5 text-[12px] font-semibold [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
-      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/40 backdrop-blur transition-colors group-hover:bg-black/60">{children}</span>
+      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/40 backdrop-blur transition-colors group-hover:bg-black/60">{children}</span>
       <span className="tabular-nums">{text ?? compact.format(count ?? 0)}</span>
     </button>
   );
@@ -223,8 +275,23 @@ function ActionButton({
  * Extensions exist, the native HLS player only when they do not (iPhone Safari),
  * and the stream is torn down on unmount or when the reel is far from view.
  */
-function ReelVideo({ src, poster, active, near, eager }: { src: string; poster: string; active: boolean; near: boolean; eager: boolean }) {
+function ReelVideo({ src, poster, active, near, eager, onDoubleTap }: { src: string; poster: string; active: boolean; near: boolean; eager: boolean; onDoubleTap?: () => void }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const pendingTap = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => void (pendingTap.current && clearTimeout(pendingTap.current)), []);
+  /** Single tap pauses after a beat; a second tap inside it likes instead (Instagram's double tap). */
+  function onTap() {
+    if (pendingTap.current) {
+      clearTimeout(pendingTap.current);
+      pendingTap.current = null;
+      onDoubleTap?.();
+      return;
+    }
+    pendingTap.current = setTimeout(() => {
+      pendingTap.current = null;
+      setUserPaused((v) => !v);
+    }, onDoubleTap ? 260 : 0);
+  }
   const wantsPlay = useRef(false);
   const sound = useReelSound();
   const [started, setStarted] = useState(false);
@@ -294,7 +361,7 @@ function ReelVideo({ src, poster, active, near, eager }: { src: string; poster: 
       <video ref={ref} poster={poster} muted={!sound} loop playsInline preload={near ? "auto" : "none"} onPlaying={() => setStarted(true)} className="absolute inset-0 h-full w-full object-cover" />
       {/* eslint-disable-next-line @next/next/no-img-element -- poster frame from the video provider */}
       <img src={poster} alt="" loading={eager ? "eager" : "lazy"} className={cn("pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity duration-200", started ? "opacity-0" : "opacity-100")} />
-      <button type="button" onClick={() => setUserPaused((v) => !v)} aria-label={userPaused ? "Play" : "Pause"} className="absolute inset-0 z-10 flex cursor-pointer items-center justify-center focus:outline-none">
+      <button type="button" onClick={onTap} aria-label={userPaused ? "Play" : "Pause"} className="absolute inset-0 z-10 flex cursor-pointer items-center justify-center focus:outline-none">
         {userPaused ? (
           <span className="flex h-16 w-16 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur">
             <Play className="h-8 w-8 translate-x-0.5 fill-current" />

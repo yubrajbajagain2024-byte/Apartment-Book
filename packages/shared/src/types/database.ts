@@ -679,6 +679,8 @@ export type Database = {
           target_id: string;
           user_id: string;
           body: string;
+          parent_id: string | null;
+          score: number;
           created_at: string;
         };
         Insert: {
@@ -687,6 +689,8 @@ export type Database = {
           target_id: string;
           user_id: string;
           body: string;
+          parent_id?: string | null;
+          score?: number;
           created_at?: string;
         };
         Update: {
@@ -695,11 +699,56 @@ export type Database = {
           target_id?: string;
           user_id?: string;
           body?: string;
+          parent_id?: string | null;
+          score?: number;
           created_at?: string;
         };
         Relationships: [
           {
             foreignKeyName: "post_comments_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "post_comments_parent_id_fkey";
+            columns: ["parent_id"];
+            isOneToOne: false;
+            referencedRelation: "post_comments";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      post_comment_votes: {
+        Row: {
+          comment_id: string;
+          user_id: string;
+          value: number;
+          created_at: string;
+        };
+        Insert: {
+          comment_id: string;
+          user_id: string;
+          value: number;
+          created_at?: string;
+        };
+        Update: {
+          comment_id?: string;
+          user_id?: string;
+          value?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "post_comment_votes_comment_id_fkey";
+            columns: ["comment_id"];
+            isOneToOne: false;
+            referencedRelation: "post_comments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "post_comment_votes_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
@@ -1130,6 +1179,10 @@ export type Database = {
           photo_contact_rate: number | null;
           contact_multiplier: number | null;
         }[];
+      };
+      post_comment_vote: {
+        Args: { p_comment_id: string; p_value: number };
+        Returns: { score: number; my_vote: number }[];
       };
       follow_stats: {
         Args: { p_user_ids: string[] };

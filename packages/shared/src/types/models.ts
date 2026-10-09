@@ -109,6 +109,10 @@ export type BuzzCommentNode = BuzzComment & { depth: number; replyCount: number 
 
 /** A comment with who wrote it. */
 export type PostCommentWithAuthor = PostComment & { author: ProfileSummary };
+/** Thumbs up / down on a comment: the score and the viewer's own vote. */
+export type CommentVote = { score: number; myVote: -1 | 0 | 1 };
+/** A comment placed in its thread: `depth` 0 answers the post, 1 answers a comment, and so on. */
+export type PostCommentNode = PostCommentWithAuthor & { depth: number; replyCount: number; myVote: -1 | 0 | 1 };
 
 /** Like/comment counts for a post plus whether the current user liked it. */
 export type PostEngagement = { likes: number; comments: number; likedByMe: boolean };
