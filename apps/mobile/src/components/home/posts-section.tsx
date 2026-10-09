@@ -13,13 +13,16 @@ import { colors } from "@/lib/theme";
 import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { InstaPost } from "./insta-post";
 
-/** Home → Posts: Instagram-style posts from students, newest first. New posts are made with the "+" in the top bar. */
+/** Home → Posts: Instagram-style posts from students, newest first; "Following" keeps only the people you follow. New posts are made with the "+" in the top bar. */
 export function PostsSection({ active, topInset }: { active: boolean; topInset: number }) {
   const { user, profile } = useSession();
   const router = useRouter();
   const [allCampuses, setAllCampuses] = useState(false);
+  const [followingOnly, setFollowingOnly] = useState(false);
   const universityId = allCampuses ? undefined : (profile?.university_id ?? undefined);
-  const feed = useFeed<FeedPostWithAuthor>((page) => listFeedPosts(supabase, { universityId, page }), [universityId]);
+  // Signed out there is nobody you follow (and the chip is gone), so the filter drops instead of emptying the feed.
+  const following = Boolean(user) && followingOnly;
+  const feed = useFeed<FeedPostWithAuthor>((page) => listFeedPosts(supabase, { universityId, page, following }), [universityId, following]);
   const { savedIds, engagement } = useEngagement("post", feed.items, user?.id ?? null);
   const { previews, refresh: refreshPreview } = usePostPreviews("post", feed.items, user?.id ?? null);
   /** Comments added or deleted in the sheet since the counts were loaded. */
@@ -64,9 +67,10 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
         keyExtractor={(p) => p.id}
         contentContainerStyle={{ paddingBottom: 40 }}
         ListHeaderComponent={
-          profile?.university_id ? (
+          user || profile?.university_id ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: FEED_HEADER_PADDING, paddingTop: 10, paddingBottom: 2 }}>
-              <Chip label={allCampuses ? "All universities" : (profile.university?.name ?? "My campus")} icon="school-outline" active={!allCampuses} onPress={() => setAllCampuses((v) => !v)} />
+              {profile?.university_id ? <Chip label={allCampuses ? "All universities" : (profile.university?.name ?? "My campus")} icon="school-outline" active={!allCampuses} onPress={() => setAllCampuses((v) => !v)} /> : null}
+              {user ? <Chip label="Following" icon="people-outline" active={following} onPress={() => setFollowingOnly((v) => !v)} /> : null}
             </View>
           ) : null
         }
@@ -84,7 +88,17 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
             onDeleted={() => emitPostRemoved(p.id)}
           />
         )}
-        ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon="newspaper-outline" title="No posts yet" body={universityId ? "Say hello to your campus, or switch to all universities." : "Be the first to share something."} />}
+        ListEmptyComponent={
+          feed.loading ? (
+            <Loading />
+          ) : feed.error ? (
+            <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View>
+          ) : following ? (
+            <EmptyState icon="people-outline" title="Nothing from the people you follow yet" body="Follow someone from their profile and their posts show up here." />
+          ) : (
+            <EmptyState icon="newspaper-outline" title="No posts yet" body={universityId ? "Say hello to your campus, or switch to all universities." : "Be the first to share something."} />
+          )
+        }
         ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : null}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}

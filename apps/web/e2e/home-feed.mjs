@@ -1,4 +1,5 @@
-// Browser check of the website's Home (For you | Buzz | Posts | Reels) and Housing (Apartments | Roommates), signed out and signed in, on a desktop and a phone viewport.
+// Browser check of the website's Home (For you | Buzz | Posts | Reels), Housing (Apartments | Roommates) and following (the Follow button on a profile, the follower list,
+// Home → Posts → Following), signed out and signed in, on a desktop and a phone viewport.
 // Usage: start the site (npm run dev -w web -- -p 3060), seed test data (SUPABASE_ACCESS_TOKEN=... node apps/mobile/e2e/sim-seed.mjs),
 // then: BASE=http://localhost:3060 node apps/web/e2e/home-feed.mjs      (reads apps/mobile/e2e/.sim-state.json; Chromium only: the phone swipes go through a CDP session)
 import fs from "node:fs";
@@ -10,7 +11,8 @@ const SHOTS = fileURLToPath(new URL("./screenshots/", import.meta.url)); fs.mkdi
 let failures = 0; const errors = [];
 const ok = (m) => console.log(`  ✓ ${m}`); const bad = (m, e) => { failures++; console.log(`  ✗ ${m}: ${(e?.message ?? String(e)).split("\n").slice(0, 3).join(" // ").slice(0, 400)}`); };
 const step = async (n, fn) => { try { await fn(); ok(n); } catch (e) { bad(n, e); } };
-const browser = await chromium.launch();
+// PLAYWRIGHT_CHANNEL=chrome uses the installed Google Chrome when Playwright's own Chromium was never downloaded.
+const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
 async function newPage(viewport) { const ctx = await browser.newContext({ viewport, isMobile: viewport.width < 500, hasTouch: viewport.width < 500 }); const page = await ctx.newPage(); page.setDefaultTimeout(30000); page.on("pageerror", (e) => errors.push(e.message)); page.on("console", (m) => { if (m.type() === "error") errors.push(m.text().slice(0, 300)); }); return page; }
 /** Playwright's touchscreen can only tap, so a flick goes through the Chrome DevTools protocol: a few touch moves spread over ~150 ms, like a thumb. */
 async function swipe(page, from, to, moves = 6) {
@@ -90,6 +92,12 @@ try {
     await D.locator("video").first().waitFor({ state: "attached" }); await D.waitForTimeout(2500);
     await D.screenshot({ path: SHOTS + "web-03-reels.png" });
   });
+  await step("signed out: Maya's profile shows her follower count and a Follow button that leads to /login", async () => {
+    await D.goto(BASE + "/profile/" + state.other.id); const counts = D.getByTestId("follow-counts"); await counts.waitFor();
+    const text = (await counts.innerText()).replace(/\s+/g, " "); if (!text.includes("1 follower")) throw new Error("counts (Leo follows her from the seed): " + text);
+    const button = D.getByTestId("follow-button"); if (!(await button.count())) throw new Error("no Follow button for a signed-out visitor");
+    await button.click(); await D.waitForURL(/\/login/);
+  });
   await step("phone: bottom bar is Home, Housing, Marketplace, Messages", async () => {
     await M.goto(BASE + "/?tab=posts"); await M.getByText("First week back on campus").first().waitFor();
     const items = (await M.locator("nav[aria-label='Main'] a").filter({ visible: true }).allInnerTexts()).map((t) => t.trim().split("\n").pop()).filter(Boolean);
@@ -142,6 +150,28 @@ try {
     await D.screenshot({ path: SHOTS + "web-07-post-liked.png" });
     await post.getByLabel("Unsave", { exact: true }).click(); await post.getByLabel("Save", { exact: true }).waitFor();
     await post.getByLabel("Unlike", { exact: true }).click(); await post.getByLabel("Like", { exact: true }).waitFor();
+  });
+  await step("signed in: follow Maya from her profile, the counts and the list update, the Posts Following filter shows her post, unfollow", async () => {
+    const profile = BASE + "/profile/" + state.other.id; const counts = () => D.getByTestId("follow-counts"); const button = () => D.getByTestId("follow-button");
+    await D.goto(profile); await D.waitForLoadState("networkidle"); // hydrated before clicking
+    const before = (await counts().innerText()).replace(/\s+/g, " "); if (!before.includes("1 follower")) throw new Error("counts before (Leo follows her from the seed): " + before);
+    const label = (await button().innerText()).trim(); if (!/^Follow( back)?$/.test(label)) throw new Error("button before: " + label);
+    await button().click(); await D.locator("[data-testid='follow-button'][aria-pressed='true']").filter({ hasText: /^Following$/ }).waitFor();
+    await counts().filter({ hasText: "2 followers" }).waitFor();
+    // Home → Posts → Following keeps only posts by the people I follow: Maya's post is there, Leo's is not, and the switch marks Following.
+    await D.goto(BASE + "/?tab=posts&feed=following"); await D.getByText("First week back on campus").first().waitFor();
+    const sw = D.getByTestId("posts-feed-switch"); const options = (await sw.locator("a").allInnerTexts()).map((t) => t.trim()).filter(Boolean); if (options.join("|") !== "Everyone|Following") throw new Error("feed switch: " + options.join("|"));
+    const active = (await sw.locator("[aria-current='page'], [aria-selected='true'], [aria-pressed='true']").allInnerTexts()).map((t) => t.trim()); if (active.join("|") !== "Following") throw new Error("active feed: " + active.join("|"));
+    if (await D.locator("[data-testid='insta-post']").filter({ hasText: "Move-in day at the new place" }).count()) throw new Error("Leo's post is in the Following feed, but I do not follow him");
+    await D.screenshot({ path: SHOTS + "web-09b-posts-following.png" });
+    // Her followers list has a row for me (and one for Leo).
+    await D.goto(profile + "/followers"); await D.waitForLoadState("networkidle"); /* streamed in: wait until the hidden copy has been swapped into place */ const list = D.getByTestId("follow-list"); await list.waitFor();
+    await list.locator("[data-testid='follow-row']").filter({ hasText: state.me.name }).first().waitFor();
+    if (!(await list.locator("[data-testid='follow-row']").filter({ hasText: state.extra[0].name }).count())) throw new Error("Leo's row is missing from the followers list");
+    // Back on the profile, the button reads Following; one more click unfollows, so the check can run again and again.
+    await D.goto(profile); await D.waitForLoadState("networkidle"); await D.locator("[data-testid='follow-button'][aria-pressed='true']").waitFor(); await D.screenshot({ path: SHOTS + "web-09-follow.png" });
+    await button().click(); await button().filter({ hasText: /^Follow( back)?$/ }).waitFor();
+    await counts().filter({ hasText: "1 follower" }).waitFor();
   });
   await step("create pages render: /posts/new, /reels/new, /buzz/new (with the anonymity notice)", async () => {
     for (const p of ["/posts/new", "/reels/new", "/buzz/new"]) { const r = await D.goto(BASE + p); if (!r || r.status() >= 400) throw new Error(`${p} -> ${r?.status()}`); }

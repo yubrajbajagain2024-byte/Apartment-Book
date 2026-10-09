@@ -1,4 +1,4 @@
-// Live check of the Home-feed backend through the real API (PostgREST + Storage) with throwaway users.
+// Live check of the Home-feed backend (posts, following, Buzz) through the real API (PostgREST + Storage) with throwaway users.
 // Usage: SUPABASE_ACCESS_TOKEN=sbp_... node scripts/e2e-home-feed.mjs
 import { createClient } from "@supabase/supabase-js";
 const ref = "dskbzoqreandwwpxiplh"; const url = `https://${ref}.supabase.co`;
@@ -33,6 +33,19 @@ try {
     r = await B.client.from("post_comments").insert({ target_type: "post", target_id: post, user_id: B.id, body: "nice" }); if (r.error) throw r.error;
     const e = await B.client.rpc("post_engagement", { p_target_type: "post", p_target_id: post }); if (e.error || Number(e.data[0].likes) !== 1 || Number(e.data[0].comments) !== 1) throw new Error(JSON.stringify(e));
     const n = await A.client.from("notifications").select("type, link").eq("link", `/posts/${post}`); if (n.error || n.data.length !== 2) throw new Error("notifications " + JSON.stringify(n));
+  });
+  await step("follows: B follows A, follow_stats and following_posts answer, A is notified; self-follow and forged follows are refused; unfollow", async () => {
+    if (!(await A.client.from("follows").insert({ follower_id: A.id, followee_id: A.id })).error) throw new Error("self-follow accepted");
+    if (!(await A.client.from("follows").insert({ follower_id: B.id, followee_id: A.id })).error) throw new Error("a follow on someone else's behalf was accepted");
+    let r = await B.client.from("follows").insert({ follower_id: B.id, followee_id: A.id }); if (r.error) throw r.error;
+    const mine = await B.client.rpc("follow_stats", { p_user_ids: [A.id] }); if (mine.error || Number(mine.data[0].followers) !== 1 || mine.data[0].followed_by_me !== true) throw new Error("A as seen by B: " + JSON.stringify(mine));
+    const theirs = await A.client.rpc("follow_stats", { p_user_ids: [B.id] }); if (theirs.error || Number(theirs.data[0].following) !== 1 || theirs.data[0].follows_me !== true) throw new Error("B as seen by A: " + JSON.stringify(theirs));
+    const seen = await anon.from("follows").select("follower_id").eq("followee_id", A.id); if (seen.error || seen.data.length !== 1) throw new Error("signed out cannot read the follow: " + JSON.stringify(seen));
+    const feed = await B.client.rpc("following_posts", { p_kind: "post", p_university_id: null }).select("id, author:profiles!feed_posts_author_id_fkey(full_name)"); if (feed.error || !feed.data.some((p) => p.id === post && p.author.full_name === "E2E Alice")) throw new Error("following_posts: " + JSON.stringify(feed));
+    const nobody = await anon.rpc("following_posts", { p_kind: "post", p_university_id: null }); if (nobody.error || nobody.data.length !== 0) throw new Error("signed out got rows: " + JSON.stringify(nobody));
+    const n = await A.client.from("notifications").select("type, link").eq("type", "follow"); if (n.error || n.data.length !== 1 || n.data[0].link !== `/profile/${B.id}`) throw new Error("follow notification " + JSON.stringify(n));
+    r = await B.client.from("follows").delete().eq("follower_id", B.id).eq("followee_id", A.id); if (r.error) throw r.error;
+    const after = await anon.rpc("follow_stats", { p_user_ids: [A.id] }); if (after.error || Number(after.data[0].followers) !== 0) throw new Error("after unfollow: " + JSON.stringify(after));
   });
   await step("reels_feed answers for signed-out visitors", async () => { const r = await anon.rpc("reels_feed", { p_limit: 5 }); if (r.error) throw r.error; });
   await step("forged notifications are refused", async () => {

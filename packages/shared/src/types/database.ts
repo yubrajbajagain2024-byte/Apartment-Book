@@ -838,6 +838,39 @@ export type Database = {
           },
         ];
       };
+      follows: {
+        Row: {
+          follower_id: string;
+          followee_id: string;
+          created_at: string;
+        };
+        Insert: {
+          follower_id: string;
+          followee_id: string;
+          created_at?: string;
+        };
+        Update: {
+          follower_id?: string;
+          followee_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "follows_follower_id_fkey";
+            columns: ["follower_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "follows_followee_id_fkey";
+            columns: ["followee_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       notifications: {
         Row: {
           id: string;
@@ -1097,6 +1130,14 @@ export type Database = {
           photo_contact_rate: number | null;
           contact_multiplier: number | null;
         }[];
+      };
+      follow_stats: {
+        Args: { p_user_ids: string[] };
+        Returns: { user_id: string; followers: number; following: number; followed_by_me: boolean; follows_me: boolean }[];
+      };
+      following_posts: {
+        Args: { p_kind?: string | null; p_university_id?: string | null };
+        Returns: Database["public"]["Tables"]["feed_posts"]["Row"][];
       };
     };
     Enums: {

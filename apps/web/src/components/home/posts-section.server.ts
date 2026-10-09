@@ -20,7 +20,9 @@ export function homeUniversityId(params: HomeSearchParams, profile: ProfileWithU
 /** Everything the Posts tab needs for its first paint. Server only. */
 export async function loadPostsSection(supabase: Client, user: User | null, profile: ProfileWithUniversity | null, params: HomeSearchParams): Promise<PostsFeedProps> {
   const universityId = homeUniversityId(params, profile);
-  const filters: FeedPostFilters = { kind: "post", universityId };
+  // "Following" (?feed=following) is the viewer's own filter; signed out it would always be empty, so the address is ignored then.
+  const following = Boolean(user) && firstParam(params.feed) === "following";
+  const filters: FeedPostFilters = { kind: "post", universityId, following };
 
   const [result, savedIds, universities] = await Promise.all([
     listFeedPosts(supabase, { ...filters, page: 1 }),

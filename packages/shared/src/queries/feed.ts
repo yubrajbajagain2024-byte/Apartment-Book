@@ -3,6 +3,7 @@ import type { FeedPostInput, ReelInput } from "../schemas";
 import type { Client, FeedPost, FeedPostWithAuthor, ListingVideo, Paginated, Reel } from "../types/models";
 import type { Json } from "../types/database";
 import { pageRange } from "../utils";
+import { listFollowingPosts } from "./follows";
 
 export const FEED_POST_SELECT =
   "*, author:profiles!feed_posts_author_id_fkey(id, full_name, avatar_url, university:universities(email_domain)), university:universities!feed_posts_university_id_fkey(id, name)";
@@ -12,12 +13,15 @@ export type FeedPostFilters = {
   kind?: "post" | "reel";
   universityId?: string;
   authorId?: string;
+  /** Only posts by the people the signed-in user follows (Home → Posts → "Following"). Ignored when `authorId` is set. */
+  following?: boolean;
   page?: number;
   pageSize?: number;
 };
 
-/** Home → Posts: newest first. */
+/** Home → Posts: newest first. With `following`, only the people you follow (see listFollowingPosts). */
 export async function listFeedPosts(supabase: Client, filters: FeedPostFilters = {}): Promise<Paginated<FeedPostWithAuthor>> {
+  if (filters.following && !filters.authorId) return listFollowingPosts(supabase, filters);
   const pageSize = filters.pageSize ?? DEFAULT_PAGE_SIZE;
   const page = Math.max(1, filters.page ?? 1);
   const { from, to } = pageRange(page, pageSize);

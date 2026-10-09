@@ -1,9 +1,10 @@
 import { Alert, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { blockUser, getOrCreateDirectConversation, getProfile, isBlocked, listApartmentsByOwner, listFeedPosts, listItemsBySeller, listRoommatePostsByAuthor, reportContent, REPORT_REASONS, timeAgo, unblockUser, type ReportReason } from "@apartment-book/shared";
+import { blockUser, getFollowStats, getOrCreateDirectConversation, getProfile, isBlocked, listApartmentsByOwner, listFeedPosts, listItemsBySeller, listRoommatePostsByAuthor, NO_FOLLOW_STATS, reportContent, REPORT_REASONS, timeAgo, unblockUser, type ReportReason } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
 import { Avatar } from "@/components/avatar";
+import { FollowButton, FollowCounts } from "@/components/follow-button";
 import { ItemTile } from "@/components/item-tile";
 import { Button, Card, EmptyState, Loading } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
@@ -22,9 +23,12 @@ export default function ProfileScreen() {
     return { apartments, roommates, items, feedPosts: feedPosts?.data ?? [], feedPostCount: feedPosts?.count ?? 0 };
   }, [id]);
   const { data: blocked, refresh: refreshBlocked } = useQuery(() => (user && user.id !== id ? isBlocked(supabase, user.id, id) : Promise.resolve(false)), [user?.id, id]);
-  if (loading) return <Loading />;
+  // "Followed by me" is the viewer's: signing in from this screen loads it again. The first load gates the header so the button never flips from Follow to Following.
+  const { data: stats, loading: statsLoading, refresh: refreshStats, setData: setStats } = useQuery(() => getFollowStats(supabase, id), [user?.id, id]);
+  if (loading || (statsLoading && !stats)) return <Loading />;
   if (!profile) return <EmptyState icon="person-outline" title="Profile not found" />;
   const own = user?.id === id;
+  const openFollows = (kind: "followers" | "following") => router.push({ pathname: "/follows/[id]", params: { id, kind, name: profile.full_name } });
 
   async function message() {
     if (!user) return router.push("/(auth)/login");
@@ -42,10 +46,11 @@ export default function ProfileScreen() {
         icon: "ban-outline",
         destructive: !blocked,
         onPress: () => {
-          if (blocked) return void unblockUser(supabase, user.id, id).then(refreshBlocked);
+          if (blocked) return void unblockUser(supabase, user.id, id).then(refreshBlocked).then(refreshStats);
+          // Blocking removes follows both ways on the server, so the counts and the Follow button reload with the block state.
           Alert.alert(`Block ${profile?.full_name}?`, "They won't be able to message you, and you won't see each other's posts.", [
             { text: "Cancel", style: "cancel" },
-            { text: "Block", style: "destructive", onPress: () => void blockUser(supabase, user.id, id).then(refreshBlocked) },
+            { text: "Block", style: "destructive", onPress: () => void blockUser(supabase, user.id, id).then(refreshBlocked).then(refreshStats) },
           ]);
         },
       },
@@ -79,9 +84,12 @@ export default function ProfileScreen() {
             <Text style={{ color: colors.muted }}>{profile.university.name}{profile.program ? ` · ${profile.program}` : ""}{profile.graduation_year ? ` '${String(profile.graduation_year).slice(-2)}` : ""}</Text>
           </View>
         ) : null}
+        <FollowCounts userId={id} stats={stats ?? NO_FOLLOW_STATS} posts={posts?.feedPostCount ?? 0} onPressFollowers={() => openFollows("followers")} onPressFollowing={() => openFollows("following")} />
         {profile.bio ? <Text style={{ color: colors.text, textAlign: "center" }}>{profile.bio}</Text> : null}
         {!own ? (
           <View style={{ flexDirection: "row", gap: 8, width: "100%" }}>
+            {/* A block forbids following on the server, so the button goes while "Blocked" shows. onChange keeps the counts above in step with the button. */}
+            {!blocked ? <FollowButton targetId={id} stats={stats ?? undefined} userId={user?.id ?? null} onNeedLogin={() => router.push("/(auth)/login")} onChange={setStats} style={{ flex: 1 }} /> : null}
             <Button title={blocked ? "Blocked" : "Message"} icon="chatbubble-ellipses-outline" onPress={() => void message()} disabled={Boolean(blocked)} style={{ flex: 1 }} />
             <Button title="More" variant="secondary" icon="ellipsis-horizontal" onPress={more} />
           </View>

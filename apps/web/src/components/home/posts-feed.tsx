@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Newspaper } from "lucide-react";
+import { Newspaper, UserPlus } from "lucide-react";
 import { getPostEngagementMany, getPostPreviewsMany, homeSectionHref, listFeedPosts, type FeedPostFilters, type FeedPostWithAuthor, type PostCommentWithAuthor, type PostEngagement, type PostPreview } from "@apartment-book/shared";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FeedFooter, SkeletonCard } from "@/components/feed/feed-bits";
@@ -118,22 +119,38 @@ export function PostsFeed({ initial, totalPages, filters, savedIds, signedIn, cu
   }, [feed.items, previews]);
 
   const filtered = Boolean(filters.universityId);
+  const following = Boolean(filters.following);
+  // The campus as the address says it (nothing = my university, "all" = every campus) survives the Everyone | Following switch, and the switch survives the campus links.
+  const university = filtered ? undefined : "all";
+  const feedParam = following ? "following" : undefined;
+  // Same pill as the Buzz topics.
+  const pill = "inline-flex h-8 shrink-0 items-center rounded-full px-3 text-[13px] font-semibold transition-colors";
 
   return (
     <div className="-mx-3 flex flex-col bg-white sm:mx-0 sm:gap-4 sm:bg-transparent" data-testid="posts-feed">
+      {signedIn ? (
+        <div role="group" aria-label="Whose posts" className="flex gap-1.5 px-3 pt-2 sm:px-0 sm:pt-0" data-testid="posts-feed-switch">
+          <Link href={homeSectionHref("posts", { university })} scroll={false} aria-current={following ? undefined : "page"} className={cn(pill, following ? "bg-gray-100 text-gray-800 hover:bg-gray-200" : "bg-gray-900 text-white")}>
+            Everyone
+          </Link>
+          <Link href={homeSectionHref("posts", { university, feed: "following" })} scroll={false} aria-current={following ? "page" : undefined} className={cn(pill, following ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800 hover:bg-gray-200")}>
+            Following
+          </Link>
+        </div>
+      ) : null}
       {filtered || scope?.hasHomeUniversity ? (
         <p className="px-3 pt-2 text-xs text-gray-600 sm:px-1 sm:pt-0">
           {filtered ? (
             <>
               Showing posts from {scope?.universityName ?? "your university"} ·{" "}
-              <Link href={homeSectionHref("posts", { university: "all" })} scroll={false} className="font-semibold text-brand-700 hover:underline">
+              <Link href={homeSectionHref("posts", { university: "all", feed: feedParam })} scroll={false} className="font-semibold text-brand-700 hover:underline">
                 All universities
               </Link>
             </>
           ) : (
             <>
               Showing posts from all universities ·{" "}
-              <Link href={homeSectionHref("posts")} scroll={false} className="font-semibold text-brand-700 hover:underline">
+              <Link href={homeSectionHref("posts", { feed: feedParam })} scroll={false} className="font-semibold text-brand-700 hover:underline">
                 My university
               </Link>
             </>
@@ -143,21 +160,34 @@ export function PostsFeed({ initial, totalPages, filters, savedIds, signedIn, cu
 
       {feed.items.length === 0 ? (
         <div className="px-3 sm:px-0">
-          <EmptyState
-            icon={Newspaper}
-            title="No posts yet"
-            description={filtered ? "Nobody at your university has posted yet. Be the first, or look at every campus." : "Be the first to share something."}
-            action={
-              <div className="flex flex-wrap justify-center gap-2">
-                {filtered ? (
-                  <LinkButton href={homeSectionHref("posts", { university: "all" })} variant="secondary">
-                    Show all universities
-                  </LinkButton>
-                ) : null}
-                <LinkButton href="/posts/new">Write a post</LinkButton>
-              </div>
-            }
-          />
+          {following ? (
+            <EmptyState
+              icon={UserPlus}
+              title="Nothing from the people you follow yet"
+              description="Follow someone from their profile and their posts show up here."
+              action={
+                <LinkButton href={homeSectionHref("posts", { university })} variant="secondary">
+                  Show everyone
+                </LinkButton>
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={Newspaper}
+              title="No posts yet"
+              description={filtered ? "Nobody at your university has posted yet. Be the first, or look at every campus." : "Be the first to share something."}
+              action={
+                <div className="flex flex-wrap justify-center gap-2">
+                  {filtered ? (
+                    <LinkButton href={homeSectionHref("posts", { university: "all" })} variant="secondary">
+                      Show all universities
+                    </LinkButton>
+                  ) : null}
+                  <LinkButton href="/posts/new">Write a post</LinkButton>
+                </div>
+              }
+            />
+          )}
         </div>
       ) : (
         <>

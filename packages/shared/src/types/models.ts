@@ -38,7 +38,7 @@ export type ListingVideo = {
   duration_seconds: number | null;
 };
 export type Notification = Tables<"notifications">;
-export type NotificationType = "message" | "listing_saved" | "nearby_listing" | "system" | "like" | "comment";
+export type NotificationType = "message" | "listing_saved" | "nearby_listing" | "system" | "like" | "comment" | "follow";
 export type NotificationWithActor = Notification & { actor: ProfileSummary | null };
 export type PushPlatform = "ios" | "android" | "web";
 

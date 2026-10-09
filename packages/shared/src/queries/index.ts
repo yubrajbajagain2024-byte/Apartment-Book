@@ -16,3 +16,4 @@ export * from "./moderation";
 export * from "./feed";
 export * from "./buzz";
 export * from "./for-you";
+export * from "./follows";

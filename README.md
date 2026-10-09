@@ -13,6 +13,7 @@ Built with **Next.js 16 + TypeScript + Tailwind** on top of **Supabase** (Postgr
 | Messaging | Supabase Realtime over `conversations`, `conversation_members`, `messages`. Device push tokens stored in `device_push_tokens` for the future apps |
 | Login | `@txstate.edu` only. The allowed domains live on the `universities` table (`email_domain`), the sign-up form validates against them, a `before insert` trigger on `auth.users` rejects everything else, and new users are attached to their university automatically |
 | Home feed | Four swipeable tabs, For you first. Posts and reels are `feed_posts` rows with likes, comments and saves; Buzz threads live in `buzz_*` tables that the API cannot read directly, only the `buzz_*` database functions can. The For you blend is pure code in `packages/shared/src/for-you.ts`. See [Home feed](#home-feed) |
+| Following | Follow people from their profile, like Instagram. Every profile shows follower / following counts that open the two lists, Home → Posts has a "Following" filter with only the posts of people you follow, and a notification tells you when someone starts following you; blocking someone ends the follow both ways. Migration 14 (`supabase/migrations/20260923000000_follows.sql`) adds the `follows` table and the `follow_stats` / `following_posts` functions |
 
 ## Photos: full quality, built to hook
 
@@ -29,7 +30,7 @@ Vercel's Hobby plan optimizes up to 5,000 distinct source images per month. If t
 
 ## Notifications
 
-A `notifications` table that only its recipient can read, mark or delete; rows are created by database triggers so the mobile app gets them for free: a new message (repeated messages in one chat refresh a single unread entry), someone saved your listing, and a new place pinned within 2 miles of your campus (opt-in per person in Settings). The top bar shows a bell with a live count and dropdown; `/notifications` lists everything. Push delivery can later use the same rows plus the stored device tokens.
+A `notifications` table that only its recipient can read, mark or delete; rows are created by database triggers so the mobile app gets them for free: a new message (repeated messages in one chat refresh a single unread entry), someone saved your listing, someone started following you (one entry per follower, however often they follow and unfollow), and a new place pinned within 2 miles of your campus (opt-in per person in Settings). The top bar shows a bell with a live count and dropdown; `/notifications` lists everything. Push delivery can later use the same rows plus the stored device tokens.
 
 ## Home feed
 
@@ -47,8 +48,8 @@ Checks for the Home feed:
 | Check | How |
 | --- | --- |
 | The For you blend, the Home and Housing tab order and addresses (unit tests, no network, Node 22.18+) | `npm run test:shared` |
-| Migrations, row-level security and the `buzz_*` functions, offline in PGlite | `npm run db:test` |
-| The website's Home and Housing on a desktop and a phone viewport, swipes included (Playwright) | seed data with `SUPABASE_ACCESS_TOKEN=sbp_… node apps/mobile/e2e/sim-seed.mjs`, start the site (`npm run dev -w web -- -p 3060`), then `BASE=http://localhost:3060 node apps/web/e2e/home-feed.mjs` |
+| Migrations, row-level security, the `buzz_*` functions and following (`supabase/tests/follows.test.mjs`: the `follows` policies, `follow_stats`, `following_posts`, the follow notification, blocking, account deletion), offline in PGlite | `npm run db:test` |
+| The website's Home and Housing on a desktop and a phone viewport, swipes and following (the Follow button on a profile, the follower list, Posts → Following) included (Playwright) | seed data with `SUPABASE_ACCESS_TOKEN=sbp_… node apps/mobile/e2e/sim-seed.mjs`, start the site (`npm run dev -w web -- -p 3060`), then `BASE=http://localhost:3060 node apps/web/e2e/home-feed.mjs` (add `PLAYWRIGHT_CHANNEL=chrome` to use the installed Chrome instead of downloading Playwright's browser) |
 | The app in the iOS Simulator (Maestro) | the flows in `apps/mobile/e2e/flows/`: `e2e/run.sh e2e/flows/00-signed-out.yaml` from `apps/mobile`, with the same seeded data (see `apps/mobile/README.md`) |
 
 ## Housing
@@ -88,6 +89,7 @@ Why npm workspaces rather than pnpm: nothing to install for a new contributor, V
 | Housing → Roommates | "I have a room" / "I need a room" posts with budget, move-in date, area (optionally pinned on the map with distance to campus), gender preference, sleep schedule, cleanliness, smoking/pets; filters incl. distance from campus; save; message |
 | Marketplace | Items with photos, price (or free), category, condition, pickup location; filters; save; message the seller; mark as sold. No payments on purpose: meet on campus, like Facebook Marketplace |
 | Messages | Conversations with participants (a group is simply a conversation with 3+ people): 1:1 chats, group chats (create, rename, add people, leave), Supabase Realtime delivery, unread badges, photo messages, "Message" buttons that pre-fill a first message about the listing. A `device_push_tokens` table is ready for the mobile apps |
+| Social | Following, like Instagram: a Follow button on every other person's profile ("Following" once you follow, "Follow back" when they follow you), follower / following counts with the two lists behind them (public, like the profiles), a "Following" filter on Home → Posts, and a notification when someone follows you. Blocking someone removes the follow in both directions and stops new ones; row-level security only lets you add or remove your own follows |
 | Other | Global search across all three sections, saved listings page, public profile pages with a person's listings, "add your university", SEO metadata + sitemap, PWA manifest |
 
 Security is enforced in the database with row-level security: users can only edit their own listings, only conversation members can read or send messages, and images can only be uploaded to a user's own folder.
@@ -113,7 +115,7 @@ apartment-book/
 │     ├─ src/
 │     │  ├─ types/            # Database types + models
 │     │  ├─ schemas/          # zod validation for every form
-│     │  ├─ queries/          # all reads/writes (apartments, items, roommates, messages, feed, buzz, for-you, storage…)
+│     │  ├─ queries/          # all reads/writes (apartments, items, roommates, messages, feed, follows, buzz, for-you, storage…)
 │     │  ├─ for-you.ts        # blendForYou: the fixed pattern behind Home → For you
 │     │  └─ constants.ts      # categories, amenities, currencies, HOME_SECTIONS, HOUSING_SECTIONS…
 │     └─ tests/               # unit tests (npm run test:shared)
@@ -138,7 +140,9 @@ npm install
 
 ### Project status
 
-The Supabase project for this app (`dskbzoqreandwwpxiplh`, region us-west-2) is already set up: both migrations and the universities (with campus coordinates and the `txstate.edu` domain) are loaded, `apps/web/.env.local` is written, and the auth URLs point at `http://localhost:3000`. Sign-ups therefore require a `@txstate.edu` address right now. The steps below are for reference, for a second environment, or if you start a fresh project.
+The Supabase project for this app (`dskbzoqreandwwpxiplh`, region us-west-2) is already set up: the migrations and the universities (with campus coordinates and the `txstate.edu` domain) are loaded, `apps/web/.env.local` is written, and the auth URLs point at `http://localhost:3000`. Sign-ups therefore require a `@txstate.edu` address right now. The steps below are for reference, for a second environment, or if you start a fresh project.
+
+Each new migration has to reach the live project before the code that uses it: migration 14, `supabase/migrations/20260923000000_follows.sql` (the `follows` table, the `follow_stats` and `following_posts` functions and the follow notification), must be applied with `SUPABASE_ACCESS_TOKEN=sbp_xxx npm run db:setup` before this version of the website or the app is deployed, or every profile page and Home → Posts → Following will fail.
 
 ### Fastest path: the setup script
 

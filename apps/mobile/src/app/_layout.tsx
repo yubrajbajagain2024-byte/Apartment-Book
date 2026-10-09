@@ -27,6 +27,7 @@ export default function RootLayout() {
                 <Stack.Screen name="messages/[id]" options={{ title: "Chat" }} />
                 <Stack.Screen name="messages/new" options={{ title: "New message" }} />
                 <Stack.Screen name="profile/[id]" options={{ title: "Profile" }} />
+                <Stack.Screen name="follows/[id]" options={{ title: "Followers" }} />
                 <Stack.Screen name="saved" options={{ title: "Saved" }} />
                 <Stack.Screen name="settings" options={{ title: "Settings" }} />
                 <Stack.Screen name="create/apartment" options={{ title: "List an apartment" }} />
