@@ -42,9 +42,9 @@ function PostDetail({ post, engagement, saved, preview, focusComments }: { post:
   const commentsY = useRef(0);
 
   function deleted() {
-    // Home drops it straight away: Posts removes the post, Reels reloads next time it is opened.
+    // Home drops it straight away: Posts and For you remove the post (For you shows reels too), Reels reloads next time it is opened.
     if (post.kind === "reel") markReelsStale();
-    else emitPostRemoved(post.id);
+    emitPostRemoved(post.id);
     if (router.canGoBack()) router.back();
     else router.replace("/(tabs)");
   }

@@ -1,10 +1,11 @@
-import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
+import { Pressable, StyleSheet, View, type LayoutChangeEvent, type Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HOME_SECTIONS, type HomeSection } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
 import { HeaderAvatar } from "@/components/header-avatar";
+import { SlidingTabs } from "@/components/sliding-tabs";
 import { useSession } from "@/lib/session";
 import { colors } from "@/lib/theme";
 
@@ -12,16 +13,19 @@ import { colors } from "@/lib/theme";
 export const HOME_TOP_TABS_ROW = 48;
 
 /**
- * Floating top bar of Home, TikTok style: "+" on the left, Reels | Buzz | Posts in the middle, profile on the right.
- * `overVideo` = the Reels page is showing, so the bar is see-through with white text.
+ * Floating top bar of Home, TikTok style: "+" on the left, For you | Buzz | Posts | Reels in the middle, profile on the right.
+ * `overVideo` = the Reels page is showing, so the bar is see-through with white text. `scrollX` is the pager's offset in
+ * points and `pageWidth` the width of one page: the underline slides between the labels with the finger instead of
+ * jumping once a swipe settles. The label colours still snap with `section`.
  */
-export function HomeTopTabs({ section, onSelect, overVideo, onLayout }: { section: HomeSection; onSelect: (s: HomeSection) => void; overVideo: boolean; onLayout?: (e: LayoutChangeEvent) => void }) {
+export function HomeTopTabs({ section, onSelect, overVideo, onLayout, scrollX, pageWidth }: { section: HomeSection; onSelect: (s: HomeSection) => void; overVideo: boolean; onLayout?: (e: LayoutChangeEvent) => void; scrollX: Animated.Value; pageWidth: number }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const show = useActionSheet();
   const { user } = useSession();
   const fg = overVideo ? "#fff" : colors.text;
   const dim = overVideo ? "rgba(255,255,255,0.7)" : colors.muted;
+  const ink = overVideo ? "#fff" : colors.brand;
 
   function create() {
     if (!user) return router.push("/(auth)/login");
@@ -41,17 +45,7 @@ export function HomeTopTabs({ section, onSelect, overVideo, onLayout }: { sectio
         <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" style={styles.side}>
           <Ionicons name="add-circle-outline" size={30} color={fg} />
         </Pressable>
-        <View style={styles.labels} accessibilityRole="tablist">
-          {HOME_SECTIONS.map((s) => {
-            const active = s.value === section;
-            return (
-              <Pressable key={s.value} onPress={() => onSelect(s.value)} hitSlop={6} accessibilityRole="tab" accessibilityLabel={s.label} accessibilityState={{ selected: active }} style={styles.tab}>
-                <Text style={[styles.label, { color: active ? fg : dim }, active && { fontWeight: "800" }, overVideo && styles.shadow]}>{s.label}</Text>
-                <View style={[styles.underline, { backgroundColor: active ? (overVideo ? "#fff" : colors.brand) : "transparent" }]} />
-              </Pressable>
-            );
-          })}
-        </View>
+        <SlidingTabs sections={HOME_SECTIONS} section={section} onSelect={onSelect} scrollX={scrollX} pageWidth={pageWidth} tint={ink} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} />
         <View style={styles.side}>
           <HeaderAvatar color={fg} />
         </View>
@@ -66,9 +60,5 @@ const styles = StyleSheet.create({
   clear: { backgroundColor: "transparent", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "transparent" },
   row: { height: HOME_TOP_TABS_ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: 12 },
   side: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  labels: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 22 },
-  tab: { alignItems: "center", justifyContent: "center", height: HOME_TOP_TABS_ROW, gap: 4 },
-  label: { fontSize: 16, fontWeight: "600" },
-  underline: { width: 24, height: 3, borderRadius: 2 },
   shadow: { textShadowColor: "rgba(0,0,0,0.45)", textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
 });

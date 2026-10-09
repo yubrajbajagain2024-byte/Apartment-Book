@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FlatList, RefreshControl, Text, View } from "react-native";
 import { budgetLabel, formatDate, formatDistance, isVerifiedPoster, listRoommatePosts, listingMedia, type RoommatePostWithAuthor } from "@apartment-book/shared";
-import { Fab, FeedHeader } from "@/components/feed-header";
+import { FeedHeader } from "@/components/feed-header";
 import { OnlineStrip } from "@/components/online-strip";
 import { FEED_GAP, FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
 import { Badge, Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
@@ -10,7 +10,8 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useEngagement } from "@/lib/use-engagement";
 
-export default function RoommatesScreen() {
+/** The Roommates half of the Housing tab: search, filters, who is online and the posts feed. The Housing screen owns the "+" button. */
+export function RoommatesSection() {
   const { user, profile } = useSession();
   const [q, setQ] = useState("");
   const [type, setType] = useState<"has_room" | "needs_room" | undefined>();
@@ -66,7 +67,6 @@ export default function RoommatesScreen() {
         onEndReachedThreshold={0.6}
         refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} />}
       />
-      <Fab href="/create/roommate" label="Create roommate post" />
     </View>
   );
 }

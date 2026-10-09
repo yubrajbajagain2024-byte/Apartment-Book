@@ -5,13 +5,21 @@ import type { PostsFeedProps } from "./posts-feed";
 
 export type HomeSearchParams = { [key: string]: string | string[] | undefined };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Which campus a Home feed shows: the student's own university until they pick "All universities" (?university=all).
+ * A university id in the address wins over that; anything else is ignored, so a mistyped address cannot break the page.
+ */
+export function homeUniversityId(params: HomeSearchParams, profile: ProfileWithUniversity | null): string | undefined {
+  const chosen = firstParam(params.university);
+  if (chosen === "all") return undefined;
+  return (chosen && UUID.test(chosen) ? chosen : undefined) || profile?.university_id || undefined;
+}
+
 /** Everything the Posts tab needs for its first paint. Server only. */
 export async function loadPostsSection(supabase: Client, user: User | null, profile: ProfileWithUniversity | null, params: HomeSearchParams): Promise<PostsFeedProps> {
-  const chosen = firstParam(params.university);
-  // Default to the student's own university until they pick "All universities".
-  // Anything that is not a university id is ignored, so a mistyped address cannot break the page.
-  const picked = chosen && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chosen) ? chosen : undefined;
-  const universityId = chosen === "all" ? undefined : picked || profile?.university_id || undefined;
+  const universityId = homeUniversityId(params, profile);
   const filters: FeedPostFilters = { kind: "post", universityId };
 
   const [result, savedIds, universities] = await Promise.all([

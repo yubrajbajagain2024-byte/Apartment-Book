@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Newspaper } from "lucide-react";
-import { getPostEngagementMany, getPostPreviewsMany, listFeedPosts, type FeedPostFilters, type FeedPostWithAuthor, type PostCommentWithAuthor, type PostEngagement, type PostPreview } from "@apartment-book/shared";
+import { getPostEngagementMany, getPostPreviewsMany, homeSectionHref, listFeedPosts, type FeedPostFilters, type FeedPostWithAuthor, type PostCommentWithAuthor, type PostEngagement, type PostPreview } from "@apartment-book/shared";
 import { createClient } from "@/lib/supabase/client";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -126,14 +126,14 @@ export function PostsFeed({ initial, totalPages, filters, savedIds, signedIn, cu
           {filtered ? (
             <>
               Showing posts from {scope?.universityName ?? "your university"} ·{" "}
-              <Link href="/?university=all" scroll={false} className="font-semibold text-brand-700 hover:underline">
+              <Link href={homeSectionHref("posts", { university: "all" })} scroll={false} className="font-semibold text-brand-700 hover:underline">
                 All universities
               </Link>
             </>
           ) : (
             <>
               Showing posts from all universities ·{" "}
-              <Link href="/" scroll={false} className="font-semibold text-brand-700 hover:underline">
+              <Link href={homeSectionHref("posts")} scroll={false} className="font-semibold text-brand-700 hover:underline">
                 My university
               </Link>
             </>
@@ -150,7 +150,7 @@ export function PostsFeed({ initial, totalPages, filters, savedIds, signedIn, cu
             action={
               <div className="flex flex-wrap justify-center gap-2">
                 {filtered ? (
-                  <LinkButton href="/?university=all" variant="secondary">
+                  <LinkButton href={homeSectionHref("posts", { university: "all" })} variant="secondary">
                     Show all universities
                   </LinkButton>
                 ) : null}

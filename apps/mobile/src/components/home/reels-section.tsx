@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { listReels, REELS_PAGE_SIZE, type Reel } from "@apartment-book/shared";
 import { errorText } from "@/lib/hooks";
+import { emitPostRemoved } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
@@ -144,6 +145,9 @@ export function ReelsSection({ active, topInset, height }: { active: boolean; to
   }, []);
   const onRemoved = useCallback((key: string) => {
     setReels((prev) => (prev ? prev.filter((r) => reelKey(r) !== key) : prev));
+    // A posted reel is a feed post that For you lists as well; listing tours live only here.
+    const sep = key.indexOf(":");
+    if (key.slice(0, sep) === "post") emitPostRemoved(key.slice(sep + 1));
   }, []);
   const onOpenComments = useCallback((reel: Reel) => setCommentsKey(reelKey(reel)), []);
   const onCommentCount = useCallback(

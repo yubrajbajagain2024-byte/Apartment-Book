@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Home, MessageCircle, ShoppingBag, Users, type LucideIcon } from "lucide-react";
+import { Building2, Home, MessageCircle, ShoppingBag, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UnreadBadge } from "./unread-badge";
 
@@ -14,15 +14,16 @@ export type NavTab = {
   match: (pathname: string) => boolean;
 };
 
-/** Home = Posts, Reels and Buzz. */
+/** Home = For you, Buzz, Posts and Reels. */
 const HOME_PREFIXES = ["/posts", "/reels", "/buzz"];
+/** Housing = the Apartments and Roommates pages, which keep their own addresses and switch through the Housing sub-tabs. */
+const HOUSING_PREFIXES = ["/apartments", "/roommates"];
 
 export const NAV_TABS: NavTab[] = [
   { href: "/", label: "Home", icon: Home, match: (p) => p === "/" || HOME_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`)) },
-  { href: "/roommates", label: "Roommates", icon: Users, match: (p) => p.startsWith("/roommates") },
+  { href: "/apartments", label: "Housing", icon: Building2, match: (p) => HOUSING_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`)) },
   { href: "/marketplace", label: "Marketplace", icon: ShoppingBag, match: (p) => p.startsWith("/marketplace") },
   { href: "/messages", label: "Messages", icon: MessageCircle, match: (p) => p.startsWith("/messages") },
-  { href: "/apartments", label: "Apartments", icon: Building2, match: (p) => p.startsWith("/apartments") },
 ];
 
 export function NavTabs({ unread, userId }: { unread: number; userId: string | null }) {

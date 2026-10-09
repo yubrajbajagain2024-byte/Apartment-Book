@@ -16,10 +16,11 @@
     "db:setup": "node scripts/supabase-setup.mjs",
     "db:check": "node scripts/e2e-check.mjs",
     "check": "turbo run typecheck lint build",
-    "db:test": "node supabase/tests/home-feed.test.mjs && node supabase/tests/buzz-reply-votes.test.mjs"
+    "db:test": "node supabase/tests/home-feed.test.mjs && node supabase/tests/buzz-reply-votes.test.mjs",
+    "test:shared": "node --test \"packages/shared/tests/*.test.mjs\""
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.18"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",

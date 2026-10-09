@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { MAX_IMAGES_PER_POST } from "@apartment-book/shared";
+import { homeSectionHref, MAX_IMAGES_PER_POST } from "@apartment-book/shared";
 import type { FormState } from "@/lib/actions/types";
 import { Avatar } from "@/components/ui/avatar";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -72,7 +72,7 @@ export function PostForm({
       </Card>
 
       <div className="flex items-center justify-end gap-3">
-        <LinkButton href="/" variant="ghost">
+        <LinkButton href={homeSectionHref("posts")} variant="ghost">
           Cancel
         </LinkButton>
         <Button type="submit" size="lg" loading={pending}>

@@ -1,6 +1,6 @@
 # Apartment Book
 
-A website for university students to **find apartments near campus**, **find roommates**, **buy and sell move-in essentials** (mattresses, desks, kitchen gear…) and **message each other** in private or group chats. The layout follows the Facebook pattern: a top bar with four tabs (Home = apartments, Roommates, Marketplace, Messages), a create menu and a profile menu; on phones the tabs move to a bottom bar.
+A website and app for university students to **find apartments near campus**, **find roommates**, **buy and sell move-in essentials** (mattresses, desks, kitchen gear…), **message each other** in private or group chats, and **share posts, reels and anonymous Buzz threads** on Home. The layout follows the Facebook pattern: a top bar with four tabs (Home, Housing, Marketplace, Messages), a create menu and a profile menu; on phones the tabs move to a bottom bar. Home itself has TikTok-style top tabs, see [Home feed](#home-feed); Housing holds Apartments and Roommates side by side, see [Housing](#housing).
 
 Built with **Next.js 16 + TypeScript + Tailwind** on top of **Supabase** (Postgres, auth, realtime chat, image storage). The backend is a hosted service that iOS/Android apps can talk to directly, and all data-access code lives in a shared package, so the future mobile app reuses everything except the screens.
 
@@ -8,10 +8,11 @@ Built with **Next.js 16 + TypeScript + Tailwind** on top of **Supabase** (Postgr
 
 | Feature | How it is built |
 | --- | --- |
-| Apartments and roommates | Postgres tables with PostGIS: campus and listing coordinates, `apartments_within(university, radius)` for "within 2 miles of campus", distance filled by a trigger. Map view and location picker use Leaflet + OpenStreetMap (free); address search uses Nominatim through `/api/geocode` |
+| Housing (Apartments and Roommates) | One main tab, two slidable halves (see [Housing](#housing)). Postgres tables with PostGIS: campus and listing coordinates, `apartments_within(university, radius)` for "within 2 miles of campus", distance filled by a trigger. Map view and location picker use Leaflet + OpenStreetMap (free); address search uses Nominatim through `/api/geocode` |
 | Marketplace | Same listing pattern with a `category` field. No payments |
 | Messaging | Supabase Realtime over `conversations`, `conversation_members`, `messages`. Device push tokens stored in `device_push_tokens` for the future apps |
 | Login | `@txstate.edu` only. The allowed domains live on the `universities` table (`email_domain`), the sign-up form validates against them, a `before insert` trigger on `auth.users` rejects everything else, and new users are attached to their university automatically |
+| Home feed | Four swipeable tabs, For you first. Posts and reels are `feed_posts` rows with likes, comments and saves; Buzz threads live in `buzz_*` tables that the API cannot read directly, only the `buzz_*` database functions can. The For you blend is pure code in `packages/shared/src/for-you.ts`. See [Home feed](#home-feed) |
 
 ## Photos: full quality, built to hook
 
@@ -29,6 +30,30 @@ Vercel's Hobby plan optimizes up to 5,000 distinct source images per month. If t
 ## Notifications
 
 A `notifications` table that only its recipient can read, mark or delete; rows are created by database triggers so the mobile app gets them for free: a new message (repeated messages in one chat refresh a single unread entry), someone saved your listing, and a new place pinned within 2 miles of your campus (opt-in per person in Settings). The top bar shows a bell with a live count and dropdown; `/notifications` lists everything. Push delivery can later use the same rows plus the stored device tokens.
+
+## Home feed
+
+Home has four tabs in TikTok's layout, left to right: **For you | Buzz | Posts | Reels**. They are swipeable: in the app the four pages sit side by side in a pager, and on the website a sideways touch swipe across the section body moves to the neighbouring tab (touch screens only; a multi-photo carousel keeps its own swipes). For you is the landing tab and keeps the clean `/` address, the others live at `/?tab=buzz`, `/?tab=posts` and `/?tab=reels`. The order and the addresses come from `HOME_SECTIONS` and `homeSectionHref` in `packages/shared/src/constants.ts`, so the website and the app always agree.
+
+| Tab | What it shows |
+| --- | --- |
+| For you | Posts, reels and hot Buzz threads blended into one feed. `blendForYou` in `packages/shared/src/for-you.ts` spreads them in a fixed pattern (post, Buzz, post, reel, post, Buzz, post, post, reel, Buzz, post), each kind keeping its own order (posts and reels newest first, Buzz by Hot), so a page looks the same on every device and every reload. Each kind is paged on its own (`FOR_YOU_PAGE`: 6 posts, 3 threads and 2 reels per page), so page two never repeats page one; a kind that runs short is skipped and the others fill in. Works signed out |
+| Buzz | Anonymous threads, Reddit style: topic, votes, nested replies, Hot / New / Top and search. Rows and threads show an alias ("Student 12345"), never a name, photo or user id. The `buzz_*` tables cannot be read through the API at all; threads are only reachable through the `buzz_*` database functions (`buzz_feed`, `buzz_get`, `buzz_create`, `buzz_reply`, `buzz_vote`, …), which decide what leaves the database |
+| Posts | Instagram style: photo-first rows with swipeable carousels, heart / comment / share / bookmark, "Liked by …", a caption with hashtags and the newest comment |
+| Reels | Vertical full-screen video (reels and apartment video tours), one at a time, autoplay with a shared sound button |
+
+Checks for the Home feed:
+
+| Check | How |
+| --- | --- |
+| The For you blend, the Home and Housing tab order and addresses (unit tests, no network, Node 22.18+) | `npm run test:shared` |
+| Migrations, row-level security and the `buzz_*` functions, offline in PGlite | `npm run db:test` |
+| The website's Home and Housing on a desktop and a phone viewport, swipes included (Playwright) | seed data with `SUPABASE_ACCESS_TOKEN=sbp_… node apps/mobile/e2e/sim-seed.mjs`, start the site (`npm run dev -w web -- -p 3060`), then `BASE=http://localhost:3060 node apps/web/e2e/home-feed.mjs` |
+| The app in the iOS Simulator (Maestro) | the flows in `apps/mobile/e2e/flows/`: `e2e/run.sh e2e/flows/00-signed-out.yaml` from `apps/mobile`, with the same seeded data (see `apps/mobile/README.md`) |
+
+## Housing
+
+Housing is one main tab with two halves, left to right: **Apartments | Roommates**. Like the Home tabs they are slidable: in the app the two feeds sit side by side in a pager under the Housing header (tap a label or swipe), and on the website a sticky Apartments | Roommates bar sits under the navbar and a sideways touch swipe across the page moves to the other half (touch screens only; the photo rail, the map and a multi-photo carousel keep their own swipes). Apartments is the landing half. The website keeps the `/apartments` and `/roommates` addresses, so listing links, filters and the `?university=` query are unchanged; the Housing tab in the navbar links to `/apartments` and stays highlighted on both. In the app the floating "+" follows the visible half: "List an apartment" on Apartments, "Create roommate post" on Roommates. The order and the addresses come from `HOUSING_SECTIONS`, `DEFAULT_HOUSING_SECTION` and `housingSectionHref` in `packages/shared/src/constants.ts`, so the website and the app always agree.
 
 ## Video tours (Mux)
 
@@ -59,8 +84,8 @@ Why npm workspaces rather than pnpm: nothing to install for a new contributor, V
 | Area | Features |
 | --- | --- |
 | Accounts | Sign-up restricted to verified university emails (`@txstate.edu`), enforced in the form and by a database trigger; confirmation email; Google sign-in (optional, limited to the same domain); profile with photo, university (attached automatically from the email), program, bio; "Verified student" badge |
-| Home / Apartments | Listings with photos, rent, address, a map pin (address search or click-to-pin), distance to campus computed automatically with PostGIS, beds/baths, amenities, availability, lease length; list and map views; filters (university, "within 1/2/5/10 miles of campus", price, bedrooms, furnished, pets, sort); save; message the owner; mark as rented; edit/delete |
-| Roommates | "I have a room" / "I need a room" posts with budget, move-in date, area (optionally pinned on the map with distance to campus), gender preference, sleep schedule, cleanliness, smoking/pets; filters incl. distance from campus; save; message |
+| Housing → Apartments | Listings with photos, rent, address, a map pin (address search or click-to-pin), distance to campus computed automatically with PostGIS, beds/baths, amenities, availability, lease length; list and map views; filters (university, "within 1/2/5/10 miles of campus", price, bedrooms, furnished, pets, sort); save; message the owner; mark as rented; edit/delete |
+| Housing → Roommates | "I have a room" / "I need a room" posts with budget, move-in date, area (optionally pinned on the map with distance to campus), gender preference, sleep schedule, cleanliness, smoking/pets; filters incl. distance from campus; save; message |
 | Marketplace | Items with photos, price (or free), category, condition, pickup location; filters; save; message the seller; mark as sold. No payments on purpose: meet on campus, like Facebook Marketplace |
 | Messages | Conversations with participants (a group is simply a conversation with 3+ people): 1:1 chats, group chats (create, rename, add people, leave), Supabase Realtime delivery, unread badges, photo messages, "Message" buttons that pre-fill a first message about the listing. A `device_push_tokens` table is ready for the mobile apps |
 | Other | Global search across all three sections, saved listings page, public profile pages with a person's listings, "add your university", SEO metadata + sitemap, PWA manifest |
@@ -72,32 +97,40 @@ Security is enforced in the database with row-level security: users can only edi
 ```
 apartment-book/
 ├─ apps/
-│  └─ web/                    # Next.js website (App Router, src/ layout)
-│     ├─ src/app/             # routes: (app)/ has the main site, (auth)/ login + signup
-│     ├─ src/components/      # UI: layout, apartments, roommates, marketplace, messages, profile
-│     ├─ src/lib/actions/     # server actions (create/edit/delete, auth, chat)
-│     ├─ src/lib/supabase/    # Supabase clients for browser and server
-│     └─ src/proxy.ts         # auth guard: refreshes sessions, protects private routes
+│  ├─ web/                    # Next.js website (App Router, src/ layout)
+│  │  ├─ src/app/             # routes: (app)/ has the main site, (auth)/ login + signup
+│  │  ├─ src/components/      # UI: layout, home (For you, Buzz, Posts, Reels), housing (the Apartments | Roommates bar and swipe), apartments, roommates, marketplace, messages, profile
+│  │  ├─ src/lib/actions/     # server actions (create/edit/delete, auth, chat)
+│  │  ├─ src/lib/supabase/    # Supabase clients for browser and server
+│  │  ├─ src/proxy.ts         # auth guard: refreshes sessions, protects private routes
+│  │  └─ e2e/                 # home-feed.mjs: Playwright check of Home and Housing on a desktop and a phone viewport
+│  └─ mobile/                 # Expo app for iOS and Android (see apps/mobile/README.md)
+│     ├─ src/app/(tabs)/      # bottom tabs: index.tsx (Home), housing.tsx (Apartments | Roommates), marketplace, messages; profile behind the avatar
+│     ├─ src/components/      # UI: home (the Home pager), housing (the Housing pager), post cards, carousels, forms…
+│     └─ e2e/                 # Maestro flows (flows/*.yaml), sim-seed.mjs test data, run.sh
 ├─ packages/
-│  └─ shared/                 # platform-agnostic code reused by the future mobile app
-│     └─ src/
-│        ├─ types/            # Database types + models
-│        ├─ schemas/          # zod validation for every form
-│        ├─ queries/          # all reads/writes (apartments, items, roommates, messages, storage…)
-│        └─ constants.ts      # categories, amenities, currencies…
+│  └─ shared/                 # platform-agnostic code reused by the website and the app
+│     ├─ src/
+│     │  ├─ types/            # Database types + models
+│     │  ├─ schemas/          # zod validation for every form
+│     │  ├─ queries/          # all reads/writes (apartments, items, roommates, messages, feed, buzz, for-you, storage…)
+│     │  ├─ for-you.ts        # blendForYou: the fixed pattern behind Home → For you
+│     │  └─ constants.ts      # categories, amenities, currencies, HOME_SECTIONS, HOUSING_SECTIONS…
+│     └─ tests/               # unit tests (npm run test:shared)
 ├─ supabase/
-│  ├─ migrations/20260906000000_init.sql   # full database schema, policies, chat functions
-│  └─ seed.sql                             # starter list of universities
-├─ scripts/                   # supabase-setup.mjs (one-shot setup), e2e-check.mjs (live backend check)
+│  ├─ migrations/             # database schema, policies and functions, one file per change (first: 20260906000000_init.sql)
+│  ├─ tests/                  # offline database tests in PGlite (npm run db:test)
+│  └─ seed.sql                # starter list of universities
+├─ scripts/                   # supabase-setup.mjs (one-shot setup), e2e-check.mjs and e2e-home-feed.mjs (live backend checks)
 ├─ turbo.json                 # Turborepo task pipeline (typecheck -> lint -> build, with caching)
 └─ package.json               # npm workspaces root
 ```
 
-Rules for `packages/shared`: no imports from `next/*`, `react-dom` or browser globals (`window`, `document`, `localStorage`); every query takes the Supabase client as its first argument; keep `types/database.ts` in sync with the migration. The web app's ESLint and type-check run through Turborepo (`npm run check`).
+Rules for `packages/shared`: no imports from `next/*`, `react-dom` or browser globals (`window`, `document`, `localStorage`); every query takes the Supabase client as its first argument; keep `types/database.ts` in sync with the migration. The web app's ESLint and type-check run through Turborepo (`npm run check`); the shared package's unit tests run with `npm run test:shared` (plain `node --test` on Node 22.18+, no network).
 
 ## 1. Run it locally
 
-Requirements: Node.js 20 or newer (22 recommended) and npm.
+Requirements: Node.js 22.18 or newer (the shared unit tests load TypeScript files directly) and npm.
 
 ```bash
 npm install

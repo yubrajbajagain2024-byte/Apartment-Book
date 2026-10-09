@@ -19,7 +19,7 @@ export function PhotoRail({ title, items }: { title: string; items: RailItem[] }
   return (
     <section className="flex flex-col gap-2">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">{title}</h2>
-      <div className="no-scrollbar -mx-3 flex gap-3 overflow-x-auto px-3 pb-1 sm:-mx-4 sm:px-4">
+      <div className="no-scrollbar -mx-3 flex gap-3 overflow-x-auto px-3 pb-1 sm:-mx-4 sm:px-4" data-no-swipe>
         {items.map((item) => (
           <Link key={item.id} href={item.href} className="group flex w-28 shrink-0 flex-col gap-1.5">
             <span className={cn("relative block aspect-square overflow-hidden rounded-2xl bg-gray-100 ring-2 ring-offset-2", item.fresh ? "ring-brand-600" : "ring-transparent")}>

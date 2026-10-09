@@ -146,14 +146,53 @@ export const MAX_IMAGES_PER_POST = 12;
 export const MAX_IMAGES_PER_BUZZ = 6;
 export const REELS_PAGE_SIZE = 8;
 export const BUZZ_PAGE_SIZE = 20;
-/** The three sections of Home, left to right (like TikTok's top tabs). Posts is the landing tab. */
+/**
+ * The sections of Home, left to right, like TikTok's top tabs: swiping the page moves between them.
+ * "For you" is the landing tab and blends the other three (see blendForYou).
+ */
 export const HOME_SECTIONS = [
-  { value: "reels", label: "Reels" },
+  { value: "foryou", label: "For you" },
   { value: "buzz", label: "Buzz" },
   { value: "posts", label: "Posts" },
+  { value: "reels", label: "Reels" },
 ] as const;
 export type HomeSection = (typeof HOME_SECTIONS)[number]["value"];
-export const DEFAULT_HOME_SECTION: HomeSection = "posts";
+export const DEFAULT_HOME_SECTION: HomeSection = "foryou";
+/**
+ * Where a Home section lives on the website. The landing section keeps the clean "/" address, the others
+ * use ?tab=. Extra parameters (for example { university: "all" }) are kept; empty ones are dropped.
+ */
+export function homeSectionHref(section: HomeSection, params: Record<string, string | undefined | null> = {}): string {
+  const query = new URLSearchParams();
+  if (section !== DEFAULT_HOME_SECTION) query.set("tab", section);
+  for (const [key, value] of Object.entries(params)) if (value) query.set(key, value);
+  const s = query.toString();
+  return s ? `/?${s}` : "/";
+}
+/**
+ * How many rows of each kind one page of "For you" asks for: posts carry the feed, Buzz threads and reels
+ * are spread between them. A full page is 11 rows.
+ */
+export const FOR_YOU_PAGE = { posts: 6, buzz: 3, reels: 2 } as const;
+
+/**
+ * The two halves of the Housing tab, left to right. Apartments is the landing half; swiping the page moves
+ * between them. On the website each half keeps its own address (/apartments, /roommates), so listing links,
+ * filters and saved searches are unchanged.
+ */
+export const HOUSING_SECTIONS = [
+  { value: "apartments", label: "Apartments" },
+  { value: "roommates", label: "Roommates" },
+] as const;
+export type HousingSection = (typeof HOUSING_SECTIONS)[number]["value"];
+export const DEFAULT_HOUSING_SECTION: HousingSection = "apartments";
+/** Where a Housing section lives on the website, with optional query parameters (empty ones are dropped). */
+export function housingSectionHref(section: HousingSection, params: Record<string, string | undefined | null> = {}): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) if (value) query.set(key, value);
+  const s = query.toString();
+  return s ? `/${section}?${s}` : `/${section}`;
+}
 
 export const BUZZ_TOPICS = [
   { value: "thoughts", label: "Thoughts" },

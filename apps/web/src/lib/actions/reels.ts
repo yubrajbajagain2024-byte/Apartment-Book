@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createReel, flattenZodError, reelSchema } from "@apartment-book/shared";
+import { createReel, flattenZodError, homeSectionHref, reelSchema } from "@apartment-book/shared";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { errorMessage, formToObject } from "@/lib/utils";
@@ -22,5 +22,5 @@ export async function createReelAction(_prev: FormState, formData: FormData): Pr
     return { error: errorMessage(error), values: formValues(formData) };
   }
   revalidatePath("/");
-  redirect("/?tab=reels");
+  redirect(homeSectionHref("reels"));
 }

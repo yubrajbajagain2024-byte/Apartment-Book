@@ -135,7 +135,7 @@ export function BuzzFeed({ initial, filters, signedIn, scope }: BuzzFeedProps) {
           <div className="flex items-center gap-2">
             <BuzzSortMenu label="Sort by" variant="pill" value={filters.sort ?? "hot"} options={BUZZ_SORTS.map((s) => ({ value: s.value, label: s.label, href: buzzHref({ ...current, sort: s.value }) }))} />
             <span aria-hidden="true" className="h-5 w-px shrink-0 bg-gray-200" />
-            <div className="-mr-4 flex min-w-0 flex-1 gap-1.5 overflow-x-auto pr-4 [scrollbar-width:none]" role="group" aria-label="Topic">
+            <div className="-mr-4 flex min-w-0 flex-1 gap-1.5 overflow-x-auto pr-4 [scrollbar-width:none]" role="group" aria-label="Topic" data-no-swipe>
               <Link href={buzzHref({ ...current, topic: undefined })} scroll={false} aria-current={!filters.topic ? "true" : undefined} className={cn(pill, !filters.topic ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800 hover:bg-gray-200")}>
                 All
               </Link>

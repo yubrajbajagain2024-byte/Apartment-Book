@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createFeedPost, deleteFeedPost, feedPostSchema, flattenZodError, getFeedPost } from "@apartment-book/shared";
+import { createFeedPost, deleteFeedPost, feedPostSchema, flattenZodError, getFeedPost, homeSectionHref } from "@apartment-book/shared";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { errorMessage, formToObject } from "@/lib/utils";
@@ -37,5 +37,5 @@ export async function deletePostAction(id: string): Promise<void> {
   await deleteFeedPost(supabase, id);
   revalidatePath("/");
   revalidatePath(`/profile/${user.id}`);
-  redirect(existing.kind === "reel" ? "/?tab=reels" : "/");
+  redirect(homeSectionHref(existing.kind === "reel" ? "reels" : "posts"));
 }

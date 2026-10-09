@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FlatList, RefreshControl, Text, View } from "react-native";
 import { formatDistance, formatPrice, isVerifiedPoster, listApartments, listingMedia, type ApartmentWithOwner } from "@apartment-book/shared";
-import { Fab, FeedHeader } from "@/components/feed-header";
+import { FeedHeader } from "@/components/feed-header";
 import { FEED_GAP, FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
 import { Badge, Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { useFeed } from "@/lib/hooks";
@@ -9,7 +9,8 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useEngagement } from "@/lib/use-engagement";
 
-export default function ApartmentsScreen() {
+/** The Apartments half of the Housing tab: search, filters and the listings feed. The Housing screen owns the "+" button. */
+export function ApartmentsSection() {
   const { user, profile } = useSession();
   const [q, setQ] = useState("");
   const [videoOnly, setVideoOnly] = useState(false);
@@ -61,7 +62,6 @@ export default function ApartmentsScreen() {
         onEndReachedThreshold={0.6}
         refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} />}
       />
-      <Fab href="/create/apartment" label="List an apartment" />
     </View>
   );
 }

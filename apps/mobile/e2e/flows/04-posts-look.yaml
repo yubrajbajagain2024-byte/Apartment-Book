@@ -9,6 +9,9 @@ appId: host.exp.Exponent
     start: "88%,10%"
     end: "12%,62%"
     duration: 800
+# Home opens on For you: switch to Posts first.
+- tapOn: "Posts"
+- waitForAnimationToEnd
 # Newest first: a three-photo post liked by two other people.
 - extendedWaitUntil:
     visible: "Post: Move-in day at the new place.*"

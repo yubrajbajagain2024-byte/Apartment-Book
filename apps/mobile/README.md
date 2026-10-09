@@ -17,6 +17,33 @@ npx expo start --tunnel # phone anywhere with Expo Go: scan the QR code
 `.env` holds only public keys (Supabase URL + anon key, website URL). Row-level
 security protects the data, so they are safe to ship.
 
+## Home and the tabs
+
+The bottom bar has four tabs: Home, Housing, Marketplace, Messages (the profile sits behind the
+header avatar). Home opens on **For you**, a blend of posts, reels and hot anonymous Buzz threads
+(the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
+four pages, For you | Buzz | Posts | Reels, sit side by side in a pager: swipe left or right to move
+between them, or tap a label in the floating top bar. Housing works the same way with two pages,
+**Apartments | Roommates**: it opens on Apartments, a swipe or a tap on the label above the pager
+moves to Roommates and back, and the floating "+" follows the visible half ("List an apartment" or
+"Create roommate post"). The order comes from `HOUSING_SECTIONS` in `packages/shared/src/constants.ts`.
+
+The Maestro flows in `e2e/flows/` check this in Expo Go on the booted iOS Simulator and save
+screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.dev) installed in
+`~/.maestro`, `npx expo start` running, and seeded test data:
+
+```bash
+cd apps/mobile
+SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts; prints the login, writes e2e/.sim-state.json
+e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you, swipes to Buzz, Housing (Apartments, Roommates, swipe back), every other tab (several flows at once is fine)
+EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # likes, votes and replies as the seeded account
+node e2e/sim-seed-thread.mjs                            # nested replies and votes for 03-buzz-thread.yaml
+SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards
+```
+
+The flows that like, vote or post (01 to 03) only ever act as a seeded `ui-sim-…` account and
+stop if someone else is signed in on the simulator; 00 and 04 only look.
+
 ## Project state
 
 - EAS project: `@apartmentbooks-team/apartment-book` (id in `app.json` → `extra.eas.projectId`)

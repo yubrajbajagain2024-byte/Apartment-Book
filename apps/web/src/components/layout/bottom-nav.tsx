@@ -11,7 +11,7 @@ export function BottomNav({ unread, userId }: { unread: number; userId: string |
   // Hide the bar inside an open chat so the composer has the full screen.
   if (/^\/messages\/[^/]+$/.test(pathname) && pathname !== "/messages/new") return null;
 
-  // Profile lives in the header (avatar menu) so the bar stays at five tabs.
+  // Profile lives in the header (avatar menu) so the bar stays at four tabs: Home, Housing, Marketplace, Messages.
   const tabs = NAV_TABS;
 
   return (

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
-import { getFeedPost, getPostEngagement, getPostPreviewsMany, isSaved, listComments, photosFor, type PostCommentWithAuthor, type PostEngagement, type PostPreview } from "@apartment-book/shared";
+import { getFeedPost, getPostEngagement, getPostPreviewsMany, homeSectionHref, isSaved, listComments, photosFor, type PostCommentWithAuthor, type PostEngagement, type PostPreview } from "@apartment-book/shared";
 import { deletePostAction } from "@/lib/actions/posts";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -48,7 +48,7 @@ export default async function PostPage({ params }: Props) {
   return (
     <div className="mx-auto flex w-full max-w-[500px] flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <Link href={reel ? "/?tab=reels" : "/"} className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
+        <Link href={homeSectionHref(reel ? "reels" : "posts")} className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
           <ArrowLeft className="h-4 w-4" /> Back to {reel ? "reels" : "posts"}
         </Link>
         {isOwner ? (

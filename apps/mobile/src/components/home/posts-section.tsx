@@ -6,7 +6,7 @@ import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet"
 import { FEED_HEADER_PADDING } from "@/components/post-card";
 import { Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { useFeed } from "@/lib/hooks";
-import { onPostRemoved, takePostsStale } from "@/lib/posts-events";
+import { emitPostRemoved, onPostRemoved, takePostsStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
@@ -80,7 +80,8 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
             subtitle={allCampuses || !profile?.university_id ? (p.university?.name ?? undefined) : undefined}
             active={active && visible.has(p.id)}
             onComments={() => (user ? setCommenting(p) : router.push("/(auth)/login"))}
-            onDeleted={() => setItems((prev) => prev.filter((x) => x.id !== p.id))}
+            // For you lists the same posts: the event drops the row here (see onPostRemoved) and there.
+            onDeleted={() => emitPostRemoved(p.id)}
           />
         )}
         ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon="newspaper-outline" title="No posts yet" body={universityId ? "Say hello to your campus, or switch to all universities." : "Be the first to share something."} />}

@@ -18,6 +18,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { RoommateFeed } from "@/components/feed/roommate-feed";
 import { RoommateFilters } from "@/components/roommates/roommate-filters";
 import { OnlineNow } from "@/components/presence/online-now";
+import { HousingSwipe } from "@/components/housing/housing-swipe";
+import { HousingTabs } from "@/components/housing/housing-tabs";
 
 export const metadata: Metadata = { title: "Roommates" };
 
@@ -67,60 +69,64 @@ export default async function RoommatesPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{activeUniversity ? `Roommates at ${activeUniversity.name}` : "Find a roommate"}</h1>
-          <p className="text-sm text-gray-600">
-            {result.count} {result.count === 1 ? "post" : "posts"} · people with a spare room and people looking for one
-          </p>
-        </div>
-        <LinkButton href="/roommates/new">
-          <Plus className="h-5 w-5" /> Create post
-        </LinkButton>
-      </div>
-
-      <RoommateFilters universities={universities} values={{ ...values, university: universityId ?? "all" }} hasFilters={hasFilters} />
-
-      {result.data.length === 0 ? (
-        <EmptyState
-          icon={Users}
-          title="No roommate posts yet"
-          description={universityId ? "Try All universities, or be the first to post for your campus." : "Be the first to post."}
-          action={
-            <div className="flex gap-2">
-              {universityId ? (
-                <LinkButton href="/roommates?university=all" variant="secondary">
-                  Show all universities
-                </LinkButton>
-              ) : null}
-              <LinkButton href="/roommates/new">Create post</LinkButton>
-            </div>
-          }
-        />
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-[1fr_minmax(0,500px)_1fr] lg:gap-6">
-          <div className="hidden lg:block" />
-          <div className="min-w-0">
-            {user ? <OnlineNow currentUserId={user.id} layout="strip" className="-mx-3 mb-1 bg-white ring-1 ring-gray-200 sm:mx-0 sm:mb-0 sm:rounded-xl lg:hidden" /> : null}
-            <RoommateFeed
-              key={JSON.stringify({ ...filters, page: undefined })}
-              initial={result.data}
-              totalPages={result.totalPages}
-              filters={{ ...filters, page: undefined }}
-              savedIds={[...savedIds]}
-              signedIn={Boolean(user)}
-              currentUserId={user?.id ?? null}
-              currentUser={user && profile ? { id: user.id, name: profile.full_name, avatarUrl: profile.avatar_url } : null}
-              engagement={engagement}
-            />
+      <HousingTabs active="roommates" all={values.university === "all"} />
+      {/* The two halves of Housing keep their own pages; a sideways swipe on a phone moves to the other one. */}
+      <HousingSwipe section="roommates" all={values.university === "all"} className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{activeUniversity ? `Roommates at ${activeUniversity.name}` : "Find a roommate"}</h1>
+            <p className="text-sm text-gray-600">
+              {result.count} {result.count === 1 ? "post" : "posts"} · people with a spare room and people looking for one
+            </p>
           </div>
-          {user ? (
-            <aside className="hidden lg:block">
-              <OnlineNow currentUserId={user.id} className="sticky top-20" />
-            </aside>
-          ) : null}
+          <LinkButton href="/roommates/new">
+            <Plus className="h-5 w-5" /> Create post
+          </LinkButton>
         </div>
-      )}
+
+        <RoommateFilters universities={universities} values={{ ...values, university: universityId ?? "all" }} hasFilters={hasFilters} />
+
+        {result.data.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="No roommate posts yet"
+            description={universityId ? "Try All universities, or be the first to post for your campus." : "Be the first to post."}
+            action={
+              <div className="flex gap-2">
+                {universityId ? (
+                  <LinkButton href="/roommates?university=all" variant="secondary">
+                    Show all universities
+                  </LinkButton>
+                ) : null}
+                <LinkButton href="/roommates/new">Create post</LinkButton>
+              </div>
+            }
+          />
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-[1fr_minmax(0,500px)_1fr] lg:gap-6">
+            <div className="hidden lg:block" />
+            <div className="min-w-0">
+              {user ? <OnlineNow currentUserId={user.id} layout="strip" className="-mx-3 mb-1 bg-white ring-1 ring-gray-200 sm:mx-0 sm:mb-0 sm:rounded-xl lg:hidden" /> : null}
+              <RoommateFeed
+                key={JSON.stringify({ ...filters, page: undefined })}
+                initial={result.data}
+                totalPages={result.totalPages}
+                filters={{ ...filters, page: undefined }}
+                savedIds={[...savedIds]}
+                signedIn={Boolean(user)}
+                currentUserId={user?.id ?? null}
+                currentUser={user && profile ? { id: user.id, name: profile.full_name, avatarUrl: profile.avatar_url } : null}
+                engagement={engagement}
+              />
+            </div>
+            {user ? (
+              <aside className="hidden lg:block">
+                <OnlineNow currentUserId={user.id} className="sticky top-20" />
+              </aside>
+            ) : null}
+          </div>
+        )}
+      </HousingSwipe>
     </div>
   );
 }

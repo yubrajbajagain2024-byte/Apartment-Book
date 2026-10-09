@@ -45,6 +45,9 @@ env:
       visible: "Not Now"
     commands:
       - tapOn: "Not Now"
+# Home opens on For you; the Posts checks below need the Posts page itself.
+- tapOn: "Posts"
+- waitForAnimationToEnd
 # Posts (Instagram style): the newest post is a three-photo post liked by two other people.
 - extendedWaitUntil:
     visible: "Post: Move-in day at the new place.*"

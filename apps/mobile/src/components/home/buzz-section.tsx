@@ -9,7 +9,7 @@ import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
-import { BUZZ_GUTTER, BuzzCard, BuzzSearchRow, onBuzzEvent } from "./buzz-card";
+import { BUZZ_GUTTER, BuzzCard, BuzzSearchRow, emitBuzzEvent, onBuzzEvent } from "./buzz-card";
 
 const SORT_ICONS: Record<BuzzSort, keyof typeof Ionicons.glyphMap> = { hot: "flame-outline", new: "time-outline", top: "trending-up-outline" };
 
@@ -180,9 +180,13 @@ export function BuzzSection({ topInset }: { active: boolean; topInset: number })
           ) : (
             <BuzzCard
               post={item}
-              onVote={(v) => setItems((prev) => prev.map((p) => (p.id === item.id ? { ...p, score: v.score, myVote: v.myVote } : p)))}
-              onRemoved={(id) => setItems((prev) => prev.filter((p) => p.id !== id))}
-              onMuted={refresh}
+              // For you shows the same threads: every change goes through the event bus, which this list listens to as well.
+              onVote={(v) => emitBuzzEvent({ type: "vote", id: item.id, vote: v })}
+              onRemoved={(id) => emitBuzzEvent({ type: "remove", id })}
+              onMuted={() => {
+                setRefreshing(true);
+                emitBuzzEvent({ type: "reload" });
+              }}
             />
           )
         }

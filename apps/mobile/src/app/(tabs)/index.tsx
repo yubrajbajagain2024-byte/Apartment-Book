@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ScrollView, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Animated, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView } from "react-native";
 import { useIsFocused } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DEFAULT_HOME_SECTION, HOME_SECTIONS, type HomeSection } from "@apartment-book/shared";
 import { BuzzSection } from "@/components/home/buzz-section";
+import { ForYouSection } from "@/components/home/for-you-section";
 import { HOME_TOP_TABS_ROW, HomeTopTabs } from "@/components/home/home-top-tabs";
 import { PostsSection } from "@/components/home/posts-section";
 import { ReelsSection } from "@/components/home/reels-section";
@@ -14,7 +15,7 @@ import { colors } from "@/lib/theme";
 const ORDER = HOME_SECTIONS.map((s) => s.value);
 const START = Math.max(0, ORDER.indexOf(DEFAULT_HOME_SECTION));
 
-/** Home: Reels | Buzz | Posts side by side in a horizontal pager under a floating top bar. Opens on Posts. */
+/** Home: For you | Buzz | Posts | Reels side by side in a horizontal pager under a floating top bar. Opens on For you. */
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -24,10 +25,12 @@ export default function HomeScreen() {
   const indexRef = useRef(START);
   /** Page a label tap is scrolling to; swipe tracking waits until we get there so the labels do not flicker. */
   const target = useRef<number | null>(null);
-  /** False until the pager has been placed on the starting page, so the first layout cannot select Reels by accident. */
+  /** False until the pager has been placed on the starting page, so the first layout cannot change the page by accident. */
   const ready = useRef(false);
   /** Same object on every render: a new one would send the pager back to the starting page. */
   const initialOffset = useRef({ x: START * width, y: 0 });
+  /** The pager's offset, kept up to date on the native side so the underline in the top bar slides with the finger. */
+  const scrollX = useRef(new Animated.Value(START * width)).current;
   /** Pages are mounted the first time they come into view, so Reels does not load videos nobody watches. */
   const [mounted, setMounted] = useState<Set<number>>(() => new Set([START]));
   const [barHeight, setBarHeight] = useState(insets.top + HOME_TOP_TABS_ROW);
@@ -75,20 +78,25 @@ export default function HomeScreen() {
     pager.current?.scrollTo({ x: i * width, animated: true });
   }
 
-  function onScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    if (width <= 0 || !ready.current) return;
-    const pos = e.nativeEvent.contentOffset.x / width;
-    if (target.current !== null) {
-      if (Math.abs(pos - target.current) < 0.02) target.current = null;
-      return;
-    }
-    // Mount the neighbour as soon as a swipe starts to reveal it.
-    const lo = Math.max(0, Math.floor(pos + 0.02));
-    const hi = Math.min(ORDER.length - 1, Math.ceil(pos - 0.02));
-    setMounted((prev) => (prev.has(lo) && prev.has(hi) ? prev : new Set(prev).add(lo).add(hi)));
-    const i = Math.min(ORDER.length - 1, Math.max(0, Math.round(pos)));
-    if (i !== indexRef.current) show(i);
-  }
+  const onScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (width <= 0 || !ready.current) return;
+      const pos = e.nativeEvent.contentOffset.x / width;
+      if (target.current !== null) {
+        if (Math.abs(pos - target.current) < 0.02) target.current = null;
+        return;
+      }
+      // Mount the neighbour as soon as a swipe starts to reveal it.
+      const lo = Math.max(0, Math.floor(pos + 0.02));
+      const hi = Math.min(ORDER.length - 1, Math.ceil(pos - 0.02));
+      setMounted((prev) => (prev.has(lo) && prev.has(hi) ? prev : new Set(prev).add(lo).add(hi)));
+      const i = Math.min(ORDER.length - 1, Math.max(0, Math.round(pos)));
+      if (i !== indexRef.current) show(i);
+    },
+    [show, width],
+  );
+  // One handler for both jobs: scrollX follows the finger on the UI thread, the page tracking above runs as its listener.
+  const onPagerScroll = useMemo(() => Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: true, listener: onScroll }), [onScroll, scrollX]);
 
   function onSettled(e: NativeSyntheticEvent<NativeScrollEvent>) {
     target.current = null;
@@ -103,7 +111,7 @@ export default function HomeScreen() {
     <View style={{ flex: 1, backgroundColor: overVideo ? "#000" : colors.bg }}>
       {focused ? <StatusBar style={overVideo ? "light" : "dark"} /> : null}
       <View style={{ flex: 1 }} onLayout={(e) => setPageHeight(Math.round(e.nativeEvent.layout.height))}>
-        <ScrollView
+        <Animated.ScrollView
           ref={pager}
           horizontal
           pagingEnabled
@@ -117,7 +125,7 @@ export default function HomeScreen() {
           onScrollBeginDrag={() => {
             target.current = null;
           }}
-          onScroll={onScroll}
+          onScroll={onPagerScroll}
           onMomentumScrollEnd={onSettled}
           style={{ flex: 1 }}
         >
@@ -127,14 +135,16 @@ export default function HomeScreen() {
                 pageHeight > 0 ? <ReelsSection active={isActive("reels")} topInset={barHeight} height={pageHeight} /> : null
               ) : s === "buzz" ? (
                 <BuzzSection active={isActive("buzz")} topInset={barHeight} />
+              ) : s === "foryou" ? (
+                <ForYouSection active={isActive("foryou")} topInset={barHeight} />
               ) : (
                 <PostsSection active={isActive("posts")} topInset={barHeight} />
               )}
             </View>
           ))}
-        </ScrollView>
+        </Animated.ScrollView>
       </View>
-      <HomeTopTabs section={section} onSelect={select} overVideo={overVideo} onLayout={(e) => setBarHeight(Math.round(e.nativeEvent.layout.height))} />
+      <HomeTopTabs section={section} onSelect={select} overVideo={overVideo} scrollX={scrollX} pageWidth={width} onLayout={(e) => setBarHeight(Math.round(e.nativeEvent.layout.height))} />
     </View>
   );
 }

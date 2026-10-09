@@ -69,6 +69,8 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
           data={media}
           horizontal
           pagingEnabled
+          // A single photo has nothing to slide: leave sideways swipes to the Home pager around it.
+          scrollEnabled={count > 1}
           showsHorizontalScrollIndicator={false}
           keyExtractor={(m, i) => `${i}-${m.type === "photo" ? m.url : m.playbackUrl}`}
           onMomentumScrollEnd={onScroll}

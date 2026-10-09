@@ -8,6 +8,7 @@ import { useActionSheet } from "@/components/action-sheet";
 import { markReelsStale } from "@/components/home/reels-section";
 import { Button, Field, Loading } from "@/components/ui";
 import { openHomeSection } from "@/lib/home-section";
+import { markForYouStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { pickVideo, uploadVideo } from "@/lib/video";
@@ -78,6 +79,7 @@ export default function CreateReelScreen() {
     try {
       await createReel(supabase, user.id, parsed.data);
       markReelsStale();
+      markForYouStale();
       // Back to Home, opened on Reels, so the new reel is the first thing they see.
       openHomeSection("reels");
       router.dismissTo("/(tabs)");

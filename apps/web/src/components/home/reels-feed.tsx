@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, Clapperboard, Plus, X } from "lucide-react";
-import { listReels, reelPath, REELS_PAGE_SIZE, type Reel } from "@apartment-book/shared";
+import { homeSectionHref, listReels, reelPath, REELS_PAGE_SIZE, type Reel } from "@apartment-book/shared";
 import { createClient } from "@/lib/supabase/client";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -137,7 +137,7 @@ export function ReelsFeed({ initial, universityId, hasHomeUniversity, signedIn, 
   }, [active, commentsFor, goTo]);
 
   // Same switch Posts and Buzz have: my campus ↔ every campus.
-  const scopeLink = universityId ? { href: "/?tab=reels&university=all", label: "All universities" } : hasHomeUniversity ? { href: "/?tab=reels", label: "My university" } : null;
+  const scopeLink = universityId ? { href: homeSectionHref("reels", { university: "all" }), label: "All universities" } : hasHomeUniversity ? { href: homeSectionHref("reels"), label: "My university" } : null;
 
   if (items.length === 0) {
     return (
