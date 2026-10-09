@@ -1,11 +1,11 @@
 "use server";
 
-import { addComment, commentSchema, deleteComment, getPostEngagement, likePost, unlikePost, type PostCommentWithAuthor, type SavedTargetType } from "@apartment-book/shared";
+import { addComment, commentSchema, deleteComment, getPostEngagement, likePost, unlikePost, type PostCommentWithAuthor, type PostTargetType } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { errorMessage } from "@/lib/utils";
 
-export async function toggleLikeAction(targetType: SavedTargetType, targetId: string, like: boolean): Promise<{ liked: boolean; likes: number; error?: string }> {
+export async function toggleLikeAction(targetType: PostTargetType, targetId: string, like: boolean): Promise<{ liked: boolean; likes: number; error?: string }> {
   const user = await getCurrentUser();
   if (!user) return { liked: false, likes: 0, error: "Log in to like posts." };
   try {
@@ -19,7 +19,7 @@ export async function toggleLikeAction(targetType: SavedTargetType, targetId: st
   }
 }
 
-export async function addCommentAction(targetType: SavedTargetType, targetId: string, body: string): Promise<{ comment?: PostCommentWithAuthor; error?: string }> {
+export async function addCommentAction(targetType: PostTargetType, targetId: string, body: string): Promise<{ comment?: PostCommentWithAuthor; error?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "Log in to comment." };
   const parsed = commentSchema.safeParse({ body });

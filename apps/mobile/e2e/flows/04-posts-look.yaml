@@ -1,0 +1,59 @@
+# Look-only tour of the Instagram-style Posts feed. It never likes, saves, comments or deletes, so it is safe whoever is signed in.
+# Needs the seeded sample posts (node e2e/sim-seed.mjs).
+appId: host.exp.Exponent
+---
+- extendedWaitUntil:
+    visible: "Create"
+    timeout: 120000
+- swipe:
+    start: "88%,10%"
+    end: "12%,62%"
+    duration: 800
+# Home opens on For you: switch to Posts first.
+- tapOn: "Posts"
+- waitForAnimationToEnd
+# Newest first: a three-photo post liked by two other people.
+- extendedWaitUntil:
+    visible: "Post: Move-in day at the new place.*"
+    timeout: 30000
+- assertVisible: "Liked by UI Maya.*"
+- assertVisible: "1 of 3"
+- assertVisible: "Share"
+- assertVisible: "Save|Unsave"
+- assertNotVisible: "What's on your mind.*"
+- takeScreenshot: e2e/screenshots/20-posts-instagram
+# Swipe the photos: the dots under the photo follow.
+- swipe:
+    start: "85%,40%"
+    end: "15%,40%"
+    duration: 300
+- extendedWaitUntil:
+    visible: "2 of 3"
+    timeout: 10000
+- takeScreenshot: e2e/screenshots/21-posts-second-photo
+# The comment icon opens a sheet over the feed (signed in) or the login screen (signed out). Reading comments writes nothing.
+- tapOn:
+    text: "Comment"
+    index: 0
+- extendedWaitUntil:
+    visible: "No comments yet|Welcome back.*|Log in"
+    timeout: 15000
+- takeScreenshot: e2e/screenshots/21b-posts-comments-sheet
+- runFlow:
+    when:
+      visible: "No comments yet"
+    commands:
+      - tapOn: "Close"
+- runFlow:
+    when:
+      notVisible: "Create"
+    commands:
+      - back
+# A words-only post, then a post with comments: "View all 2 comments" and the newest comment under the caption.
+- scrollUntilVisible:
+    element: "View all 2 comments"
+    direction: DOWN
+    centerElement: true
+- assertVisible: ".*Saturday morning works for me.*"
+- assertVisible: "Liked by UI Leo.*"
+- takeScreenshot: e2e/screenshots/22-posts-comments-preview

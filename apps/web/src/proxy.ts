@@ -12,6 +12,9 @@ const PROTECTED_PREFIXES = [
   "/apartments/new",
   "/roommates/new",
   "/marketplace/new",
+  "/posts/new",
+  "/reels/new",
+  "/buzz/new",
 ];
 
 function isProtectedPath(pathname: string): boolean {

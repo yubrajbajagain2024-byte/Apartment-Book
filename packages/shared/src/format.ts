@@ -63,3 +63,39 @@ export function budgetLabel(post: { budget_min: number | null; budget_max: numbe
   if (post.budget_min !== null) return `From ${formatPrice(post.budget_min, post.currency)}`;
   return null;
 }
+
+/** Reddit-style short age: "now", "5m", "3h", "6d", "2mo", "1y". */
+export function shortAge(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (seconds < 60) return "now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  if (seconds < 86400 * 30) return `${Math.floor(seconds / 86400)}d`;
+  if (seconds < 86400 * 365) return `${Math.floor(seconds / (86400 * 30))}mo`;
+  return `${Math.floor(seconds / (86400 * 365))}y`;
+}
+
+/** "886", "1.2k", "34k": compact counts for vote and reply pills. */
+export function compactCount(n: number): string {
+  const abs = Math.abs(n);
+  if (abs < 1000) return String(n);
+  if (abs < 10000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+  if (abs < 1000000) return `${Math.round(n / 1000)}k`;
+  return `${(n / 1000000).toFixed(1).replace(/\.0$/, "")}m`;
+}
+
+/** Splits a caption into plain text and #hashtags, so the tags can be coloured like Instagram. */
+export function captionParts(text: string): { text: string; tag: boolean }[] {
+  const parts: { text: string; tag: boolean }[] = [];
+  const pattern = /(^|[^\p{L}\p{M}\p{N}_#])(#[\p{L}\p{M}\p{N}_]{1,60})/gu;
+  let last = 0;
+  for (const m of text.matchAll(pattern)) {
+    const start = (m.index ?? 0) + m[1].length;
+    if (start > last) parts.push({ text: text.slice(last, start), tag: false });
+    parts.push({ text: m[2], tag: true });
+    last = start + m[2].length;
+  }
+  if (last < text.length) parts.push({ text: text.slice(last), tag: false });
+  return parts;
+}

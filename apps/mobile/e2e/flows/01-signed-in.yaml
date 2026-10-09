@@ -1,0 +1,114 @@
+# Signed-in tour of the new Home: like a post, vote and reply anonymously in Buzz, watch a reel, reach the profile.
+# Needs test data: SUPABASE_ACCESS_TOKEN=... node e2e/sim-seed.mjs   (then pass EMAIL and PASSWORD from its output)
+appId: host.exp.Exponent
+env:
+  EMAIL: ${EMAIL}
+  PASSWORD: ${PASSWORD}
+---
+- extendedWaitUntil:
+    visible: "Create"
+    timeout: 120000
+- swipe:
+    start: "88%,10%"
+    end: "12%,62%"
+    duration: 800
+# Log in through the header avatar (skipped when a session is already stored).
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "Join Apartment Book|.*Log out"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Join Apartment Book"
+    commands:
+      - tapOn: "Log in"
+      - tapOn: "you@txstate.edu"
+      - inputText: ${EMAIL}
+      - tapOn: "••••••••"
+      - inputText: ${PASSWORD}
+      - tapOn:
+          text: "Log in"
+          index: 1
+# SAFETY: never act as a real person who happens to be signed in on this simulator.
+- runFlow:
+    when:
+      visible: ".*Log out"
+    commands:
+      - assertVisible: "ui-sim-.*@txstate.edu"
+      - tapOn: "Home.*"
+- extendedWaitUntil:
+    visible: "Create|Not Now"
+    timeout: 60000
+# iOS offers to save the password after a login: dismiss it.
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+# Home opens on For you; the Posts checks below need the Posts page itself.
+- tapOn: "Posts"
+- waitForAnimationToEnd
+# Posts (Instagram style): the newest post is a three-photo post liked by two other people.
+- extendedWaitUntil:
+    visible: "Post: Move-in day at the new place.*"
+    timeout: 30000
+- assertVisible: "Liked by UI Maya.*"
+- assertVisible: "1 of 3"
+- assertVisible: "Save"
+- takeScreenshot: e2e/screenshots/10-posts-instagram
+# A like from an earlier run persists: unlike first, so the flow can be run again and again.
+- runFlow:
+    when:
+      visible: "Unlike"
+    commands:
+      - tapOn:
+          text: "Unlike"
+          index: 0
+      - extendedWaitUntil:
+          visible: "Like"
+          timeout: 15000
+- tapOn:
+    text: "Like"
+    index: 0
+- extendedWaitUntil:
+    visible: "Unlike"
+    timeout: 15000
+# The comment icon opens a sheet over the feed, like Instagram.
+- tapOn:
+    text: "Comment"
+    index: 0
+- extendedWaitUntil:
+    visible: "No comments yet"
+    timeout: 15000
+- takeScreenshot: e2e/screenshots/10b-posts-comments-sheet
+- tapOn: "Close"
+# Further down: a post with comments shows "View all 2 comments" and the newest one.
+- scrollUntilVisible:
+    element: "View all 2 comments"
+    direction: DOWN
+    centerElement: true
+- assertVisible: ".*Saturday morning works for me.*"
+- takeScreenshot: e2e/screenshots/10-posts-liked
+# Buzz (Reddit-style rows): upvote in the feed, open the thread from the replies pill, reply anonymously from the
+# "Join the conversation" bar (its label is "Reply anonymously"; tapping it opens the composer with the same label).
+- tapOn: "Buzz"
+- assertVisible: "Search Buzz"
+- extendedWaitUntil:
+    visible: ".*Landlord wants to keep my whole deposit.*"
+    timeout: 30000
+# Votes persist too: clear an upvote from an earlier run, then upvote.
+- tapOn: "Upvote"
+- takeScreenshot: e2e/screenshots/11-buzz-voted
+- tapOn: ".*Open the thread"
+- extendedWaitUntil:
+    visible: "Reply anonymously.*"
+    timeout: 30000
+- tapOn: "Reply anonymously.*"
+- inputText: "Take dated photos and send a demand letter. It worked for me."
+- tapOn: "Send reply"
+- extendedWaitUntil:
+    visible: "Reply from Student [0-9]+, you"
+    timeout: 30000
+- assertVisible: "Upvote reply"
+- assertVisible: "Post options"
+- takeScreenshot: e2e/screenshots/12-buzz-thread

@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { BadgeCheck, Bookmark, Video } from "lucide-react";
-import { hasVideo, timeAgo, type FeedMedia, type PostCommentWithAuthor, type PostEngagement, type SavedTargetType } from "@apartment-book/shared";
+import { hasVideo, timeAgo, type FeedMedia, type PostCommentWithAuthor, type PostEngagement, type PostTargetType } from "@apartment-book/shared";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { MessageButton } from "@/components/common/message-button";
@@ -17,13 +17,14 @@ import { useLikeToggle } from "./like-button";
 
 export type PostCardProps = {
   href: string;
-  targetType: SavedTargetType;
+  targetType: PostTargetType;
   targetId: string;
   poster: { id: string; name: string; avatarUrl: string | null; verified: boolean };
   /** e.g. "0.4 mi from campus · San Marcos" */
   subtitle?: string;
   media: FeedMedia[];
-  title: string;
+  /** Listings have a title; Home-feed posts do not (the body links to `href` instead). */
+  title?: string;
   caption?: string | null;
   /** Bold lead-in before the caption, e.g. "$650/mo · 2 bd · 1 ba". */
   lead?: string;
@@ -57,9 +58,11 @@ const NO_ENGAGEMENT: PostEngagement = { likes: 0, comments: 0, likedByMe: false 
 /** A feed post. Instagram-style by default; `layout="facebook"` for text-first posts with likes and comments. */
 export function PostCard(props: PostCardProps) {
   const { href, poster, media, title, caption, lead, createdAt, compact } = props;
+  /** Used for alt text and the share sheet when the post has no title. */
+  const label = title ?? `Post by ${poster.name}`;
   const save = useSaveToggle(props.targetType, props.targetId, props.saved, props.signedIn);
   const [burst, setBurst] = useState(0);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(Boolean(props.commentsOpen));
   const video = hasVideo(media);
   const text = caption?.trim() ?? "";
   const long = text.length > CAPTION_LIMIT;
@@ -89,13 +92,21 @@ export function PostCard(props: PostCardProps) {
           {timeAgo(createdAt)}
         </span>
       ) : null}
-      <PostMenu save={save} path={href} title={title} className={compact ? "-mr-1" : "-mr-1.5"} report={props.currentUserId !== poster.id ? { targetType: props.targetType, targetId: props.targetId } : undefined} />
+      <PostMenu save={save} path={href} title={label} className={compact ? "-mr-1" : "-mr-1.5"} report={props.currentUserId !== poster.id ? { targetType: props.targetType, targetId: props.targetId } : undefined} />
     </div>
   );
 
+  const shown = expanded || !long ? text : `${text.slice(0, CAPTION_LIMIT).trimEnd()}… `;
   const description = text ? (
-    <p className={cn("mt-0.5 whitespace-pre-line text-gray-800", facebook && "text-[15px] leading-snug")}>
-      {expanded || !long ? text : `${text.slice(0, CAPTION_LIMIT).trimEnd()}… `}
+    <p className={cn("mt-0.5 whitespace-pre-line break-words text-gray-800", facebook && "text-[15px] leading-snug")}>
+      {/* Without a title the text itself opens the post. */}
+      {title === undefined ? (
+        <Link href={href} className="text-gray-900">
+          {shown}
+        </Link>
+      ) : (
+        shown
+      )}
       {long && !expanded ? (
         <button type="button" onClick={() => setExpanded(true)} className="font-medium text-gray-500 hover:text-gray-800">
           more
@@ -110,7 +121,7 @@ export function PostCard(props: PostCardProps) {
         <PhotoCarousel
           photos={[]}
           media={media}
-          alt={title}
+          alt={label}
           aspect="4 / 5"
           href={href}
           priority={props.priority}
@@ -120,7 +131,8 @@ export function PostCard(props: PostCardProps) {
             setBurst((b) => b + 1);
           }}
         >
-          {video ? (
+          {/* "Video tour" is for listings; a student's own post or reel is not a tour. */}
+          {video && props.targetType !== "post" ? (
             <span className="pointer-events-none absolute left-2 top-2 z-20 inline-flex items-center gap-1 rounded-full bg-black/65 px-2.5 py-1 text-xs font-bold text-white backdrop-blur">
               <Video className="h-3.5 w-3.5" /> Video tour
             </span>
@@ -149,9 +161,11 @@ export function PostCard(props: PostCardProps) {
       <article className="flex flex-col overflow-hidden bg-white ring-1 ring-gray-200 sm:rounded-xl">
         {mediaBlock}
         {header}
-        <Link href={href} className="px-2 pb-2 text-sm font-semibold leading-snug text-gray-900">
-          <span className="line-clamp-2">{title}</span>
-        </Link>
+        {title !== undefined ? (
+          <Link href={href} className="px-2 pb-2 text-sm font-semibold leading-snug text-gray-900">
+            <span className="line-clamp-2">{title}</span>
+          </Link>
+        ) : null}
       </article>
     );
   }
@@ -171,7 +185,7 @@ export function PostCard(props: PostCardProps) {
           <Bookmark className={cn("h-5 w-5", save.saved && "fill-current")} /> {save.saved ? "Saved" : "Save"}
         </button>
         <MessageButton userId={poster.id} currentUserId={props.currentUserId} returnTo={href} prefill={props.messagePrefill} variant="action" target={{ type: props.targetType, id: props.targetId }} />
-        <ShareButton path={href} title={title} />
+        <ShareButton path={href} title={label} />
       </div>
       <div className="px-3 pb-3 pt-1 text-sm text-gray-900">
         <Link href={href} className="font-semibold">
@@ -209,10 +223,12 @@ function FacebookBody(
   return (
     <article className="flex flex-col overflow-hidden bg-white ring-1 ring-gray-200 sm:rounded-xl" data-testid="fb-post">
       {header}
-      <div className="px-3 pb-3 text-gray-900">
-        <Link href={href} className="block text-[17px] font-semibold leading-snug">
-          {title}
-        </Link>
+      <div className={cn("px-3 text-gray-900", title !== undefined || lead || description || props.details ? "pb-3" : "hidden")}>
+        {title !== undefined ? (
+          <Link href={href} className="block text-[17px] font-semibold leading-snug">
+            {title}
+          </Link>
+        ) : null}
         {lead ? <p className="mt-0.5 text-sm font-semibold text-brand-700">{lead}</p> : null}
         {description}
         {props.details ? <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-700">{props.details}</div> : null}

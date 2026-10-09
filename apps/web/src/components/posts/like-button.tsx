@@ -3,22 +3,29 @@
 import { useCallback, useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ThumbsUp } from "lucide-react";
-import type { SavedTargetType } from "@apartment-book/shared";
+import type { PostTargetType } from "@apartment-book/shared";
 import { toggleLikeAction } from "@/lib/actions/engagement";
 import { cn } from "@/lib/utils";
 
 export type LikeController = { liked: boolean; likes: number; pending: boolean; toggle: () => void };
 
 /** Optimistic like/unlike with a live count. */
-export function useLikeToggle(targetType: SavedTargetType, targetId: string, initial: { liked: boolean; likes: number }, signedIn: boolean): LikeController {
+export function useLikeToggle(targetType: PostTargetType, targetId: string, initial: { liked: boolean; likes: number }, signedIn: boolean): LikeController {
   const [state, setState] = useState(initial);
+  // Feeds load counts for later pages after the card is already on screen, so pick up fresh numbers when they arrive.
+  const incoming = `${initial.liked}:${initial.likes}`;
+  const [seen, setSeen] = useState(incoming);
+  if (incoming !== seen) {
+    setSeen(incoming);
+    setState({ liked: initial.liked, likes: initial.likes });
+  }
   const [optimistic, setOptimistic] = useOptimistic(state);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
   const toggle = useCallback(() => {
     if (!signedIn) {
-      router.push(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+      router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
     const next = !optimistic.liked;

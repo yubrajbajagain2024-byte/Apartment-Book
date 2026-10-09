@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import { recordView, type SavedTargetType } from "@apartment-book/shared";
+import { recordView, type PostTargetType } from "@apartment-book/shared";
 import { createClient } from "@/lib/supabase/client";
 
 const KEY = "ab-viewer-key";
 
 /** Counts one view per viewer per day for a listing (signed in or not). */
-export function ViewTracker({ targetType, targetId }: { targetType: SavedTargetType; targetId: string }) {
+export function ViewTracker({ targetType, targetId }: { targetType: PostTargetType; targetId: string }) {
   useEffect(() => {
     let viewerKey: string | null = null;
     try {

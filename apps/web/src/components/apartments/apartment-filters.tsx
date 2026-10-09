@@ -17,7 +17,7 @@ export type ApartmentFilterValues = {
 
 export function ApartmentFilters({ universities, values, hasFilters }: { universities: University[]; values: ApartmentFilterValues; hasFilters: boolean }) {
   return (
-    <FilterBar action="/" hasFilters={hasFilters}>
+    <FilterBar action="/apartments" hasFilters={hasFilters}>
       <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs font-medium text-gray-600">
         Search
         <Input name="q" defaultValue={values.q ?? ""} placeholder="Neighbourhood, keywords…" />

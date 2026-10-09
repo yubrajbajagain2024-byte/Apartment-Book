@@ -1,9 +1,9 @@
-import type { Client, SavedTargetType } from "../types/models";
+import type { Client, PostTargetType } from "../types/models";
 
 export async function getSavedIds(
   supabase: Client,
   userId: string,
-  targetType?: SavedTargetType,
+  targetType?: PostTargetType,
 ): Promise<Set<string>> {
   let query = supabase.from("saved_listings").select("target_id, target_type").eq("user_id", userId);
   if (targetType) query = query.eq("target_type", targetType);
@@ -15,16 +15,16 @@ export async function getSavedIds(
 export async function listSaved(
   supabase: Client,
   userId: string,
-): Promise<{ apartment: string[]; item: string[]; roommate: string[] }> {
+): Promise<{ apartment: string[]; item: string[]; roommate: string[]; post: string[] }> {
   const { data, error } = await supabase
     .from("saved_listings")
     .select("target_id, target_type, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  const result = { apartment: [] as string[], item: [] as string[], roommate: [] as string[] };
+  const result = { apartment: [] as string[], item: [] as string[], roommate: [] as string[], post: [] as string[] };
   for (const row of data) {
-    if (row.target_type === "apartment" || row.target_type === "item" || row.target_type === "roommate") {
+    if (row.target_type === "apartment" || row.target_type === "item" || row.target_type === "roommate" || row.target_type === "post") {
       result[row.target_type].push(row.target_id);
     }
   }
@@ -34,7 +34,7 @@ export async function listSaved(
 export async function isSaved(
   supabase: Client,
   userId: string,
-  targetType: SavedTargetType,
+  targetType: PostTargetType,
   targetId: string,
 ): Promise<boolean> {
   const { data, error } = await supabase
@@ -52,7 +52,7 @@ export async function isSaved(
 export async function toggleSaved(
   supabase: Client,
   userId: string,
-  targetType: SavedTargetType,
+  targetType: PostTargetType,
   targetId: string,
 ): Promise<boolean> {
   const saved = await isSaved(supabase, userId, targetType, targetId);

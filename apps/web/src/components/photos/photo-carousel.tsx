@@ -178,6 +178,8 @@ export function PhotoCarousel({
       ref={frameRef}
       className={cn("group/carousel relative w-full select-none overflow-hidden bg-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-brand-500", (href || onTap) && "cursor-pointer", className)}
       style={{ ...(aspect ? { aspectRatio: aspect } : {}), touchAction: "pan-y" }}
+      // Only a carousel with something to slide keeps sideways swipes; a single photo lets the Home tabs have them.
+      data-no-swipe={count > 1 ? "" : undefined}
       role={href || onTap ? "link" : "group"}
       tabIndex={0}
       aria-label={alt}

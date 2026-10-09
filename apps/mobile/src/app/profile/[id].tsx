@@ -1,7 +1,7 @@
 import { Alert, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { blockUser, getOrCreateDirectConversation, getProfile, isBlocked, listApartmentsByOwner, listItemsBySeller, listRoommatePostsByAuthor, reportContent, REPORT_REASONS, unblockUser, type ReportReason } from "@apartment-book/shared";
+import { blockUser, getOrCreateDirectConversation, getProfile, isBlocked, listApartmentsByOwner, listFeedPosts, listItemsBySeller, listRoommatePostsByAuthor, reportContent, REPORT_REASONS, timeAgo, unblockUser, type ReportReason } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
 import { Avatar } from "@/components/avatar";
 import { ItemTile } from "@/components/item-tile";
@@ -18,8 +18,8 @@ export default function ProfileScreen() {
   const show = useActionSheet();
   const { data: profile, loading } = useQuery(() => getProfile(supabase, id), [id]);
   const { data: posts } = useQuery(async () => {
-    const [apartments, roommates, items] = await Promise.all([listApartmentsByOwner(supabase, id), listRoommatePostsByAuthor(supabase, id), listItemsBySeller(supabase, id)]);
-    return { apartments, roommates, items };
+    const [apartments, roommates, items, feedPosts] = await Promise.all([listApartmentsByOwner(supabase, id), listRoommatePostsByAuthor(supabase, id), listItemsBySeller(supabase, id), listFeedPosts(supabase, { authorId: id, pageSize: 20 }).catch(() => null)]);
+    return { apartments, roommates, items, feedPosts: feedPosts?.data ?? [], feedPostCount: feedPosts?.count ?? 0 };
   }, [id]);
   const { data: blocked, refresh: refreshBlocked } = useQuery(() => (user && user.id !== id ? isBlocked(supabase, user.id, id) : Promise.resolve(false)), [user?.id, id]);
   if (loading) return <Loading />;
@@ -91,6 +91,11 @@ export default function ProfileScreen() {
       </Card>
       {posts ? (
         <>
+          <Section title="Posts" count={posts.feedPostCount}>
+            {posts.feedPosts.map((p) => (
+              <RowLink key={p.id} title={postTitle(p.body, p.images.length)} subtitle={timeAgo(p.created_at)} onPress={() => router.push({ pathname: "/posts/[id]", params: { id: p.id } } as never)} />
+            ))}
+          </Section>
           <Section title="Apartments" count={posts.apartments.length}>
             {posts.apartments.map((a) => (
               <RowLink key={a.id} title={a.title} subtitle={`$${a.price_per_month}/mo`} onPress={() => router.push({ pathname: "/apartments/[id]", params: { id: a.id } })} />
@@ -114,6 +119,13 @@ export default function ProfileScreen() {
       ) : null}
     </ScrollView>
   );
+}
+
+/** Home-feed posts have no title: show the start of the text, or say what the post contains. */
+function postTitle(body: string | null, photos: number): string {
+  const text = body?.trim().replace(/\s+/g, " ") ?? "";
+  if (text) return text.length > 90 ? `${text.slice(0, 90).trimEnd()}…` : text;
+  return photos > 1 ? `${photos} photos` : photos === 1 ? "Photo" : "Video";
 }
 
 function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {

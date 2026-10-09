@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   AMENITY_VALUES,
+  BUZZ_TOPIC_VALUES,
   CLEANLINESS_LEVELS,
   CURRENCIES,
   ITEM_CATEGORY_VALUES,
@@ -191,6 +192,43 @@ export const commentSchema = z.object({
   body: z.string().trim().min(1, "Write a comment").max(1000, "Keep comments under 1,000 characters"),
 });
 export type CommentInput = z.infer<typeof commentSchema>;
+
+// ---------------------------------------------------------------------------
+// Home feed: posts, reels and anonymous Buzz
+// ---------------------------------------------------------------------------
+export const feedPostSchema = z
+  .object({
+    body: z.string().trim().max(4000, "Keep posts under 4,000 characters").default(""),
+    universityId: optionalUuid,
+    images: imageUrls,
+    imageMeta,
+    videos: listingVideos,
+  })
+  .refine((v) => v.body.length > 0 || v.images.length > 0 || v.videos.length > 0, { error: "Write something or add a photo or video", path: ["body"] });
+export type FeedPostInput = z.infer<typeof feedPostSchema>;
+
+export const reelSchema = z.object({
+  body: z.string().trim().max(2200, "Keep captions under 2,200 characters").default(""),
+  universityId: optionalUuid,
+  videos: listingVideos.refine((v) => v.length === 1, { error: "Add one video for your reel" }),
+});
+export type ReelInput = z.infer<typeof reelSchema>;
+
+export const buzzPostSchema = z.object({
+  topic: z.enum(BUZZ_TOPIC_VALUES, { error: "Pick a topic" }),
+  title: z.string().trim().min(3, "Give it a short title").max(160),
+  body: z.string().trim().max(6000).default(""),
+  universityId: optionalUuid,
+  images: imageUrls.refine((v) => v.length <= 6, { error: "Up to 6 photos" }),
+  imageMeta,
+  videos: listingVideos.refine((v) => v.length <= 1, { error: "One video per Buzz post" }),
+});
+export type BuzzPostInput = z.infer<typeof buzzPostSchema>;
+
+export const buzzCommentSchema = z.object({
+  body: z.string().trim().min(1, "Write a reply").max(2000, "Keep replies under 2,000 characters"),
+});
+export type BuzzCommentInput = z.infer<typeof buzzCommentSchema>;
 
 // ---------------------------------------------------------------------------
 // Push notifications (mobile apps)

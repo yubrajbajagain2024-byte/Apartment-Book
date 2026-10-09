@@ -1,15 +1,21 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { BadgeCheck, Building2, GraduationCap, School, Settings, ShoppingBag, Users } from "lucide-react";
+import { BadgeCheck, Building2, GraduationCap, Newspaper, School, Settings, ShoppingBag, Users } from "lucide-react";
 import {
+  getPostEngagementMany,
+  getPostPreviewsMany,
   getProfile,
   getSavedIds,
   isBlocked,
   listApartmentsByOwner,
+  listFeedPosts,
   listItemsBySeller,
   listRoommatePostsByAuthor,
+  type FeedPostWithAuthor,
+  type PostEngagement,
+  type PostPreview,
 } from "@apartment-book/shared";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
@@ -22,6 +28,10 @@ import { BlockButton } from "@/components/common/report-block";
 import { ApartmentCard } from "@/components/apartments/apartment-card";
 import { ItemCard } from "@/components/marketplace/item-card";
 import { RoommateCard } from "@/components/roommates/roommate-card";
+import { FeedPostCard } from "@/components/home/posts-feed";
+
+/** How many of someone's latest posts and reels their profile shows. */
+const PROFILE_POSTS = 12;
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -39,12 +49,23 @@ export default async function ProfilePage({ params }: Props) {
 
   const isMe = user?.id === profile.id;
   const blocked = user && !isMe ? await isBlocked(supabase, user.id, profile.id).catch(() => false) : false;
-  const [apartments, posts, items, savedIds] = await Promise.all([
+  const [apartments, posts, items, savedIds, viewer, feedPosts] = await Promise.all([
     listApartmentsByOwner(supabase, profile.id, { includeInactive: isMe }),
     listRoommatePostsByAuthor(supabase, profile.id, { includeInactive: isMe }),
     listItemsBySeller(supabase, profile.id, { includeInactive: isMe }),
     user ? getSavedIds(supabase, user.id) : Promise.resolve(new Set<string>()),
+    user ? getCurrentProfile() : Promise.resolve(null),
+    // Home posts and reels by this person, newest first.
+    Promise.all([listFeedPosts(supabase, { kind: "post", authorId: profile.id, pageSize: PROFILE_POSTS }), listFeedPosts(supabase, { kind: "reel", authorId: profile.id, pageSize: PROFILE_POSTS })])
+      .then(([a, b]) => [...a.data, ...b.data].sort((x, y) => y.created_at.localeCompare(x.created_at)).slice(0, PROFILE_POSTS))
+      .catch(() => [] as FeedPostWithAuthor[]),
   ]);
+  const feedIds = feedPosts.map((p) => p.id);
+  const [feedEngagement, feedPreviews] = await Promise.all([
+    getPostEngagementMany(supabase, "post", feedIds).catch(() => ({}) as Record<string, PostEngagement>),
+    getPostPreviewsMany(supabase, "post", feedIds).catch(() => ({}) as Record<string, PostPreview>),
+  ]);
+  const currentUser = user && viewer ? { id: user.id, name: viewer.full_name, avatarUrl: viewer.avatar_url } : null;
   const signedIn = Boolean(user);
   const firstName = profile.full_name.split(" ")[0];
 
@@ -92,6 +113,28 @@ export default async function ProfilePage({ params }: Props) {
           </div>
         </CardBody>
       </Card>
+
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <Newspaper className="h-5 w-5 text-brand-600" /> Posts
+          </h2>
+          {isMe ? (
+            <LinkButton href="/posts/new" size="sm" variant="secondary">
+              Write a post
+            </LinkButton>
+          ) : null}
+        </div>
+        {feedPosts.length === 0 ? (
+          <EmptyState title={isMe ? "You have not posted anything yet" : `${firstName} has not posted anything yet`} />
+        ) : (
+          <div className="-mx-3 grid items-start gap-1 sm:mx-0 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {feedPosts.map((p) => (
+              <FeedPostCard key={p.id} post={p} saved={savedIds.has(p.id)} signedIn={signedIn} currentUserId={user?.id ?? null} currentUser={currentUser} engagement={feedEngagement[p.id]} preview={feedPreviews[p.id]} />
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">

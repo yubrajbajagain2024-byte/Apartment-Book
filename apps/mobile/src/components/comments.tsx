@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View, type TextInput as TextInputType } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { addComment, deleteComment, listComments, timeAgo, type PostCommentWithAuthor, type SavedTargetType } from "@apartment-book/shared";
+import { addComment, deleteComment, listComments, timeAgo, type PostCommentWithAuthor, type PostTargetType } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { colors, radius } from "@/lib/theme";
 import { Avatar } from "./avatar";
 
 /** Comment thread + input for detail screens. Pass `autoFocus` to jump straight into typing. */
-export function Comments({ targetType, targetId, ownerId, autoFocus, onCountChange }: { targetType: SavedTargetType; targetId: string; ownerId: string; autoFocus?: boolean; onCountChange?: (delta: number) => void }) {
+export function Comments({ targetType, targetId, ownerId, autoFocus, onCountChange }: { targetType: PostTargetType; targetId: string; ownerId: string; autoFocus?: boolean; onCountChange?: (delta: number) => void }) {
   const { user, profile } = useSession();
   const router = useRouter();
   const [comments, setComments] = useState<PostCommentWithAuthor[] | null>(null);

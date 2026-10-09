@@ -8,7 +8,7 @@ export type PickedVideo = ImagePicker.ImagePickerAsset;
 export async function pickVideo(source: "library" | "camera"): Promise<PickedVideo | null> {
   if (source === "camera") {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) throw new Error("Allow camera access in Settings to film a tour.");
+    if (!perm.granted) throw new Error("Allow camera access in Settings to film a video.");
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["videos"], videoMaxDuration: 180, videoQuality: ImagePicker.UIImagePickerControllerQualityType.High });
     return result.canceled ? null : result.assets[0];
   }

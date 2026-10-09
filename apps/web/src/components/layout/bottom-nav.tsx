@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_TABS } from "./nav-tabs";
 import { UnreadBadge } from "./unread-badge";
@@ -12,15 +11,8 @@ export function BottomNav({ unread, userId }: { unread: number; userId: string |
   // Hide the bar inside an open chat so the composer has the full screen.
   if (/^\/messages\/[^/]+$/.test(pathname) && pathname !== "/messages/new") return null;
 
-  const tabs = [
-    ...NAV_TABS,
-    {
-      href: userId ? "/profile/me" : "/login",
-      label: userId ? "Profile" : "Log in",
-      icon: User,
-      match: (p: string) => p.startsWith("/profile") || p.startsWith("/settings") || p === "/login",
-    },
-  ];
+  // Profile lives in the header (avatar menu) so the bar stays at four tabs: Home, Housing, Marketplace, Messages.
+  const tabs = NAV_TABS;
 
   return (
     <nav
@@ -35,7 +27,7 @@ export function BottomNav({ unread, userId }: { unread: number; userId: string |
             key={tab.href}
             href={tab.href}
             className={cn(
-              "flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium",
+              "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium",
               active ? "text-brand-600" : "text-gray-500",
             )}
             aria-current={active ? "page" : undefined}

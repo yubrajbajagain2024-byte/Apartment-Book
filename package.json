@@ -15,14 +15,19 @@
     "typecheck": "turbo run typecheck",
     "db:setup": "node scripts/supabase-setup.mjs",
     "db:check": "node scripts/e2e-check.mjs",
-    "check": "turbo run typecheck lint build"
+    "check": "turbo run typecheck lint build",
+    "db:test": "node supabase/tests/home-feed.test.mjs && node supabase/tests/buzz-reply-votes.test.mjs",
+    "test:shared": "node --test \"packages/shared/tests/*.test.mjs\""
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.18"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite-postgis": "^0.2.8",
     "dotenv": "^17.4.2",
     "pg": "^8.23.0",
+    "playwright": "^1.63.0",
     "turbo": "^2.10.12"
   },
   "packageManager": "npm@10.9.3"

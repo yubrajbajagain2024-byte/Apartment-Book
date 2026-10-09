@@ -781,6 +781,63 @@ export type Database = {
           },
         ];
       };
+      feed_posts: {
+        Row: {
+          id: string;
+          author_id: string;
+          university_id: string | null;
+          kind: string;
+          body: string;
+          images: string[];
+          image_meta: Json;
+          videos: Json;
+          has_video: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          author_id: string;
+          university_id?: string | null;
+          kind?: string;
+          body?: string;
+          images?: string[];
+          image_meta?: Json;
+          videos?: Json;
+          has_video?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          author_id?: string;
+          university_id?: string | null;
+          kind?: string;
+          body?: string;
+          images?: string[];
+          image_meta?: Json;
+          videos?: Json;
+          has_video?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "feed_posts_author_id_fkey";
+            columns: ["author_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "feed_posts_university_id_fkey";
+            columns: ["university_id"];
+            isOneToOne: false;
+            referencedRelation: "universities";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       notifications: {
         Row: {
           id: string;
@@ -916,6 +973,99 @@ export type Database = {
       };
       delete_my_account: {
         Args: Record<string, never>;
+        Returns: undefined;
+      };
+      reels_feed: {
+        Args: { p_university_id?: string | null; p_limit?: number; p_offset?: number };
+        Returns: {
+          source_type: string;
+          source_id: string;
+          author_id: string;
+          author_name: string;
+          author_avatar_url: string | null;
+          author_verified: boolean;
+          title: string | null;
+          caption: string;
+          video: Json;
+          created_at: string;
+          likes: number;
+          comments: number;
+          liked_by_me: boolean;
+          saved_by_me: boolean;
+        }[];
+      };
+      buzz_feed: {
+        Args: { p_university_id?: string | null; p_topic?: string | null; p_sort?: string; p_limit?: number; p_offset?: number; p_q?: string | null };
+        Returns: {
+          id: string;
+          topic: string;
+          title: string;
+          body: string;
+          images: string[];
+          image_meta: Json;
+          videos: Json;
+          university_id: string | null;
+          score: number;
+          comment_count: number;
+          created_at: string;
+          my_vote: number;
+          is_mine: boolean;
+          alias: string;
+        }[];
+      };
+      buzz_get: {
+        Args: { p_id: string };
+        Returns: {
+          id: string;
+          topic: string;
+          title: string;
+          body: string;
+          images: string[];
+          image_meta: Json;
+          videos: Json;
+          university_id: string | null;
+          score: number;
+          comment_count: number;
+          created_at: string;
+          my_vote: number;
+          is_mine: boolean;
+          alias: string;
+        }[];
+      };
+      buzz_comments_list: {
+        Args: { p_post_id: string };
+        Returns: { id: string; parent_id: string | null; body: string; created_at: string; alias: string; is_op: boolean; is_mine: boolean; score: number; my_vote: number }[];
+      };
+      buzz_create: {
+        Args: { p_topic: string; p_title: string; p_body?: string; p_university_id?: string | null; p_images?: string[]; p_image_meta?: Json; p_videos?: Json };
+        Returns: string;
+      };
+      buzz_reply: {
+        Args: { p_post_id: string; p_body: string; p_parent_id?: string | null };
+        Returns: string;
+      };
+      buzz_unmute: {
+        Args: { p_post_id: string };
+        Returns: undefined;
+      };
+      buzz_delete: {
+        Args: { p_id: string };
+        Returns: undefined;
+      };
+      buzz_comment_vote: {
+        Args: { p_comment_id: string; p_value: number };
+        Returns: { score: number; my_vote: number }[];
+      };
+      buzz_vote: {
+        Args: { p_post_id: string; p_value: number };
+        Returns: { score: number; my_vote: number }[];
+      };
+      buzz_delete_comment: {
+        Args: { p_comment_id: string };
+        Returns: undefined;
+      };
+      buzz_mute: {
+        Args: { p_post_id?: string | null; p_comment_id?: string | null };
         Returns: undefined;
       };
       touch_presence: {

@@ -9,14 +9,15 @@ import { colors, radius } from "@/lib/theme";
 import { useActionSheet } from "./action-sheet";
 
 /** Photo (and optional video-tour) picker with immediate uploads; hands back URLs + meta for the form. */
-export function MediaPicker({ kind, userId, photos, onPhotos, video, onVideo, videoFirst }: { kind: UploadKind; userId: string; photos: PhotoMeta[]; onPhotos: (p: PhotoMeta[]) => void; video?: ListingVideo | null; onVideo?: (v: ListingVideo | null) => void; videoFirst?: boolean }) {
+/** `plain` = wording for Home posts (no "tour" talk). `maxPhotos` defaults to the listing limit. */
+export function MediaPicker({ kind, userId, photos, onPhotos, video, onVideo, videoFirst, plain = false, maxPhotos = MAX_IMAGES_PER_LISTING }: { kind: UploadKind; userId: string; photos: PhotoMeta[]; onPhotos: (p: PhotoMeta[]) => void; video?: ListingVideo | null; onVideo?: (v: ListingVideo | null) => void; videoFirst?: boolean; plain?: boolean; maxPhotos?: number }) {
   const show = useActionSheet();
   const [uploading, setUploading] = useState(0);
   const [videoState, setVideoState] = useState<{ phase: "uploading" | "processing"; progress: number } | null>(null);
 
   async function addPhotos(fromCamera: boolean) {
     try {
-      const assets = fromCamera ? [await takePhoto()].filter((a): a is NonNullable<typeof a> => a !== null) : await pickPhotos(MAX_IMAGES_PER_LISTING - photos.length);
+      const assets = fromCamera ? [await takePhoto()].filter((a): a is NonNullable<typeof a> => a !== null) : await pickPhotos(maxPhotos - photos.length);
       if (assets.length === 0) return;
       setUploading((n) => n + assets.length);
       const uploaded: PhotoMeta[] = [];
@@ -50,7 +51,7 @@ export function MediaPicker({ kind, userId, photos, onPhotos, video, onVideo, vi
   }
 
   const pickPhotoSource = () => show([{ label: "Take a photo", icon: "camera-outline", onPress: () => void addPhotos(true) }, { label: "Choose from library", icon: "images-outline", onPress: () => void addPhotos(false) }]);
-  const pickVideoSource = () => show([{ label: "Film a tour now", icon: "videocam-outline", onPress: () => void addVideo("camera") }, { label: "Choose a video", icon: "film-outline", onPress: () => void addVideo("library") }]);
+  const pickVideoSource = () => show([{ label: plain ? "Film now" : "Film a tour now", icon: "videocam-outline", onPress: () => void addVideo("camera") }, { label: "Choose a video", icon: "film-outline", onPress: () => void addVideo("library") }]);
 
   return (
     <View style={{ gap: 10 }}>
@@ -59,7 +60,7 @@ export function MediaPicker({ kind, userId, photos, onPhotos, video, onVideo, vi
           {video ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               {video.poster_url ? <Image source={{ uri: video.poster_url }} style={{ width: 64, height: 80, borderRadius: 8 }} contentFit="cover" /> : null}
-              <Text style={{ flex: 1, fontWeight: "600", color: colors.text }}>Video tour ready</Text>
+              <Text style={{ flex: 1, fontWeight: "600", color: colors.text }}>{plain ? "Video ready" : "Video tour ready"}</Text>
               <Pressable onPress={() => onVideo(null)} accessibilityRole="button" accessibilityLabel="Remove video">
                 <Ionicons name="close-circle" size={22} color={colors.muted} />
               </Pressable>
@@ -72,20 +73,20 @@ export function MediaPicker({ kind, userId, photos, onPhotos, video, onVideo, vi
               </View>
             </View>
           ) : (
-            <Pressable onPress={pickVideoSource} style={{ flexDirection: "row", alignItems: "center", gap: 10 }} accessibilityRole="button" accessibilityLabel="Add a video tour">
+            <Pressable onPress={pickVideoSource} style={{ flexDirection: "row", alignItems: "center", gap: 10 }} accessibilityRole="button" accessibilityLabel={plain ? "Add a video" : "Add a video tour"}>
               <View style={styles.iconCircle}>
                 <Ionicons name="videocam" size={20} color="#fff" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: "700", color: colors.text }}>{videoFirst ? "Start with a video tour" : "Add a video (optional)"}</Text>
-                <Text style={{ fontSize: 12, color: colors.muted }}>Posts with a video rank higher and get more messages.</Text>
+                <Text style={{ fontSize: 12, color: colors.muted }}>{plain ? "Film now or choose one from your library." : "Posts with a video rank higher and get more messages."}</Text>
               </View>
             </Pressable>
           )}
         </View>
       ) : null}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-        <Pressable onPress={pickPhotoSource} style={styles.addTile} accessibilityRole="button" accessibilityLabel="Add photos" disabled={photos.length >= MAX_IMAGES_PER_LISTING}>
+        <Pressable onPress={pickPhotoSource} style={styles.addTile} accessibilityRole="button" accessibilityLabel="Add photos" disabled={photos.length >= maxPhotos}>
           <Ionicons name="add" size={24} color={colors.brand} />
           <Text style={{ fontSize: 11, color: colors.brand, fontWeight: "600" }}>{uploading > 0 ? `Uploading ${uploading}…` : "Add photos"}</Text>
         </Pressable>

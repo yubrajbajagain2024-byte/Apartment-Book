@@ -47,7 +47,7 @@ export default async function SearchPage({
         <section className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Apartments ({apartments.count})</h2>
-            <Link href={`/?q=${encoded}&university=all`} className="text-sm font-medium text-brand-600 hover:underline">
+            <Link href={`/apartments?q=${encoded}&university=all`} className="text-sm font-medium text-brand-600 hover:underline">
               See all
             </Link>
           </div>

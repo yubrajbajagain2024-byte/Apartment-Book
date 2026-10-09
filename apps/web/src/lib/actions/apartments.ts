@@ -35,6 +35,7 @@ export async function createApartmentAction(_prev: FormState, formData: FormData
     return { error: errorMessage(error), values: formValues(formData) };
   }
 
+  revalidatePath("/apartments");
   revalidatePath("/");
   redirect(`/apartments/${id}?posted=${parsed.data.videos.length > 0 ? "video" : "photo"}`);
 }
@@ -55,6 +56,7 @@ export async function updateApartmentAction(id: string, _prev: FormState, formDa
     return { error: errorMessage(error), values: formValues(formData) };
   }
 
+  revalidatePath("/apartments");
   revalidatePath("/");
   revalidatePath(`/apartments/${id}`);
   redirect(`/apartments/${id}`);
@@ -64,6 +66,7 @@ export async function setApartmentStatusAction(id: string, status: ListingStatus
   await requireUser(`/apartments/${id}`);
   const supabase = await createClient();
   await setApartmentStatus(supabase, id, status);
+  revalidatePath("/apartments");
   revalidatePath("/");
   revalidatePath(`/apartments/${id}`);
 }
@@ -72,6 +75,7 @@ export async function deleteApartmentAction(id: string): Promise<void> {
   await requireUser(`/apartments/${id}`);
   const supabase = await createClient();
   await deleteApartment(supabase, id);
+  revalidatePath("/apartments");
   revalidatePath("/");
   redirect("/profile/me");
 }

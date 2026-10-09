@@ -2,23 +2,24 @@ import { useState } from "react";
 import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { getOrCreateDirectConversation, reportContent, timeAgo, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType, REPORT_REASONS } from "@apartment-book/shared";
+import { getOrCreateDirectConversation, reportContent, timeAgo, type FeedMedia, type PostEngagement, type ReportReason, type PostTargetType, REPORT_REASONS } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { colors, radius } from "@/lib/theme";
+import { colors } from "@/lib/theme";
 import { useActionSheet } from "./action-sheet";
 import { Avatar } from "./avatar";
 import { EngagementBar, EngagementSummary, useLike, useSave } from "./engagement";
 import { PhotoCarousel } from "./photo-carousel";
 
 export type PostCardProps = {
-  targetType: SavedTargetType;
+  targetType: PostTargetType;
   targetId: string;
   /** Web path, e.g. /roommates/abc, used for sharing and for opening the detail screen. */
   path: string;
   poster: { id: string; name: string; avatarUrl: string | null; verified: boolean };
   subtitle?: string;
-  title: string;
+  /** Listings have a title; Home-feed posts do not. */
+  title?: string;
   lead?: string;
   description?: string | null;
   media: FeedMedia[];
@@ -31,8 +32,16 @@ export type PostCardProps = {
 };
 
 const LIMIT = 140;
+/** The grey band between two full-width cards in a feed. */
+export const FEED_GAP = 8;
+/** Side padding for a feed's header (search, chips, composer): the cards themselves have none. */
+export const FEED_HEADER_PADDING = 12;
 
-/** Facebook-style post: header → title/description → media → counts → Like / Comment / Message. */
+/**
+ * Facebook-style post: header → title/description → media → counts → Like / Comment / Message.
+ * The card has no side margins and no rounded corners: it spans the whole screen so photos and videos touch both edges.
+ * Feeds separate cards with an 8px grey band (FEED_GAP) and must not add horizontal padding around them.
+ */
 export function PostCard(props: PostCardProps) {
   const { poster, title, lead, description, media, createdAt, path } = props;
   const router = useRouter();
@@ -53,7 +62,7 @@ export function PostCard(props: PostCardProps) {
     if (own) return router.push("/(tabs)/messages");
     try {
       const id = await getOrCreateDirectConversation(supabase, poster.id);
-      router.push({ pathname: "/messages/[id]", params: { id, prefill: `Hi ${poster.name.split(" ")[0]}! I saw your post "${title}" and I'd like to chat.`, targetType: props.targetType, targetId: props.targetId } });
+      router.push({ pathname: "/messages/[id]", params: { id, prefill: title ? `Hi ${poster.name.split(" ")[0]}! I saw your post "${title}" and I'd like to chat.` : `Hi ${poster.name.split(" ")[0]}! I saw your post and I'd like to chat.`, ...(props.targetType === "post" ? {} : { targetType: props.targetType, targetId: props.targetId }) } });
     } catch (e) {
       alert(e instanceof Error ? e.message : "Could not open the chat");
     }
@@ -76,13 +85,13 @@ export function PostCard(props: PostCardProps) {
   function menu() {
     show([
       { label: save.saved ? "Unsave post" : "Save post", icon: save.saved ? "bookmark" : "bookmark-outline", onPress: () => void save.toggle() },
-      { label: "Share post", icon: "share-outline", onPress: () => void Share.share({ message: `${title} · ${SITE_URL}${path}`, url: `${SITE_URL}${path}` }) },
+      { label: "Share post", icon: "share-outline", onPress: () => void Share.share({ message: `${title ?? "Apartment Book"} · ${SITE_URL}${path}`, url: `${SITE_URL}${path}` }) },
       ...(own ? [] : [{ label: "Report post", icon: "flag-outline" as const, destructive: true, onPress: report }]),
     ]);
   }
 
   return (
-    <View style={styles.card} accessibilityLabel={`Post: ${title}`}>
+    <View style={styles.card} accessibilityLabel={`Post: ${title ?? description?.slice(0, 40) ?? "post"}`}>
       <View style={styles.header}>
         <Pressable onPress={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })}>
           <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.id} />
@@ -105,7 +114,7 @@ export function PostCard(props: PostCardProps) {
       </View>
 
       <Pressable onPress={() => openDetail()} style={styles.body}>
-        <Text style={styles.title}>{title}</Text>
+        {title ? <Text style={styles.title}>{title}</Text> : null}
         {lead ? <Text style={styles.lead}>{lead}</Text> : null}
         {text ? (
           <Text style={styles.description}>
@@ -120,7 +129,7 @@ export function PostCard(props: PostCardProps) {
         {props.details ? <View style={styles.details}>{props.details}</View> : null}
       </Pressable>
 
-      {media.length > 0 ? <PhotoCarousel media={media} onPress={() => openDetail()} active={props.active} /> : null}
+      {media.length > 0 ? <PhotoCarousel media={media} onPress={() => openDetail()} active={props.active} videoLabel={props.targetType === "post" ? null : undefined} /> : null}
       <EngagementSummary likes={like.likes} comments={props.engagement?.comments ?? 0} onComments={() => openDetail(true)} />
       <EngagementBar liked={like.liked} likes={like.likes} onLike={() => void like.toggle()} onComment={() => openDetail(true)} onMessage={() => void message()} messageLabel={own ? "Inbox" : "Message"} />
     </View>
@@ -128,7 +137,7 @@ export function PostCard(props: PostCardProps) {
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.card, borderRadius: radius.lg, overflow: "hidden" },
+  card: { width: "100%", backgroundColor: colors.card },
   header: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, paddingBottom: 6 },
   name: { fontSize: 15, fontWeight: "700", color: colors.text, flexShrink: 1 },
   meta: { fontSize: 12, color: colors.muted },

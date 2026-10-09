@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { FlatList, RefreshControl, Text, View } from "react-native";
 import { budgetLabel, formatDate, formatDistance, isVerifiedPoster, listRoommatePosts, listingMedia, type RoommatePostWithAuthor } from "@apartment-book/shared";
-import { Fab, FeedHeader } from "@/components/feed-header";
+import { FeedHeader } from "@/components/feed-header";
 import { OnlineStrip } from "@/components/online-strip";
-import { PostCard } from "@/components/post-card";
+import { FEED_GAP, FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
 import { Badge, Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { useEngagement } from "./index";
+import { useEngagement } from "@/lib/use-engagement";
 
-export default function RoommatesScreen() {
+/** The Roommates half of the Housing tab: search, filters, who is online and the posts feed. The Housing screen owns the "+" button. */
+export function RoommatesSection() {
   const { user, profile } = useSession();
   const [q, setQ] = useState("");
   const [type, setType] = useState<"has_room" | "needs_room" | undefined>();
@@ -24,9 +25,9 @@ export default function RoommatesScreen() {
       <FlatList
         data={feed.items}
         keyExtractor={(p) => p.id}
-        contentContainerStyle={{ padding: 12, gap: 12, paddingBottom: 90 }}
+        contentContainerStyle={{ gap: FEED_GAP, paddingBottom: 90 }}
         ListHeaderComponent={
-          <View style={{ gap: 12 }}>
+          <View style={{ gap: 12, paddingHorizontal: FEED_HEADER_PADDING, paddingTop: FEED_HEADER_PADDING, paddingBottom: 4 }}>
             <FeedHeader placeholder="Search roommate posts" value={q} onChange={setQ}>
               <Chip label="Has a room" active={type === "has_room"} onPress={() => setType(type === "has_room" ? undefined : "has_room")} />
               <Chip label="Looking for a room" active={type === "needs_room"} onPress={() => setType(type === "needs_room" ? undefined : "needs_room")} />
@@ -61,12 +62,11 @@ export default function RoommatesScreen() {
             />
           );
         }}
-        ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <ErrorBanner message={feed.error} onRetry={feed.refresh} /> : <EmptyState icon="people-outline" title="No roommate posts yet" body="Be the first to post for your campus." />}
+        ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon="people-outline" title="No roommate posts yet" body="Be the first to post for your campus." />}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
         refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} />}
       />
-      <Fab href="/create/roommate" label="Create roommate post" />
     </View>
   );
 }

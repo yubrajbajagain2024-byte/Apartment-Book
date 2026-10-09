@@ -1,8 +1,10 @@
-# Signed-out tour: the three feeds and the Profile tab's sign-in prompt.
+# Signed-out tour: Home (For you | Buzz | Posts | Reels: opens on For you, the pager swipes between them), Housing
+# (Apartments | Roommates: opens on Apartments, same pager), Marketplace, Messages, and the profile sign-in prompt behind
+# the header avatar. Needs the seeded sample posts (node e2e/sim-seed.mjs).
 appId: host.exp.Exponent
 ---
 - extendedWaitUntil:
-    visible: "Continue|Search apartments"
+    visible: "Continue|Posts"
     timeout: 120000
 - runFlow:
     when:
@@ -15,14 +17,64 @@ appId: host.exp.Exponent
     commands:
       - tapOn: "Close"
 - extendedWaitUntil:
-    visible: "Search apartments"
+    visible: "Create"
     timeout: 60000
-- takeScreenshot: e2e/screenshots/01-home
-- tapOn: "Roommates.*"
+# Expo Go's floating developer gear sits on top of the header avatar: drag it out of the way (not present in real builds).
+- swipe:
+    start: "88%,10%"
+    end: "12%,62%"
+    duration: 800
+- assertVisible: "For you"
+- assertVisible: "Buzz"
+- assertVisible: "Posts"
+- assertVisible: "Reels"
+- takeScreenshot: e2e/screenshots/01-home-foryou
+# The four pages sit side by side in a pager: a flick to the left slides from For you to Buzz. The flick starts on the
+# seeded Buzz row (centred first), because a photo carousel keeps horizontal swipes for itself (04-posts-look relies on that).
+- scrollUntilVisible:
+    element: ".*Landlord wants to keep my whole deposit.*"
+    direction: DOWN
+    centerElement: true
+- swipe:
+    start: "85%,50%"
+    end: "15%,50%"
+    duration: 400
+- waitForAnimationToEnd
+- assertVisible: "Search Buzz"
+- tapOn: "Posts"
+- waitForAnimationToEnd
+- takeScreenshot: e2e/screenshots/01-home-posts
+- tapOn: "Buzz"
+- waitForAnimationToEnd
+- assertVisible: "Search Buzz"
+- assertVisible: "Post anonymously on Buzz"
+- takeScreenshot: e2e/screenshots/01-home-buzz
+- tapOn: "Reels"
+- waitForAnimationToEnd
+- takeScreenshot: e2e/screenshots/01-home-reels
+- tapOn: "Posts"
+- extendedWaitUntil:
+    visible: "Create"
+    timeout: 30000
+# Housing: the bottom tab opens on Apartments; the "Roommates" label above the pager slides to the other half and a
+# flick to the right brings Apartments back. The floating "+" follows the visible half.
+- tapOn: "Housing.*"
+- extendedWaitUntil:
+    visible: "Search apartments"
+    timeout: 30000
+- takeScreenshot: e2e/screenshots/04-apartments
+- tapOn: "Roommates"
 - extendedWaitUntil:
     visible: "Search roommate posts"
     timeout: 30000
 - takeScreenshot: e2e/screenshots/02-roommates
+# Flick on the chip row: lower down a card's photo carousel would keep the swipe for itself.
+- swipe:
+    start: "15%,25%"
+    end: "85%,25%"
+    duration: 400
+- waitForAnimationToEnd
+- assertVisible: "Search apartments"
 - tapOn: "Marketplace.*"
 - extendedWaitUntil:
     visible: "Search mattresses.*"
@@ -30,9 +82,9 @@ appId: host.exp.Exponent
 - takeScreenshot: e2e/screenshots/03-marketplace
 - tapOn: "Messages.*"
 - assertVisible: "Log in to see your messages"
-- tapOn: "Profile.*"
+- tapOn: "Profile"
 - assertVisible: "Join Apartment Book"
-- takeScreenshot: e2e/screenshots/04-profile-signed-out
+- takeScreenshot: e2e/screenshots/05-profile-signed-out
 - tapOn: "Create account"
 - assertVisible: "Create your account"
-- takeScreenshot: e2e/screenshots/05-signup
+- takeScreenshot: e2e/screenshots/06-signup
