@@ -1,6 +1,6 @@
 # Apartment Book
 
-A website and app for university students to **find apartments near campus**, **find roommates**, **buy and sell move-in essentials** (mattresses, desks, kitchen gear…), **message each other** in private or group chats, and **share posts, reels and anonymous Buzz threads** on Home. The layout follows the Facebook pattern: a top bar with four tabs (Home, Housing, Marketplace, Messages), a create menu and a profile menu; on phones the tabs move to a bottom bar. Home itself has TikTok-style top tabs, see [Home feed](#home-feed); Housing holds Apartments and Roommates side by side, see [Housing](#housing).
+A website and app for university students to **find apartments near campus**, **find roommates**, **buy and sell move-in essentials** (mattresses, desks, kitchen gear…), **message each other** in private or group chats, and **share posts, reels and anonymous Buzz threads** on Home. The layout follows the Facebook pattern: a top bar with four tabs (Home, Housing, Marketplace, Messages) plus the search box, a create menu and a profile menu; on phones the bar is Home, Housing, Marketplace, Profile at the bottom of the screen with Messages in the header, like the app, where Search and Messages are the two icons in the top-right corner of every tab, TikTok style. Search finds people by name first (with a Follow button on every result), then apartments, roommates and items. Home itself has TikTok-style top tabs, see [Home feed](#home-feed); Housing holds Apartments and Roommates side by side, see [Housing](#housing).
 
 Built with **Next.js 16 + TypeScript + Tailwind** on top of **Supabase** (Postgres, auth, realtime chat, image storage). The backend is a hosted service that iOS/Android apps can talk to directly, and all data-access code lives in a shared package, so the future mobile app reuses everything except the screens.
 
@@ -34,7 +34,7 @@ A `notifications` table that only its recipient can read, mark or delete; rows a
 
 ## Home feed
 
-Home has four tabs in TikTok's layout, left to right: **For you | Buzz | Posts | Reels**. They are swipeable: in the app the four pages sit side by side in a pager, and on the website a sideways touch swipe across the section body moves to the neighbouring tab (touch screens only; a multi-photo carousel keeps its own swipes). For you is the landing tab and keeps the clean `/` address, the others live at `/?tab=buzz`, `/?tab=posts` and `/?tab=reels`. The order and the addresses come from `HOME_SECTIONS` and `homeSectionHref` in `packages/shared/src/constants.ts`, so the website and the app always agree.
+Home has four tabs in TikTok's layout, left to right: **For you | Buzz | Posts | Reels**. They are swipeable: in the app the four pages sit side by side in a pager, and on the website a sideways touch swipe across the section body moves to the neighbouring tab (touch screens only; a multi-photo carousel keeps its own swipes). In the app the labels sit in a floating top bar over the feed, with the "+" (create) on its left and the Search and Messages icons on its right: the same two icons every other tab shows in the top-right corner of its header, like TikTok, while the bottom bar reads Home, Housing, Marketplace, Profile. For you is the landing tab and keeps the clean `/` address, the others live at `/?tab=buzz`, `/?tab=posts` and `/?tab=reels`. The order and the addresses come from `HOME_SECTIONS` and `homeSectionHref` in `packages/shared/src/constants.ts`, so the website and the app always agree.
 
 | Tab | What it shows |
 | --- | --- |
@@ -49,7 +49,7 @@ Checks for the Home feed:
 | --- | --- |
 | The For you blend, the Home and Housing tab order and addresses (unit tests, no network, Node 22.18+) | `npm run test:shared` |
 | Migrations, row-level security, the `buzz_*` functions and following (`supabase/tests/follows.test.mjs`: the `follows` policies, `follow_stats`, `following_posts`, the follow notification, blocking, account deletion), offline in PGlite | `npm run db:test` |
-| The website's Home and Housing on a desktop and a phone viewport, swipes and following (the Follow button on a profile, the follower list, Posts → Following) included (Playwright) | seed data with `SUPABASE_ACCESS_TOKEN=sbp_… node apps/mobile/e2e/sim-seed.mjs`, start the site (`npm run dev -w web -- -p 3060`), then `BASE=http://localhost:3060 node apps/web/e2e/home-feed.mjs` (add `PLAYWRIGHT_CHANNEL=chrome` to use the installed Chrome instead of downloading Playwright's browser) |
+| The website's Home and Housing on a desktop and a phone viewport, the top bar and the phone bottom bar, swipes and following (the Follow button on a profile, the follower list, Posts → Following) included (Playwright) | seed data with `SUPABASE_ACCESS_TOKEN=sbp_… node apps/mobile/e2e/sim-seed.mjs`, start the site (`npm run dev -w web -- -p 3060`), then `BASE=http://localhost:3060 node apps/web/e2e/home-feed.mjs` (add `PLAYWRIGHT_CHANNEL=chrome` to use the installed Chrome instead of downloading Playwright's browser) |
 | The app in the iOS Simulator (Maestro) | the flows in `apps/mobile/e2e/flows/`: `e2e/run.sh e2e/flows/00-signed-out.yaml` from `apps/mobile`, with the same seeded data (see `apps/mobile/README.md`) |
 
 ## Housing
@@ -105,9 +105,9 @@ apartment-book/
 │  │  ├─ src/lib/actions/     # server actions (create/edit/delete, auth, chat)
 │  │  ├─ src/lib/supabase/    # Supabase clients for browser and server
 │  │  ├─ src/proxy.ts         # auth guard: refreshes sessions, protects private routes
-│  │  └─ e2e/                 # home-feed.mjs: Playwright check of Home and Housing on a desktop and a phone viewport
+│  │  └─ e2e/                 # home-feed.mjs: Playwright check of the navigation, Home and Housing on a desktop and a phone viewport
 │  └─ mobile/                 # Expo app for iOS and Android (see apps/mobile/README.md)
-│     ├─ src/app/(tabs)/      # bottom tabs: index.tsx (Home), housing.tsx (Apartments | Roommates), marketplace, messages; profile behind the avatar
+│     ├─ src/app/(tabs)/      # bottom tabs: index.tsx (Home), housing.tsx (Apartments | Roommates), marketplace, profile; Search and Messages open from the two top-right icons
 │     ├─ src/components/      # UI: home (the Home pager), housing (the Housing pager), post cards, carousels, forms…
 │     └─ e2e/                 # Maestro flows (flows/*.yaml), sim-seed.mjs test data, run.sh
 ├─ packages/

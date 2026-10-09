@@ -11,7 +11,7 @@ export function FeedHeader({ placeholder, value, onChange, children }: { placeho
     <View style={{ gap: 8 }}>
       <View style={styles.search}>
         <Ionicons name="search" size={18} color={colors.muted} />
-        <TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={colors.faint} returnKeyType="search" clearButtonMode="while-editing" style={styles.input} accessibilityLabel="Search" />
+        <TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={colors.faint} returnKeyType="search" clearButtonMode="while-editing" style={styles.input} accessibilityLabel={placeholder} />
       </View>
       {children ? <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{children}</View> : null}
     </View>

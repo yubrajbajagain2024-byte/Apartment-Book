@@ -1,6 +1,7 @@
-# Signed-out tour: Home (For you | Buzz | Posts | Reels: opens on For you, the pager swipes between them), Housing
-# (Apartments | Roommates: opens on Apartments, same pager), Marketplace, Messages, and the profile sign-in prompt behind
-# the header avatar. Needs the seeded sample posts (node e2e/sim-seed.mjs).
+# Signed-out tour: Home (For you | Buzz | Posts | Reels: opens on For you, the pager swipes between them), Search and Messages
+# (the two icons in the top-right corner of every tab, like TikTok: Search lists people to follow, Messages asks to log in),
+# Housing (Apartments | Roommates: opens on Apartments, same pager), Marketplace, and the sign-in prompt on the Profile tab.
+# The bottom bar is Home, Housing, Marketplace, Profile. Needs the seeded sample posts (node e2e/sim-seed.mjs).
 appId: host.exp.Exponent
 ---
 - extendedWaitUntil:
@@ -19,7 +20,8 @@ appId: host.exp.Exponent
 - extendedWaitUntil:
     visible: "Create"
     timeout: 60000
-# Expo Go's floating developer gear sits on top of the header avatar: drag it out of the way (not present in real builds).
+# Expo Go's floating developer gear sits in the top-right corner, over the Search and Messages icons: drag it out of the way
+# (not present in real builds).
 - swipe:
     start: "88%,10%"
     end: "12%,62%"
@@ -56,6 +58,23 @@ appId: host.exp.Exponent
 - extendedWaitUntil:
     visible: "Create"
     timeout: 30000
+# Search: the magnifier in the top-right corner (on Home it sits in the floating top bar) opens the people search; signed out
+# the list still shows people to follow. "Search" is the icon's exact label; the feed boxes are named after their placeholders
+# ("Search apartments", "Search Buzz"...), so only the icon matches.
+- tapOn: "Search"
+- extendedWaitUntil:
+    visible: "Search people"
+    timeout: 30000
+- takeScreenshot: e2e/screenshots/07-search-people
+# Maestro's `back` only works on Android: on iOS the left-edge swipe pops the screen. 45% is above the keyboard the box opens.
+- swipe:
+    start: "2%,45%"
+    end: "90%,45%"
+    duration: 400
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Create"
+    timeout: 30000
 # Housing: the bottom tab opens on Apartments; the "Roommates" label above the pager slides to the other half and a
 # flick to the right brings Apartments back. The floating "+" follows the visible half.
 - tapOn: "Housing.*"
@@ -80,9 +99,20 @@ appId: host.exp.Exponent
     visible: "Search mattresses.*"
     timeout: 30000
 - takeScreenshot: e2e/screenshots/03-marketplace
-- tapOn: "Messages.*"
+# Messages: the inbox icon next to the magnifier (here in the Marketplace header) opens the chat list, a stack screen that
+# asks to log in when signed out; the edge swipe returns to the tab.
+- tapOn: "Messages"
 - assertVisible: "Log in to see your messages"
-- tapOn: "Profile"
+- swipe:
+    start: "2%,45%"
+    end: "90%,45%"
+    duration: 400
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Search mattresses.*"
+    timeout: 30000
+# Profile is the fourth bottom tab (the header avatar is gone); signed out it shows the sign-in prompt.
+- tapOn: "Profile.*"
 - assertVisible: "Join Apartment Book"
 - takeScreenshot: e2e/screenshots/05-profile-signed-out
 - tapOn: "Create account"

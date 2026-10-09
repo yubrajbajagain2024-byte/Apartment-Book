@@ -21,7 +21,9 @@ export default function LoginScreen() {
     const { error: err } = await supabase.auth.signInWithPassword(parsed.data);
     setBusy(false);
     if (err) return setError(err.message);
-    router.dismissTo("/(tabs)");
+    // Close only this modal: the screen underneath (a tab, the inbox, a search) re-renders signed in.
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)");
   }
 
   return (

@@ -1,16 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, BadgeCheck, UserPlus, Users } from "lucide-react";
-import { DEFAULT_PAGE_SIZE, getFollowStats, getFollowStatsMany, getProfile, isVerifiedPoster, listFollowers, listFollowing, NO_FOLLOW_STATS, type FollowListEntry, type FollowStats, type Paginated } from "@apartment-book/shared";
+import { ArrowLeft, UserPlus, Users } from "lucide-react";
+import { DEFAULT_PAGE_SIZE, getFollowStats, getFollowStatsMany, getProfile, listFollowers, listFollowing, NO_FOLLOW_STATS, type FollowListEntry, type FollowStats, type Paginated } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { numberParam } from "@/lib/utils";
-import { Avatar } from "@/components/ui/avatar";
 import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FollowButton } from "@/components/common/follow-button";
 import { FollowTabs, type FollowListKind } from "./follow-tabs";
+import { PersonRow } from "./person-row";
 
 type ListPageProps = { params: Promise<{ id: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> };
 
@@ -60,17 +59,7 @@ export async function FollowList({ profileId, profileName, kind, page }: { profi
           {result.data.length === 0 ? <p className="px-4 py-6 text-center text-sm text-gray-600">Nothing on this page.</p> : null}
           <ul className="divide-y divide-gray-100" data-testid="follow-list">
             {result.data.map(({ profile }) => (
-              <li key={profile.id} className="flex items-center gap-3 px-4 py-3" data-testid="follow-row">
-                {/* The avatar repeats the name's link, so it is skipped by keyboards and screen readers. */}
-                <Link href={`/profile/${profile.id}`} tabIndex={-1} aria-hidden="true" className="shrink-0">
-                  <Avatar name={profile.full_name} src={profile.avatar_url} />
-                </Link>
-                <Link href={`/profile/${profile.id}`} className="flex min-w-0 flex-1 items-center gap-1 text-sm font-semibold text-gray-900 hover:underline">
-                  <span className="truncate">{profile.full_name}</span>
-                  {isVerifiedPoster(profile) ? <BadgeCheck className="h-4 w-4 shrink-0 text-brand-600" aria-label="Verified student" /> : null}
-                </Link>
-                {profile.id === user?.id ? <span className="text-sm text-gray-500">You</span> : <FollowButton userId={profile.id} initial={rowStats[profile.id] ?? NO_FOLLOW_STATS} signedIn={Boolean(user)} size="sm" />}
-              </li>
+              <PersonRow key={profile.id} profile={profile} viewerId={user?.id ?? null} signedIn={Boolean(user)} stats={rowStats[profile.id]} testId="follow-row" />
             ))}
           </ul>
         </Card>

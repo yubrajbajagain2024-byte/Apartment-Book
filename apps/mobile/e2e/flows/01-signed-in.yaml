@@ -12,8 +12,8 @@ env:
     start: "88%,10%"
     end: "12%,62%"
     duration: 800
-# Log in through the header avatar (skipped when a session is already stored).
-- tapOn: "Profile"
+# Log in through the Profile tab in the bottom bar (skipped when a session is already stored).
+- tapOn: "Profile.*"
 - extendedWaitUntil:
     visible: "Join Apartment Book|.*Log out"
     timeout: 30000

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { getTotalUnread, markDeliveredAll } from "@apartment-book/shared";
 import { createClient, ensureRealtimeAuth, uniqueChannelName } from "@/lib/supabase/client";
 
-/** Red counter on the Messages tab. Refreshes when new messages arrive. */
+/** Red counter on the desktop Messages tab and the phone header's inbox icon. Refreshes when new messages arrive. */
 export function UnreadBadge({ initial, userId }: { initial: number; userId: string }) {
   const [count, setCount] = useState(initial);
   const [syncedInitial, setSyncedInitial] = useState(initial);
