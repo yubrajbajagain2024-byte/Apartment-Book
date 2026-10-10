@@ -30,8 +30,10 @@ moves to Roommates and back, and the floating "+" follows the visible half ("Lis
 "Create roommate post"). The order comes from `HOUSING_SECTIONS` in `packages/shared/src/constants.ts`.
 Profiles work like Instagram too: a Follow button (it reads "Following" once you follow), follower / following
 counts that open the two lists, and, signed in, a Following chip on the Posts page that keeps only the posts
-of people you follow. Comments can be liked, disliked (the score sits between the two thumbs) and replied to, with the
-answer nested under the comment, and a like on a post, a reel or a comment buzzes the phone through `expo-haptics`.
+of people you follow. Comments open in a TikTok-style sheet: "N comments" up top with a Top / Newest sort, each comment with
+a heart and its count (a dislike stays private), Reply, replies folded behind "View N replies", the composer pinned at the
+bottom, and a hold on a comment for Reply / Report / Block / Delete (your own comment, or any comment on your post); a like on a
+post, a reel or a comment buzzes the phone through `expo-haptics`.
 
 The Maestro flows in `e2e/flows/` check this in Expo Go on the booted iOS Simulator and save
 screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.dev) installed in
@@ -41,7 +43,7 @@ screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.de
 cd apps/mobile
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts; prints the login, writes e2e/.sim-state.json
 e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you, swipes to Buzz, opens Search from the top-right magnifier, Messages (bottom tab), Housing (Apartments, Roommates, swipe back), Marketplace, Profile (several flows at once is fine)
-EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # likes, comments (write, thumbs up, reply, delete), votes, replies and follows as the seeded account
+EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # likes, comments (write, heart, reply, delete from the hold menu), votes, replies and follows as the seeded account
 node e2e/sim-seed-thread.mjs                            # nested replies and votes for 03-buzz-thread.yaml
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards
 ```

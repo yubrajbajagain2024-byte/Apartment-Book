@@ -114,7 +114,7 @@ export async function voteComment(supabase: Client, commentId: string, value: -1
   const { data, error } = await supabase.rpc("post_comment_vote", { p_comment_id: commentId, p_value: value });
   if (error) throw error;
   const row = data?.[0];
-  return { score: Number(row?.score ?? 0), myVote: ((row?.my_vote ?? 0) > 0 ? 1 : (row?.my_vote ?? 0) < 0 ? -1 : 0) as -1 | 0 | 1 };
+  return { score: Number(row?.score ?? 0), likes: Number(row?.likes ?? 0), myVote: ((row?.my_vote ?? 0) > 0 ? 1 : (row?.my_vote ?? 0) < 0 ? -1 : 0) as -1 | 0 | 1 };
 }
 
 /** Replies that nest deeper than this stay at the same indent, so phones stay readable. */
@@ -125,7 +125,18 @@ export const COMMENT_MAX_DEPTH = 3;
  * order), with `depth`, `replyCount` (all descendants) and the viewer's vote. A reply whose parent is not in the list
  * (hidden by a block, say) is shown at the top level rather than dropped.
  */
-export function threadComments(comments: PostCommentWithAuthor[], myVotes: Record<string, -1 | 1> = {}): PostCommentNode[] {
+/** How the top-level comments are ordered. Replies always read oldest first, like a conversation. */
+export type CommentSort = "top" | "new";
+export const COMMENT_SORTS: { value: CommentSort; label: string }[] = [
+  { value: "top", label: "Top" },
+  { value: "new", label: "Newest" },
+];
+
+export function threadComments(comments: PostCommentWithAuthor[], myVotes: Record<string, -1 | 1> = {}, opts: { sort?: CommentSort } = {}): PostCommentNode[] {
+  const sort = opts.sort ?? "top";
+  const byTime = (a: PostCommentWithAuthor, b: PostCommentWithAuthor) => a.created_at.localeCompare(b.created_at);
+  // Top: most hearts first, ties oldest first. Newest: the latest comment first.
+  const topLevel = (a: PostCommentWithAuthor, b: PostCommentWithAuthor) => (sort === "new" ? -byTime(a, b) : b.likes - a.likes || byTime(a, b));
   const ids = new Set(comments.map((c) => c.id));
   const children = new Map<string | null, PostCommentWithAuthor[]>();
   for (const c of comments) {
@@ -137,7 +148,7 @@ export function threadComments(comments: PostCommentWithAuthor[], myVotes: Recor
   const countBelow = (id: string): number => (children.get(id) ?? []).reduce((n, c) => n + 1 + countBelow(c.id), 0);
   const out: PostCommentNode[] = [];
   const walk = (parent: string | null, depth: number) => {
-    for (const c of [...(children.get(parent) ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at))) {
+    for (const c of [...(children.get(parent) ?? [])].sort(depth === 0 ? topLevel : byTime)) {
       out.push({ ...c, depth: Math.min(depth, COMMENT_MAX_DEPTH), replyCount: countBelow(c.id), myVote: myVotes[c.id] ?? 0 });
       walk(c.id, depth + 1);
     }

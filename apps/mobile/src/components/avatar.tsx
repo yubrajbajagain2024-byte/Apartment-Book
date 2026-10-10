@@ -6,8 +6,9 @@ import { useIsOnline } from "@/lib/presence";
 
 const SIZES = { xs: 20, sm: 32, md: 40, lg: 56, xl: 96 } as const;
 
-export function Avatar({ name, url, size = "md", online, userId }: { name: string | null | undefined; url?: string | null; size?: keyof typeof SIZES; online?: boolean; userId?: string }) {
-  const px = SIZES[size];
+/** `size` is one of the named steps, or a number of points for the odd in-between size (comment avatars are 36 and 24). */
+export function Avatar({ name, url, size = "md", online, userId }: { name: string | null | undefined; url?: string | null; size?: keyof typeof SIZES | number; online?: boolean; userId?: string }) {
+  const px = typeof size === "number" ? size : SIZES[size];
   const presence = useIsOnline(userId);
   const showDot = online ?? presence;
   return (

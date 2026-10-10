@@ -249,28 +249,25 @@ function CommentsDrawer({
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Comments">
       <button type="button" aria-label="Close comments" onClick={onClose} className="absolute inset-0 h-full w-full cursor-default bg-black/40 md:bg-black/20" />
       <div className="ab-fade-in absolute inset-x-0 bottom-0 flex max-h-[75dvh] min-h-[50dvh] flex-col rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[400px] md:rounded-none md:rounded-l-2xl">
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-          <div className="min-w-0">
-            <h2 className="text-base font-bold text-gray-900">
-              Comments{reel.comments > 0 ? <span className="font-semibold text-gray-500"> · {reel.comments}</span> : null}
-            </h2>
-            <p className="truncate text-xs text-gray-500">
-              {reel.title ?? `Reel by ${reel.author.name}`}
-              {reel.sourceType !== "post" ? (
-                <>
-                  {" · "}
-                  <Link href={reelPath(reel)} className="font-semibold text-brand-700 hover:underline">
-                    View listing
-                  </Link>
-                </>
-              ) : null}
-            </p>
-          </div>
+        {/* The thread's own "N comments" line, which stays put under this bar while the comments scroll, is the title; this bar only says which reel and closes the sheet. */}
+        <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-2.5">
+          <p className="min-w-0 truncate text-xs text-gray-500">
+            {reel.title ?? `Reel by ${reel.author.name}`}
+            {reel.sourceType !== "post" ? (
+              <>
+                {" · "}
+                <Link href={reelPath(reel)} className="font-semibold text-brand-700 hover:underline">
+                  View listing
+                </Link>
+              </>
+            ) : null}
+          </p>
           <button type="button" onClick={onClose} aria-label="Close" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* A flex column, so a short thread still stretches and the composer sits at the bottom of the sheet. */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <CommentsSection
             targetType={reel.sourceType}
             targetId={reel.sourceId}
@@ -278,9 +275,9 @@ function CommentsDrawer({
             onCountChange={onCountChange}
             currentUser={currentUser}
             ownerId={reel.author.id}
-            className="border-t-0"
+            composer="bottom"
+            className="flex-1 border-t-0"
           />
-          {reel.comments === 0 ? <p className="px-4 pb-4 text-sm text-gray-500">No comments yet. Say something nice.</p> : null}
         </div>
       </div>
     </div>

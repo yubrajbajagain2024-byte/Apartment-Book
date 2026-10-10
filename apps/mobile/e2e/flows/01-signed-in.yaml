@@ -1,4 +1,4 @@
-# Signed-in tour of the new Home: like a post, comment on it (thumbs up, reply, delete), vote and reply anonymously in Buzz, watch a reel, reach the profile, follow Maya.
+# Signed-in tour of the new Home: like a post, comment on it (heart, reply, delete from the hold menu), vote and reply anonymously in Buzz, watch a reel, reach the profile, follow Maya.
 # Needs test data: SUPABASE_ACCESS_TOKEN=... node e2e/sim-seed.mjs   (then pass EMAIL and PASSWORD from its output)
 appId: host.exp.Exponent
 env:
@@ -73,7 +73,8 @@ env:
 - extendedWaitUntil:
     visible: "Unlike"
     timeout: 15000
-# The comment icon opens a sheet over the feed, like Instagram.
+# The comment icon opens a sheet over the feed, like Instagram. Inside, the thread looks like TikTok's: the count up top
+# ("No comments yet" on this post), the composer pinned at the bottom.
 - tapOn:
     text: "Comment"
     index: 0
@@ -81,9 +82,11 @@ env:
     visible: "No comments yet"
     timeout: 15000
 - takeScreenshot: e2e/screenshots/10b-posts-comments-sheet
-# Comment threads: write a comment, thumb it up (the score reads 1) and tap again to clear, answer it from "Reply" (the chip
-# reads "Replying to UI Sim"), then delete both so the flow can run again and again. Maestro reads text as a regex, hence the
-# escaped parentheses. The reply (the second "Delete comment" on the screen) goes first: deleting the parent would take it along.
+# Comment threads: write a comment, heart it (the count next to the heart reads "1 like") and tap the heart again to clear it,
+# answer it from "Reply" (the chip reads "Replying to UI Sim"; the header counts the reply too: "2 comments"), then delete both
+# so the flow can run again and again. Maestro reads text as a regex, hence the escaped parentheses and question mark.
+# A comment is deleted from its hold menu: long-press its text, "Delete", then "Delete" again in the "Delete this comment?"
+# alert. The reply goes first: deleting the parent would take it along.
 - tapOn: "Write a comment"
 - inputText: "Looks great (sim)"
 - tapOn: "Post comment"
@@ -92,9 +95,12 @@ env:
     timeout: 30000
 - tapOn: "Like comment"
 - extendedWaitUntil:
-    visible: "Score 1"
+    visible: "1 like"
     timeout: 15000
 - tapOn: "Like comment"
+- extendedWaitUntil:
+    notVisible: "1 like"
+    timeout: 15000
 - tapOn: "Reply"
 - assertVisible: "Replying to.*"
 - tapOn: "Write a comment"
@@ -103,14 +109,23 @@ env:
 - extendedWaitUntil:
     visible: ".*Thanks!.*"
     timeout: 30000
+- assertVisible: "2 comments"
 - takeScreenshot: e2e/screenshots/17-comment-thread
-- tapOn:
-    text: "Delete comment"
-    index: 1
+- longPressOn: ".*Thanks!.*"
+- tapOn: "Delete"
+- extendedWaitUntil:
+    visible: "Delete this comment\\?"
+    timeout: 15000
+- tapOn: "Delete"
 - extendedWaitUntil:
     notVisible: ".*Thanks!.*"
     timeout: 15000
-- tapOn: "Delete comment"
+- longPressOn: ".*Looks great \\(sim\\).*"
+- tapOn: "Delete"
+- extendedWaitUntil:
+    visible: "Delete this comment\\?"
+    timeout: 15000
+- tapOn: "Delete"
 - extendedWaitUntil:
     notVisible: ".*Looks great \\(sim\\).*"
     timeout: 15000

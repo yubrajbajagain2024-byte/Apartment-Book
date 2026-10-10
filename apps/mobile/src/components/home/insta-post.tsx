@@ -44,7 +44,7 @@ function frameAspect(media: FeedMedia[], reel: boolean): number {
 }
 
 /**
- * Instagram-style post: avatar and name → photo or video from edge to edge → heart, comment, share and bookmark →
+ * Instagram-style post: avatar and name → photo or video from edge to edge → slide dots → heart, comment, share and bookmark →
  * "Liked by …" → caption → comments → age. No card box and no grey band: posts simply follow each other.
  */
 export function InstaPost({ post, saved, engagement, preview, subtitle, active, detail, onComments, onDeleted, ...props }: InstaPostProps) {
@@ -206,28 +206,30 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
         </Pressable>
       ) : null}
 
-      <View style={styles.actions}>
+      {/* Instagram puts the slide dots on their own line under the photo, above the hearts. */}
+      {media.length > 1 ? (
+        <View style={styles.slideDots} accessibilityLabel={`${slide + 1} of ${media.length}`}>
+          {media.map((_, i) => (
+            <View key={i} style={[styles.slideDot, i === slide && styles.slideDotActive]} />
+          ))}
+        </View>
+      ) : null}
+
+      <View style={[styles.actions, media.length > 1 && { paddingTop: 6 }]}>
         <Pressable onPress={() => void like.toggle()} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel={like.liked ? "Unlike" : "Like"} accessibilityState={{ selected: like.liked }}>
-          <Ionicons name={like.liked ? "heart" : "heart-outline"} size={27} color={like.liked ? LIKE_RED : colors.text} />
+          <Ionicons name={like.liked ? "heart" : "heart-outline"} size={28} color={like.liked ? LIKE_RED : colors.text} />
           {like.likes > 0 ? <Text style={styles.count}>{compactCount(like.likes)}</Text> : null}
         </Pressable>
         <Pressable onPress={onComments} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel="Comment">
-          <Ionicons name="chatbubble-outline" size={24} color={colors.text} style={styles.flip} />
+          <Ionicons name="chatbubble-outline" size={26} color={colors.text} style={styles.flip} />
           {comments > 0 ? <Text style={styles.count}>{compactCount(comments)}</Text> : null}
         </Pressable>
         <Pressable onPress={share} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel="Share">
-          <Ionicons name="paper-plane-outline" size={24} color={colors.text} />
+          <Ionicons name="paper-plane-outline" size={26} color={colors.text} />
         </Pressable>
-        {media.length > 1 ? (
-          <View style={styles.slideDots} pointerEvents="none" accessibilityLabel={`${slide + 1} of ${media.length}`}>
-            {media.map((_, i) => (
-              <View key={i} style={[styles.slideDot, i === slide && styles.slideDotActive]} />
-            ))}
-          </View>
-        ) : null}
         <View style={{ flex: 1 }} />
         <Pressable onPress={() => void save.toggle()} hitSlop={6} accessibilityRole="button" accessibilityLabel={save.saved ? "Unsave" : "Save"} accessibilityState={{ selected: save.saved }}>
-          <Ionicons name={save.saved ? "bookmark" : "bookmark-outline"} size={25} color={colors.text} />
+          <Ionicons name={save.saved ? "bookmark" : "bookmark-outline"} size={26} color={colors.text} />
         </Pressable>
       </View>
 
@@ -294,13 +296,13 @@ const styles = StyleSheet.create({
   heart: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 2 } },
   textOnly: { paddingHorizontal: 12, paddingTop: 2, paddingBottom: 4 },
   textOnlyBody: { fontSize: 16, lineHeight: 22, color: colors.text },
-  actions: { flexDirection: "row", alignItems: "center", gap: 16, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6 },
-  action: { flexDirection: "row", alignItems: "center", gap: 5 },
-  flip: { transform: [{ scaleX: -1 }] },
-  count: { fontSize: 14, fontWeight: "600", color: colors.text },
-  slideDots: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
+  slideDots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingTop: 10 },
   slideDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#c7c7cc" },
   slideDotActive: { backgroundColor: colors.brand },
+  actions: { flexDirection: "row", alignItems: "center", gap: 18, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6 },
+  action: { flexDirection: "row", alignItems: "center", gap: 6 },
+  flip: { transform: [{ scaleX: -1 }] },
+  count: { fontSize: 14, fontWeight: "600", color: colors.text },
   below: { paddingHorizontal: 12, gap: 4 },
   likedBy: { flexDirection: "row", alignItems: "center", gap: 6 },
   face: { borderWidth: 1.5, borderColor: colors.card, borderRadius: 12 },

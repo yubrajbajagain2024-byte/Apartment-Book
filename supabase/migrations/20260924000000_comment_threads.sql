@@ -104,7 +104,8 @@ create trigger post_comment_votes_apply
   for each row execute function public.post_comment_votes_apply();
 
 -- Vote on a comment: 1 up, -1 down, 0 clears. Only comments you can see (blocks hide people from each other).
-create or replace function public.post_comment_vote(p_comment_id uuid, p_value int)
+drop function if exists public.post_comment_vote(uuid, int);
+create function public.post_comment_vote(p_comment_id uuid, p_value int)
 returns table (score int, my_vote smallint)
 language plpgsql
 security definer

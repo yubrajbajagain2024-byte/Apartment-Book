@@ -60,11 +60,20 @@ test("the Housing tab is Apartments | Roommates, lands on Apartments and keeps t
 
 test("threadComments puts replies under their comment, oldest first, with depth, reply counts and my vote", async () => {
   const { threadComments, COMMENT_MAX_DEPTH } = await import("../src/queries/engagement.ts");
-  const c = (id, created_at, parent_id = null) => ({ id, created_at, parent_id, body: id, score: 0, target_type: "post", target_id: "p", user_id: "u", author: { id: "u", full_name: "U", avatar_url: null } });
+  const c = (id, created_at, parent_id = null, likes = 0) => ({ id, created_at, parent_id, body: id, score: likes, likes, target_type: "post", target_id: "p", user_id: "u", author: { id: "u", full_name: "U", avatar_url: null } });
   const rows = threadComments([c("b", "2"), c("a", "1"), c("a1", "3", "a"), c("a1x", "5", "a1"), c("a2", "4", "a"), c("orphan", "6", "missing")], { a: 1, b: -1 });
   assert.deepEqual(rows.map((r) => r.id), ["a", "a1", "a1x", "a2", "b", "orphan"]);
   assert.deepEqual(rows.map((r) => r.depth), [0, 1, 2, 1, 0, 0]);
   assert.equal(rows[0].replyCount, 3);
   assert.equal(rows[0].myVote, 1); assert.equal(rows[4].myVote, -1); assert.equal(rows[1].myVote, 0);
   assert.equal(COMMENT_MAX_DEPTH, 3);
+});
+
+test("threadComments sorts top-level comments by hearts (Top) or by age (Newest) while replies stay oldest first", async () => {
+  const { threadComments, COMMENT_SORTS } = await import("../src/queries/engagement.ts");
+  const c = (id, created_at, parent_id = null, likes = 0) => ({ id, created_at, parent_id, body: id, score: likes, likes, target_type: "post", target_id: "p", user_id: "u", author: { id: "u", full_name: "U", avatar_url: null } });
+  const rows = [c("old", "1"), c("loved", "2", null, 5), c("new", "3"), c("r2", "5", "loved"), c("r1", "4", "loved")];
+  assert.deepEqual(threadComments(rows).map((r) => r.id), ["loved", "r1", "r2", "old", "new"], "Top is the default: hearts first, then oldest");
+  assert.deepEqual(threadComments(rows, {}, { sort: "new" }).map((r) => r.id), ["new", "loved", "r1", "r2", "old"], "Newest keeps the replies in reading order");
+  assert.deepEqual(COMMENT_SORTS.map((s) => s.value), ["top", "new"]);
 });
