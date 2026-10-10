@@ -163,6 +163,33 @@ export type FeedMedia =
   | { type: "photo"; url: string; width: number | null; height: number | null; blur: string | null }
   | { type: "video"; playbackUrl: string; poster: string | null; width: number | null; height: number | null; durationSeconds: number | null };
 
+/** Who can see a part of a profile: everyone, friends (they follow each other) or only its owner. */
+export type ProfileVisibility = "public" | "friends" | "private";
+/** The profile tabs whose visibility the owner chooses. */
+export type ProfileSection = "classes" | "saved" | "liked";
+/** May the person looking see each of those tabs? (The owner always may.) */
+export type ProfileSectionAccess = Record<ProfileSection, boolean>;
+export type ProfileClass = Tables<"profile_classes">;
+/** The numbers under the profile photo. Followers and following come from FollowStats. */
+export type ProfileStats = { posts: number; reels: number; likesReceived: number };
+export type ProfileTileType = "post" | "reel" | "apartment" | "roommate" | "item";
+/** One square of a profile grid (Posts, Reels, Saved, Liked) or a card of the Listings row. */
+export type ProfileTile = {
+  key: string;
+  type: ProfileTileType;
+  id: string;
+  /** Website path; the app maps it onto its own screens. */
+  href: string;
+  imageUrl: string | null;
+  /** For a words-only post, or the title of a listing. */
+  text: string | null;
+  isVideo: boolean;
+  multiPhoto: boolean;
+  pinned: boolean;
+  /** Views of a post or reel; null when not counted (listings). */
+  views: number | null;
+};
+
 /** What a shared post, reel or listing looks like inside a chat message: a snapshot taken when it was sent, so the card
  * renders without another query and still reads sensibly if the original is deleted. `path` is the website path, which the
  * app maps onto its own screens. */
