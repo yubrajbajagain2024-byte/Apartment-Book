@@ -100,7 +100,8 @@ export function ProfileHeader({
   const colors = useColors();
   const handle = profileHandle(profile);
   const place = [profile.university?.name, profile.program, profile.graduation_year ? `'${String(profile.graduation_year).slice(-2)}` : null].filter(Boolean).join(" · ");
-  const photo = <Avatar name={profile.full_name} url={profile.avatar_url} size={96} userId={own ? undefined : profile.id} online={own ? false : undefined} />;
+  // No fade-in: every profile tab draws its own copy of this header, and a copy appearing mid-swipe must match the others at once.
+  const photo = <Avatar transition={0} name={profile.full_name} url={profile.avatar_url} size={96} userId={own ? undefined : profile.id} online={own ? false : undefined} />;
   return (
     <View style={styles.header}>
       {own && onChangePhoto ? (

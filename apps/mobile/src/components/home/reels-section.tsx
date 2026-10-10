@@ -26,8 +26,12 @@ function mergeUnique(current: Reel[], incoming: Reel[]): Reel[] {
   return [...current, ...incoming.filter((r) => !seen.has(reelKey(r)))];
 }
 
-/** Home → Reels: one full-screen video per page, swipe up for the next one. */
-export function ReelsSection({ active, topInset, height }: { active: boolean; topInset: number; height: number }) {
+/**
+ * Home → Reels: one full-screen video per page, swipe up for the next one. `active` = Reels is the page on screen, so the
+ * visible reel plays. `preload` = Reels is the page next to it: the first reels load ahead of time (nothing plays), so
+ * swiping over shows them at once.
+ */
+export function ReelsSection({ active, preload = false, topInset, height }: { active: boolean; preload?: boolean; topInset: number; height: number }) {
   const { user } = useSession();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -121,9 +125,11 @@ export function ReelsSection({ active, topInset, height }: { active: boolean; to
     }
   }, [loadFirst]);
 
-  // Nothing is fetched until Reels is actually opened; after that, a new reel by this user or a change of account triggers a reload.
+  // Nothing is fetched until Reels is opened or comes next to the page on screen; after that, a new reel by this user or
+  // a change of account triggers a reload (ahead of time too, while Reels is next door). Keyed on both flags, not on
+  // "either", so arriving on Reels from next door checks again: a reel posted or deleted meanwhile is not missed.
   useEffect(() => {
-    if (!active) return;
+    if (!active && !preload) return;
     if (!started.current) {
       started.current = true;
       loadedFor.current = userId;
@@ -135,7 +141,7 @@ export function ReelsSection({ active, topInset, height }: { active: boolean; to
       loadedFor.current = userId;
       void resyncUser();
     }
-  }, [active, userId, loadFirst, resyncUser]);
+  }, [active, preload, userId, loadFirst, resyncUser]);
 
   // Leaving Home (for a profile, a listing, login…) closes the comments sheet so it never floats over another screen.
   useEffect(() => {

@@ -11,7 +11,7 @@ const SIZES = { xs: 20, sm: 32, md: 40, lg: 56, xl: 96 } as const;
  * `ringColor` is the surface the avatar sits on, so the online dot looks cut out of it: the screen by default (rows, the
  * profile, the feed, bars), `colors.card` on cards and `colors.elevated` on sheets.
  */
-export function Avatar({ name, url, size = "md", online, userId, ringColor }: { name: string | null | undefined; url?: string | null; size?: keyof typeof SIZES | number; online?: boolean; userId?: string; ringColor?: string }) {
+export function Avatar({ name, url, size = "md", online, userId, ringColor, transition = 150 }: { name: string | null | undefined; url?: string | null; size?: keyof typeof SIZES | number; online?: boolean; userId?: string; ringColor?: string; transition?: number }) {
   const styles = useStyles();
   const colors = useColors();
   const px = typeof size === "number" ? size : SIZES[size];
@@ -20,7 +20,7 @@ export function Avatar({ name, url, size = "md", online, userId, ringColor }: { 
   return (
     <View style={{ width: px, height: px }}>
       {url ? (
-        <Image source={{ uri: url }} style={{ width: px, height: px, borderRadius: px / 2 }} contentFit="cover" transition={150} accessibilityLabel={name ?? "Avatar"} />
+        <Image source={{ uri: url }} style={{ width: px, height: px, borderRadius: px / 2 }} contentFit="cover" transition={transition} accessibilityLabel={name ?? "Avatar"} />
       ) : (
         <View style={[styles.fallback, { width: px, height: px, borderRadius: px / 2 }]}>
           <Text style={{ color: colors.brand, fontWeight: "700", fontSize: px * 0.36 }}>{initials(name)}</Text>

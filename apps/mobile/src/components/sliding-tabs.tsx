@@ -15,9 +15,11 @@ type LabelBox = Pick<LayoutRectangle, "x" | "width">;
  * A row of section labels with one underline that slides between them as a horizontal pager scrolls (Home's top bar,
  * the Housing tab), X (Twitter) style: the active label is bold, the underline is as wide as that label and sits on the
  * row's bottom edge, where the bar draws its hairline. `scrollX` is the pager's offset in points and `pageWidth` the
- * width of one page: page i puts the underline under label i, so it follows the finger instead of jumping once a swipe
- * settles. The label colours still snap with `section`. Fills its parent (flex 1 + stretch) whatever the bar's height;
- * `textStyle` is for extras like a text shadow over video.
+ * width of one page: page i puts the underline under label i, and each label fades between its active look (bold,
+ * `labelColor`) and its resting look (`dimColor`) as the page under it comes and goes, so the whole row follows the
+ * finger instead of jumping once a swipe settles. Both run on the native driver: nothing re-renders while the pager
+ * moves. `section` decides what screen readers hear as selected (and the look until `pageWidth` is known). Fills its
+ * parent (flex 1 + stretch) whatever the bar's height; `textStyle` is for extras like a text shadow over video.
  */
 export function SlidingTabs<T extends string>({
   sections,
@@ -62,10 +64,27 @@ export function SlidingTabs<T extends string>({
     };
   }, [boxes, pageWidth, scrollX, sections.length]);
 
+  // Each label is drawn in both looks, one over the other, and the two crossfade with the pager: label i keeps its active
+  // look within a quarter page of page i and its resting look from three quarters of a page away, crossfading over the
+  // middle half of a swipe (where the haptic plays), so the two weights spend little time half-drawn over each other.
+  // Only once pageWidth > 0 (strictly increasing input range).
+  const count = sections.length;
+  const fades = useMemo(() => {
+    if (pageWidth <= 0) return null;
+    return Array.from({ length: count }, (_, i) => {
+      const inputRange = [i - 0.75, i - 0.25, i + 0.25, i + 0.75].map((p) => p * pageWidth);
+      return {
+        on: scrollX.interpolate({ inputRange, outputRange: [0, 1, 1, 0], extrapolate: "clamp" }),
+        off: scrollX.interpolate({ inputRange, outputRange: [1, 0, 0, 1], extrapolate: "clamp" }),
+      };
+    });
+  }, [count, pageWidth, scrollX]);
+
   return (
     <View style={styles.labels} accessibilityRole="tablist">
       {sections.map((s, i) => {
         const active = s.value === section;
+        const fade = fades?.[i];
         return (
           <Pressable key={s.value} onPress={() => onSelect(s.value)} onLayout={(e) => measure(i, e.nativeEvent.layout)} hitSlop={6} accessibilityRole="tab" accessibilityLabel={s.label} accessibilityState={{ selected: active }} style={styles.tab}>
             <View>
@@ -73,7 +92,14 @@ export function SlidingTabs<T extends string>({
               <Text style={[styles.label, styles.bold, styles.ghost, textStyle]} aria-hidden>
                 {s.label}
               </Text>
-              <Text style={[styles.label, styles.text, { color: active ? labelColor : dimColor }, active && styles.bold, textStyle]}>{s.label}</Text>
+              {fade ? (
+                <>
+                  <Animated.Text style={[styles.label, styles.text, { color: dimColor }, textStyle, { opacity: fade.off }]}>{s.label}</Animated.Text>
+                  <Animated.Text style={[styles.label, styles.text, styles.bold, { color: labelColor }, textStyle, { opacity: fade.on }]}>{s.label}</Animated.Text>
+                </>
+              ) : (
+                <Text style={[styles.label, styles.text, { color: active ? labelColor : dimColor }, active && styles.bold, textStyle]}>{s.label}</Text>
+              )}
             </View>
             {slide ? null : <View style={[styles.underline, styles.staticUnderline, { backgroundColor: active ? tint : "transparent" }]} />}
           </Pressable>
