@@ -1,6 +1,6 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { ownSectionNote, PROFILE_SECTION_NOUNS, PROFILE_VISIBILITY_OPTIONS, type ProfileSection, type ProfileVisibility } from "@apartment-book/shared";
+import { ownSectionNote, PROFILE_SECTION_NOUNS, PROFILE_VISIBILITY_OPTIONS, visibilityLabel, type ProfileSection, type ProfileVisibility } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
 import { colors, radius, space } from "@/lib/theme";
 
@@ -13,11 +13,14 @@ export function visibilityQuestion(section: ProfileSection): string {
 
 /**
  * The owner's line at the top of Classes, Saved and Liked: a globe, people or lock, "Only you can see your saved posts",
- * and Change, which offers Everyone, Friends and Only me (the current one ticked where the sheet can show it).
+ * and Change, which offers Everyone, Friends and Only me. The sheet's title names the current one ("… Now: Only me"),
+ * since the iOS sheet shows no icons; elsewhere it is ticked as well.
  */
 export function VisibilityRow({ section, value, busy, onChange }: { section: ProfileSection; value: ProfileVisibility; busy?: boolean; onChange: (value: ProfileVisibility) => void }) {
   const show = useActionSheet();
   const question = visibilityQuestion(section);
+  // "Change who can see your saved posts": the button's name starts with the word it shows.
+  const changeLabel = `Change ${question.charAt(0).toLowerCase()}${question.slice(1)}`;
   function change() {
     show(
       PROFILE_VISIBILITY_OPTIONS.map((o) => ({
@@ -27,14 +30,14 @@ export function VisibilityRow({ section, value, busy, onChange }: { section: Pro
           if (o.value !== value) onChange(o.value);
         },
       })),
-      `${question}?`,
+      `${question}? Now: ${visibilityLabel(value)}`,
     );
   }
   return (
     <View style={styles.row}>
       <Ionicons name={VISIBILITY_ICONS[value]} size={16} color={colors.muted} />
       <Text style={styles.note}>{ownSectionNote(section, value)}</Text>
-      <Pressable onPress={change} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel={question} accessibilityState={{ disabled: Boolean(busy), busy: Boolean(busy) }} style={({ pressed }) => [styles.change, pressed && { opacity: 0.6 }]}>
+      <Pressable onPress={change} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel={changeLabel} accessibilityState={{ disabled: Boolean(busy), busy: Boolean(busy) }} style={({ pressed }) => [styles.change, pressed && { opacity: 0.6 }]}>
         {busy ? <ActivityIndicator size="small" color={colors.brand} /> : <Text style={styles.changeText}>Change</Text>}
       </Pressable>
     </View>

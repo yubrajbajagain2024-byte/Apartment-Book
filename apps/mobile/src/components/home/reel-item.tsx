@@ -4,8 +4,10 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { deleteFeedPost, getOrCreateDirectConversation, likePost, muxPlaybackUrl, muxPosterUrl, reelPath, reportContent, REPORT_REASONS, sharedPostFromReel, toggleSaved, unlikePost, type Reel, type ReportReason } from "@apartment-book/shared";
-import { hapticLike } from "@/lib/haptics";
+import { deleteFeedPost, getFeedPost, getOrCreateDirectConversation, likePost, muxPlaybackUrl, muxPosterUrl, reelPath, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromReel, toggleSaved, unlikePost, type Reel, type ReportReason } from "@apartment-book/shared";
+import { hapticLike, hapticTap } from "@/lib/haptics";
+import { errorText } from "@/lib/hooks";
+import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
@@ -83,6 +85,16 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
   const canExpand = clipped || oneLine.includes("\n");
   const poster = reel.video.poster_url ?? muxPosterUrl(reel.video.playback_id);
   const login = () => router.push("/(auth)/login");
+  /** Your own posted reel: pinned to your profile or not. A Reel does not carry it, so ••• reads it the first time (null until then). */
+  const [pinned, setPinned] = useState<boolean | null>(null);
+  const readingPin = useRef(false);
+  // Pinned or unpinned elsewhere (the profile grid, the post screen) while this reel is mounted.
+  useEffect(() => {
+    if (isTour) return;
+    return onPostPinned((id, next) => {
+      if (id === reel.sourceId) setPinned(next);
+    });
+  }, [isTour, reel.sourceId]);
 
   // Scrolling away clears a manual pause and a stretched-out caption, so coming back starts fresh.
   useEffect(() => {
@@ -226,11 +238,35 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
     ]);
   }
 
+  /** Like a post's menu: pin your own reel to the top of your profile, or unpin it. The profile grids hear about it straight away. */
+  async function togglePin(next: boolean) {
+    setPinned(next);
+    try {
+      await setPostPinned(supabase, reel.sourceId, next);
+      hapticTap();
+      emitPostPinned(reel.sourceId, next);
+    } catch (e) {
+      setPinned(!next);
+      Alert.alert(next ? "Could not pin" : "Could not unpin", errorText(e));
+    }
+  }
+
   // The overlay is name and caption only (like TikTok), so the listing and the chat live behind "…".
-  function more() {
+  async function more() {
+    let pin = own && !isTour ? pinned : null;
+    if (own && !isTour && pin === null) {
+      // The first time, the menu waits for the post's pin (a second tap meanwhile does nothing); if it cannot be read, no Pin item.
+      if (readingPin.current) return;
+      readingPin.current = true;
+      pin = await getFeedPost(supabase, reel.sourceId).then((p) => (p ? Boolean(p.pinned_at) : null), () => null);
+      readingPin.current = false;
+      if (pin !== null) setPinned(pin);
+    }
+    const pinNow = pin;
     show([
       ...(isTour ? [{ label: "View listing", icon: "open-outline" as const, onPress: openListing }] : []),
       ...(own ? [] : [{ label: `Message ${reel.author.name.split(" ")[0]}`, icon: "chatbubble-ellipses-outline" as const, onPress: () => void message() }]),
+      ...(pinNow !== null ? [{ label: pinNow ? "Unpin from profile" : "Pin to profile", icon: pinNow ? ("pin" as const) : ("pin-outline" as const), onPress: () => void togglePin(!pinNow) }] : []),
       ...(own && !isTour ? [{ label: "Delete reel", icon: "trash-outline" as const, destructive: true, onPress: confirmDelete }] : []),
       ...(own ? [] : [{ label: "Report", icon: "flag-outline" as const, destructive: true, onPress: report }]),
     ]);
@@ -315,7 +351,7 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
           <RailButton icon="chatbubble-ellipses-outline" label={compact(reel.comments)} onPress={() => onOpenComments(reel)} a11y="Comments" />
           <RailButton icon="paper-plane-outline" label="Share" onPress={share} a11y="Share" />
           <RailButton icon={reel.savedByMe ? "bookmark" : "bookmark-outline"} color={reel.savedByMe ? colors.amber : "#fff"} label={reel.savedByMe ? "Saved" : "Save"} onPress={() => void toggleSave()} a11y={reel.savedByMe ? "Unsave" : "Save"} selected={reel.savedByMe} />
-          <RailButton icon="ellipsis-horizontal" onPress={more} a11y="More options" small />
+          <RailButton icon="ellipsis-horizontal" onPress={() => void more()} a11y="More options" small />
         </View>
       </View>
     </View>

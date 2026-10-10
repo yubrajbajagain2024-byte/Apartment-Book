@@ -55,6 +55,8 @@ const NO_PROFILE_STATS: ProfileStats = { posts: 0, reels: 0, likesReceived: 0 };
 const OWNER_ACCESS: ProfileSectionAccess = { classes: true, saved: true, liked: true };
 /** What the database says when someone's Saved or Liked setting keeps the reader out. */
 const PRIVATE_LIST = "This list is private.";
+/** Saved and Liked drop what the reader may no longer see, so a page can come back empty with more behind it. */
+const MAX_EMPTY_HOPS = 3;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
@@ -78,8 +80,11 @@ async function loadPostGrid(supabase: Client, userId: string, kind: "post" | "re
 
 async function loadListGrid(supabase: Client, userId: string, section: "saved" | "liked", allowed: boolean | null): Promise<GridTab> {
   if (allowed === false) return { status: "locked" };
+  const list = section === "saved" ? listProfileSaved : listProfileLiked;
   try {
-    const page = await (section === "saved" ? listProfileSaved : listProfileLiked)(supabase, userId);
+    let page = await list(supabase, userId);
+    // An empty page with a cursor is not the end: look a few pages on, as the app does. The cursor goes back unchanged.
+    for (let hop = 0; hop < MAX_EMPTY_HOPS && page.tiles.length === 0 && page.next !== null; hop++) page = await list(supabase, userId, { before: page.next });
     return { status: "ready", tiles: page.tiles, hasMore: page.next !== null, next: page.next };
   } catch (error) {
     return errorMessage(error).includes(PRIVATE_LIST) ? { status: "locked" } : { status: "error" };
@@ -190,7 +195,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
   } else if (tab === "classes") {
     panel = (
       <>
-        {isMe ? <VisibilityControl section="classes" value={visibility.classes} /> : null}
+        {isMe ? <VisibilityControl key="classes" section="classes" value={visibility.classes} /> : null}
         {!isMe && access?.classes === false ? (
           <LockedTab message={lockedSectionMessage("classes", visibility.classes, firstName)} />
         ) : classes === null ? (
@@ -204,12 +209,13 @@ export default async function ProfilePage({ params, searchParams }: Props) {
     const list = listTab ?? { status: "error" as const };
     panel = (
       <>
-        {isMe ? <VisibilityControl section={tab} value={visibility[tab]} /> : null}
+        {/* Keyed by tab, so the shown choice, an error or an open menu stays with its own tab. */}
+        {isMe ? <VisibilityControl key={tab} section={tab} value={visibility[tab]} /> : null}
         {list.status === "locked" ? (
           <LockedTab message={lockedSectionMessage(tab, visibility[tab], firstName)} />
         ) : list.status === "error" ? (
           <TabError what={tab === "saved" ? "saved posts" : "liked posts"} href={profileTabHref(profile.id, tab)} />
-        ) : list.tiles.length === 0 ? (
+        ) : list.tiles.length === 0 && list.next === null ? (
           tab === "saved" ? (
             <TabEmpty icon={Bookmark} title="Nothing saved yet" />
           ) : (

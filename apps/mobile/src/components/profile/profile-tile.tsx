@@ -14,9 +14,11 @@ export const TILE_ASPECT = 4 / 3;
 const LISTING_ICONS: Record<"apartment" | "roommate" | "item", keyof typeof Ionicons.glyphMap> = { apartment: "home", roommate: "people", item: "pricetag" };
 const LISTING_KINDS: Record<"apartment" | "roommate" | "item", string> = { apartment: "Apartment", roommate: "Roommate post", item: "For sale" };
 
+/** "Reel: Move-in day…, pinned, 1.2k views": the words, the pin and the view count the square shows. */
 export function tileLabel(tile: ProfileTile): string {
   const words = tile.text?.replace(/\s+/g, " ").trim().slice(0, 40) || "Photo";
-  return `${TILE_TYPE_LABELS[tile.type]}: ${words}${tile.pinned ? ", pinned" : ""}`;
+  const views = tile.views === null ? "" : `, ${compactCount(tile.views)} ${tile.views === 1 ? "view" : "views"}`;
+  return `${TILE_TYPE_LABELS[tile.type]}: ${words}${tile.pinned ? ", pinned" : ""}${views}`;
 }
 
 /** Opens a square's own screen: a post or reel on the post screen, a listing on its detail screen. */
@@ -41,6 +43,9 @@ export function useOpenTile() {
 export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, onOpen, onLongPress }: { tile: ProfileTile; width: number; onOpen: (tile: ProfileTile) => void; onLongPress?: (tile: ProfileTile) => void }) {
   const listing = tile.type === "apartment" || tile.type === "roommate" || tile.type === "item" ? tile.type : null;
   const pinLabel = tile.pinned ? "Unpin from profile" : "Pin to profile";
+  // The marks are white with a shadow on a picture; a words-only or blank square is near white, so there they are grey.
+  const ink = tile.imageUrl ? "#fff" : colors.muted;
+  const inkShadow = tile.imageUrl ? styles.iconShadow : null;
   return (
     <Pressable
       onPress={() => onOpen(tile)}
@@ -68,19 +73,19 @@ export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, onOp
 
       {tile.views !== null ? (
         <View style={styles.views} pointerEvents="none">
-          <Ionicons name={tile.isVideo ? "play-outline" : "eye-outline"} size={14} color="#fff" style={styles.iconShadow} />
-          <Text style={styles.viewsText}>{compactCount(tile.views)}</Text>
+          <Ionicons name={tile.isVideo ? "play-outline" : "eye-outline"} size={14} color={ink} style={inkShadow} />
+          <Text style={[styles.viewsText, { color: ink }, inkShadow]}>{compactCount(tile.views)}</Text>
         </View>
       ) : listing ? (
         <View style={styles.views} pointerEvents="none">
-          <Ionicons name={LISTING_ICONS[listing]} size={13} color="#fff" style={styles.iconShadow} />
+          <Ionicons name={LISTING_ICONS[listing]} size={13} color={ink} style={inkShadow} />
         </View>
       ) : null}
 
       {tile.pinned ? (
-        <Ionicons name="pin" size={16} color="#fff" style={[styles.corner, styles.iconShadow]} />
+        <Ionicons name="pin" size={16} color={ink} style={[styles.corner, inkShadow]} />
       ) : tile.multiPhoto ? (
-        <Ionicons name="copy" size={15} color="#fff" style={[styles.corner, styles.iconShadow]} />
+        <Ionicons name="copy" size={15} color={ink} style={[styles.corner, inkShadow]} />
       ) : null}
     </Pressable>
   );
@@ -125,7 +130,7 @@ const styles = StyleSheet.create({
   wordsText: { fontSize: 13, lineHeight: 17, color: colors.text, fontWeight: "500" },
   blank: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg },
   views: { position: "absolute", left: 6, bottom: 5, flexDirection: "row", alignItems: "center", gap: 3 },
-  viewsText: { color: "#fff", fontSize: 12, fontWeight: "700", ...shadow },
+  viewsText: { fontSize: 12, fontWeight: "700" },
   iconShadow: shadow,
   corner: { position: "absolute", top: 6, right: 6 },
   listings: { marginTop: space.lg, gap: space.sm },

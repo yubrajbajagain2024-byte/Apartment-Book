@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, type Ref } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type PressableProps, type StyleProp, type TextInputProps, type ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,7 +21,7 @@ export function Button({
   style,
   disabled,
   ...props
-}: PressableProps & { title: string; variant?: "primary" | "secondary" | "ghost" | "danger"; loading?: boolean; icon?: keyof typeof Ionicons.glyphMap; style?: StyleProp<ViewStyle> }) {
+}: PressableProps & { title: string; variant?: "primary" | "secondary" | "ghost" | "danger"; loading?: boolean; icon?: keyof typeof Ionicons.glyphMap; style?: StyleProp<ViewStyle>; ref?: Ref<View> }) {
   const bg = variant === "primary" ? colors.brand : variant === "danger" ? colors.red : variant === "secondary" ? colors.border : "transparent";
   const fg = variant === "primary" || variant === "danger" ? "#fff" : variant === "ghost" ? colors.brand : colors.text;
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Ban, Flag, MoreHorizontal } from "lucide-react";
 import { setBlockedAction } from "@/lib/actions/moderation";
 import { firstNameOf } from "@/lib/profile";
@@ -24,11 +24,14 @@ export function ProfileMoreMenu({ profileId, name, initialBlocked }: { profileId
   const [pending, startTransition] = useTransition();
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
   const firstName = firstNameOf(name);
 
+  // The menu opens with focus on its first item.
   useEffect(() => {
     if (!open) return;
+    menuRef.current?.querySelector<HTMLElement>("[role='menuitem']:not(:disabled)")?.focus();
     const onPointer = (e: PointerEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     };
@@ -44,6 +47,11 @@ export function ProfileMoreMenu({ profileId, name, initialBlocked }: { profileId
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+
+  // Report swaps its item for the reasons: focus moves to the first reason rather than dropping to the page.
+  useEffect(() => {
+    if (reporting) menuRef.current?.querySelector<HTMLElement>("[role='group'] [role='menuitem']")?.focus();
+  }, [reporting]);
 
   function toggleMenu() {
     setReporting(false);
@@ -61,7 +69,23 @@ export function ProfileMoreMenu({ profileId, name, initialBlocked }: { profileId
       }
       setBlocked(!blocked);
       setOpen(false);
+      // The menu goes, and the item that had focus with it: focus the ••• button, as Escape does (unless the reader
+      // has moved on to something else meanwhile).
+      const focused = document.activeElement;
+      if (!focused || focused === document.body || rootRef.current?.contains(focused)) buttonRef.current?.focus();
     });
+  }
+
+  /** ArrowDown and ArrowUp move between the items, the report reasons included. */
+  function onMenuKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>("[role='menuitem']:not(:disabled)") ?? []);
+    if (items.length === 0) return;
+    const index = items.indexOf(document.activeElement as HTMLElement);
+    const step = e.key === "ArrowDown" ? 1 : -1;
+    const to = index < 0 ? (step > 0 ? 0 : items.length - 1) : index + step;
+    items[(to + items.length) % items.length]?.focus();
   }
 
   const item = "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-gray-900 hover:bg-gray-100 disabled:opacity-50";
@@ -82,7 +106,7 @@ export function ProfileMoreMenu({ profileId, name, initialBlocked }: { profileId
         <MoreHorizontal className="h-5 w-5" />
       </button>
       {open ? (
-        <div id={menuId} role="menu" aria-label="More options" className="absolute right-0 top-full z-30 mt-2 w-60 rounded-xl bg-white p-1.5 text-left shadow-lg ring-1 ring-gray-200">
+        <div ref={menuRef} id={menuId} role="menu" aria-label="More options" onKeyDown={onMenuKeyDown} className="absolute right-0 top-full z-30 mt-2 w-60 rounded-xl bg-white p-1.5 text-left shadow-lg ring-1 ring-gray-200">
           <button type="button" role="menuitem" disabled={pending} onClick={toggleBlock} className={item}>
             <Ban className="h-5 w-5 text-gray-600" />
             {blocked ? `Unblock ${firstName}` : `Block ${firstName}`}

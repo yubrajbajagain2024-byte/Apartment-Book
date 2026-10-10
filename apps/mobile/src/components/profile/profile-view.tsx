@@ -27,6 +27,7 @@ import {
   setPostPinned,
   setProfileVisibility,
   unblockUser,
+  type FollowStats,
   type ProfileClass,
   type ProfileSection,
   type ProfileSectionAccess,
@@ -141,7 +142,10 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   const followQ = useQuery(() => getFollowStats(supabase, userId), [userId, viewerId]);
   const statsQ = useQuery(() => getProfileStats(supabase, userId).catch(() => NO_PROFILE_STATS), [userId, viewerId]);
   const accessQ = useQuery(() => (own ? Promise.resolve(OWNER_ACCESS) : getProfileSectionAccess(supabase, userId)), [userId, viewerId, own]);
-  const classesQ = useQuery(() => listProfileClasses(supabase, userId), [userId, viewerId]);
+  // The database hides classes the reader may not see (the list just comes back empty), so they load again whenever that
+  // access changes: following each other, a block.
+  const classesOpen = own || accessQ.data?.classes === true;
+  const classesQ = useQuery(() => listProfileClasses(supabase, userId), [userId, viewerId, classesOpen]);
   const listingsQ = useQuery(() => listProfileListings(supabase, userId), [userId]);
   const blockedQ = useQuery(() => (viewerId && !own ? isBlocked(supabase, viewerId, userId) : Promise.resolve(false)), [viewerId, userId, own]);
 
@@ -171,15 +175,27 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   const { update: updateReels } = reels;
   const { update: updateSaved } = saved;
   const { update: updateLiked } = liked;
+  // Posts and Reels come in pages by position, so a square that moved or went would make the next page skip a post: after
+  // the instant change, the grid that had it loads again from the first page (on your own profile a pin reloads both when
+  // neither had it yet). Saved and Liked page by a cursor, which a pin or a delete does not move.
+  const reloadPaged = useRef<(id: string, pin: boolean) => void>(() => {});
+  useEffect(() => {
+    reloadPaged.current = (id, pin) => {
+      const held = [posts, reels].filter((g) => g.tiles.some((t) => t.id === id));
+      for (const g of held.length > 0 ? held : pin && own ? [posts, reels] : []) void g.refresh();
+    };
+  });
   useEffect(() => {
     const offPin = onPostPinned((id, pinned) => {
       updatePosts((t) => repin(t, id, pinned, true));
       updateReels((t) => repin(t, id, pinned, true));
       updateSaved((t) => repin(t, id, pinned, false));
       updateLiked((t) => repin(t, id, pinned, false));
+      reloadPaged.current(id, true);
     });
     const offRemoved = onPostRemoved((id) => {
       for (const update of [updatePosts, updateReels, updateSaved, updateLiked]) update(dropPost(id));
+      reloadPaged.current(id, false);
     });
     return () => {
       offPin();
@@ -311,10 +327,17 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
       Alert.alert("Message", errorText(e, "Could not open the chat. Try again."));
     }
   }
+  /** The Follow button moves the counts above with it. Following each other makes you friends, who may open more (Classes by default). */
+  function followChanged(stats: FollowStats) {
+    followQ.setData(stats);
+    // Heard for the guess and again once the server has answered: the last read wins, so access ends up as the server has it.
+    void accessQ.refresh();
+  }
   function afterBlockChange() {
     void blockedQ.refresh();
     void followQ.refresh();
     void statsQ.refresh();
+    // A block closes Classes, Saved and Liked both ways and unblocking can open them again; Classes reload with the access.
     void accessQ.refresh();
   }
   function more() {
@@ -396,7 +419,7 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   ) : (
     <>
       {/* A block forbids following on the server, so the button goes while "Blocked" shows. onChange keeps the counts above in step with the button. */}
-      {!blocked ? <FollowButton targetId={userId} stats={followQ.data ?? undefined} userId={viewerId} onNeedLogin={needLogin} onChange={followQ.setData} style={styles.follow} /> : null}
+      {!blocked ? <FollowButton targetId={userId} stats={followQ.data ?? undefined} userId={viewerId} onNeedLogin={needLogin} onChange={followChanged} style={styles.follow} /> : null}
       <HeaderButton title={blocked ? "Blocked" : "Message"} onPress={() => void message()} disabled={blocked} />
       <HeaderIconButton icon="ellipsis-horizontal" label="More" onPress={more} />
     </>

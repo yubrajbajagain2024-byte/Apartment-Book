@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AccessibilityInfo, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { addProfileClass, classCodeProblem, currentTerm, groupClassesByTerm, pickableTerms, removeProfileClass, type ProfileClass } from "@apartment-book/shared";
 import { Button } from "@/components/ui";
@@ -55,10 +55,19 @@ export function ClassesCard({ classes, own, onPress }: { classes: ProfileClass[]
 export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: { own: boolean; userId: string; classes: ProfileClass[]; onChange: UpdateClasses; onOpenForm?: () => void }) {
   const groups = useMemo(() => groupClassesByTerm(classes), [classes]);
   const [adding, setAdding] = useState(false);
+  // Close and Remove take away the button that had focus: once the list has redrawn, the screen reader moves to "Add class"
+  // (not there while the form is open).
+  const addButton = useRef<View>(null);
+  const [focusAdd, setFocusAdd] = useState(0);
+  useEffect(() => {
+    const node = addButton.current;
+    if (focusAdd > 0 && node) AccessibilityInfo.sendAccessibilityEvent(node, "focus");
+  }, [focusAdd]);
 
   async function remove(c: ProfileClass) {
     hapticTap();
     onChange((list) => list.filter((x) => x.id !== c.id));
+    setFocusAdd((n) => n + 1);
     try {
       await removeProfileClass(supabase, c.id);
     } catch (e) {
@@ -69,9 +78,19 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
 
   return (
     <View style={styles.section}>
-      {own && adding ? <AddClassForm userId={userId} onAdded={(c) => onChange((list) => [...list, c])} onClose={() => setAdding(false)} /> : null}
+      {own && adding ? (
+        <AddClassForm
+          userId={userId}
+          onAdded={(c) => onChange((list) => [...list, c])}
+          onClose={() => {
+            setAdding(false);
+            setFocusAdd((n) => n + 1);
+          }}
+        />
+      ) : null}
       {own && !adding ? (
         <Button
+          ref={addButton}
           title="Add class"
           variant="secondary"
           icon="add"
@@ -176,6 +195,7 @@ function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (
           placeholder="CS 3358"
           placeholderTextColor={colors.faint}
           accessibilityLabel="Class code"
+          autoFocus
           autoCapitalize="characters"
           autoCorrect={false}
           maxLength={20}

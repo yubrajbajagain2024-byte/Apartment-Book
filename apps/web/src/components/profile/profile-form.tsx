@@ -24,6 +24,10 @@ export function ProfileForm({ profile, universities, welcome }: { profile: Profi
   const def = (key: string, fallback: string | number | null | undefined) => v?.[key] ?? (fallback ?? "").toString();
   const err = state?.fieldErrors;
   const visibility = sectionVisibility(profile);
+  // React applies a <select>'s defaultValue only when it mounts, and the form resets after every submit. Keyed by the
+  // value it should show (the saved one, or what was sent when the save failed), a select remounts with it, so the reset
+  // does not bring back the choice the page loaded with (which the next save would write back).
+  const universityId = def("universityId", profile.university_id);
 
   return (
     <form action={action} className="flex flex-col gap-5">
@@ -61,7 +65,7 @@ export function ProfileForm({ profile, universities, welcome }: { profile: Profi
             </div>
           </Field>
           <Field label="University" htmlFor="universityId" error={err?.universityId} hint="Listings near your university show first." className="sm:col-span-2">
-            <UniversitySelect id="universityId" universities={universities} defaultValue={def("universityId", profile.university_id)} emptyLabel="Choose your university" />
+            <UniversitySelect key={`universityId:${universityId}`} id="universityId" universities={universities} defaultValue={universityId} emptyLabel="Choose your university" />
           </Field>
           <Field label="Program / major" htmlFor="program" error={err?.program}>
             <Input id="program" name="program" defaultValue={def("program", profile.program)} placeholder="Computer Science" />
@@ -83,17 +87,20 @@ export function ProfileForm({ profile, universities, welcome }: { profile: Profi
           <legend className="px-5 pt-4 text-lg font-semibold text-gray-900">Privacy</legend>
           <p className="px-5 pt-1 text-sm text-gray-600">Choose who can open the Classes, Saved and Liked tabs on your profile. Friends are people you follow who follow you back.</p>
           <div className="grid gap-4 px-5 py-4 sm:grid-cols-3">
-            {PRIVACY_FIELDS.map(({ section, name }) => (
-              <Field key={name} label={`Who can see your ${PROFILE_SECTION_NOUNS[section]}`} htmlFor={name} error={err?.[name]}>
-                <Select id={name} name={name} defaultValue={def(name, visibility[section])}>
-                  {PROFILE_VISIBILITY_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            ))}
+            {PRIVACY_FIELDS.map(({ section, name }) => {
+              const value = def(name, visibility[section]);
+              return (
+                <Field key={name} label={`Who can see your ${PROFILE_SECTION_NOUNS[section]}`} htmlFor={name} error={err?.[name]}>
+                  <Select key={`${name}:${value}`} id={name} name={name} defaultValue={value}>
+                    {PROFILE_VISIBILITY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              );
+            })}
           </div>
         </fieldset>
       </Card>

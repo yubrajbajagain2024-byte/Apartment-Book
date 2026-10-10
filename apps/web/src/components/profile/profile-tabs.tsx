@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
 import Link from "next/link";
 import { Bookmark, Clapperboard, GraduationCap, Grid3x3, Heart, Lock, type LucideIcon } from "lucide-react";
 import { PROFILE_TABS, profileTabHref, type ProfileTab } from "@/lib/profile";
@@ -39,9 +39,37 @@ export function ProfileTabs({
     setTapped(null);
   }
   const shown = tapped ?? active;
+  const listRef = useRef<HTMLDivElement>(null);
+
+  /** Only a plain click (or Enter) opens the tab here; one that opens a new browser tab or window leaves the bar as it is. */
+  function onTabClick(e: ReactMouseEvent<HTMLAnchorElement>, tab: ProfileTab) {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.defaultPrevented) return;
+    setTapped(tab);
+  }
+
+  /** Tab reaches the chosen tab; the arrows, Home and End move between the tabs, and Space opens one as Enter does. */
+  function onKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const tabs = Array.from(listRef.current?.querySelectorAll<HTMLAnchorElement>("[role='tab']") ?? []);
+    const index = tabs.indexOf(e.target as HTMLAnchorElement);
+    if (index < 0) return;
+    const move = (to: number) => {
+      e.preventDefault();
+      tabs[(to + tabs.length) % tabs.length]?.focus();
+    };
+    if (e.key === "ArrowRight") move(index + 1);
+    else if (e.key === "ArrowLeft") move(index - 1);
+    else if (e.key === "Home") move(0);
+    else if (e.key === "End") move(tabs.length - 1);
+    else if (e.key === " ") {
+      // A link opens on Enter by itself; on Space the page would scroll instead.
+      e.preventDefault();
+      tabs[index]?.click();
+    }
+  }
 
   return (
-    <div role="tablist" aria-label="Profile" className="sticky top-14 z-20 grid grid-cols-5 border-b border-gray-200 bg-white" data-testid="profile-tabs">
+    <div ref={listRef} role="tablist" aria-label="Profile" onKeyDown={onKeyDown} className="sticky top-14 z-20 grid grid-cols-5 border-b border-gray-200 bg-white" data-testid="profile-tabs">
       {PROFILE_TABS.map((tab) => {
         const { label, icon: Icon } = TAB_META[tab];
         const selected = tab === shown;
@@ -56,10 +84,11 @@ export function ProfileTabs({
             aria-selected={selected}
             aria-controls={PROFILE_PANEL_ID}
             aria-label={lock ? `${label} (${lock})` : label}
-            onClick={() => setTapped(tab)}
+            tabIndex={selected ? 0 : -1}
+            onClick={(e) => onTabClick(e, tab)}
             className={cn(
               "relative flex h-12 items-center justify-center gap-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500",
-              selected ? "text-gray-900" : "text-gray-400 hover:text-gray-700",
+              selected ? "text-gray-900" : "text-gray-500 hover:text-gray-700",
             )}
             data-testid={`profile-tab-${tab}`}
           >
