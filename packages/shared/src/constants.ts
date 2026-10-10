@@ -1,4 +1,6 @@
 export const APP_NAME = "Apartment Book";
+/** The wordmark in the app's Home top bar (Instagram puts its logotype there), with the feed dropdown next to it. */
+export const HOME_BRAND = "CampConnect";
 export const APP_TAGLINE =
   "Apartments, roommates and move-in essentials for university students.";
 

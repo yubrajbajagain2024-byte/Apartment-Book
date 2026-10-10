@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { BUZZ_PAGE_SIZE, BUZZ_SORTS, BUZZ_TOPICS, labelFor, listBuzz, type BuzzPost, type BuzzSort, type BuzzTopic } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { useHomeScope } from "@/lib/home-scope";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
@@ -36,8 +37,9 @@ export function BuzzSection({ topInset }: { active: boolean; topInset: number })
   const [shownQ, setShownQ] = useState("");
   const [sort, setSort] = useState<BuzzSort>("hot");
   const [topic, setTopic] = useState<BuzzTopic | undefined>();
-  const [allCampuses, setAllCampuses] = useState(false);
-  const universityId = allCampuses ? undefined : (profile?.university_id ?? undefined);
+  const [scope] = useHomeScope();
+  // The campus is chosen from the dropdown in the top bar; someone without a university sees every campus.
+  const universityId = scope.campus === "all" || !profile?.university_id ? undefined : profile.university_id;
 
   const [items, setItems] = useState<BuzzPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -165,7 +167,6 @@ export function BuzzSection({ topInset }: { active: boolean; topInset: number })
               {BUZZ_TOPICS.map((t) => (
                 <FilterPill key={t.value} label={t.label} active={topic === t.value} onPress={() => setTopic(topic === t.value ? undefined : t.value)} />
               ))}
-              {profile?.university_id ? <FilterPill label={allCampuses ? "All universities" : "My campus"} icon="school-outline" active={!allCampuses} onPress={() => setAllCampuses((v) => !v)} /> : null}
             </ScrollView>
             <View style={styles.notice}>
               <Ionicons name="eye-off-outline" size={12} color={colors.faint} />

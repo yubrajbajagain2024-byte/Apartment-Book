@@ -1,4 +1,4 @@
-# Signed-in tour of the new Home: like a post, comment on it (heart, reply, delete from the hold menu), vote and reply anonymously in Buzz, watch a reel, reach the profile, follow Maya.
+# Signed-in tour of the new Home: like a post, comment on it (heart, reply, delete from the hold menu), vote and reply anonymously in Buzz, watch a reel, reach the profile, follow Maya, see her posts alone under Following (the feed menu next to the wordmark), unfollow.
 # Needs test data: SUPABASE_ACCESS_TOKEN=... node e2e/sim-seed.mjs   (then pass EMAIL and PASSWORD from its output)
 appId: host.exp.Exponent
 env:
@@ -165,7 +165,8 @@ env:
 - takeScreenshot: e2e/screenshots/12-buzz-thread
 # Following, like Instagram. The thread is a stacked screen without the bottom tabs: Close brings Home back (the pager is
 # still on Buzz). On Posts, scroll to the top (Leo's three-photo post) and down to the first post whose header reads
-# "UI Maya": tapping the name opens her profile. Follow her, then unfollow again so the flow can run again and again.
+# "UI Maya": tapping the name opens her profile. Follow her, look at the Following feed from the top bar's menu, then
+# unfollow again so the flow can run again and again.
 - tapOn: "Close"
 - extendedWaitUntil:
     visible: "Home.*"
@@ -190,6 +191,49 @@ env:
     visible: "Following"
     timeout: 15000
 - takeScreenshot: e2e/screenshots/16-profile-following
+# The Following feed, from the menu that drops down from the CampConnect wordmark (Instagram style; the Posts page has no
+# chips of its own). Back on Home (the left-edge swipe pops the profile on iOS; the pager is still on Posts), "Choose feed"
+# is the wordmark button and opens the menu: the seeded account's university, "All universities" and "Following". Following
+# keeps Posts to the people you follow, Maya alone here: her words-only post shows, Leo's three-photo post does not.
+- swipe:
+    start: "2%,45%"
+    end: "90%,45%"
+    duration: 400
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Choose feed"
+    timeout: 15000
+- tapOn: "Choose feed"
+- assertVisible: "All universities"
+- takeScreenshot: e2e/screenshots/18-feed-menu
+- tapOn: "Following"
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element: "Post: Does anyone know if the rec center.*"
+    direction: UP
+    timeout: 30000
+- assertNotVisible: "Post: Move-in day at the new place.*"
+- takeScreenshot: e2e/screenshots/19-posts-following
+# Back to the whole campus (the row reads the profile's university, Texas State for every ui-sim account): the choice lives
+# in memory for as long as the app runs, and the flows after this one expect the usual Posts page.
+- tapOn: "Choose feed"
+- tapOn: "Texas State University"
+- scrollUntilVisible:
+    element: "Post: Move-in day at the new place.*"
+    direction: UP
+    timeout: 30000
+# Unfollow again so the flow can run again and again: Maya's name on her post opens her profile, where the button reads
+# "Following" until it is tapped.
+- scrollUntilVisible:
+    element: "UI Maya"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    text: "UI Maya"
+    index: 0
+- extendedWaitUntil:
+    visible: "Following"
+    timeout: 30000
 - tapOn: "Following"
 - extendedWaitUntil:
     visible: "Follow"
