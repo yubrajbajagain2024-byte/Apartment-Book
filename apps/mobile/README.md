@@ -42,6 +42,10 @@ of people you follow on Posts. Comments open in a TikTok-style sheet: "N comment
 a heart and its count (a dislike stays private), Reply, replies folded behind "View N replies", the composer pinned at the
 bottom, and a hold on a comment for Reply / Report / Block / Delete (your own comment, or any comment on your post); a like on a
 post, a reel or a comment buzzes the phone through `expo-haptics` (`src/lib/haptics.ts`, with the selection tick of the Home labels too).
+The Share button on posts, reels and listings opens a sheet of your friends, the people you follow who follow you back
+(`src/components/share-sheet.tsx`, mounted once in `src/app/_layout.tsx`): search, tap one or more faces, add an optional
+note and Send, and each friend gets a chat message with the post as a card that opens it, the note under it; "Share to…"
+at the bottom is the system share sheet. It needs migration 17 (`supabase/migrations/20260926000000_shared_posts.sql`).
 
 The Maestro flows in `e2e/flows/` check this in Expo Go on the booted iOS Simulator and save
 screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.dev) installed in
@@ -49,9 +53,9 @@ screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.de
 
 ```bash
 cd apps/mobile
-SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts; prints the login, writes e2e/.sim-state.json
+SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts (the test account and Leo follow each other, so Leo is a friend to share with); prints the login, writes e2e/.sim-state.json
 e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you, opens the feed menu (All universities alone, signed out), swipes to Buzz, opens Search from the top-right magnifier, Messages (bottom tab), Housing (Apartments, Roommates, swipe back), Marketplace, Profile (several flows at once is fine)
-EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # likes, comments (write, heart, reply, delete from the hold menu), votes, replies, follows Maya and picks Following from the feed menu, as the seeded account
+EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # likes, comments (write, heart, reply, delete from the hold menu), shares the top post with Leo and finds the card in your chat with him (Messages), votes, replies, Following from the feed menu (Leo's post alone, then Maya's too once she is followed), follows and unfollows Maya, as the seeded account
 node e2e/sim-seed-thread.mjs                            # nested replies and votes for 03-buzz-thread.yaml
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards
 ```

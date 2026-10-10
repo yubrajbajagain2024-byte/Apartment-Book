@@ -163,6 +163,21 @@ export type FeedMedia =
   | { type: "photo"; url: string; width: number | null; height: number | null; blur: string | null }
   | { type: "video"; playbackUrl: string; poster: string | null; width: number | null; height: number | null; durationSeconds: number | null };
 
+/** What a shared post, reel or listing looks like inside a chat message: a snapshot taken when it was sent, so the card
+ * renders without another query and still reads sensibly if the original is deleted. `path` is the website path, which the
+ * app maps onto its own screens. */
+export type SharedPostKind = "post" | "reel" | "listing";
+export type SharedPost = {
+  target_type: PostTargetType;
+  target_id: string;
+  kind: SharedPostKind;
+  path: string;
+  title: string | null;
+  caption: string | null;
+  image_url: string | null;
+  author: { id: string; name: string; avatar_url: string | null };
+};
+
 export type MessageWithSender = Message & {
   sender: ProfileSummary | null;
 };

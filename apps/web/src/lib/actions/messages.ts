@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import {
   addGroupMembers,
   createGroupConversation,
@@ -9,8 +10,12 @@ import {
   getOrCreateDirectConversation,
   groupSchema,
   leaveConversation,
+  listFriends,
   recordContact,
   renameGroup,
+  sendSharedPost,
+  sharedPostOf,
+  type SharedPost,
 } from "@apartment-book/shared";
 import { getCurrentUser, requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -123,4 +128,32 @@ export async function leaveGroupAction(conversationId: string): Promise<void> {
   await leaveConversation(supabase, conversationId, user.id);
   revalidatePath("/messages", "layout");
   redirect("/messages");
+}
+
+const recipientsSchema = z.array(z.uuid()).min(1).max(20);
+const NOTE_MAX = 500;
+
+/**
+ * The share sheet's Send: the post, reel or listing snapshot goes to each picked friend as a direct message, with the
+ * note (if any) as its text. Only friends (people you follow who follow you back) are accepted; anyone else in the
+ * list is reported back in `failed` without a message being sent.
+ */
+export async function sendSharedPostAction(recipientIds: string[], sharedPost: SharedPost, note: string): Promise<{ sent: string[]; failed: string[]; error?: string }> {
+  const nothing = { sent: [] as string[], failed: [] as string[] };
+  const user = await getCurrentUser();
+  if (!user) return { ...nothing, error: "Log in to share with friends" };
+  const recipients = recipientsSchema.safeParse(recipientIds);
+  if (!recipients.success) return { ...nothing, error: "Pick between 1 and 20 friends." };
+  const shared = sharedPostOf(sharedPost);
+  if (!shared) return { ...nothing, error: "This can't be shared." };
+  const text = (typeof note === "string" ? note : "").trim().slice(0, NOTE_MAX);
+  try {
+    const supabase = await createClient();
+    const friends = new Set((await listFriends(supabase)).map((f) => f.id));
+    const ids = [...new Set(recipients.data)].filter((id) => id !== user.id);
+    const result = await sendSharedPost(supabase, { senderId: user.id, recipientIds: ids.filter((id) => friends.has(id)), sharedPost: shared, note: text });
+    return { sent: result.sent, failed: [...result.failed, ...ids.filter((id) => !friends.has(id))] };
+  } catch (error) {
+    return { ...nothing, error: errorMessage(error) };
+  }
 }

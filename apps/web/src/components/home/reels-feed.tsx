@@ -120,6 +120,8 @@ export function ReelsFeed({ initial, universityId, hasHomeUniversity, signedIn, 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey || commentsFor) return;
+      // Nor while a dialog is open over the feed (the share sheet): its keys are its own, even if the focus slips out of it.
+      if (document.querySelector('[aria-modal="true"]')) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       if (e.key === "ArrowDown" || e.key === "j") {

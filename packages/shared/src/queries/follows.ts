@@ -1,5 +1,5 @@
 import { DEFAULT_PAGE_SIZE } from "../constants";
-import type { Client, FeedPostWithAuthor, Paginated, PosterSummary } from "../types/models";
+import type { Client, FeedPostWithAuthor, Paginated, PosterSummary, ProfileSummary } from "../types/models";
 import { pageRange } from "../utils";
 import { FEED_POST_SELECT } from "./feed";
 
@@ -91,4 +91,11 @@ export async function listFollowingPosts(supabase: Client, filters: { kind?: "po
   if (error) throw error;
   const total = count ?? 0;
   return { data: data as unknown as FeedPostWithAuthor[], count: total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+}
+
+/** Friends = the people you follow who follow you back (blocks excluded), by name; `q` narrows by name. Signed out: none. */
+export async function listFriends(supabase: Client, q?: string): Promise<ProfileSummary[]> {
+  const { data, error } = await supabase.rpc("list_friends", { p_q: q?.trim() ? q.trim() : null }).select("id, full_name, avatar_url");
+  if (error) throw error;
+  return (data ?? []) as ProfileSummary[];
 }

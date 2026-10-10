@@ -1,15 +1,16 @@
 import { memo, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Alert, Animated, Easing, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { deleteFeedPost, getOrCreateDirectConversation, likePost, muxPlaybackUrl, muxPosterUrl, reelPath, reportContent, REPORT_REASONS, toggleSaved, unlikePost, type Reel, type ReportReason } from "@apartment-book/shared";
+import { deleteFeedPost, getOrCreateDirectConversation, likePost, muxPlaybackUrl, muxPosterUrl, reelPath, reportContent, REPORT_REASONS, sharedPostFromReel, toggleSaved, unlikePost, type Reel, type ReportReason } from "@apartment-book/shared";
 import { hapticLike } from "@/lib/haptics";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
 import { useActionSheet } from "../action-sheet";
+import { useShareSheet } from "../share-sheet";
 
 /** Sound is one switch for the whole Reels feed (starts muted, like every other feed video in the app). */
 let reelsMuted = true;
@@ -57,6 +58,7 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
   const { user } = useSession();
   const router = useRouter();
   const show = useActionSheet();
+  const shareSheet = useShareSheet();
   const muted = useReelsMuted();
   const [userPaused, setUserPaused] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -166,10 +168,11 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
     }, 260);
   }
 
+  /** Instagram's share sheet: send the reel to friends as a chat card, or "Share to…" the link with the system sheet. */
   function share() {
     const url = `${SITE_URL}${reelPath(reel)}`;
     const label = reel.title ?? (reel.caption ? reel.caption.slice(0, 80) : `${reel.author.name} on Apartment Book`);
-    void Share.share({ message: `${label} · ${url}`, url }).catch(() => {});
+    shareSheet.open({ ...sharedPostFromReel(reel), image_url: poster }, { url, label });
   }
 
   async function message() {
