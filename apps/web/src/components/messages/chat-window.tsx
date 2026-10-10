@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Check, Circle, ImagePlus, Send } from "lucide-react";
 import {
   MESSAGES_PAGE_SIZE,
@@ -12,6 +13,8 @@ import {
   markConversationRead,
   receiptFor,
   sendMessage,
+  sharedPostLabel,
+  sharedPostOf,
   uploadImage,
   type ConversationMember,
   type ConversationSummary,
@@ -19,14 +22,56 @@ import {
   type Message,
   type MessageReceipt,
   type MessageWithSender,
+  type SharedPost,
 } from "@apartment-book/shared";
 import { useHydrated } from "@/lib/hooks";
+import { isOptimizableImage } from "@/lib/images";
 import { createClient, ensureRealtimeAuth, uniqueChannelName } from "@/lib/supabase/client";
 import { cn, errorMessage, formatMessageTime } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
 
 type ChatMessage = MessageWithSender & { pending?: boolean; failed?: boolean };
+
+/** Is `temp` our pending copy of the saved `row`? Share-only messages all have empty text, so the shared post has to match too. */
+function isOptimisticCopy(temp: ChatMessage, row: Pick<Message, "content" | "shared_post">): boolean {
+  return Boolean(temp.pending) && temp.content === row.content && sharedPostOf(temp.shared_post)?.target_id === sharedPostOf(row.shared_post)?.target_id;
+}
+
+/** Where each kind of shared thing opens. The card links to one of these plus the id, never to the path stored in the message. */
+const SHARED_TARGET_BASE: Record<SharedPost["target_type"], string> = { post: "/posts/", apartment: "/apartments/", roommate: "/roommates/", item: "/marketplace/" };
+
+/** A post, reel or listing somebody sent: its picture, who posted it, its words and a "View post" footer. The whole card opens it. */
+function SharedPostCard({ shared, pending }: { shared: SharedPost; pending?: boolean }) {
+  const label = sharedPostLabel(shared);
+  return (
+    <Link
+      href={`${SHARED_TARGET_BASE[shared.target_type]}${encodeURIComponent(shared.target_id)}`}
+      data-testid="shared-post"
+      aria-label={`${label}: ${shared.title ?? shared.caption ?? shared.author.name}`}
+      className={cn("mb-1 block w-64 max-w-full overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-sm hover:bg-gray-50", pending && "opacity-60")}
+    >
+      {/* The snapshot's pictures can point anywhere, and they must never be able to break the chat: next/image only for hosts it serves. */}
+      {shared.image_url ? (
+        isOptimizableImage(shared.image_url) ? (
+          <span className="relative block aspect-[4/5] max-h-52 w-full bg-gray-100">
+            <Image src={shared.image_url} alt="" fill sizes="256px" className="object-cover" />
+          </span>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element -- a snapshot URL from a host next/image does not serve
+          <img src={shared.image_url} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" className="aspect-[4/5] max-h-52 w-full bg-gray-100 object-cover" />
+        )
+      ) : null}
+      <span className="flex items-center gap-2 px-3 pt-2.5">
+        <Avatar name={shared.author.name} src={isOptimizableImage(shared.author.avatar_url) ? shared.author.avatar_url : null} size="xs" />
+        <span className="truncate text-xs font-semibold text-gray-900">{shared.author.name}</span>
+      </span>
+      {shared.title ? <span className="line-clamp-1 block break-words px-3 pt-1 text-sm font-semibold text-gray-900">{shared.title}</span> : null}
+      {shared.caption ? <span className="line-clamp-2 block break-words px-3 pt-0.5 text-sm text-gray-800">{shared.caption}</span> : null}
+      <span className="mt-2 block border-t border-gray-100 px-3 py-2 text-xs font-semibold text-brand-700">{label}</span>
+    </Link>
+  );
+}
 
 /** Messenger-style state of my newest message: hollow circle (sending), check in a circle (sent), filled check (delivered). */
 function ReceiptIcon({ receipt }: { receipt: MessageReceipt }) {
@@ -102,9 +147,7 @@ export function ChatWindow({
               if (prev.some((m) => m.id === row.id)) return prev;
               const sender = row.sender_id ? (membersById.get(row.sender_id) ?? null) : null;
               // Replace an optimistic copy of our own message if one is pending.
-              const withoutTemp = row.sender_id === currentUserId
-                ? prev.filter((m) => !(m.pending && m.content === row.content))
-                : prev;
+              const withoutTemp = row.sender_id === currentUserId ? prev.filter((m) => !isOptimisticCopy(m, row)) : prev;
               return [...withoutTemp, { ...row, sender }];
             });
             if (row.sender_id !== currentUserId) markConversationRead(supabase, conversation.id).catch(() => {});
@@ -138,7 +181,7 @@ export function ChatWindow({
               setMessages((prev) => {
                 const fresh = rows.filter((r) => !prev.some((m) => m.id === r.id));
                 if (fresh.length === 0) return prev;
-                const withoutTemp = prev.filter((m) => !(m.pending && fresh.some((f) => f.sender_id === currentUserId && f.content === m.content)));
+                const withoutTemp = prev.filter((m) => !fresh.some((f) => f.sender_id === currentUserId && isOptimisticCopy(m, f)));
                 return [...withoutTemp, ...fresh].sort((a, b) => a.created_at.localeCompare(b.created_at));
               });
               if (rows.some((r) => r.sender_id !== currentUserId)) markConversationRead(supabase, conversation.id).catch(() => {});
@@ -188,6 +231,7 @@ export function ChatWindow({
       sender_id: currentUserId,
       content: body,
       image_url: imageUrl ?? null,
+      shared_post: null,
       created_at: new Date().toISOString(),
       sender: me,
       pending: true,
@@ -268,6 +312,7 @@ export function ChatWindow({
             const mine = m.sender_id === currentUserId;
             const showDay = !previous || !isSameDay(previous.created_at, m.created_at);
             const continued = previous && previous.sender_id === m.sender_id && !showDay;
+            const shared = sharedPostOf(m.shared_post);
             return (
               <li key={m.id} className="flex flex-col">
                 {showDay && hydrated ? <p className="my-3 text-center text-[11px] font-medium uppercase tracking-wide text-gray-400">{formatDayLabel(m.created_at)}</p> : null}
@@ -279,6 +324,8 @@ export function ChatWindow({
                   ) : null}
                   <div className={cn("flex max-w-[75%] flex-col", mine ? "items-end" : "items-start")}>
                     {!mine && isGroup && !continued ? <span className="mb-0.5 ml-1 text-[11px] text-gray-500">{m.sender?.full_name ?? "Unknown"}</span> : null}
+                    {/* A shared post, reel or listing sits above the words (a share without words has no bubble at all). */}
+                    {shared ? <SharedPostCard shared={shared} pending={m.pending} /> : null}
                     {m.image_url ? (
                       <a href={m.image_url} target="_blank" rel="noopener noreferrer" className="relative mb-1 block h-48 w-48 overflow-hidden rounded-2xl bg-gray-100">
                         <Image src={m.image_url} alt="Shared photo" fill sizes="192px" className="object-cover" />

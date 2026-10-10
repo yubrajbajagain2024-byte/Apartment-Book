@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -13,12 +14,15 @@ import {
   receiptFor,
   recordContact,
   sendMessage,
+  sharedPostLabel,
+  sharedPostOf,
   timeAgo,
   type ConversationMember,
   type ConversationSummary,
   type MemberStatus,
   type Message,
   type MessageWithSender,
+  type SharedPost,
 } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { EmptyState, Loading } from "@/components/ui";
@@ -26,7 +30,7 @@ import { useQuery } from "@/lib/hooks";
 import { useIsOnline } from "@/lib/presence";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { colors, radius } from "@/lib/theme";
 
 type ChatMessage = MessageWithSender & { pending?: boolean; failed?: boolean };
 
@@ -104,7 +108,7 @@ function Chat({ conversation, userId, prefill, contact }: { conversation: Conver
     if (!body) return;
     const tempId = `temp-${Date.now()}`;
     const me = membersById.get(userId) ?? { id: userId, full_name: "You", avatar_url: null };
-    setMessages((prev) => [...prev, { id: tempId, conversation_id: conversation.id, sender_id: userId, content: body, image_url: null, created_at: new Date().toISOString(), sender: me, pending: true }]);
+    setMessages((prev) => [...prev, { id: tempId, conversation_id: conversation.id, sender_id: userId, content: body, image_url: null, shared_post: null, created_at: new Date().toISOString(), sender: me, pending: true }]);
     setText("");
     try {
       const saved = await sendMessage(supabase, { conversationId: conversation.id, senderId: userId, content: body });
@@ -159,6 +163,8 @@ function Chat({ conversation, userId, prefill, contact }: { conversation: Conver
           const showDay = !previous || !isSameDay(previous.created_at, m.created_at);
           const continued = previous && previous.sender_id === m.sender_id && !showDay;
           const seenBy = seenAt.get(m.id);
+          // A shared post, reel or listing rides along as a card; any words come under it as the usual bubble.
+          const shared = sharedPostOf(m.shared_post);
           return (
             <View>
               {showDay ? <Text style={styles.day}>{formatDayLabel(m.created_at)}</Text> : null}
@@ -166,9 +172,12 @@ function Chat({ conversation, userId, prefill, contact }: { conversation: Conver
                 {!mine ? <View style={{ width: 32 }}>{!continued ? <Avatar name={m.sender?.full_name} url={m.sender?.avatar_url} size="sm" /> : null}</View> : null}
                 <View style={{ maxWidth: "75%", alignItems: mine ? "flex-end" : "flex-start" }}>
                   {!mine && isGroup && !continued ? <Text style={styles.sender}>{m.sender?.full_name ?? "Unknown"}</Text> : null}
-                  <View style={[styles.bubble, mine ? styles.mine : styles.theirs, m.pending && { opacity: 0.6 }, m.failed && { backgroundColor: "#fdecec" }]}>
-                    <Text style={{ color: mine && !m.failed ? "#fff" : colors.text, fontSize: 15 }}>{m.content}</Text>
-                  </View>
+                  {shared ? <SharedPostCard shared={shared} dimmed={Boolean(m.pending)} /> : null}
+                  {m.content || !shared ? (
+                    <View style={[styles.bubble, mine ? styles.mine : styles.theirs, m.pending && { opacity: 0.6 }, m.failed && { backgroundColor: "#fdecec" }]}>
+                      <Text style={{ color: mine && !m.failed ? "#fff" : colors.text, fontSize: 15 }}>{m.content}</Text>
+                    </View>
+                  ) : null}
                   <Text style={styles.time}>{m.failed ? "Failed to send" : m.pending ? "Sending…" : formatMessageTime(m.created_at)}</Text>
                 </View>
                 {mine && lastMine?.id === m.id && receipt && receipt !== "seen" ? (
@@ -198,8 +207,67 @@ function Chat({ conversation, userId, prefill, contact }: { conversation: Conver
   );
 }
 
+/** The app screen behind a shared post's website path. */
+function sharedPostHref(shared: SharedPost) {
+  const params = { id: shared.target_id };
+  switch (shared.target_type) {
+    case "apartment":
+      return { pathname: "/apartments/[id]", params } as const;
+    case "roommate":
+      return { pathname: "/roommates/[id]", params } as const;
+    case "item":
+      return { pathname: "/marketplace/[id]", params } as const;
+    default:
+      return { pathname: "/posts/[id]", params } as const;
+  }
+}
+
+/** A shared post, reel or listing inside a chat: picture, who posted it, what it says, and "View post" to open it. */
+function SharedPostCard({ shared, dimmed }: { shared: SharedPost; dimmed: boolean }) {
+  const router = useRouter();
+  const label = sharedPostLabel(shared);
+  return (
+    <Pressable
+      onPress={() => router.push(sharedPostHref(shared))}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${shared.title ?? shared.caption ?? shared.author.name}`}
+      style={({ pressed }) => [styles.card, dimmed && { opacity: 0.6 }, pressed && { opacity: 0.8 }]}
+    >
+      {shared.image_url ? <Image source={{ uri: shared.image_url }} style={styles.cardImage} contentFit="cover" transition={150} accessibilityLabel={shared.title ?? shared.caption ?? "Shared picture"} /> : null}
+      <View style={styles.cardBody}>
+        <View style={styles.cardAuthor}>
+          <Avatar name={shared.author.name} url={shared.author.avatar_url} size="xs" online={false} />
+          <Text style={styles.cardName} numberOfLines={1}>
+            {shared.author.name}
+          </Text>
+        </View>
+        {shared.title ? (
+          <Text style={styles.cardTitle} numberOfLines={2}>
+            {shared.title}
+          </Text>
+        ) : null}
+        {shared.caption ? (
+          <Text style={styles.cardText} numberOfLines={2}>
+            {shared.caption}
+          </Text>
+        ) : null}
+        <Text style={styles.cardFooter}>{label}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   day: { textAlign: "center", fontSize: 11, color: colors.faint, marginVertical: 10, textTransform: "uppercase", letterSpacing: 0.5 },
+  card: { width: 240, maxWidth: "100%", borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.card, overflow: "hidden", marginBottom: 2 },
+  // 4:5 would be 300pt tall at this width, so the picture is capped at 200 and cropped.
+  cardImage: { width: "100%", height: 200, backgroundColor: colors.input },
+  cardBody: { padding: 10, gap: 4 },
+  cardAuthor: { flexDirection: "row", alignItems: "center", gap: 6 },
+  cardName: { fontSize: 13, fontWeight: "600", color: colors.text, flexShrink: 1 },
+  cardTitle: { fontSize: 14, fontWeight: "600", lineHeight: 19, color: colors.text },
+  cardText: { fontSize: 14, lineHeight: 19, color: colors.text },
+  cardFooter: { fontSize: 13, fontWeight: "600", color: colors.brand, marginTop: 2 },
   line: { flexDirection: "row", alignItems: "flex-end", gap: 6, marginTop: 2 },
   sender: { fontSize: 11, color: colors.muted, marginLeft: 4, marginBottom: 2 },
   bubble: { borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8 },

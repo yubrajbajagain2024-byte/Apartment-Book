@@ -3,11 +3,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BadgeCheck, Bookmark, Check, Heart, MessageCircle, Play, Plus, Share2, Volume2, VolumeX } from "lucide-react";
-import { muxPlaybackUrl, muxPosterUrl, reelPath, timeAgo, type Reel } from "@apartment-book/shared";
+import { BadgeCheck, Bookmark, Heart, MessageCircle, Play, Plus, Share2, Volume2, VolumeX } from "lucide-react";
+import { muxPlaybackUrl, muxPosterUrl, reelPath, sharedPostFromReel, timeAgo, type Reel } from "@apartment-book/shared";
 import { cn } from "@/lib/utils";
 import { useSaveToggle } from "@/components/common/save-button";
-import { useShare } from "@/components/common/share-button";
+import { ShareDialog, useShareDialog } from "@/components/common/share-dialog";
 import { useLikeToggle } from "@/components/posts/like-button";
 
 export const REELS_PATH = "/?tab=reels";
@@ -76,7 +76,7 @@ export function ReelCard({
   const path = reelPath(reel);
   const like = useLikeToggle(reel.sourceType, reel.sourceId, { liked: reel.likedByMe, likes: reel.likes }, signedIn);
   const save = useSaveToggle(reel.sourceType, reel.sourceId, reel.savedByMe, signedIn);
-  const { share, copied } = useShare(path, reel.title ?? `${reel.author.name} on Apartment Book`);
+  const shareDialog = useShareDialog(path);
   const [expanded, setExpanded] = useState(false);
   /** Bumped on every like so the heart replays its pop, and on every double tap so the big heart flashes again. */
   const [pop, setPop] = useState(0);
@@ -162,8 +162,8 @@ export function ReelCard({
           >
             <MessageCircle className="h-7 w-7" />
           </ActionButton>
-          <ActionButton label="Share" text={copied ? "Copied" : "Share"} onClick={() => void share()}>
-            {copied ? <Check className="h-7 w-7" /> : <Share2 className="h-7 w-7" />}
+          <ActionButton label="Share" text="Share" onClick={shareDialog.show}>
+            <Share2 className="h-7 w-7" />
           </ActionButton>
           <ActionButton
             label={save.saved ? "Saved" : "Save"}
@@ -241,6 +241,15 @@ export function ReelCard({
           ) : null}
         </div>
       </div>
+
+      {/* Send the reel to friends (a chat message with the reel as a card) or copy its link. The card gets the same still the player shows. */}
+      <ShareDialog
+        sharedPost={{ ...sharedPostFromReel(reel), image_url: reel.video.poster_url ?? muxPosterUrl(reel.video.playback_id) }}
+        url={shareDialog.url}
+        open={shareDialog.open}
+        onClose={shareDialog.hide}
+        currentUser={currentUserId ? { id: currentUserId } : null}
+      />
     </section>
   );
 }

@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
-import { Alert, Animated, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reportContent, REPORT_REASONS, timeAgo, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
+import { captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reportContent, REPORT_REASONS, sharedPostFromFeedPost, timeAgo, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
@@ -10,6 +10,7 @@ import { useActionSheet } from "../action-sheet";
 import { Avatar } from "../avatar";
 import { useLike, useSave } from "../engagement";
 import { PhotoCarousel } from "../photo-carousel";
+import { useShareSheet } from "../share-sheet";
 
 export type InstaPostProps = {
   post: FeedPostWithAuthor;
@@ -50,6 +51,7 @@ function frameAspect(media: FeedMedia[], reel: boolean): number {
 export function InstaPost({ post, saved, engagement, preview, subtitle, active, detail, onComments, onDeleted, ...props }: InstaPostProps) {
   const router = useRouter();
   const show = useActionSheet();
+  const shareSheet = useShareSheet();
   const { user } = useSession();
   const needLogin = () => router.push("/(auth)/login");
   const like = useLike("post", post.id, engagement, user?.id ?? null, needLogin);
@@ -88,7 +90,8 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
     } else lastTextTap.current = now;
   }
 
-  const share = () => void Share.share({ message: `${author.full_name} on Apartment Book · ${SITE_URL}${path}`, url: `${SITE_URL}${path}` });
+  /** Instagram's share sheet: send it to friends as a chat card, or "Share to…" the link with the system sheet. */
+  const share = () => shareSheet.open(sharedPostFromFeedPost(post, media), { url: `${SITE_URL}${path}`, label: `${author.full_name} on Apartment Book` });
 
   async function message() {
     if (!user) return needLogin();

@@ -3,6 +3,7 @@ export * from "./utils";
 export * from "./format";
 export * from "./media";
 export * from "./for-you";
+export * from "./share";
 export * from "./types/database";
 export * from "./types/models";
 export * from "./schemas";

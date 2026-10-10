@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { BadgeCheck, Bookmark, Video } from "lucide-react";
-import { hasVideo, timeAgo, type FeedMedia, type PostCommentWithAuthor, type PostEngagement, type PostTargetType } from "@apartment-book/shared";
+import { hasVideo, sharedPostFromListing, timeAgo, type FeedMedia, type PostCommentWithAuthor, type PostEngagement, type PostTargetType, type SharedPost } from "@apartment-book/shared";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { MessageButton } from "@/components/common/message-button";
@@ -54,6 +54,24 @@ export type PostCardProps = {
 
 const CAPTION_LIMIT = 140;
 const NO_ENGAGEMENT: PostEngagement = { likes: 0, comments: 0, likedByMe: false };
+
+/** The first photo, or a still from the first video, for the card a friend gets when this is shared. */
+function firstFrame(media: FeedMedia[]): string | null {
+  for (const m of media) {
+    if (m.type === "photo") return m.url;
+    if (m.type === "video" && m.poster) return m.poster;
+  }
+  return null;
+}
+
+/** What the share sheet sends: everything the card already has, so no extra query is needed. */
+function sharedPostOfCard({ targetType, targetId, href, poster, media, title, caption }: PostCardProps): SharedPost {
+  const author = { id: poster.id, name: poster.name, avatar_url: poster.avatarUrl };
+  if (targetType === "post") {
+    return { target_type: "post", target_id: targetId, kind: "post", path: href, title: title ?? null, caption: caption?.trim() ? caption.trim() : null, image_url: firstFrame(media), author };
+  }
+  return sharedPostFromListing({ targetType, targetId, title: title ?? `Post by ${poster.name}`, caption, imageUrl: firstFrame(media), author });
+}
 
 /** A feed post. Instagram-style by default; `layout="facebook"` for text-first posts with likes and comments. */
 export function PostCard(props: PostCardProps) {
@@ -185,7 +203,7 @@ export function PostCard(props: PostCardProps) {
           <Bookmark className={cn("h-5 w-5", save.saved && "fill-current")} /> {save.saved ? "Saved" : "Save"}
         </button>
         <MessageButton userId={poster.id} currentUserId={props.currentUserId} returnTo={href} prefill={props.messagePrefill} variant="action" target={{ type: props.targetType, id: props.targetId }} />
-        <ShareButton path={href} title={label} />
+        <ShareButton path={href} title={label} sharedPost={sharedPostOfCard(props)} currentUserId={props.currentUserId} />
       </div>
       <div className="px-3 pb-3 pt-1 text-sm text-gray-900">
         <Link href={href} className="font-semibold">

@@ -1,5 +1,6 @@
 // Browser check of the website's navigation (desktop tabs Home | Housing | Messages | Marketplace next to the search box, phone bottom bar Home | Housing | Messages | Marketplace | Profile),
-// Home (For you | Buzz | Posts | Reels), Housing (Apartments | Roommates), following (the Follow button on a profile, the follower list, Home → Posts → Following) and the TikTok-style comment thread under a post (heart, reply, the "N comments" header, delete from the comment's options menu),
+// Home (For you | Buzz | Posts | Reels), Housing (Apartments | Roommates), following (the Follow button on a profile, the follower list, Home → Posts → Following), the TikTok-style comment thread under a post (heart, reply, the "N comments" header, delete from the comment's options menu)
+// and sharing a post with a friend (the Share dialog offers the people you follow who follow you back; Send leaves the post as a card in your chat with them),
 // signed out and signed in, on a desktop and a phone viewport.
 // Usage: start the site (npm run dev -w web -- -p 3060), seed test data (SUPABASE_ACCESS_TOKEN=... node apps/mobile/e2e/sim-seed.mjs),
 // then: BASE=http://localhost:3060 node apps/web/e2e/home-feed.mjs      (reads apps/mobile/e2e/.sim-state.json; Chromium only: the phone swipes go through a CDP session)
@@ -154,7 +155,7 @@ try {
     await mine.locator("button[aria-label='Upvote'][aria-pressed='true']").waitFor();
     await D.screenshot({ caret: "initial", path: SHOTS + "web-05-buzz-thread.png" });
   });
-  await step("signed in: heart a post and the count goes up, the comment icon opens the TikTok-style thread under the post (heart a comment and clear it, reply to it, the \"N comments\" header and its sort menu, delete the reply from its options menu), the bookmark saves it", async () => {
+  await step("signed in: heart a post and the count goes up, the comment icon opens the TikTok-style thread under the post (heart a comment and clear it, reply to it, the \"N comments\" header and its sort menu, delete the reply from its options menu), the bookmark saves it, Share sends it to a friend (Leo) and it lands as a card in our chat", async () => {
     await D.goto(BASE + "/?tab=posts"); await D.waitForLoadState("networkidle");
     const post = D.locator("[data-testid='insta-post']").filter({ hasText: "First week back on campus" }).first(); await post.waitFor();
     await post.getByLabel("Like", { exact: true }).click(); await post.getByLabel("Unlike", { exact: true }).waitFor();
@@ -202,19 +203,42 @@ try {
     await D.screenshot({ caret: "initial", path: SHOTS + "web-07-post-liked.png" });
     await post.getByLabel("Unsave", { exact: true }).click(); await post.getByLabel("Save", { exact: true }).waitFor();
     await post.getByLabel("Unlike", { exact: true }).click(); await post.getByLabel("Like", { exact: true }).waitFor();
+    // Share, like Instagram: the paper plane opens a "Share" dialog with my friends, the people I follow who follow me back (Leo, from the seed; not Maya).
+    // Send stays disabled until someone is picked; Leo's tile is a button named after him and reads pressed once picked; Send turns into "Sent", then the dialog closes.
+    const leoName = state.extra[0].name;
+    await post.getByLabel("Share", { exact: true }).click(); const dialog = D.getByRole("dialog", { name: "Share" }); await dialog.waitFor();
+    const leo = dialog.getByRole("button", { name: leoName, exact: true }); await leo.waitFor();
+    if (await dialog.getByRole("button", { name: state.other.name, exact: true }).count()) throw new Error("Maya is offered, but she and I do not follow each other");
+    if (!(await dialog.getByRole("button", { name: "Send", exact: true }).isDisabled())) throw new Error("Send is enabled before anyone is picked");
+    await leo.click(); await dialog.locator(`button[aria-pressed='true'][aria-label='${leoName}']`).waitFor();
+    const note = `Look at this (web ${Date.now()})`; await dialog.getByLabel("Write a message", { exact: true }).fill(note);
+    await D.screenshot({ caret: "initial", path: SHOTS + "web-12-share-dialog.png" });
+    await dialog.getByRole("button", { name: "Send", exact: true }).click(); await dialog.getByRole("button", { name: "Sent", exact: true }).waitFor(); await dialog.waitFor({ state: "detached" });
+    // Our chat (Messages → Leo): one message holds the post as a card that links to it ("View post: …", the author, the picture) and my note under it.
+    await D.goto(BASE + "/messages"); await D.locator("a[href^='/messages/']").filter({ hasText: leoName }).first().click(); await D.waitForURL(/\/messages\/[0-9a-f-]{36}/);
+    const message = D.locator("ol > li").filter({ has: D.locator(`[data-testid='shared-post'][href='/posts/${state.postId}']`) }).filter({ hasText: note }).last(); await message.waitFor();
+    const card = message.getByTestId("shared-post"); const cardLabel = (await card.getAttribute("aria-label")) ?? "";
+    if (!cardLabel.startsWith("View post: First week back on campus")) throw new Error("card label: " + cardLabel);
+    const cardText = (await card.innerText()).replace(/\s+/g, " "); if (!cardText.includes(state.other.name) || !cardText.includes("View post")) throw new Error("card text: " + cardText);
+    if (!(await card.locator("img").count())) throw new Error("the card has no picture");
+    await message.scrollIntoViewIfNeeded(); await D.screenshot({ caret: "initial", path: SHOTS + "web-13-shared-post-chat.png" });
   });
-  await step("signed in: follow Maya from her profile, the counts and the list update, the Posts Following filter shows her post, unfollow", async () => {
+  await step("signed in: Posts → Following holds Leo's post (we follow each other from the seed) and none of Maya's; follow Maya from her profile, the counts and the list update, her post joins Following, unfollow", async () => {
     const profile = BASE + "/profile/" + state.other.id; const counts = () => D.getByTestId("follow-counts"); const button = () => D.getByTestId("follow-button");
+    // Home → Posts → Following keeps only posts by the people I follow. The seed makes Leo and me friends, so before I follow Maya it shows his post and none of hers.
+    const followingPost = (text) => D.locator("[data-testid='insta-post']").filter({ hasText: text });
+    await D.goto(BASE + "/?tab=posts&feed=following"); await followingPost("Move-in day at the new place").first().waitFor();
+    if (await followingPost("First week back on campus").count()) throw new Error("Maya's post is in the Following feed, but I do not follow her yet");
     await D.goto(profile); await D.waitForLoadState("networkidle"); // hydrated before clicking
     const before = (await counts().innerText()).replace(/\s+/g, " "); if (!before.includes("1 follower")) throw new Error("counts before (Leo follows her from the seed): " + before);
     const label = (await button().innerText()).trim(); if (!/^Follow( back)?$/.test(label)) throw new Error("button before: " + label);
     await button().click(); await D.locator("[data-testid='follow-button'][aria-pressed='true']").filter({ hasText: /^Following$/ }).waitFor();
     await counts().filter({ hasText: "2 followers" }).waitFor();
-    // Home → Posts → Following keeps only posts by the people I follow: Maya's post is there, Leo's is not, and the switch marks Following.
+    // Now Following shows her post next to Leo's, and the switch marks Following.
     await D.goto(BASE + "/?tab=posts&feed=following"); await D.getByText("First week back on campus").first().waitFor();
     const sw = D.getByTestId("posts-feed-switch"); const options = (await sw.locator("a").allInnerTexts()).map((t) => t.trim()).filter(Boolean); if (options.join("|") !== "Everyone|Following") throw new Error("feed switch: " + options.join("|"));
     const active = (await sw.locator("[aria-current='page'], [aria-selected='true'], [aria-pressed='true']").allInnerTexts()).map((t) => t.trim()); if (active.join("|") !== "Following") throw new Error("active feed: " + active.join("|"));
-    if (await D.locator("[data-testid='insta-post']").filter({ hasText: "Move-in day at the new place" }).count()) throw new Error("Leo's post is in the Following feed, but I do not follow him");
+    if (!(await followingPost("Move-in day at the new place").count())) throw new Error("Leo's post left the Following feed, but I still follow him");
     await D.screenshot({ caret: "initial", path: SHOTS + "web-09b-posts-following.png" });
     // Her followers list has a row for me (and one for Leo).
     await D.goto(profile + "/followers"); await D.waitForLoadState("networkidle"); /* streamed in: wait until the hidden copy has been swapped into place */ const list = D.getByTestId("follow-list"); await list.waitFor();

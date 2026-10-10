@@ -1,8 +1,8 @@
 import { type ReactNode, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { getOrCreateDirectConversation, getPostEngagement, recordContact, recordView, reportContent, REPORT_REASONS, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType } from "@apartment-book/shared";
+import { getOrCreateDirectConversation, getPostEngagement, recordContact, recordView, reportContent, REPORT_REASONS, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { colors, radius } from "@/lib/theme";
@@ -11,6 +11,7 @@ import { Avatar } from "./avatar";
 import { Comments } from "./comments";
 import { EngagementBar, EngagementSummary, useLike, useSave } from "./engagement";
 import { PhotoCarousel } from "./photo-carousel";
+import { firstImageOf, useShareSheet } from "./share-sheet";
 import { useQuery } from "@/lib/hooks";
 import { Button } from "./ui";
 
@@ -43,6 +44,7 @@ export function ListingDetail({
   const { user } = useSession();
   const router = useRouter();
   const show = useActionSheet();
+  const shareSheet = useShareSheet();
   const path = `/${targetType === "apartment" ? "apartments" : targetType === "item" ? "marketplace" : "roommates"}/${targetId}`;
   const needLogin = () => router.push("/(auth)/login");
   const { data: engagement, setData } = useQuery(() => getPostEngagement(supabase, targetType, targetId).catch((): PostEngagement => ({ likes: 0, comments: 0, likedByMe: false })), [targetType, targetId]);
@@ -71,7 +73,13 @@ export function ListingDetail({
   function menu() {
     show([
       { label: save.saved ? "Unsave" : "Save", icon: save.saved ? "bookmark" : "bookmark-outline", onPress: () => void save.toggle() },
-      { label: "Share", icon: "share-outline", onPress: () => void Share.share({ message: `${title} · ${SITE_URL}${path}`, url: `${SITE_URL}${path}` }) },
+      {
+        label: "Share",
+        icon: "share-outline",
+        // The friends sheet; its "Share to…" row is the system share with the same link as before.
+        onPress: () =>
+          shareSheet.open(sharedPostFromListing({ targetType, targetId, title, caption: lead, imageUrl: firstImageOf(media), author: { id: poster.id, name: poster.name, avatar_url: poster.avatarUrl } }), { url: `${SITE_URL}${path}`, label: title }),
+      },
       ...(own
         ? []
         : [

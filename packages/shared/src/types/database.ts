@@ -502,6 +502,7 @@ export type Database = {
           sender_id: string | null;
           content: string;
           image_url: string | null;
+          shared_post: Json | null;
           created_at: string;
         };
         Insert: {
@@ -510,6 +511,7 @@ export type Database = {
           sender_id?: string | null;
           content: string;
           image_url?: string | null;
+          shared_post?: Json | null;
           created_at?: string;
         };
         Update: {
@@ -518,6 +520,7 @@ export type Database = {
           sender_id?: string | null;
           content?: string;
           image_url?: string | null;
+          shared_post?: Json | null;
           created_at?: string;
         };
         Relationships: [
@@ -1190,6 +1193,10 @@ export type Database = {
       follow_stats: {
         Args: { p_user_ids: string[] };
         Returns: { user_id: string; followers: number; following: number; followed_by_me: boolean; follows_me: boolean }[];
+      };
+      list_friends: {
+        Args: { p_q?: string | null };
+        Returns: Database["public"]["Tables"]["profiles"]["Row"][];
       };
       following_posts: {
         Args: { p_kind?: string | null; p_university_id?: string | null };

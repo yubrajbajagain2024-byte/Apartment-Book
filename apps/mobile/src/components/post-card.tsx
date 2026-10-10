@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { getOrCreateDirectConversation, reportContent, timeAgo, type FeedMedia, type PostEngagement, type ReportReason, type PostTargetType, REPORT_REASONS } from "@apartment-book/shared";
+import { getOrCreateDirectConversation, reportContent, sharedPostFromListing, timeAgo, type FeedMedia, type PostEngagement, type ReportReason, type PostTargetType, type SharedPost, REPORT_REASONS } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
@@ -10,6 +10,7 @@ import { useActionSheet } from "./action-sheet";
 import { Avatar } from "./avatar";
 import { EngagementBar, EngagementSummary, useLike, useSave } from "./engagement";
 import { PhotoCarousel } from "./photo-carousel";
+import { firstImageOf, useShareSheet } from "./share-sheet";
 
 export type PostCardProps = {
   targetType: PostTargetType;
@@ -46,6 +47,7 @@ export function PostCard(props: PostCardProps) {
   const { poster, title, lead, description, media, createdAt, path } = props;
   const router = useRouter();
   const show = useActionSheet();
+  const shareSheet = useShareSheet();
   const { user } = useSession();
   const [expanded, setExpanded] = useState(false);
   const needLogin = () => router.push("/(auth)/login");
@@ -68,6 +70,18 @@ export function PostCard(props: PostCardProps) {
     }
   }
 
+  /** The friends sheet, with the card's title, price line (or description) and first picture; its "Share to…" row is the system share as before. */
+  function share() {
+    const author = { id: poster.id, name: poster.name, avatar_url: poster.avatarUrl };
+    const imageUrl = firstImageOf(media);
+    const caption = lead || text || null;
+    const shared: SharedPost =
+      props.targetType === "post"
+        ? { target_type: "post", target_id: props.targetId, kind: "post", path, title: null, caption, image_url: imageUrl, author }
+        : sharedPostFromListing({ targetType: props.targetType, targetId: props.targetId, title: title ?? poster.name, caption, imageUrl, author });
+    shareSheet.open(shared, { url: `${SITE_URL}${path}`, label: title ?? "Apartment Book" });
+  }
+
   function report() {
     if (!user) return needLogin();
     show(
@@ -85,7 +99,7 @@ export function PostCard(props: PostCardProps) {
   function menu() {
     show([
       { label: save.saved ? "Unsave post" : "Save post", icon: save.saved ? "bookmark" : "bookmark-outline", onPress: () => void save.toggle() },
-      { label: "Share post", icon: "share-outline", onPress: () => void Share.share({ message: `${title ?? "Apartment Book"} · ${SITE_URL}${path}`, url: `${SITE_URL}${path}` }) },
+      { label: "Share post", icon: "share-outline", onPress: share },
       ...(own ? [] : [{ label: "Report post", icon: "flag-outline" as const, destructive: true, onPress: report }]),
     ]);
   }

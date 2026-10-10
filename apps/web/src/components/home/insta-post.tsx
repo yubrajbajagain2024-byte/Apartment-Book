@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BadgeCheck, Bookmark, Check, Heart, MessageCircle, Send } from "lucide-react";
-import { captionParts, compactCount, isVerifiedPoster, listingMedia, timeAgo, type FeedMedia, type FeedPostWithAuthor, type PostCommentWithAuthor, type PostEngagement, type PostPreview } from "@apartment-book/shared";
+import { BadgeCheck, Bookmark, Heart, MessageCircle, Send } from "lucide-react";
+import { captionParts, compactCount, isVerifiedPoster, listingMedia, sharedPostFromFeedPost, timeAgo, type FeedMedia, type FeedPostWithAuthor, type PostCommentWithAuthor, type PostEngagement, type PostPreview } from "@apartment-book/shared";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { MessageButton } from "@/components/common/message-button";
 import { useSaveToggle } from "@/components/common/save-button";
-import { useShare } from "@/components/common/share-button";
+import { ShareDialog, useShareDialog } from "@/components/common/share-dialog";
 import { PhotoCarousel } from "@/components/photos/photo-carousel";
 import { CommentsSection } from "@/components/posts/comments-section";
 import { useLikeToggle } from "@/components/posts/like-button";
@@ -62,7 +62,7 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
 
   const like = useLikeToggle("post", post.id, { liked: engagement.likedByMe, likes: engagement.likes }, signedIn);
   const save = useSaveToggle("post", post.id, saved, signedIn);
-  const { share, copied } = useShare(href, label);
+  const shareDialog = useShareDialog(href);
   const [slide, setSlide] = useState(0);
   const [burst, setBurst] = useState(0);
   const [expanded, setExpanded] = useState(Boolean(commentsOpen));
@@ -178,9 +178,8 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
           <MessageCircle className="h-[26px] w-[26px] -scale-x-100" />
           {commentCount > 0 ? <span className="text-sm font-semibold tabular-nums">{compactCount(commentCount)}</span> : null}
         </button>
-        <button type="button" onClick={share} aria-label={copied ? "Link copied" : "Share"} className={icon}>
-          {copied ? <Check className="h-[26px] w-[26px] text-brand-600" /> : <Send className="h-[26px] w-[26px]" />}
-          {copied ? <span className="text-xs font-semibold text-brand-700">Link copied</span> : null}
+        <button type="button" onClick={shareDialog.show} aria-label="Share" className={icon}>
+          <Send className="h-[26px] w-[26px]" />
         </button>
         <span className="flex-1" />
         {save.signedIn ? (
@@ -260,6 +259,9 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
           initialComments={initialComments}
         />
       ) : null}
+
+      {/* Send the post to friends (a chat message with the post as a card) or copy its link. */}
+      <ShareDialog sharedPost={sharedPostFromFeedPost(post, media)} url={shareDialog.url} open={shareDialog.open} onClose={shareDialog.hide} currentUser={currentUser ?? (currentUserId ? { id: currentUserId } : null)} />
     </article>
   );
 }

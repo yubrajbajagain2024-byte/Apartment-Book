@@ -1,4 +1,4 @@
-# Signed-in tour of the new Home: like a post, comment on it (heart, reply, delete from the hold menu), vote and reply anonymously in Buzz, watch a reel, reach the profile, follow Maya, see her posts alone under Following (the feed menu next to the wordmark), unfollow.
+# Signed-in tour of the new Home: like a post, comment on it (heart, reply, delete from the hold menu), share it with Leo (a friend: the seed has him and this account follow each other) and find it as a card in your chat with him, vote and reply anonymously in Buzz, watch a reel, reach the profile, see Leo's post alone under Following (the feed menu next to the wordmark), follow Maya and see hers join it, unfollow.
 # Needs test data: SUPABASE_ACCESS_TOKEN=... node e2e/sim-seed.mjs   (then pass EMAIL and PASSWORD from its output)
 appId: host.exp.Exponent
 env:
@@ -133,6 +133,60 @@ env:
     visible: "No comments yet"
     timeout: 15000
 - tapOn: "Close"
+- extendedWaitUntil:
+    notVisible: "Write a comment"
+    timeout: 15000
+# Share, like Instagram: the paper plane under the top post (Leo's three-photo post) opens a sheet of your friends, the people
+# you follow who follow you back ("Search friends" on top, "Share to…", the system share sheet, at the bottom). Pick Leo
+# ("below" the search box keeps the tap inside the sheet, away from his name on the post behind it): his face reads selected
+# and the composer appears ("To UI Leo", "Write a message", Send). After "Sending…" and a short "Sent" the sheet closes itself.
+- tapOn:
+    text: "Share"
+    index: 0
+- extendedWaitUntil:
+    visible: "Search friends"
+    timeout: 15000
+- assertVisible: "Share to…"
+- extendedWaitUntil:
+    visible:
+      text: "UI Leo"
+      below: "Search friends"
+    timeout: 30000
+- tapOn:
+    text: "UI Leo"
+    below: "Search friends"
+- assertVisible:
+    text: "UI Leo"
+    below: "Search friends"
+    selected: true
+- assertVisible: "To UI Leo"
+- takeScreenshot: e2e/screenshots/20-share-sheet
+- tapOn: "Write a message"
+- inputText: "Look at this"
+- tapOn: "Send"
+- extendedWaitUntil:
+    notVisible: "Search friends"
+    timeout: 30000
+# Leo has it in your chat with him (Messages, the third bottom tab): the post as a card, labelled "View post: …" (a tap
+# opens the post), with the words as a bubble under it. The left-edge swipe pops the chat on iOS; Home is still on Posts.
+- tapOn: "Messages.*"
+- extendedWaitUntil:
+    visible: "Chat with UI Leo"
+    timeout: 30000
+- tapOn: "Chat with UI Leo"
+- extendedWaitUntil:
+    visible: "View post.*"
+    timeout: 30000
+- assertVisible: "Look at this"
+- takeScreenshot: e2e/screenshots/20-shared-post-chat
+- swipe:
+    start: "2%,45%"
+    end: "90%,45%"
+    duration: 400
+- waitForAnimationToEnd
+- tapOn: "Home.*"
+- tapOn: "Posts"
+- waitForAnimationToEnd
 # Further down: a post with comments shows "View all 2 comments" and the newest one.
 - scrollUntilVisible:
     element: "View all 2 comments"
@@ -164,15 +218,33 @@ env:
 - assertVisible: "Post options"
 - takeScreenshot: e2e/screenshots/12-buzz-thread
 # Following, like Instagram. The thread is a stacked screen without the bottom tabs: Close brings Home back (the pager is
-# still on Buzz). On Posts, scroll to the top (Leo's three-photo post) and down to the first post whose header reads
-# "UI Maya": tapping the name opens her profile. Follow her, look at the Following feed from the top bar's menu, then
-# unfollow again so the flow can run again and again.
+# still on Buzz). Following is a row of the menu that drops down from the CampConnect wordmark ("Choose feed"). Before Maya
+# is followed it holds Leo's three-photo post (the seed has him and this account follow each other) and nothing of hers: the
+# scroll would bring her words-only post into view if it were there, and notVisible waits because the campus list stays on
+# screen until the Following one has loaded. Then, back on the campus, scroll to the top (Leo's three-photo post) and down to
+# the first post whose header reads "UI Maya": tapping the name opens her profile. Follow her, look at the Following feed
+# again, then unfollow again so the flow can run again and again.
 - tapOn: "Close"
 - extendedWaitUntil:
     visible: "Home.*"
     timeout: 15000
 - tapOn: "Posts"
 - waitForAnimationToEnd
+- tapOn: "Choose feed"
+- tapOn: "Following"
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element: "1 of 3"
+    direction: UP
+    timeout: 30000
+- assertVisible: "Post: Move-in day at the new place.*"
+- scroll
+- extendedWaitUntil:
+    notVisible: "Post: Does anyone know if the rec center.*"
+    timeout: 15000
+- assertNotVisible: "Post: First week back on campus.*"
+- tapOn: "Choose feed"
+- tapOn: "Texas State University"
 - scrollUntilVisible:
     element: "1 of 3"
     direction: UP
@@ -191,10 +263,10 @@ env:
     visible: "Following"
     timeout: 15000
 - takeScreenshot: e2e/screenshots/16-profile-following
-# The Following feed, from the menu that drops down from the CampConnect wordmark (Instagram style; the Posts page has no
-# chips of its own). Back on Home (the left-edge swipe pops the profile on iOS; the pager is still on Posts), "Choose feed"
+# The Following feed again, from the menu that drops down from the CampConnect wordmark (Instagram style; the Posts page has
+# no chips of its own). Back on Home (the left-edge swipe pops the profile on iOS; the pager is still on Posts), "Choose feed"
 # is the wordmark button and opens the menu: the seeded account's university, "All universities" and "Following". Following
-# keeps Posts to the people you follow, Maya alone here: her words-only post shows, Leo's three-photo post does not.
+# keeps Posts to the people you follow: now Maya's words-only post shows too, under Leo's three-photo post.
 - swipe:
     start: "2%,45%"
     end: "90%,45%"
@@ -212,7 +284,6 @@ env:
     element: "Post: Does anyone know if the rec center.*"
     direction: UP
     timeout: 30000
-- assertNotVisible: "Post: Move-in day at the new place.*"
 - takeScreenshot: e2e/screenshots/19-posts-following
 # Back to the whole campus (the row reads the profile's university, Texas State for every ui-sim account): the choice lives
 # in memory for as long as the app runs, and the flows after this one expect the usual Posts page.

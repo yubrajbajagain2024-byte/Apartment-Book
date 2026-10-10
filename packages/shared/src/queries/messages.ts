@@ -1,12 +1,7 @@
 import { MESSAGES_PAGE_SIZE } from "../constants";
-import type {
-  Client,
-  ConversationSummary,
-  ConversationType,
-  MemberStatus,
-  MessageWithSender,
-  ProfileSummary,
-} from "../types/models";
+import type { Client, ConversationSummary, ConversationType, MemberStatus, MessageWithSender, ProfileSummary, SharedPost } from "../types/models";
+import type { Json } from "../types/database";
+import { sharedPostOf } from "../share";
 import { conversationTitle } from "../utils";
 
 export const MESSAGE_SELECT = "*, sender:profiles!messages_sender_id_fkey(id, full_name, avatar_url)";
@@ -155,9 +150,10 @@ export async function listMessages(
   return (data as MessageWithSender[]).reverse();
 }
 
+/** `sharedPost` attaches a post, reel or listing card; the text may then be empty. */
 export async function sendMessage(
   supabase: Client,
-  input: { conversationId: string; senderId: string; content: string; imageUrl?: string | null },
+  input: { conversationId: string; senderId: string; content: string; imageUrl?: string | null; sharedPost?: SharedPost | null },
 ): Promise<MessageWithSender> {
   const { data, error } = await supabase
     .from("messages")
@@ -166,11 +162,39 @@ export async function sendMessage(
       sender_id: input.senderId,
       content: input.content,
       image_url: input.imageUrl ?? null,
+      // Only shares carry the column, so plain messages keep working on a database that has not run migration 17 yet.
+      ...(input.sharedPost ? { shared_post: input.sharedPost as unknown as Json } : {}),
     })
     .select(MESSAGE_SELECT)
     .single();
   if (error) throw error;
   return data as MessageWithSender;
+}
+
+/**
+ * The share sheet's Send: one direct message per friend, each carrying the same snapshot and the optional note. Friends
+ * are sent one after another; the ones that failed come back so the sheet can say who did not get it.
+ */
+export async function sendSharedPost(
+  supabase: Client,
+  input: { senderId: string; recipientIds: string[]; sharedPost: SharedPost; note?: string },
+): Promise<{ sent: string[]; failed: string[] }> {
+  // Through the same reader the chat uses, so the stored snapshot always has the canonical link and https pictures.
+  const sharedPost = sharedPostOf(input.sharedPost);
+  if (!sharedPost) throw new Error("There is nothing to share.");
+  const sent: string[] = [];
+  const failed: string[] = [];
+  const content = (input.note ?? "").trim();
+  for (const recipientId of input.recipientIds) {
+    try {
+      const conversationId = await getOrCreateDirectConversation(supabase, recipientId);
+      await sendMessage(supabase, { conversationId, senderId: input.senderId, content, sharedPost });
+      sent.push(recipientId);
+    } catch {
+      failed.push(recipientId);
+    }
+  }
+  return { sent, failed };
 }
 
 export async function getOrCreateDirectConversation(supabase: Client, otherUserId: string): Promise<string> {
