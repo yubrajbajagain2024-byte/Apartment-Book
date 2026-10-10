@@ -24,16 +24,24 @@ is the magnifier in the top-right corner of every tab, like TikTok; on Home it s
 the floating top bar. Home opens on **For you**, a blend of posts, reels and hot anonymous Buzz threads
 (the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
 four pages, For you | Buzz | Posts | Reels, sit side by side in a pager: swipe left or right to move
-between them, or tap a label in the floating top bar. Housing works the same way with two pages,
+between them, or tap a label in the floating top bar. That bar has two rows, like Instagram's
+(`src/components/home/home-top-tabs.tsx`): "+" (create), the CampConnect wordmark (`HOME_BRAND` in
+`packages/shared`) with a chevron that drops down the feed menu, and Search; then the four labels,
+highlighted like X (`src/components/sliding-tabs.tsx`): the active one bold with a rounded underline as wide
+as the label, a hairline under the row, and a soft haptic each time the section changes, by tap or swipe. The
+menu chooses your university, All universities or, signed in, Following (only the posts of people you follow;
+it switches to Posts, and the wordmark reads "Following" while it shows). The choice lives in
+`src/lib/home-scope.ts` and drives For you, Buzz and Posts alike: the pages have no filter chips of their own.
+Housing works the same way with two pages,
 **Apartments | Roommates**: it opens on Apartments, a swipe or a tap on the label above the pager
 moves to Roommates and back, and the floating "+" follows the visible half ("List an apartment" or
 "Create roommate post"). The order comes from `HOUSING_SECTIONS` in `packages/shared/src/constants.ts`.
 Profiles work like Instagram too: a Follow button (it reads "Following" once you follow), follower / following
-counts that open the two lists, and, signed in, a Following chip on the Posts page that keeps only the posts
-of people you follow. Comments open in a TikTok-style sheet: "N comments" up top with a Top / Newest sort, each comment with
+counts that open the two lists, and, signed in, the Following row of the Home feed menu, which keeps only the posts
+of people you follow on Posts. Comments open in a TikTok-style sheet: "N comments" up top with a Top / Newest sort, each comment with
 a heart and its count (a dislike stays private), Reply, replies folded behind "View N replies", the composer pinned at the
 bottom, and a hold on a comment for Reply / Report / Block / Delete (your own comment, or any comment on your post); a like on a
-post, a reel or a comment buzzes the phone through `expo-haptics`.
+post, a reel or a comment buzzes the phone through `expo-haptics` (`src/lib/haptics.ts`, with the selection tick of the Home labels too).
 
 The Maestro flows in `e2e/flows/` check this in Expo Go on the booted iOS Simulator and save
 screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.dev) installed in
@@ -42,8 +50,8 @@ screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.de
 ```bash
 cd apps/mobile
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts; prints the login, writes e2e/.sim-state.json
-e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you, swipes to Buzz, opens Search from the top-right magnifier, Messages (bottom tab), Housing (Apartments, Roommates, swipe back), Marketplace, Profile (several flows at once is fine)
-EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # likes, comments (write, heart, reply, delete from the hold menu), votes, replies and follows as the seeded account
+e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you, opens the feed menu (All universities alone, signed out), swipes to Buzz, opens Search from the top-right magnifier, Messages (bottom tab), Housing (Apartments, Roommates, swipe back), Marketplace, Profile (several flows at once is fine)
+EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # likes, comments (write, heart, reply, delete from the hold menu), votes, replies, follows Maya and picks Following from the feed menu, as the seeded account
 node e2e/sim-seed-thread.mjs                            # nested replies and votes for 03-buzz-thread.yaml
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards
 ```

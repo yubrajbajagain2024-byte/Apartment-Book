@@ -4,7 +4,8 @@ import { useRouter } from "expo-router";
 import { listFeedPosts, type FeedPostWithAuthor } from "@apartment-book/shared";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
-import { Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { useHomeScope } from "@/lib/home-scope";
 import { useFeed } from "@/lib/hooks";
 import { emitPostRemoved, onPostRemoved, takePostsStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
@@ -13,16 +14,18 @@ import { colors } from "@/lib/theme";
 import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { InstaPost } from "./insta-post";
 
-/** Home → Posts: Instagram-style posts from students, newest first; "Following" keeps only the people you follow. New posts are made with the "+" in the top bar. */
+/** Home → Posts: Instagram-style posts from students, newest first. The campus and "Following" (only the people you follow) are chosen from the dropdown in the top bar; new posts are made with its "+". */
 export function PostsSection({ active, topInset }: { active: boolean; topInset: number }) {
   const { user, profile } = useSession();
   const router = useRouter();
-  const [allCampuses, setAllCampuses] = useState(false);
-  const [followingOnly, setFollowingOnly] = useState(false);
-  const universityId = allCampuses ? undefined : (profile?.university_id ?? undefined);
-  // Signed out there is nobody you follow (and the chip is gone), so the filter drops instead of emptying the feed.
-  const following = Boolean(user) && followingOnly;
-  const feed = useFeed<FeedPostWithAuthor>((page) => listFeedPosts(supabase, { universityId, page, following }), [universityId, following]);
+  const [scope] = useHomeScope();
+  // The campus is chosen from the dropdown in the top bar; someone without a university sees every campus.
+  const universityId = scope.campus === "all" || !profile?.university_id ? undefined : profile.university_id;
+  // Signed out there is nobody you follow (and the menu has no "Following" row), so the filter drops instead of emptying the feed.
+  const following = Boolean(user) && scope.following;
+  // Following means everyone you follow, whatever their campus (Instagram does the same), so the campus filter steps aside.
+  const campusId = following ? undefined : universityId;
+  const feed = useFeed<FeedPostWithAuthor>((page) => listFeedPosts(supabase, { universityId: campusId, page, following }), [campusId, following]);
   const { savedIds, engagement } = useEngagement("post", feed.items, user?.id ?? null);
   const { previews, refresh: refreshPreview } = usePostPreviews("post", feed.items, user?.id ?? null);
   /** Comments added or deleted in the sheet since the counts were loaded. */
@@ -66,14 +69,6 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
         data={feed.items}
         keyExtractor={(p) => p.id}
         contentContainerStyle={{ paddingBottom: 40 }}
-        ListHeaderComponent={
-          user || profile?.university_id ? (
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: FEED_HEADER_PADDING, paddingTop: 10, paddingBottom: 2 }}>
-              {profile?.university_id ? <Chip label={allCampuses ? "All universities" : (profile.university?.name ?? "My campus")} icon="school-outline" active={!allCampuses} onPress={() => setAllCampuses((v) => !v)} /> : null}
-              {user ? <Chip label="Following" icon="people-outline" active={following} onPress={() => setFollowingOnly((v) => !v)} /> : null}
-            </View>
-          ) : null
-        }
         renderItem={({ item: p }) => (
           <InstaPost
             post={p}
@@ -81,7 +76,8 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
             engagement={engagement[p.id]}
             preview={previews[p.id]}
             comments={commentsOf(p.id)}
-            subtitle={allCampuses || !profile?.university_id ? (p.university?.name ?? undefined) : undefined}
+            // Browsing every campus: say which university the post is from.
+            subtitle={campusId ? undefined : (p.university?.name ?? undefined)}
             active={active && visible.has(p.id)}
             onComments={() => (user ? setCommenting(p) : router.push("/(auth)/login"))}
             // For you lists the same posts: the event drops the row here (see onPostRemoved) and there.
@@ -96,7 +92,7 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
           ) : following ? (
             <EmptyState icon="people-outline" title="Nothing from the people you follow yet" body="Follow someone from their profile and their posts show up here." />
           ) : (
-            <EmptyState icon="newspaper-outline" title="No posts yet" body={universityId ? "Say hello to your campus, or switch to all universities." : "Be the first to share something."} />
+            <EmptyState icon="newspaper-outline" title="No posts yet" body={following ? "Posts from people you follow show up here." : campusId ? "Say hello to your campus, or switch to all universities." : "Be the first to share something."} />
           )
         }
         ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : null}

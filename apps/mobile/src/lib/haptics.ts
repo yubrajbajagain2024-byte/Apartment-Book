@@ -15,3 +15,8 @@ export function hapticLike() {
 export function hapticSuccess() {
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 }
+
+/** The soft tick of a picker wheel: Home plays it when the section under the finger changes (For you | Buzz | Posts | Reels). */
+export function hapticSelect() {
+  Haptics.selectionAsync().catch(() => {});
+}

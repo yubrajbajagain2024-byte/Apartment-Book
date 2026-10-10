@@ -5,7 +5,8 @@ import { useRouter } from "expo-router";
 import { forYouKey, listForYou, type BuzzPost, type FeedPostWithAuthor, type ForYouItem } from "@apartment-book/shared";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
-import { Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { useHomeScope } from "@/lib/home-scope";
 import { errorText } from "@/lib/hooks";
 import { emitPostRemoved, onPostRemoved, takeForYouStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
@@ -34,8 +35,9 @@ export function ForYouSection({ active, topInset }: { active: boolean; topInset:
   const { user, profile } = useSession();
   const router = useRouter();
   const userId = user?.id ?? null;
-  const [allCampuses, setAllCampuses] = useState(false);
-  const universityId = allCampuses ? undefined : (profile?.university_id ?? undefined);
+  const [scope] = useHomeScope();
+  // The campus is chosen from the dropdown in the top bar; someone without a university sees every campus.
+  const universityId = scope.campus === "all" || !profile?.university_id ? undefined : profile.university_id;
 
   const [items, setItems] = useState<ForYouItem[]>([]);
   const [hasMore, setHasMore] = useState(true);
@@ -165,18 +167,11 @@ export function ForYouSection({ active, topInset }: { active: boolean; topInset:
         keyExtractor={forYouKey}
         contentContainerStyle={{ paddingBottom: 40 }}
         ListHeaderComponent={
-          <>
-            {profile?.university_id ? (
-              <View style={styles.chips}>
-                <Chip label={allCampuses ? "All universities" : (profile.university?.name ?? "My campus")} icon="school-outline" active={!allCampuses} onPress={() => setAllCampuses((v) => !v)} />
-              </View>
-            ) : null}
-            {error && items.length > 0 ? (
-              <View style={styles.banner}>
-                <ErrorBanner message={error} onRetry={refresh} />
-              </View>
-            ) : null}
-          </>
+          error && items.length > 0 ? (
+            <View style={styles.banner}>
+              <ErrorBanner message={error} onRetry={refresh} />
+            </View>
+          ) : null
         }
         renderItem={({ item }) =>
           item.type === "buzz" ? (
@@ -195,7 +190,8 @@ export function ForYouSection({ active, topInset }: { active: boolean; topInset:
               engagement={engagement[item.post.id]}
               preview={previews[item.post.id]}
               comments={commentsOf(item.post.id)}
-              subtitle={allCampuses || !profile?.university_id ? (item.post.university?.name ?? undefined) : undefined}
+              // Browsing every campus: say which university the post is from.
+              subtitle={universityId ? undefined : (item.post.university?.name ?? undefined)}
               active={active && visible.has(forYouKey(item))}
               onComments={() => (user ? setCommenting(item.post) : router.push("/(auth)/login"))}
               // Posts and Reels list the same row: the event drops it here (see onPostRemoved) and there.
@@ -240,7 +236,6 @@ export function ForYouSection({ active, topInset }: { active: boolean; topInset:
 }
 
 const styles = StyleSheet.create({
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: FEED_HEADER_PADDING, paddingTop: 10, paddingBottom: 2 },
   banner: { paddingHorizontal: FEED_HEADER_PADDING, paddingTop: 10 },
   // A Buzz thread between posts keeps Reddit's flat row; the hairlines and the small label say what it is and that it is anonymous.
   buzz: { borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

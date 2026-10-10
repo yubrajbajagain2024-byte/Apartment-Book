@@ -6,9 +6,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DEFAULT_HOME_SECTION, HOME_SECTIONS, type HomeSection } from "@apartment-book/shared";
 import { BuzzSection } from "@/components/home/buzz-section";
 import { ForYouSection } from "@/components/home/for-you-section";
-import { HOME_TOP_TABS_ROW, HomeTopTabs } from "@/components/home/home-top-tabs";
+import { HOME_TOP_BAR_ROWS, HomeTopTabs } from "@/components/home/home-top-tabs";
 import { PostsSection } from "@/components/home/posts-section";
 import { ReelsSection } from "@/components/home/reels-section";
+import { hapticSelect } from "@/lib/haptics";
 import { onHomeSectionRequest, takeHomeSection } from "@/lib/home-section";
 import { colors } from "@/lib/theme";
 
@@ -33,7 +34,7 @@ export default function HomeScreen() {
   const scrollX = useRef(new Animated.Value(START * width)).current;
   /** Pages are mounted the first time they come into view, so Reels does not load videos nobody watches. */
   const [mounted, setMounted] = useState<Set<number>>(() => new Set([START]));
-  const [barHeight, setBarHeight] = useState(insets.top + HOME_TOP_TABS_ROW);
+  const [barHeight, setBarHeight] = useState(insets.top + HOME_TOP_BAR_ROWS);
   const [pageHeight, setPageHeight] = useState(0);
 
   const section: HomeSection = ORDER[index] ?? DEFAULT_HOME_SECTION;
@@ -44,6 +45,15 @@ export default function HomeScreen() {
     setIndex(i);
     setMounted((prev) => (prev.has(i) ? prev : new Set(prev).add(i)));
   }, []);
+
+  /** The person moved to another section, by a label tap or a swipe: a soft tick, then the usual bookkeeping. Not for `jump`, which is nobody's gesture. */
+  const change = useCallback(
+    (i: number) => {
+      hapticSelect();
+      show(i);
+    },
+    [show],
+  );
 
   // Keep the current page in place when the pager is first laid out and when the screen width changes.
   const place = useCallback(() => {
@@ -74,7 +84,7 @@ export default function HomeScreen() {
     const i = ORDER.indexOf(s);
     if (i < 0 || i === indexRef.current) return;
     target.current = i;
-    show(i);
+    change(i);
     pager.current?.scrollTo({ x: i * width, animated: true });
   }
 
@@ -91,9 +101,9 @@ export default function HomeScreen() {
       const hi = Math.min(ORDER.length - 1, Math.ceil(pos - 0.02));
       setMounted((prev) => (prev.has(lo) && prev.has(hi) ? prev : new Set(prev).add(lo).add(hi)));
       const i = Math.min(ORDER.length - 1, Math.max(0, Math.round(pos)));
-      if (i !== indexRef.current) show(i);
+      if (i !== indexRef.current) change(i);
     },
-    [show, width],
+    [change, width],
   );
   // One handler for both jobs: scrollX follows the finger on the UI thread, the page tracking above runs as its listener.
   const onPagerScroll = useMemo(() => Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: true, listener: onScroll }), [onScroll, scrollX]);
@@ -102,7 +112,7 @@ export default function HomeScreen() {
     target.current = null;
     if (width <= 0) return;
     const i = Math.min(ORDER.length - 1, Math.max(0, Math.round(e.nativeEvent.contentOffset.x / width)));
-    if (i !== indexRef.current) show(i);
+    if (i !== indexRef.current) change(i);
   }
 
   const page = pageHeight > 0 ? { width, height: pageHeight } : { width, flex: 1 };
