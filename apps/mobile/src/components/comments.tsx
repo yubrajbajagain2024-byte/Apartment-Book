@@ -9,7 +9,8 @@ import { hapticLike, hapticSuccess, hapticTap } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors, radius } from "@/lib/theme";
+import { radius } from "@/lib/theme";
+import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { Avatar } from "./avatar";
 
 /*
@@ -26,7 +27,6 @@ const GAP = 8;
 const REPLY_INDENT = AVATAR + GAP;
 /** Each deeper level steps in a little more (threadComments caps the depth, so phones stay readable). */
 const INDENT = 16;
-const LIKE_RED = "#ed4956";
 /** How much of the comment the hold menu quotes in its title. */
 const MENU_SNIPPET = 40;
 
@@ -306,6 +306,8 @@ export type CommentThread = ReturnType<typeof useCommentThread>;
 /** "230 comments" with the small sort button right after it. `count` null (still loading) reads "Comments". */
 export function CommentsHeading({ count, onSort, align = "center" }: { count: number | null; onSort: (sort: CommentSort) => void; align?: "center" | "left" }) {
   const show = useActionSheet();
+  const colors = useColors();
+  const styles = useStyles();
   const label = count === null ? "Comments" : count === 0 ? "No comments yet" : `${count} ${count === 1 ? "comment" : "comments"}`;
   return (
     <View style={[styles.headingRow, align === "left" && { justifyContent: "flex-start" }]}>
@@ -332,6 +334,8 @@ export function CommentsHeading({ count, onSort, align = "center" }: { count: nu
 
 /** My avatar and the "Add comment…" pill with its send arrow; a "Replying to Name" chip above it while replying. Signed out it asks you to log in. */
 export function CommentComposer({ thread }: { thread: CommentThread }) {
+  const { colors, isDark } = useAppTheme();
+  const styles = useStyles();
   const { user, profile, replyTo, body, setBody, busy, error, inputRef, needLogin, submit, cancelReply } = thread;
   if (!user) {
     return (
@@ -360,7 +364,7 @@ export function CommentComposer({ thread }: { thread: CommentThread }) {
       <View style={styles.inputRow}>
         <Avatar name={profile?.full_name} url={profile?.avatar_url} size="sm" />
         <View style={styles.pill}>
-          <TextInput ref={inputRef} value={body} onChangeText={setBody} placeholder={replyTo ? "Add a reply…" : "Add comment…"} placeholderTextColor={colors.faint} multiline maxLength={1000} style={styles.input} accessibilityLabel="Write a comment" />
+          <TextInput ref={inputRef} value={body} onChangeText={setBody} placeholder={replyTo ? "Add a reply…" : "Add comment…"} placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} multiline maxLength={1000} style={styles.input} accessibilityLabel="Write a comment" />
           <Pressable onPress={() => void submit()} disabled={!canSend} hitSlop={4} style={[styles.send, busy && { opacity: 0.5 }]} accessibilityRole="button" accessibilityLabel="Post comment" accessibilityState={{ disabled: !canSend }}>
             <Ionicons name={hasText ? "arrow-up-circle" : "arrow-up-circle-outline"} size={28} color={hasText ? colors.brand : colors.faint} />
           </Pressable>
@@ -372,6 +376,7 @@ export function CommentComposer({ thread }: { thread: CommentThread }) {
 
 /** The thread itself: comments, their folded replies and the "View N replies" lines. */
 export function CommentList({ thread, emptyText }: { thread: CommentThread; emptyText?: string }) {
+  const styles = useStyles();
   const { comments, items, votes, ownerId, loadError, reload, toggleReplies, startReply, confirmVote, openMenu } = thread;
   // The load failed: say why, with a way to try again. A comment posted since still shows under it.
   const failed = loadError ? (
@@ -436,6 +441,8 @@ type RowProps = {
 
 /** One comment: avatar, then name · Author, the text, and "5d  Reply … ♡ 12  👎". Replies step in behind a thin line. */
 function CommentRow({ node: c, vote: override, isAuthor, onVoted, onReply, onHold }: RowProps) {
+  const colors = useColors();
+  const styles = useStyles();
   const router = useRouter();
   const { user } = useSession();
   const { vote, cast } = useVote("comment", c.id, override ?? { score: c.score, likes: c.likes, myVote: c.myVote }, (value) => voteComment(supabase, c.id, value), onVoted);
@@ -483,7 +490,7 @@ function CommentRow({ node: c, vote: override, isAuthor, onVoted, onReply, onHol
           <View style={{ flex: 1 }} />
           <View style={styles.likes}>
             <Pressable onPress={heart} hitSlop={{ top: 4, bottom: 4, left: 6 }} style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Like comment" accessibilityState={{ selected: up }}>
-              <Ionicons name={up ? "heart" : "heart-outline"} size={18} color={up ? LIKE_RED : colors.muted} />
+              <Ionicons name={up ? "heart" : "heart-outline"} size={18} color={up ? colors.like : colors.muted} />
             </Pressable>
             {likes > 0 ? (
               <Text style={styles.count} accessibilityLabel={likes === 1 ? "1 like" : `${likes} likes`}>
@@ -502,6 +509,8 @@ function CommentRow({ node: c, vote: override, isAuthor, onVoted, onReply, onHol
 
 /** TikTok's "View 3 replies ⌄" / "Hide replies ⌃" line under a top-level comment, with the short dash before it. */
 function RepliesToggle({ count, open, onPress }: { count: number; open: boolean; onPress: () => void }) {
+  const colors = useColors();
+  const styles = useStyles();
   const label = open ? "Hide replies" : `View ${repliesLabel(count)}`;
   return (
     <Pressable onPress={onPress} hitSlop={6} style={styles.toggle} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ expanded: open }}>
@@ -512,7 +521,7 @@ function RepliesToggle({ count, open, onPress }: { count: number; open: boolean;
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   headingRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   heading: { fontSize: 15, fontWeight: "700", color: colors.text },
   sort: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
@@ -548,4 +557,4 @@ const styles = StyleSheet.create({
   toggle: { flexDirection: "row", alignItems: "center", gap: 10, marginLeft: REPLY_INDENT, paddingBottom: 14 },
   toggleDash: { width: 24, height: StyleSheet.hairlineWidth, backgroundColor: colors.muted },
   toggleText: { fontSize: 12, fontWeight: "700", color: colors.muted },
-});
+}));

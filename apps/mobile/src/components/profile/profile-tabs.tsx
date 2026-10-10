@@ -1,16 +1,20 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 
-export type ProfileTabKey = "posts" | "classes" | "reels" | "saved" | "liked";
+export type ProfileTabKey = "posts" | "classes" | "reels" | "saved" | "liked" | "listings";
 
-/** Posts first, then the semester's classes, Reels, Saved and Liked: the order the profile asks for. */
+/**
+ * Posts first, then the semester's classes, Reels, Saved and Liked, and last the person's Listings (apartments, roommate
+ * posts and items for sale): the order the profile asks for.
+ */
 export const PROFILE_TABS: { key: ProfileTabKey; label: string; icon: keyof typeof Ionicons.glyphMap; activeIcon: keyof typeof Ionicons.glyphMap }[] = [
   { key: "posts", label: "Posts", icon: "grid-outline", activeIcon: "grid" },
   { key: "classes", label: "Classes", icon: "school-outline", activeIcon: "school" },
   { key: "reels", label: "Reels", icon: "film-outline", activeIcon: "film" },
   { key: "saved", label: "Saved", icon: "bookmark-outline", activeIcon: "bookmark" },
   { key: "liked", label: "Liked", icon: "heart-outline", activeIcon: "heart" },
+  { key: "listings", label: "Listings", icon: "storefront-outline", activeIcon: "storefront" },
 ];
 
 /**
@@ -19,6 +23,8 @@ export const PROFILE_TABS: { key: ProfileTabKey; label: string; icon: keyof type
  * someone else's when you may not open it. The entry is what VoiceOver adds ("Only you can see your saved posts").
  */
 export function ProfileTabs({ active, onSelect, locks }: { active: ProfileTabKey; onSelect: (tab: ProfileTabKey) => void; locks: Partial<Record<ProfileTabKey, string>> }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.row} accessibilityRole="tablist">
       {PROFILE_TABS.map((t) => {
@@ -51,10 +57,11 @@ export function ProfileTabs({ active, onSelect, locks }: { active: ProfileTabKey
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, marginTop: 14 },
   tab: { flex: 1, alignItems: "center", justifyContent: "flex-end", paddingTop: 10, gap: 9 },
-  lock: { position: "absolute", right: -9, bottom: -2, width: 13, height: 13, borderRadius: 7, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" },
+  // The badge is the screen's own colour (the profile sits on bg), cutting the lock out of the tab icon.
+  lock: { position: "absolute", right: -9, bottom: -2, width: 13, height: 13, borderRadius: 7, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" },
   underline: { height: 2.5, width: "42%", borderRadius: 2, backgroundColor: "transparent" },
   underlineActive: { backgroundColor: colors.text },
-});
+}));

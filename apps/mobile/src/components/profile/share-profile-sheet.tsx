@@ -7,11 +7,18 @@ import { Avatar } from "@/components/avatar";
 import { Button } from "@/components/ui";
 import { hapticSuccess } from "@/lib/haptics";
 import { SITE_URL } from "@/lib/supabase";
-import { colors, radius, space } from "@/lib/theme";
+import { radius, space } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 
 /** Blank modules around the code: scanners need four. */
 const QUIET_ZONE = 4;
 const QR_SIZE = 216;
+/**
+ * The code stays black modules on a white square in both themes, never theme colours: cameras and scanners read dark
+ * on light, and many cannot read a code drawn light on dark.
+ */
+const QR_DARK = "#000";
+const QR_LIGHT = "#fff";
 
 /** The website link a profile's QR code and Share open. */
 export function profileUrl(profileId: string): string {
@@ -29,6 +36,8 @@ function webNavigator(): Navigator | null {
  * Share profile and from the QR icon beside the @username.
  */
 export function ShareProfileSheet({ visible, onClose, profileId, name, username, avatarUrl, own }: { visible: boolean; onClose: () => void; profileId: string; name: string; username: string | null; avatarUrl: string | null; own: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   const url = profileUrl(profileId);
   const matrix = useMemo(() => qrMatrix(url), [url]);
@@ -130,6 +139,7 @@ function runsOf(row: boolean[]): { dark: boolean; length: number }[] {
  * white runs. Modules are whole points, so rows meet without hairline seams.
  */
 function QrCode({ matrix, size, label }: { matrix: boolean[][]; size: number; label: string }) {
+  const styles = useStyles();
   const n = matrix.length;
   const cell = Math.max(2, Math.floor(size / (n + QUIET_ZONE * 2)));
   const rows = useMemo(() => matrix.map(runsOf), [matrix]);
@@ -138,7 +148,7 @@ function QrCode({ matrix, size, label }: { matrix: boolean[][]; size: number; la
       {rows.map((runs, y) => (
         <View key={y} style={{ flexDirection: "row", height: cell }}>
           {runs.map((r, x) => (
-            <View key={x} style={{ width: r.length * cell, height: cell, backgroundColor: r.dark ? "#000" : "#fff" }} />
+            <View key={x} style={{ width: r.length * cell, height: cell, backgroundColor: r.dark ? QR_DARK : QR_LIGHT }} />
           ))}
         </View>
       ))}
@@ -146,19 +156,20 @@ function QrCode({ matrix, size, label }: { matrix: boolean[][]; size: number; la
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.3)" },
-  sheet: { backgroundColor: colors.card, borderTopLeftRadius: radius.lg + 4, borderTopRightRadius: radius.lg + 4, overflow: "hidden" },
+const useStyles = makeStyles((colors) => ({
+  root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
+  sheet: { backgroundColor: colors.elevated, borderTopLeftRadius: radius.lg + 4, borderTopRightRadius: radius.lg + 4, overflow: "hidden" },
   header: { alignItems: "center", paddingTop: space.sm, paddingBottom: 10, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   grabber: { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 10 },
   title: { fontSize: 16, fontWeight: "700", color: colors.text },
   close: { position: "absolute", right: 12, top: 16, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
   body: { alignItems: "center", paddingHorizontal: space.lg, paddingTop: space.xl, gap: space.lg },
-  card: { alignItems: "center", gap: space.md, padding: space.lg, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
-  qr: { backgroundColor: "#fff" },
+  // The hairline outline keeps the card apart from the sheet in dark mode, where the shadow does not show.
+  card: { alignItems: "center", gap: space.md, padding: space.lg, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: colors.shadow, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  qr: { backgroundColor: QR_LIGHT },
   who: { flexDirection: "row", alignItems: "center", gap: 10, maxWidth: 260 },
   name: { fontSize: 16, fontWeight: "800", color: colors.text },
   handle: { fontSize: 14, color: colors.muted },
   hint: { fontSize: 13, color: colors.muted, textAlign: "center" },
   actions: { flexDirection: "row", gap: space.sm, alignSelf: "stretch" },
-});
+}));

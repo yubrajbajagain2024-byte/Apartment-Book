@@ -5,9 +5,10 @@ import { createSignUpSchema, getAllowedEmailDomains } from "@apartment-book/shar
 import { Button, Field, Screen } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { useColors } from "@/lib/theme-provider";
 
 export default function SignupScreen() {
+  const colors = useColors();
   const router = useRouter();
   const { data: domains } = useQuery(() => getAllowedEmailDomains(supabase).catch(() => [] as string[]), []);
   const [fullName, setFullName] = useState("");

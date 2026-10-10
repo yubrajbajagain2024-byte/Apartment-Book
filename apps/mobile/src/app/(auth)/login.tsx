@@ -4,9 +4,10 @@ import { useRouter } from "expo-router";
 import { signInSchema } from "@apartment-book/shared";
 import { Button, Field, Screen } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { useColors } from "@/lib/theme-provider";
 
 export default function LoginScreen() {
+  const colors = useColors();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

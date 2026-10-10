@@ -11,7 +11,7 @@ import { errorText } from "@/lib/hooks";
 import { emitPostRemoved, onPostRemoved, takeForYouStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { BUZZ_GUTTER, BuzzCard, emitBuzzEvent, onBuzzEvent } from "./buzz-card";
 import { InstaPost } from "./insta-post";
@@ -34,6 +34,8 @@ function drop(items: ForYouItem[], type: ForYouItem["type"], id: string): ForYou
 export function ForYouSection({ active, topInset }: { active: boolean; topInset: number }) {
   const { user, profile } = useSession();
   const router = useRouter();
+  const colors = useColors();
+  const styles = useStyles();
   const userId = user?.id ?? null;
   const [scope] = useHomeScope();
   // The campus is chosen from the dropdown in the top bar; someone without a university sees every campus.
@@ -160,7 +162,7 @@ export function ForYouSection({ active, topInset }: { active: boolean; topInset:
   }
 
   return (
-    <View style={{ flex: 1, paddingTop: topInset, backgroundColor: colors.card }}>
+    <View style={{ flex: 1, paddingTop: topInset, backgroundColor: colors.bg }}>
       <FlatList
         ref={listRef}
         data={items}
@@ -235,7 +237,7 @@ export function ForYouSection({ active, topInset }: { active: boolean; topInset:
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   banner: { paddingHorizontal: FEED_HEADER_PADDING, paddingTop: 10 },
   // A Buzz thread between posts keeps Reddit's flat row; the hairlines and the small label say what it is and that it is anonymous.
   buzz: { borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
@@ -243,4 +245,4 @@ const styles = StyleSheet.create({
   buzzLabelText: { fontSize: 11, color: colors.faint },
   retry: { textAlign: "center", color: colors.brand, fontSize: 13, fontWeight: "600" },
   end: { textAlign: "center", color: colors.faint, fontSize: 12, paddingVertical: 12 },
-});
+}));

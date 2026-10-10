@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { getOrCreateDirectConversation, reportContent, sharedPostFromListing, timeAgo, type FeedMedia, type PostEngagement, type ReportReason, type PostTargetType, type SharedPost, REPORT_REASONS } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "./action-sheet";
 import { Avatar } from "./avatar";
 import { EngagementBar, EngagementSummary, useLike, useSave } from "./engagement";
@@ -33,7 +33,7 @@ export type PostCardProps = {
 };
 
 const LIMIT = 140;
-/** The grey band between two full-width cards in a feed. */
+/** The band between two full-width cards in a feed (each card has a hairline top and bottom, so they stay apart on white). */
 export const FEED_GAP = 8;
 /** Side padding for a feed's header (search, chips, composer): the cards themselves have none. */
 export const FEED_HEADER_PADDING = 12;
@@ -41,10 +41,12 @@ export const FEED_HEADER_PADDING = 12;
 /**
  * Facebook-style post: header → title/description → media → counts → Like / Comment / Message.
  * The card has no side margins and no rounded corners: it spans the whole screen so photos and videos touch both edges.
- * Feeds separate cards with an 8px grey band (FEED_GAP) and must not add horizontal padding around them.
+ * Feeds separate cards with an 8px band (FEED_GAP) and must not add horizontal padding around them.
  */
 export function PostCard(props: PostCardProps) {
   const { poster, title, lead, description, media, createdAt, path } = props;
+  const colors = useColors();
+  const styles = useStyles();
   const router = useRouter();
   const show = useActionSheet();
   const shareSheet = useShareSheet();
@@ -108,7 +110,7 @@ export function PostCard(props: PostCardProps) {
     <View style={styles.card} accessibilityLabel={`Post: ${title ?? description?.slice(0, 40) ?? "post"}`}>
       <View style={styles.header}>
         <Pressable onPress={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })}>
-          <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.id} />
+          <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.id} ringColor={colors.card} />
         </Pressable>
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
@@ -150,8 +152,8 @@ export function PostCard(props: PostCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: { width: "100%", backgroundColor: colors.card },
+const useStyles = makeStyles((colors) => ({
+  card: { width: "100%", backgroundColor: colors.card, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   header: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, paddingBottom: 6 },
   name: { fontSize: 15, fontWeight: "700", color: colors.text, flexShrink: 1 },
   meta: { fontSize: 12, color: colors.muted },
@@ -161,4 +163,4 @@ const styles = StyleSheet.create({
   lead: { fontSize: 14, fontWeight: "700", color: colors.brand },
   description: { fontSize: 15, color: colors.text, lineHeight: 21 },
   details: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 6 },
-});
+}));

@@ -7,10 +7,12 @@ import { Badge, Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { useColors } from "@/lib/theme-provider";
 import { useEngagement } from "@/lib/use-engagement";
 
 /** The Apartments half of the Housing tab: search, filters and the listings feed. The Housing screen owns the "+" button. */
 export function ApartmentsSection() {
+  const colors = useColors();
   const { user, profile } = useSession();
   const [q, setQ] = useState("");
   const [videoOnly, setVideoOnly] = useState(false);
@@ -57,7 +59,7 @@ export function ApartmentsSection() {
           />
         )}
         ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon="home-outline" title="No apartments yet" body={universityId ? "Try all universities, or be the first to list a place." : "Be the first to list a place."} />}
-        ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ textAlign: "center", color: "#8a8d91", padding: 12 }}>Loading more…</Text> : null}
+        ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : null}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
         refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} />}

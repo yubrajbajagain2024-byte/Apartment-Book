@@ -80,5 +80,12 @@ export function useFeed<T extends { id: string }>(loadPage: (page: number) => Pr
 }
 
 export function errorText(e: unknown, fallback = "Something went wrong. Please try again."): string {
-  return e instanceof Error && e.message ? e.message : fallback;
+  if (e instanceof Error && e.message) return e.message;
+  // supabase-js hands database errors over as plain objects ({ message, code, details }), not Error instances, and the
+  // database's own messages ("That username is taken.", "You can pin up to 3 posts.") are written for people.
+  if (e && typeof e === "object" && "message" in e) {
+    const message = (e as { message: unknown }).message;
+    if (typeof message === "string" && message) return message;
+  }
+  return fallback;
 }

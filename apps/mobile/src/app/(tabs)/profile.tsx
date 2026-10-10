@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProfileView } from "@/components/profile/profile-view";
 import { Button, EmptyState, Loading } from "@/components/ui";
 import { useSession } from "@/lib/session";
-import { colors } from "@/lib/theme";
+import { useColors } from "@/lib/theme-provider";
 
 /**
  * The Profile tab: your own profile, TikTok style, with its own top bar (Find friends, your name with the account sheet,
@@ -14,6 +14,7 @@ export default function ProfileTab() {
   const { user, loading } = useSession();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const colors = useColors();
   if (!loading && !user) {
     return (
       <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.bg }}>

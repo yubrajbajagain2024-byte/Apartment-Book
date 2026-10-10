@@ -4,7 +4,8 @@ import { getOrCreateDirectConversation } from "@apartment-book/shared";
 import { useOnlineUsers } from "@/lib/presence";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors, radius } from "@/lib/theme";
+import { radius } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Avatar } from "./avatar";
 
 /** Who is online right now (like Messenger's active row). Tap to message. */
@@ -12,6 +13,8 @@ export function OnlineStrip() {
   const { user } = useSession();
   const router = useRouter();
   const users = useOnlineUsers();
+  const styles = useStyles();
+  const colors = useColors();
   const people = [...users.values()].filter((u) => u.id !== user?.id).sort((a, b) => a.full_name.localeCompare(b.full_name));
   if (!user || people.length === 0) return null;
   return (
@@ -28,7 +31,7 @@ export function OnlineStrip() {
               if (id) router.push({ pathname: "/messages/[id]", params: { id } });
             }}
           >
-            <Avatar name={p.full_name} url={p.avatar_url} size="lg" online />
+            <Avatar name={p.full_name} url={p.avatar_url} size="lg" online ringColor={colors.card} />
             <Text style={styles.name} numberOfLines={1}>
               {p.full_name.split(" ")[0]}
             </Text>
@@ -39,8 +42,9 @@ export function OnlineStrip() {
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { backgroundColor: colors.card, borderRadius: radius.lg, paddingTop: 10 },
+const useStyles = makeStyles((colors) => ({
+  // Outlined like Card, so the strip still stands apart from the feed in both themes.
+  wrap: { backgroundColor: colors.card, borderRadius: radius.lg, paddingTop: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   heading: { fontSize: 13, fontWeight: "700", color: colors.muted, paddingHorizontal: 12, paddingBottom: 8 },
   name: { fontSize: 11, color: colors.text },
-});
+}));

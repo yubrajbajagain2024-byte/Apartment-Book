@@ -5,7 +5,7 @@ import { Fab } from "@/components/feed-header";
 import { ApartmentsSection } from "@/components/housing/apartments-section";
 import { RoommatesSection } from "@/components/housing/roommates-section";
 import { SlidingTabs } from "@/components/sliding-tabs";
-import { colors } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 
 const ORDER = HOUSING_SECTIONS.map((s) => s.value);
 const START = Math.max(0, ORDER.indexOf(DEFAULT_HOUSING_SECTION));
@@ -14,6 +14,8 @@ const TABS_ROW = 44;
 
 /** Housing: Apartments | Roommates side by side in a horizontal pager under a row of sliding tabs. Opens on Apartments. */
 export default function HousingScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const { width } = useWindowDimensions();
   const pager = useRef<ScrollView>(null);
   const [index, setIndex] = useState(START);
@@ -117,7 +119,7 @@ export default function HousingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
-  bar: { height: TABS_ROW, backgroundColor: colors.card, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, alignItems: "center", justifyContent: "center" },
-});
+  bar: { height: TABS_ROW, backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, alignItems: "center", justifyContent: "center" },
+}));

@@ -3,7 +3,8 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, t
 import { Ionicons } from "@expo/vector-icons";
 import { compactCount, type FollowStats, type ProfileWithUniversity } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
-import { colors, radius, space } from "@/lib/theme";
+import { radius, space } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 
 /** Height of the buttons under the numbers (Edit profile, Follow, Message…). */
 export const PROFILE_BUTTON_HEIGHT = 40;
@@ -19,6 +20,8 @@ export function profileHandle(profile: ProfileWithUniversity): string | null {
  * account sheet, with Log out), and the menu on the right. Sits under the status bar (`topInset`).
  */
 export function ProfileTopBar({ name, topInset, onFindFriends, onAccount, onMenu }: { name: string; topInset: number; onFindFriends: () => void; onAccount: () => void; onMenu: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={[styles.topBar, { paddingTop: topInset }]}>
       <View style={styles.topRow}>
@@ -36,6 +39,8 @@ export function ProfileTopBar({ name, topInset, onFindFriends, onAccount, onMenu
 }
 
 function BarIcon({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.barIcon, pressed && { opacity: 0.6 }]}>
       <Ionicons name={icon} size={26} color={colors.text} />
@@ -45,6 +50,7 @@ function BarIcon({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMa
 
 /** A light grey rounded button of the profile's button row: Edit profile, Share profile, Message. */
 export function HeaderButton({ title, onPress, disabled, style }: { title: string; onPress: () => void; disabled?: boolean; style?: StyleProp<ViewStyle> }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ disabled: Boolean(disabled) }} style={({ pressed }) => [styles.button, { opacity: disabled ? 0.5 : pressed ? 0.7 : 1 }, style]}>
       <Text style={styles.buttonText} numberOfLines={1}>
@@ -56,6 +62,8 @@ export function HeaderButton({ title, onPress, disabled, style }: { title: strin
 
 /** The square grey button at the end of the row: Find friends on your profile, More on someone else's. */
 export function HeaderIconButton({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.button, styles.square, pressed && { opacity: 0.7 }]}>
       <Ionicons name={icon} size={20} color={colors.text} />
@@ -88,6 +96,8 @@ export function ProfileHeader({
   changingPhoto?: boolean;
   actions: ReactNode;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const handle = profileHandle(profile);
   const place = [profile.university?.name, profile.program, profile.graduation_year ? `'${String(profile.graduation_year).slice(-2)}` : null].filter(Boolean).join(" · ");
   const photo = <Avatar name={profile.full_name} url={profile.avatar_url} size={96} userId={own ? undefined : profile.id} online={own ? false : undefined} />;
@@ -98,11 +108,11 @@ export function ProfileHeader({
           {photo}
           {changingPhoto ? (
             <View style={styles.photoBusy}>
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.onMedia} />
             </View>
           ) : null}
           <View style={styles.plus}>
-            <Ionicons name="add" size={18} color="#fff" />
+            <Ionicons name="add" size={18} color={colors.onBrand} />
           </View>
         </Pressable>
       ) : (
@@ -148,6 +158,7 @@ export function ProfileHeader({
 
 /** Bold number over a grey word; Following and Followers open their lists. Read out as "243 Followers". */
 function Stat({ n, label, onPress }: { n: number; label: string; onPress?: () => void }) {
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} disabled={!onPress} hitSlop={6} accessibilityRole={onPress ? "button" : "text"} accessibilityLabel={`${n} ${label}`} style={({ pressed }) => [styles.stat, pressed && { opacity: 0.6 }]}>
       <Text style={styles.statNumber}>{compactCount(n)}</Text>
@@ -156,15 +167,16 @@ function Stat({ n, label, onPress }: { n: number; label: string; onPress?: () =>
   );
 }
 
-const styles = StyleSheet.create({
-  topBar: { backgroundColor: colors.card },
+const useStyles = makeStyles((colors) => ({
+  topBar: { backgroundColor: colors.bar },
   topRow: { height: 44, flexDirection: "row", alignItems: "center", paddingHorizontal: 10 },
   topTitle: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingHorizontal: space.sm },
   topName: { fontSize: 17, fontWeight: "800", color: colors.text, flexShrink: 1 },
   barIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   header: { alignItems: "center", paddingTop: space.md, paddingHorizontal: space.lg },
-  photoBusy: { position: "absolute", top: 0, left: 0, width: 96, height: 96, borderRadius: 48, backgroundColor: "rgba(0,0,0,0.35)", alignItems: "center", justifyContent: "center" },
-  plus: { position: "absolute", right: -1, bottom: -1, width: 28, height: 28, borderRadius: 14, backgroundColor: colors.brand, borderWidth: 2.5, borderColor: colors.card, alignItems: "center", justifyContent: "center" },
+  photoBusy: { position: "absolute", top: 0, left: 0, width: 96, height: 96, borderRadius: 48, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
+  // The ring is the screen's own colour (the profile sits on bg), cutting the badge out of the photo.
+  plus: { position: "absolute", right: -1, bottom: -1, width: 28, height: 28, borderRadius: 14, backgroundColor: colors.brand, borderWidth: 2.5, borderColor: colors.bg, alignItems: "center", justifyContent: "center" },
   name: { marginTop: space.md, fontSize: 20, fontWeight: "800", color: colors.text, textAlign: "center" },
   handleRow: { marginTop: 4, flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%" },
   handle: { fontSize: 15, color: colors.text, flexShrink: 1 },
@@ -172,7 +184,7 @@ const styles = StyleSheet.create({
   stat: { minWidth: 86, alignItems: "center", paddingHorizontal: space.md, gap: 1 },
   statNumber: { fontSize: 17, fontWeight: "800", color: colors.text },
   statLabel: { fontSize: 13, color: colors.muted },
-  divider: { width: StyleSheet.hairlineWidth, height: 14, backgroundColor: "#c9ccd1" },
+  divider: { width: StyleSheet.hairlineWidth, height: 14, backgroundColor: colors.border },
   actions: { marginTop: space.lg, flexDirection: "row", gap: 6, width: "100%", maxWidth: 440 },
   button: { flex: 1, height: PROFILE_BUTTON_HEIGHT, borderRadius: radius.sm, backgroundColor: colors.input, alignItems: "center", justifyContent: "center", paddingHorizontal: space.md },
   buttonText: { fontSize: 15, fontWeight: "700", color: colors.text },
@@ -180,4 +192,4 @@ const styles = StyleSheet.create({
   bio: { marginTop: space.md, fontSize: 14, lineHeight: 19, color: colors.text, textAlign: "center" },
   place: { marginTop: 6, flexDirection: "row", alignItems: "center", gap: 3, maxWidth: "100%" },
   placeText: { fontSize: 13, color: colors.muted, flexShrink: 1, textAlign: "center" },
-});
+}));

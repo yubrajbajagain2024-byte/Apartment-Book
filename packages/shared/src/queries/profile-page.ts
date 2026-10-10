@@ -165,9 +165,9 @@ export async function listProfileLiked(supabase: Client, userId: string, opts: {
 }
 
 // -----------------------------------------------------------------------------
-// Listings row
+// Listings tab
 // -----------------------------------------------------------------------------
-/** Someone's live apartments, roommate posts and items, newest first, for the Listings row on their profile. */
+/** Someone's live apartments, roommate posts and items, newest first, for the Listings tab on their profile. */
 export async function listProfileListings(supabase: Client, userId: string): Promise<ProfileTile[]> {
   const [apartments, roommates, items] = await Promise.all([
     listApartmentsByOwner(supabase, userId),

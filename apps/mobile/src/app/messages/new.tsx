@@ -6,9 +6,10 @@ import { Avatar } from "@/components/avatar";
 import { Field, Screen } from "@/components/ui";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { useColors } from "@/lib/theme-provider";
 
 export default function NewMessageScreen() {
+  const colors = useColors();
   const { user } = useSession();
   const router = useRouter();
   const [q, setQ] = useState("");

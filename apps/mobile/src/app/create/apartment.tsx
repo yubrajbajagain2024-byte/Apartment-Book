@@ -7,9 +7,10 @@ import { MediaPicker } from "@/components/photo-picker";
 import { Button, Chip, Field } from "@/components/ui";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { useColors } from "@/lib/theme-provider";
 
 export default function CreateApartmentScreen() {
+  const colors = useColors();
   const { user, profile } = useSession();
   const router = useRouter();
   const [video, setVideo] = useState<ListingVideo | null>(null);

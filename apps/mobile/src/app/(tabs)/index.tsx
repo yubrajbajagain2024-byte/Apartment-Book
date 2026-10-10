@@ -11,7 +11,7 @@ import { PostsSection } from "@/components/home/posts-section";
 import { ReelsSection } from "@/components/home/reels-section";
 import { hapticSelect } from "@/lib/haptics";
 import { onHomeSectionRequest, takeHomeSection } from "@/lib/home-section";
-import { colors } from "@/lib/theme";
+import { useAppTheme } from "@/lib/theme-provider";
 
 const ORDER = HOME_SECTIONS.map((s) => s.value);
 const START = Math.max(0, ORDER.indexOf(DEFAULT_HOME_SECTION));
@@ -21,6 +21,7 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
+  const { colors, isDark } = useAppTheme();
   const pager = useRef<ScrollView>(null);
   const [index, setIndex] = useState(START);
   const indexRef = useRef(START);
@@ -118,8 +119,8 @@ export default function HomeScreen() {
   const page = pageHeight > 0 ? { width, height: pageHeight } : { width, flex: 1 };
   const isActive = (s: HomeSection) => focused && section === s;
   return (
-    <View style={{ flex: 1, backgroundColor: overVideo ? "#000" : colors.bg }}>
-      {focused ? <StatusBar style={overVideo ? "light" : "dark"} /> : null}
+    <View style={{ flex: 1, backgroundColor: overVideo ? colors.mediaBg : colors.bg }}>
+      {focused ? <StatusBar style={overVideo || isDark ? "light" : "dark"} /> : null}
       <View style={{ flex: 1 }} onLayout={(e) => setPageHeight(Math.round(e.nativeEvent.layout.height))}>
         <Animated.ScrollView
           ref={pager}
@@ -140,7 +141,7 @@ export default function HomeScreen() {
           style={{ flex: 1 }}
         >
           {ORDER.map((s, i) => (
-            <View key={s} style={[page, s === "reels" && { backgroundColor: "#000" }]}>
+            <View key={s} style={[page, s === "reels" && { backgroundColor: colors.mediaBg }]}>
               {!mounted.has(i) ? null : s === "reels" ? (
                 pageHeight > 0 ? <ReelsSection active={isActive("reels")} topInset={barHeight} height={pageHeight} /> : null
               ) : s === "buzz" ? (

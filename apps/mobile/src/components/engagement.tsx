@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { getPostEngagement, likePost, toggleSaved, unlikePost, type PostEngagement, type PostTargetType } from "@apartment-book/shared";
 import { hapticLike } from "@/lib/haptics";
 import { supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 
 export function useLike(targetType: PostTargetType, targetId: string, initial: PostEngagement | undefined, userId: string | null, onNeedLogin: () => void) {
   const [state, setState] = useState({ liked: initial?.likedByMe ?? false, likes: initial?.likes ?? 0 });
@@ -65,13 +65,15 @@ export function useSave(targetType: PostTargetType, targetId: string, initial: b
 
 /** "12 likes · 3 comments" line. */
 export function EngagementSummary({ likes, comments, onComments }: { likes: number; comments: number; onComments?: () => void }) {
+  const colors = useColors();
+  const styles = useStyles();
   if (likes === 0 && comments === 0) return null;
   return (
     <View style={styles.summary}>
       {likes > 0 ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
           <View style={styles.likePill}>
-            <Ionicons name="thumbs-up" size={9} color="#fff" />
+            <Ionicons name="thumbs-up" size={9} color={colors.onBrand} />
           </View>
           <Text style={styles.summaryText}>{likes}</Text>
         </View>
@@ -91,6 +93,8 @@ export function EngagementSummary({ likes, comments, onComments }: { likes: numb
 
 /** Like · Comment · Message row (Save and Share live in the ••• menu). */
 export function EngagementBar({ liked, likes, onLike, onComment, onMessage, messageLabel = "Message" }: { liked: boolean; likes: number; onLike: () => void; onComment: () => void; onMessage: () => void; messageLabel?: string }) {
+  const colors = useColors();
+  const styles = useStyles();
   return (
     <View style={styles.bar}>
       <Pressable style={styles.action} onPress={onLike} accessibilityRole="button" accessibilityLabel={liked ? "Unlike" : "Like"} accessibilityState={{ selected: liked }}>
@@ -110,7 +114,7 @@ export function EngagementBar({ liked, likes, onLike, onComment, onMessage, mess
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   summary: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 12, paddingVertical: 6 },
   summaryText: { fontSize: 12, color: colors.muted },
   likePill: { width: 16, height: 16, borderRadius: 8, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
@@ -118,4 +122,4 @@ const styles = StyleSheet.create({
   action: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 38, borderRadius: 8 },
   actionText: { fontSize: 13, fontWeight: "700", color: colors.text },
   count: { fontSize: 12, color: colors.muted },
-});
+}));

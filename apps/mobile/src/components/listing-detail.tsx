@@ -5,7 +5,8 @@ import { useRouter } from "expo-router";
 import { getOrCreateDirectConversation, getPostEngagement, recordContact, recordView, reportContent, REPORT_REASONS, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { colors, radius } from "@/lib/theme";
+import { radius } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "./action-sheet";
 import { Avatar } from "./avatar";
 import { Comments } from "./comments";
@@ -41,6 +42,8 @@ export function ListingDetail({
   focusComments?: boolean;
   ownerActions?: ReactNode;
 }) {
+  const colors = useColors();
+  const styles = useStyles();
   const { user } = useSession();
   const router = useRouter();
   const show = useActionSheet();
@@ -125,7 +128,7 @@ export function ListingDetail({
 
       <View style={[styles.section, { paddingVertical: 12 }]}>
         <Pressable onPress={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.id} />
+          <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.id} ringColor={colors.card} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: "700", color: colors.text }}>{poster.name}</Text>
             <Text style={{ fontSize: 12, color: colors.muted }}>Posted {new Date(createdAt).toLocaleDateString()}</Text>
@@ -157,6 +160,7 @@ export function ListingDetail({
 }
 
 export function Fact({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
+  const colors = useColors();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
       <Ionicons name={icon} size={16} color={colors.muted} />
@@ -165,11 +169,16 @@ export function Fact({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; la
   );
 }
 
-const styles = StyleSheet.create({
-  section: { backgroundColor: colors.card, marginTop: 8, padding: 16, gap: 10 },
+const useStyles = makeStyles((colors) => ({
+  // Hairline top and bottom: on the white light background the 8px gap alone would not separate the sections.
+  section: { backgroundColor: colors.card, marginTop: 8, padding: 16, gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   title: { fontSize: 22, fontWeight: "800", color: colors.text },
   lead: { fontSize: 17, fontWeight: "700", color: colors.brand, marginTop: 2 },
   dots: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   facts: { flexDirection: "row", flexWrap: "wrap", gap: 14, paddingVertical: 4 },
-});
-export const detailStyles = { body: { fontSize: 15, lineHeight: 22, color: colors.text }, h2: { fontSize: 16, fontWeight: "700" as const, color: colors.text, marginTop: 6 }, card: { backgroundColor: colors.bg, borderRadius: radius.md, padding: 10 } };
+}));
+/**
+ * Body text, headings and inset boxes for a detail screen's own content: `const detailStyles = useDetailStyles();` at the top of the screen.
+ * The inset box is the grey fill (`input`): the screen background is white in the light theme, so `bg` would hide it on a white section.
+ */
+export const useDetailStyles = makeStyles((colors) => ({ body: { fontSize: 15, lineHeight: 22, color: colors.text }, h2: { fontSize: 16, fontWeight: "700", color: colors.text, marginTop: 6 }, card: { backgroundColor: colors.input, borderRadius: radius.md, padding: 10 } }));

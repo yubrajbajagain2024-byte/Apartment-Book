@@ -1,15 +1,18 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { isVerifiedPoster, type FollowStats, type PosterSummary } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { FollowButton } from "@/components/follow-button";
-import { colors, space } from "@/lib/theme";
+import { space } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 
 /**
  * One person in a list (followers, following, search): avatar, name and university domain (verified people only) open
  * the profile; the Follow button beside them stays its own control for VoiceOver. No button on the viewer's own row.
  */
 export function PersonRow({ person: p, stats, userId, onNeedLogin, onChange, onPress }: { person: PosterSummary; stats: FollowStats | undefined; userId: string | null; onNeedLogin: () => void; onChange?: (stats: FollowStats) => void; onPress: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.row}>
       <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={p.full_name} style={({ pressed }) => [styles.person, pressed && { opacity: 0.7 }]}>
@@ -29,9 +32,9 @@ export function PersonRow({ person: p, stats, userId, onNeedLogin, onChange, onP
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: 10 },
   person: { flex: 1, flexDirection: "row", alignItems: "center", gap: space.md },
   personName: { fontSize: 15, fontWeight: "700", color: colors.text },
   domain: { fontSize: 13, color: colors.muted },
-});
+}));

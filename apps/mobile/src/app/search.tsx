@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FlatList, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { searchPeople, type PosterSummary } from "@apartment-book/shared";
@@ -9,7 +9,8 @@ import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors, radius, space } from "@/lib/theme";
+import { radius, space } from "@/lib/theme";
+import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 
 /** Same array on every render while nothing has loaded, so the stats hook does not refetch for a fresh empty list. */
 const NOBODY: PosterSummary[] = [];
@@ -22,6 +23,8 @@ const NOBODY: PosterSummary[] = [];
 export default function SearchScreen() {
   const { user, profile } = useSession();
   const router = useRouter();
+  const styles = useStyles();
+  const { colors, isDark } = useAppTheme();
   const [text, setText] = useState("");
   const [q, setQ] = useState("");
   // Wait until typing stops before searching.
@@ -46,7 +49,7 @@ export default function SearchScreen() {
         <View style={styles.search}>
           <Ionicons name="search" size={18} color={colors.muted} />
           {/* Opened from the magnifier in the top-right corner, so typing starts at once, like TikTok. */}
-          <TextInput autoFocus value={text} onChangeText={setText} placeholder="Search people" placeholderTextColor={colors.faint} accessibilityLabel="Search people" returnKeyType="search" autoCorrect={false} autoCapitalize="words" clearButtonMode="while-editing" style={styles.input} />
+          <TextInput autoFocus value={text} onChangeText={setText} placeholder="Search people" placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} accessibilityLabel="Search people" returnKeyType="search" autoCorrect={false} autoCapitalize="words" clearButtonMode="while-editing" style={styles.input} />
         </View>
       </View>
       {error && !loading ? (
@@ -75,10 +78,11 @@ export default function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: { paddingHorizontal: space.lg, paddingTop: space.md },
-  search: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.card, borderRadius: radius.pill, paddingHorizontal: 14, height: 42 },
+  // The input fill, not the card colour: the screen behind it is white in light and black in dark.
+  search: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 14, height: 42 },
   input: { flex: 1, fontSize: 15, color: colors.text },
   section: { fontSize: 13, fontWeight: "600", color: colors.muted, paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.xs },
-});
+}));

@@ -3,7 +3,7 @@
  * so a theme switch repaints the whole app at once. Same keys in both; screens never pick a hex code themselves.
  *
  * Light: white background, black text, light grey borders, blue accents.
- * Dark: pure black background, white text, dark grey cards and borders, the same blue accents.
+ * Dark: pure black background and bars, white text, dark grey cards and borders, the same blue accents.
  */
 export type ThemeColors = {
   /** The CampConnect blue: buttons, links, active tabs, accents. The same in both themes. */
@@ -15,8 +15,10 @@ export type ThemeColors = {
   onBrand: string;
   /** Screen background. */
   bg: string;
-  /** Cards, rows, headers, the tab bar. */
+  /** Cards and rows that sit on the screen. Bars use `bar`. */
   card: string;
+  /** Top bars, the tab bar, tab rows right under a top bar and bottom composer bars: the same as the screen, so they read as one surface; hairlines separate them. */
+  bar: string;
   /** Sheets, menus and dialogs that float above the screen. */
   elevated: string;
   /** Main text and icons. */
@@ -31,11 +33,21 @@ export type ThemeColors = {
   input: string;
   /** Placeholder shapes while content loads. */
   skeleton: string;
+  /** Green and red for text, icons and dots (the presence dot, unread markers). */
   green: string;
   red: string;
   amber: string;
+  /** Red behind white text: Delete buttons, unread count badges. Darker than `red` in dark mode so the text stays readable. */
+  dangerFill: string;
+  /** Green behind white text, such as a "Sent" button. */
+  successFill: string;
   /** The filled heart. */
   like: string;
+  /** Hashtags in captions. */
+  hashtag: string;
+  /** Buzz's downvote violet: `downvote` for the bare arrow and score, `downvoteFill` behind white text in a filled pill. */
+  downvote: string;
+  downvoteFill: string;
   /** Soft status backgrounds and the text that sits on them. */
   dangerSoft: string;
   dangerText: string;
@@ -46,8 +58,14 @@ export type ThemeColors = {
   /** Text and icons over photos and videos (always light: the picture decides, not the theme). */
   onMedia: string;
   onMediaMuted: string;
-  /** Dark pills and gradients that keep text readable over photos and videos. */
+  /** Dark round buttons and gradients that keep icons readable over photos and videos. */
   mediaScrim: string;
+  /** The darker pill behind small text over photos (photo counters, prices, badges). */
+  mediaPill: string;
+  /** The shadow under white text and marks drawn straight on photos and videos (Reels captions, grid view counts). */
+  mediaTextShadow: string;
+  /** The verified tick over video: lighter than `brand`, so it stays clear on dark footage. */
+  verifiedOnMedia: string;
   /** Behind photos and videos while they load, and the Reels page. */
   mediaBg: string;
   /** The dimmed screen behind sheets and dialogs. */
@@ -66,6 +84,7 @@ export const lightColors: ThemeColors = {
   onBrand: "#ffffff",
   bg: "#ffffff",
   card: "#ffffff",
+  bar: "#ffffff",
   elevated: "#ffffff",
   text: "#050505",
   muted: "#65676b",
@@ -76,7 +95,12 @@ export const lightColors: ThemeColors = {
   green: "#31a24c",
   red: "#e41e3f",
   amber: "#f7b928",
+  dangerFill: "#e41e3f",
+  successFill: "#31a24c",
   like: "#ed4956",
+  hashtag: "#00376b",
+  downvote: "#6a5cff",
+  downvoteFill: "#6a5cff",
   dangerSoft: "#fdecec",
   dangerText: "#8a1c1c",
   successSoft: "#e6f6ea",
@@ -86,6 +110,9 @@ export const lightColors: ThemeColors = {
   onMedia: "#ffffff",
   onMediaMuted: "rgba(255,255,255,0.75)",
   mediaScrim: "rgba(0,0,0,0.45)",
+  mediaPill: "rgba(0,0,0,0.65)",
+  mediaTextShadow: "rgba(0,0,0,0.6)",
+  verifiedOnMedia: "#4da3ff",
   mediaBg: "#000000",
   backdrop: "rgba(0,0,0,0.25)",
   shadow: "#000000",
@@ -98,17 +125,23 @@ export const darkColors: ThemeColors = {
   onBrand: "#ffffff",
   bg: "#000000",
   card: "#1c1c1e",
+  bar: "#000000",
   elevated: "#1c1c1e",
   text: "#ffffff",
   muted: "#a8abaf",
   faint: "#7c7f84",
-  border: "#2c2c2e",
+  border: "#38383a",
   input: "#2c2c2e",
   skeleton: "#2c2c2e",
   green: "#3fbf5f",
   red: "#ff453a",
   amber: "#ffd60a",
+  dangerFill: "#d70015",
+  successFill: "#1f7a37",
   like: "#ff4d67",
+  hashtag: "#e0f1ff",
+  downvote: "#8b7fff",
+  downvoteFill: "#6a5cff",
   dangerSoft: "#3b1518",
   dangerText: "#ffb4b4",
   successSoft: "#10301b",
@@ -118,6 +151,9 @@ export const darkColors: ThemeColors = {
   onMedia: "#ffffff",
   onMediaMuted: "rgba(255,255,255,0.75)",
   mediaScrim: "rgba(0,0,0,0.45)",
+  mediaPill: "rgba(0,0,0,0.65)",
+  mediaTextShadow: "rgba(0,0,0,0.6)",
+  verifiedOnMedia: "#4da3ff",
   mediaBg: "#000000",
   backdrop: "rgba(0,0,0,0.6)",
   shadow: "#000000",

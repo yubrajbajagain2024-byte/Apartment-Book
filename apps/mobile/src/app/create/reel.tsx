@@ -12,11 +12,13 @@ import { markForYouStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { pickVideo, uploadVideo } from "@/lib/video";
-import { colors, radius } from "@/lib/theme";
+import { radius } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 
 const CAPTION_MAX = 2200;
-
 export default function CreateReelScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const { user, profile, loading } = useSession();
   const router = useRouter();
   const show = useActionSheet();
@@ -109,11 +111,11 @@ export default function CreateReelScreen() {
           <View style={styles.preview}>
             <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} accessibilityLabel="Your video" />
             <View style={styles.readyBadge}>
-              <Ionicons name="checkmark-circle" size={14} color="#fff" />
+              <Ionicons name="checkmark-circle" size={14} color={colors.onMedia} />
               <Text style={styles.readyText}>Video ready</Text>
             </View>
             <Pressable onPress={() => setVideo(null)} disabled={busy} style={styles.remove} accessibilityRole="button" accessibilityLabel="Remove video">
-              <Ionicons name="close" size={18} color="#fff" />
+              <Ionicons name="close" size={18} color={colors.onMedia} />
             </Pressable>
           </View>
           <Pressable onPress={chooseSource} disabled={busy} hitSlop={8} accessibilityRole="button">
@@ -131,7 +133,7 @@ export default function CreateReelScreen() {
       ) : (
         <Pressable onPress={chooseSource} style={[styles.box, styles.pick, errors.videos ? { borderColor: colors.red } : null]} accessibilityRole="button" accessibilityLabel="Add a video">
           <View style={styles.iconCircle}>
-            <Ionicons name="videocam" size={26} color="#fff" />
+            <Ionicons name="videocam" size={26} color={colors.onBrand} />
           </View>
           <Text style={styles.boxTitle}>Add a video</Text>
           <Text style={[styles.hint, { textAlign: "center" }]}>Record one now or pick one from your phone. Vertical videos up to 3 minutes look best.</Text>
@@ -148,17 +150,17 @@ export default function CreateReelScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   previewWrap: { alignItems: "center", gap: 12 },
-  preview: { width: 200, aspectRatio: 9 / 16, borderRadius: radius.lg, overflow: "hidden", backgroundColor: "#000" },
-  readyBadge: { position: "absolute", left: 8, bottom: 8, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.65)", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
-  readyText: { color: "#fff", fontSize: 12, fontWeight: "700" },
-  remove: { position: "absolute", right: 8, top: 8, width: 30, height: 30, borderRadius: 15, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center" },
-  box: { backgroundColor: colors.card, borderRadius: radius.md, padding: 16, gap: 10 },
+  preview: { width: 200, aspectRatio: 9 / 16, borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.mediaBg },
+  readyBadge: { position: "absolute", left: 8, bottom: 8, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
+  readyText: { color: colors.onMedia, fontSize: 12, fontWeight: "700" },
+  remove: { position: "absolute", right: 8, top: 8, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.mediaPill, alignItems: "center", justifyContent: "center" },
+  box: { backgroundColor: colors.card, borderRadius: radius.md, padding: 16, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   pick: { alignItems: "center", paddingVertical: 28, borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.brand },
   iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
   boxTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
   track: { height: 8, borderRadius: 4, backgroundColor: colors.border, overflow: "hidden" },
   fillBar: { height: 8, backgroundColor: colors.brand },
   hint: { fontSize: 13, color: colors.muted, lineHeight: 18 },
-});
+}));

@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { BadgeCheck, ChevronRight, GraduationCap, MapPin, Plus, UserPlus } from "lucide-react";
-import { compactCount, type FollowStats, type ProfileClass, type ProfileWithUniversity } from "@apartment-book/shared";
-import { profileTabHref } from "@/lib/profile";
+import { BadgeCheck, MapPin, Plus, UserPlus } from "lucide-react";
+import { compactCount, type FollowStats, type ProfileWithUniversity } from "@apartment-book/shared";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { buttonClasses } from "@/components/ui/button";
@@ -26,16 +25,14 @@ export type ProfileHeaderProps = {
   /** Likes on everything they posted. */
   likes: number;
   share: ShareProfileTarget;
-  /** This semester's classes for the card under the bio; null hides the card. */
-  classesCard: { term: string; classes: Pick<ProfileClass, "id" | "code">[] } | null;
 };
 
 /**
  * The top of a profile, TikTok style: the photo (with a "+" to change your own), name, @handle and the QR button,
  * Following · Followers · Likes, the buttons (yours: Edit profile, Share profile, Find friends; someone else's:
- * Follow, Message, •••), bio, campus, and the "Classes this semester" card.
+ * Follow, Message, •••), bio and campus.
  */
-export function ProfileHeader({ profile, handle, isMe, viewerId, blocked, follow, likes, share, classesCard }: ProfileHeaderProps) {
+export function ProfileHeader({ profile, handle, isMe, viewerId, blocked, follow, likes, share }: ProfileHeaderProps) {
   const verifiedDomain = profile.university?.email_domain ?? null;
   const studies = [profile.program, profile.graduation_year ? `Class of ${profile.graduation_year}` : null].filter(Boolean).join(" · ");
 
@@ -106,33 +103,6 @@ export function ProfileHeader({ profile, handle, isMe, viewerId, blocked, follow
         </p>
       ) : null}
       {studies ? <p className="mt-1 text-xs text-gray-500">{studies}</p> : null}
-
-      {classesCard ? (
-        <Link
-          href={profileTabHref(profile.id, "classes")}
-          scroll={false}
-          className="mt-4 block w-full max-w-md rounded-xl bg-gray-50 px-3.5 py-3 text-left ring-1 ring-gray-100 transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-          data-testid="profile-classes-card"
-        >
-          <span className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-            <GraduationCap className="h-4 w-4 shrink-0 text-gray-700" aria-hidden="true" />
-            Classes this semester
-            <span className="ml-auto text-xs font-normal text-gray-500">{classesCard.term}</span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
-          </span>
-          {classesCard.classes.length > 0 ? (
-            <span className="mt-2 flex flex-wrap gap-1.5">
-              {classesCard.classes.map((c) => (
-                <span key={c.id} className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-gray-800 ring-1 ring-gray-200">
-                  {c.code}
-                </span>
-              ))}
-            </span>
-          ) : (
-            <span className="mt-1 block text-sm text-gray-500">Add your classes</span>
-          )}
-        </Link>
-      ) : null}
     </header>
   );
 }

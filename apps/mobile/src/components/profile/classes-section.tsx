@@ -1,58 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { AccessibilityInfo, Alert, Pressable, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { addProfileClass, classCodeProblem, currentTerm, groupClassesByTerm, pickableTerms, removeProfileClass, type ProfileClass } from "@apartment-book/shared";
+import { addProfileClass, classCodeProblem, groupClassesByTerm, pickableTerms, removeProfileClass, type ProfileClass } from "@apartment-book/shared";
 import { Button } from "@/components/ui";
 import { hapticTap } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
-import { colors, radius, space } from "@/lib/theme";
+import { radius, space } from "@/lib/theme";
+import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 
 type UpdateClasses = (fn: (classes: ProfileClass[]) => ProfileClass[]) => void;
 
 /**
- * "Classes this semester" under the bio: the codes of this term's classes as pills; a tap opens the Classes tab. The owner
- * with nothing listed for this term gets "Add your classes" instead; visitors see nothing then.
- */
-export function ClassesCard({ classes, own, onPress }: { classes: ProfileClass[]; own: boolean; onPress: () => void }) {
-  const term = currentTerm();
-  const now = classes.filter((c) => c.term === term);
-  if (now.length === 0 && !own) return null;
-  const empty = now.length === 0;
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={empty ? "Add your classes" : `Classes this semester: ${now.map((c) => c.code).join(", ")}`}
-      style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
-    >
-      <View style={styles.cardHead}>
-        <Ionicons name="school-outline" size={18} color={colors.text} />
-        <Text style={styles.cardTitle}>{empty ? "Add your classes" : "Classes this semester"}</Text>
-        <Ionicons name="chevron-forward" size={16} color={colors.faint} />
-      </View>
-      {empty ? (
-        <Text style={styles.cardHint}>Let classmates find you: list what you're taking in {term}.</Text>
-      ) : (
-        <View style={styles.pills}>
-          {now.map((c) => (
-            <View key={c.id} style={styles.pill}>
-              <Text style={styles.pillText}>{c.code}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
-/**
- * The Classes tab: classes grouped by semester, this one first ("Fall 2026 · This semester"). The owner adds a class with
- * a code ("CS 3358", checked as it would be by the database), an optional name and the semester, and removes one with the
- * cross beside it. `onChange` edits the list the profile holds, so the card above follows. `onOpenForm` lets the profile
- * bring the form up the screen, clear of the keyboard.
+ * The Classes tab, the one place a profile shows its classes: grouped by semester, this one first ("Fall 2026 · This
+ * semester"). The owner adds a class with a code ("CS 3358", checked as it would be by the database), an optional name and
+ * the semester, and removes one with the cross beside it. `onChange` edits the list the profile holds, so it is still there
+ * after a switch to another tab and back. `onOpenForm` lets the profile bring the form up the screen, clear of the keyboard.
  */
 export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: { own: boolean; userId: string; classes: ProfileClass[]; onChange: UpdateClasses; onOpenForm?: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const groups = useMemo(() => groupClassesByTerm(classes), [classes]);
   const [adding, setAdding] = useState(false);
   // Close and Remove take away the button that had focus: once the list has redrawn, the screen reader moves to "Add class"
@@ -61,7 +28,7 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
   const [focusAdd, setFocusAdd] = useState(0);
   useEffect(() => {
     const node = addButton.current;
-    if (focusAdd > 0 && node) AccessibilityInfo.sendAccessibilityEvent(node, "focus");
+    if (focusAdd > 0 && node && typeof AccessibilityInfo.sendAccessibilityEvent === "function") AccessibilityInfo.sendAccessibilityEvent(node, "focus");
   }, [focusAdd]);
 
   async function remove(c: ProfileClass) {
@@ -144,6 +111,8 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
 
 /** Class code, optional class name and the semester (this one picked), then Add. Stays open after a class is added, for the next one. */
 function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (c: ProfileClass) => void; onClose: () => void }) {
+  const styles = useStyles();
+  const { colors, isDark } = useAppTheme();
   const terms = useMemo(() => pickableTerms(), []);
   const [code, setCode] = useState("");
   const [title, setTitle] = useState("");
@@ -194,6 +163,7 @@ function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (
           }}
           placeholder="CS 3358"
           placeholderTextColor={colors.faint}
+          keyboardAppearance={isDark ? "dark" : "light"}
           accessibilityLabel="Class code"
           autoFocus
           autoCapitalize="characters"
@@ -208,7 +178,7 @@ function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (
       </View>
       <View style={{ gap: 6 }}>
         <Text style={styles.label}>Class name (optional)</Text>
-        <TextInput ref={titleInput} value={title} onChangeText={setTitle} placeholder="Data Structures" placeholderTextColor={colors.faint} accessibilityLabel="Class name (optional)" maxLength={80} returnKeyType="done" onSubmitEditing={() => void add()} style={styles.input} />
+        <TextInput ref={titleInput} value={title} onChangeText={setTitle} placeholder="Data Structures" placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} accessibilityLabel="Class name (optional)" maxLength={80} returnKeyType="done" onSubmitEditing={() => void add()} style={styles.input} />
       </View>
       <View style={{ gap: 6 }}>
         <Text style={styles.label}>Semester</Text>
@@ -229,14 +199,7 @@ function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (
   );
 }
 
-const styles = StyleSheet.create({
-  card: { marginTop: space.lg, marginHorizontal: space.lg, padding: space.md, gap: 10, borderRadius: radius.md, backgroundColor: colors.bg },
-  cardHead: { flexDirection: "row", alignItems: "center", gap: space.sm },
-  cardTitle: { flex: 1, fontSize: 14, fontWeight: "700", color: colors.text },
-  cardHint: { fontSize: 13, color: colors.muted },
-  pills: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  pill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  pillText: { fontSize: 12, fontWeight: "700", color: colors.text },
+const useStyles = makeStyles((colors) => ({
   section: { padding: space.lg, gap: space.lg },
   empty: { fontSize: 14, color: colors.muted, textAlign: "center" },
   emptyBox: { alignItems: "center", gap: space.sm, paddingVertical: space.xl },
@@ -255,9 +218,9 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, fontWeight: "600", color: colors.muted },
   input: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 11, fontSize: 16, color: colors.text },
   error: { color: colors.red, fontSize: 12 },
-  added: { color: colors.green, fontSize: 13 },
+  added: { color: colors.successText, fontSize: 13 },
   terms: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   termChip: { paddingHorizontal: 12, height: 34, justifyContent: "center", borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   termChipOn: { backgroundColor: colors.brandSoft, borderColor: colors.brand },
   termText: { fontSize: 13, fontWeight: "600", color: colors.muted },
-});
+}));

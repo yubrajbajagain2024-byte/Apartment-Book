@@ -8,10 +8,12 @@ import { Badge, Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { useColors } from "@/lib/theme-provider";
 import { useEngagement } from "@/lib/use-engagement";
 
 /** The Roommates half of the Housing tab: search, filters, who is online and the posts feed. The Housing screen owns the "+" button. */
 export function RoommatesSection() {
+  const colors = useColors();
   const { user, profile } = useSession();
   const [q, setQ] = useState("");
   const [type, setType] = useState<"has_room" | "needs_room" | undefined>();
@@ -55,8 +57,8 @@ export function RoommatesSection() {
               details={
                 <>
                   <Badge label={p.post_type === "has_room" ? "Has a room" : "Looking for a room"} tone={p.post_type === "has_room" ? "green" : "blue"} />
-                  {p.location ? <Text style={{ fontSize: 13, color: "#65676b" }}>📍 {p.location}</Text> : null}
-                  {p.move_in_date ? <Text style={{ fontSize: 13, color: "#65676b" }}>Move in {formatDate(p.move_in_date)}</Text> : null}
+                  {p.location ? <Text style={{ fontSize: 13, color: colors.muted }}>📍 {p.location}</Text> : null}
+                  {p.move_in_date ? <Text style={{ fontSize: 13, color: colors.muted }}>Move in {formatDate(p.move_in_date)}</Text> : null}
                 </>
               }
             />

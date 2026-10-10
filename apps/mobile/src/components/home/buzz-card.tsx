@@ -9,7 +9,8 @@ import { PhotoCarousel } from "@/components/photo-carousel";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { colors, radius } from "@/lib/theme";
+import { radius } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 
 /*
  * Buzz looks like Reddit, but it is anonymous. Where Reddit shows a community, Buzz shows the topic;
@@ -36,20 +37,21 @@ export function repliesLabel(count: number): string {
 
 /** Side padding of every Buzz row, like Reddit. */
 export const BUZZ_GUTTER = 16;
-const UP_COLOR = colors.brand;
-const DOWN_COLOR = "#6a5cff";
 
 /* ---------- small pieces ---------- */
 
 /** Small pill for "You" and "OP". */
 export function BuzzTag({ label, tone = "blue" }: { label: string; tone?: "blue" | "green" }) {
+  const colors = useColors();
+  const styles = useStyles();
   return (
-    <View style={[styles.tag, { backgroundColor: tone === "green" ? "#e6f6ea" : colors.brandSoft }]}>
-      <Text style={{ fontSize: 10, fontWeight: "800", color: tone === "green" ? "#1f7a37" : colors.brand }}>{label}</Text>
+    <View style={[styles.tag, { backgroundColor: tone === "green" ? colors.successSoft : colors.brandSoft }]}>
+      <Text style={{ fontSize: 10, fontWeight: "800", color: tone === "green" ? colors.successText : colors.brand }}>{label}</Text>
     </View>
   );
 }
 
+/** Each topic's own colour, like a community icon on Reddit: a fixed set, the same in both themes, always under a white glyph. */
 const TOPIC_LOOK: Record<BuzzTopic, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
   thoughts: { icon: "bulb", color: "#f59e0b" },
   experience: { icon: "sparkles", color: "#8b5cf6" },
@@ -63,14 +65,16 @@ const TOPIC_LOOK: Record<BuzzTopic, { icon: keyof typeof Ionicons.glyphMap; colo
 
 /** The round coloured icon that stands where Reddit shows a community icon. */
 export function TopicIcon({ topic, size = 24 }: { topic: BuzzTopic; size?: number }) {
+  const colors = useColors();
   const look = TOPIC_LOOK[topic] ?? TOPIC_LOOK.other;
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: look.color, alignItems: "center", justifyContent: "center" }}>
-      <Ionicons name={look.icon} size={Math.round(size * 0.58)} color="#fff" />
+      <Ionicons name={look.icon} size={Math.round(size * 0.58)} color={colors.onBrand} />
     </View>
   );
 }
 
+/** Pastel background and a deeper icon colour: fixed pairs, the same in both themes, since the icon is read against its own circle. */
 const AVATAR_COLORS: [string, string][] = [
   ["#dbeafe", "#3b6fd4"],
   ["#dcfce7", "#2f8f57"],
@@ -202,19 +206,21 @@ export function useVote(kind: "thread" | "reply" | "comment", id: string, initia
 export function VotePill({ vote, onVote, bare = false, labels = ["Upvote", "Downvote"] }: { vote: Vote; onVote: (direction: 1 | -1) => void; bare?: boolean; labels?: [string, string] }) {
   const up = vote.myVote === 1;
   const down = vote.myVote === -1;
+  const colors = useColors();
+  const styles = useStyles();
   const filled = !bare && (up || down);
-  const ink = filled ? "#fff" : colors.text;
+  const ink = filled ? colors.onBrand : colors.text;
   return (
-    <View style={[bare ? styles.votesBare : styles.pill, !bare && { paddingHorizontal: 0, gap: 0 }, filled && { backgroundColor: up ? UP_COLOR : DOWN_COLOR, borderColor: up ? UP_COLOR : DOWN_COLOR }]}>
+    <View style={[bare ? styles.votesBare : styles.pill, !bare && { paddingHorizontal: 0, gap: 0 }, filled && { backgroundColor: up ? colors.brand : colors.downvoteFill, borderColor: up ? colors.brand : colors.downvoteFill }]}>
       <Pressable onPress={() => onVote(1)} hitSlop={bare ? 8 : { top: 8, bottom: 8, left: 8 }} style={bare ? styles.arrowBare : styles.arrowLeft} accessibilityRole="button" accessibilityLabel={labels[0]} accessibilityState={{ selected: up }}>
-        <MaterialCommunityIcons name={up ? "arrow-up-bold" : "arrow-up-bold-outline"} size={20} color={filled ? "#fff" : up ? UP_COLOR : bare ? colors.muted : colors.text} />
+        <MaterialCommunityIcons name={up ? "arrow-up-bold" : "arrow-up-bold-outline"} size={20} color={filled ? colors.onBrand : up ? colors.brand : bare ? colors.muted : colors.text} />
       </Pressable>
-      <Text style={[styles.pillText, { color: bare ? (up ? UP_COLOR : down ? DOWN_COLOR : colors.muted) : ink, minWidth: 14, textAlign: "center" }]} accessibilityLabel={`Score ${vote.score}`}>
+      <Text style={[styles.pillText, { color: bare ? (up ? colors.brand : down ? colors.downvote : colors.muted) : ink, minWidth: 14, textAlign: "center" }]} accessibilityLabel={`Score ${vote.score}`}>
         {compactCount(vote.score)}
       </Text>
-      {bare ? null : <View style={[styles.pillDivider, filled && { backgroundColor: "rgba(255,255,255,0.45)" }]} />}
+      {bare ? null : <View style={[styles.pillDivider, filled && { backgroundColor: colors.onBrand, opacity: 0.45 }]} />}
       <Pressable onPress={() => onVote(-1)} hitSlop={bare ? 8 : { top: 8, bottom: 8, right: 8 }} style={bare ? styles.arrowBare : styles.arrowRight} accessibilityRole="button" accessibilityLabel={labels[1]} accessibilityState={{ selected: down }}>
-        <MaterialCommunityIcons name={down ? "arrow-down-bold" : "arrow-down-bold-outline"} size={20} color={filled ? "#fff" : down ? DOWN_COLOR : bare ? colors.muted : colors.text} />
+        <MaterialCommunityIcons name={down ? "arrow-down-bold" : "arrow-down-bold-outline"} size={20} color={filled ? colors.onBrand : down ? colors.downvote : bare ? colors.muted : colors.text} />
       </Pressable>
     </View>
   );
@@ -309,6 +315,8 @@ export function useBuzzMenu(post: BuzzPost | null, { onRemoved, onMuted }: PostH
 /** The action row under a thread: vote pill, replies pill, and the share pill pushed to the right. */
 function PillRow({ post, onVote, onReplies, repliesHint, onShare }: { post: BuzzPost; onVote?: (vote: Vote) => void; onReplies: () => void; repliesHint: string; onShare: () => void }) {
   const { vote, cast } = useVote("thread", post.id, post, (value) => voteBuzz(supabase, post.id, value), onVote);
+  const colors = useColors();
+  const styles = useStyles();
   return (
     <View style={styles.pills}>
       <VotePill vote={vote} onVote={(d) => void cast(d)} />
@@ -325,6 +333,8 @@ function PillRow({ post, onVote, onReplies, repliesHint, onShare }: { post: Buzz
 }
 
 function Thumb({ media }: { media: FeedMedia[] }) {
+  const colors = useColors();
+  const styles = useStyles();
   const first = media[0];
   if (!first) return null;
   const uri = first.type === "photo" ? first.url : first.poster;
@@ -333,12 +343,12 @@ function Thumb({ media }: { media: FeedMedia[] }) {
       {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} /> : null}
       {first.type === "video" ? (
         <View style={styles.play}>
-          <Ionicons name="play" size={12} color="#fff" style={{ marginLeft: 1 }} />
+          <Ionicons name="play" size={12} color={colors.onMedia} style={{ marginLeft: 1 }} />
         </View>
       ) : media.length > 1 ? (
         <View style={styles.count}>
-          <Ionicons name="images" size={10} color="#fff" />
-          <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>{media.length}</Text>
+          <Ionicons name="images" size={10} color={colors.onMedia} />
+          <Text style={{ color: colors.onMedia, fontSize: 10, fontWeight: "700" }}>{media.length}</Text>
         </View>
       ) : null}
     </View>
@@ -356,6 +366,8 @@ export type BuzzCardProps = PostHandlers & {
 /** One thread in the Buzz feed: a flat, full-width Reddit row (the list draws the hairline between rows). */
 export function BuzzCard({ post, onVote, onRemoved, onMuted }: BuzzCardProps) {
   const router = useRouter();
+  const colors = useColors();
+  const styles = useStyles();
   const { menu, share } = useBuzzMenu(post, { onRemoved, onMuted });
   const media = listingMedia(post.images, post.imageMeta, post.videos);
   const body = post.body.trim();
@@ -397,11 +409,13 @@ export function BuzzCard({ post, onVote, onRemoved, onMuted }: BuzzCardProps) {
 /** A search result, in Reddit's compact style: topic and age, the title, then "12 upvotes · 7 comments". No pills. */
 export function BuzzSearchRow({ post }: { post: BuzzPost }) {
   const router = useRouter();
+  const colors = useColors();
+  const styles = useStyles();
   const media = listingMedia(post.images, post.imageMeta, post.videos);
   const votes = `${compactCount(post.score)} ${post.score === 1 ? "upvote" : "upvotes"}`;
   const comments = `${compactCount(post.commentCount)} ${post.commentCount === 1 ? "comment" : "comments"}`;
   return (
-    <Pressable onPress={() => router.push({ pathname: "/buzz/[id]", params: { id: post.id } })} style={({ pressed }) => [styles.searchRow, pressed && { backgroundColor: colors.bg }]} accessibilityRole="button" accessibilityLabel={`Anonymous post: ${post.title}. ${votes}, ${comments}. Open the thread`}>
+    <Pressable onPress={() => router.push({ pathname: "/buzz/[id]", params: { id: post.id } })} style={({ pressed }) => [styles.searchRow, pressed && { backgroundColor: colors.input }]} accessibilityRole="button" accessibilityLabel={`Anonymous post: ${post.title}. ${votes}, ${comments}. Open the thread`}>
       <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
         <View style={styles.headMain}>
           <TopicIcon topic={post.topic} size={20} />
@@ -428,6 +442,7 @@ export function BuzzSearchRow({ post }: { post: BuzzPost }) {
 /** The post at the top of the thread screen. Media runs edge to edge; text keeps the gutter. `active` is false while the block is off screen, so its video pauses. */
 export function BuzzPostBlock({ post, onVote, onReply, active = true }: { post: BuzzPost; onVote?: (vote: Vote) => void; onReply: () => void; active?: boolean }) {
   const { share } = useBuzzMenu(post, {});
+  const styles = useStyles();
   const media = listingMedia(post.images, post.imageMeta, post.videos);
   const body = post.body.trim();
   const first = media[0];
@@ -471,25 +486,25 @@ export function BuzzPostBlock({ post, onVote, onReply, active = true }: { post: 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   tag: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: radius.pill },
 
-  row: { backgroundColor: colors.card, paddingTop: 10, paddingBottom: 10 },
+  row: { backgroundColor: colors.bg, paddingTop: 10, paddingBottom: 10 },
   head: { flexDirection: "row", alignItems: "center", paddingHorizontal: BUZZ_GUTTER, gap: 8 },
   headMain: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 8 },
   topic: { fontSize: 13, fontWeight: "700", color: colors.text, flexShrink: 1 },
   age: { fontSize: 13, color: colors.muted },
-  you: { fontSize: 12, fontWeight: "700", color: "#1f7a37" },
+  you: { fontSize: 12, fontWeight: "700", color: colors.successText },
   dots: { width: 32, height: 28, alignItems: "flex-end", justifyContent: "center" },
   main: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingHorizontal: BUZZ_GUTTER, paddingTop: 6 },
   title: { fontSize: 17, fontWeight: "700", color: colors.text, lineHeight: 22 },
   preview: { fontSize: 14, color: colors.muted, lineHeight: 20 },
   thumb: { width: 96, height: 72, borderRadius: 12, overflow: "hidden", backgroundColor: colors.input },
-  play: { position: "absolute", left: 6, bottom: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: "rgba(0,0,0,0.65)", alignItems: "center", justifyContent: "center" },
-  count: { position: "absolute", right: 6, bottom: 6, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(0,0,0,0.65)", borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 },
+  play: { position: "absolute", left: 6, bottom: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.mediaPill, alignItems: "center", justifyContent: "center" },
+  count: { position: "absolute", right: 6, bottom: 6, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 },
 
   pills: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: BUZZ_GUTTER, paddingTop: 12 },
-  pill: { height: 34, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, borderRadius: 17, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  pill: { height: 34, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, borderRadius: 17, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" },
   pillText: { fontSize: 13, fontWeight: "700", color: colors.text },
   pillDivider: { width: 1, height: 16, backgroundColor: colors.border, marginLeft: 10 },
   arrowLeft: { height: 32, paddingLeft: 10, paddingRight: 6, alignItems: "center", justifyContent: "center" },
@@ -497,7 +512,7 @@ const styles = StyleSheet.create({
   votesBare: { flexDirection: "row", alignItems: "center", gap: 4 },
   arrowBare: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
 
-  searchRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, backgroundColor: colors.card, paddingHorizontal: BUZZ_GUTTER, paddingVertical: 12 },
+  searchRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, backgroundColor: colors.bg, paddingHorizontal: BUZZ_GUTTER, paddingVertical: 12 },
   searchTitle: { fontSize: 16, color: colors.text, lineHeight: 21 },
   searchMeta: { fontSize: 13, color: colors.muted },
 
@@ -508,4 +523,4 @@ const styles = StyleSheet.create({
   blockAge: { fontSize: 13, color: colors.muted },
   blockTitle: { fontSize: 21, fontWeight: "700", color: colors.text, lineHeight: 27, paddingHorizontal: BUZZ_GUTTER, paddingTop: 10 },
   blockBody: { fontSize: 16, color: colors.text, lineHeight: 23, paddingHorizontal: BUZZ_GUTTER, paddingTop: 8 },
-});
+}));

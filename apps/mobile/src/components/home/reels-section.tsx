@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View, type ViewToken } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View, type ViewToken } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { listReels, REELS_PAGE_SIZE, type Reel } from "@apartment-book/shared";
@@ -7,7 +7,7 @@ import { errorText } from "@/lib/hooks";
 import { emitPostRemoved } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 import { ReelCommentsSheet } from "./reel-comments-sheet";
 import { ReelItem, reelKey } from "./reel-item";
 
@@ -31,6 +31,8 @@ export function ReelsSection({ active, topInset, height }: { active: boolean; to
   const { user } = useSession();
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const colors = useColors();
+  const styles = useStyles();
   const [reels, setReels] = useState<Reel[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -172,7 +174,7 @@ export function ReelsSection({ active, topInset, height }: { active: boolean; to
   if (error && (!reels || reels.length === 0)) {
     body = (
       <View style={[styles.fill, styles.centered, { paddingTop: topInset }]}>
-        <Ionicons name="cloud-offline-outline" size={44} color="rgba(255,255,255,0.7)" />
+        <Ionicons name="cloud-offline-outline" size={44} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>Reels did not load</Text>
         <Text style={styles.stateBody}>{error}</Text>
         <Pressable onPress={() => void loadFirst("initial")} style={styles.stateButton} accessibilityRole="button">
@@ -183,22 +185,22 @@ export function ReelsSection({ active, topInset, height }: { active: boolean; to
   } else if (reels === null) {
     body = (
       <View style={[styles.fill, styles.centered]}>
-        <ActivityIndicator color="#fff" size="large" />
+        <ActivityIndicator color={colors.onMedia} size="large" />
         <Text style={[styles.stateBody, { marginTop: 10 }]}>Loading reels…</Text>
       </View>
     );
   } else if (reels.length === 0) {
     body = (
       <View style={[styles.fill, styles.centered, { paddingTop: topInset }]}>
-        <Ionicons name="film-outline" size={48} color="rgba(255,255,255,0.7)" />
+        <Ionicons name="film-outline" size={48} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>No reels yet</Text>
         <Text style={styles.stateBody}>Share a quick video of campus life, your place or a room tour.</Text>
         <Pressable onPress={create} style={styles.stateButton} accessibilityRole="button">
-          <Ionicons name="add" size={18} color="#fff" />
+          <Ionicons name="add" size={18} color={colors.onBrand} />
           <Text style={styles.stateButtonText}>Post the first reel</Text>
         </Pressable>
         <Pressable onPress={() => void loadFirst("refresh")} hitSlop={8} style={{ marginTop: 14 }} accessibilityRole="button">
-          <Text style={{ color: "rgba(255,255,255,0.7)", fontWeight: "600" }}>{refreshing ? "Checking…" : "Check again"}</Text>
+          <Text style={{ color: colors.onMediaMuted, fontWeight: "600" }}>{refreshing ? "Checking…" : "Check again"}</Text>
         </Pressable>
       </View>
     );
@@ -226,19 +228,19 @@ export function ReelsSection({ active, topInset, height }: { active: boolean; to
         onEndReached={() => void loadMore()}
         onEndReachedThreshold={2}
         scrollsToTop={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadFirst("refresh")} tintColor="#fff" colors={[colors.brand]} progressViewOffset={topInset} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadFirst("refresh")} tintColor={colors.onMedia} colors={[colors.brand]} progressViewOffset={topInset} />}
       />
     );
   }
 
   const commentsReel = commentsKey ? (reels?.find((r) => reelKey(r) === commentsKey) ?? null) : null;
   return (
-    <View style={{ height, backgroundColor: "#000" }}>
+    <View style={{ height, backgroundColor: colors.mediaBg }}>
       {body}
       {/* Posting a reel starts from the "+" in the Home top bar, so there is no second "+" here. */}
       {loadingMore && reels && visible >= reels.length - 1 ? (
         <View style={styles.more} pointerEvents="none">
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={colors.onMedia} />
         </View>
       ) : null}
       <ReelCommentsSheet reel={commentsReel} onClose={() => setCommentsKey(null)} onCountChange={onCommentCount} />
@@ -246,12 +248,13 @@ export function ReelsSection({ active, topInset, height }: { active: boolean; to
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: "#000" },
+/** The Reels page stays black in both themes (it sits behind video), so it draws with the media colours, not the screen ones. */
+const useStyles = makeStyles((colors) => ({
+  fill: { flex: 1, backgroundColor: colors.mediaBg },
   centered: { alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 8 },
-  stateTitle: { color: "#fff", fontSize: 20, fontWeight: "800", marginTop: 6 },
-  stateBody: { color: "rgba(255,255,255,0.75)", fontSize: 14, textAlign: "center", lineHeight: 20 },
+  stateTitle: { color: colors.onMedia, fontSize: 20, fontWeight: "800", marginTop: 6 },
+  stateBody: { color: colors.onMediaMuted, fontSize: 14, textAlign: "center", lineHeight: 20 },
   stateButton: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 12, marginTop: 12 },
-  stateButtonText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  stateButtonText: { color: colors.onBrand, fontSize: 15, fontWeight: "700" },
   more: { position: "absolute", bottom: 6, left: 0, right: 0, alignItems: "center" },
-});
+}));

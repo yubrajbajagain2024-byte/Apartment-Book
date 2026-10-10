@@ -51,9 +51,9 @@ The Profile tab is your profile, TikTok style (`src/components/profile/`, one `P
 `/profile/[id]`): a top bar with Find friends, your name (the account sheet, Log out) and the menu (Settings and privacy,
 Saved, the legal pages, Log out); your photo with a "+" to change it, @username (made from your name at sign-up, changed
 in Settings) with a QR icon, Following | Followers | Likes (every like on your posts, reels and listings), Edit profile /
-Share profile (a sheet with the profile's QR code and Share) / Find friends, the bio and university, "Classes this
-semester", your live listings, then the tabs Posts | Classes | Reels | Saved | Liked over a three-column grid with view
-counts. The Classes tab lists classes by semester, this one first (up to 12 each; add and remove your own there).
+Share profile (a sheet with the profile's QR code and Share) / Find friends, the bio and university, then the tabs
+Posts | Classes | Reels | Saved | Liked | Listings over a three-column grid with view counts (Listings: your live
+apartments, roommate posts and items for sale, each square with its kind and title). The Classes tab lists classes by semester, this one first (up to 12 each; add and remove your own there).
 Classes, Saved and Liked each have a setting (Everyone, Friends, Only me; friends are people you follow who follow you
 back), changed from the line at the top of the tab or in Settings → Privacy; by default Classes is Friends, Saved is Only
 me and Liked is Everyone, and visitors without access see a lock. Hold one of your own posts or reels in the grid (or use
@@ -70,7 +70,7 @@ screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.de
 cd apps/mobile
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts (the test account and Leo follow each other, so Leo is a friend to share with; Maya lists CS 3358 and MATH 3398 for this semester, visible to everyone); prints the login, writes e2e/.sim-state.json
 e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you, opens the feed menu (All universities alone, signed out), swipes to Buzz, opens Search from the top-right magnifier, Messages (bottom tab), Housing (Apartments, Roommates, swipe back), Marketplace, Profile (several flows at once is fine)
-EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # your own profile (adds CS 1428 under Classes and removes it, Saved says only you can see it), then likes, comments (write, heart, reply, delete from the hold menu), shares the top post with Leo and finds the card in your chat with him (Messages), votes, replies, Following from the feed menu (Leo's post alone, then Maya's too once she is followed), follows and unfollows Maya (her classes card shows CS 3358), as the seeded account
+EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # your own profile (adds CS 1428 under Classes and removes it, Saved says only you can see it), then likes, comments (write, heart, reply, delete from the hold menu), shares the top post with Leo and finds the card in your chat with him (Messages), votes, replies, Following from the feed menu (Leo's post alone, then Maya's too once she is followed), follows and unfollows Maya (her Classes tab shows CS 3358, her Listings tab her apartment), as the seeded account
 node e2e/sim-seed-thread.mjs                            # nested replies and votes for 03-buzz-thread.yaml
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards
 ```

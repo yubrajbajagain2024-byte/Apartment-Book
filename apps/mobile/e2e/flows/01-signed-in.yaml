@@ -1,4 +1,4 @@
-# Signed-in tour: your own profile first (Edit profile, Share profile, the classes card; add CS 1428 under Classes and remove it again; Saved says only you can see it), then the new Home: like a post, comment on it (heart, reply, delete from the hold menu), share it with Leo (a friend: the seed has him and this account follow each other) and find it as a card in your chat with him, vote and reply anonymously in Buzz, watch a reel, reach the profile, see Leo's post alone under Following (the feed menu next to the wordmark), follow Maya (her profile shows the classes the seed lists for her) and see hers join it, unfollow.
+# Signed-in tour: your own profile first (Edit profile, Share profile, the Listings tab after Liked and no classes card; add CS 1428 under Classes and remove it again; Saved says only you can see it), then the new Home: like a post, comment on it (heart, reply, delete from the hold menu), share it with Leo (a friend: the seed has him and this account follow each other) and find it as a card in your chat with him, vote and reply anonymously in Buzz, watch a reel, reach the profile, see Leo's post alone under Following (the feed menu next to the wordmark), follow Maya (her Classes tab shows the classes the seed lists for her, her Listings tab her apartment) and see hers join it, unfollow.
 # Needs test data: SUPABASE_ACCESS_TOKEN=... node e2e/sim-seed.mjs   (then pass EMAIL and PASSWORD from its output)
 appId: host.exp.Exponent
 env:
@@ -47,11 +47,13 @@ env:
 - tapOn: ".*ccount options"
 - assertVisible: "ui-sim-.*@txstate.edu"
 - tapOn: "Cancel"
-# Your own profile, TikTok style: Edit profile and Share profile under Following | Followers | Likes, the "Classes this
-# semester" card ("Add your classes" while none are listed for this term), then the tabs Posts | Classes | Reels | Saved | Liked.
+# Your own profile, TikTok style: Edit profile and Share profile under Following | Followers | Likes, then the tabs Posts |
+# Classes | Reels | Saved | Liked | Listings. Classes show only in their tab: no "Classes this semester" or "Add your
+# classes" card above the tabs.
 - assertVisible: "Edit profile"
 - assertVisible: "Share profile"
-- assertVisible: "Classes this semester.*|Add your classes"
+- assertVisible: "Listings"
+- assertNotVisible: "Classes this semester.*|Add your classes"
 # Classes: "Add class" opens the form with this semester picked; type a code, Add, and the class is listed with its remove
 # button. Remove it again so the flow can run again and again (one left by a run that stopped halfway goes first). The code
 # box is found by its placeholder, because "Class code" also names the label above it. A tap on the form's title puts the
@@ -316,9 +318,16 @@ env:
 - extendedWaitUntil:
     visible: "Follow"
     timeout: 30000
-# Her "Classes this semester" card lists this term's codes: the seed gives her CS 3358 and MATH 3398 and lets everyone see them.
+# Her Classes tab lists this term's classes: the seed gives her CS 3358 and MATH 3398 and lets everyone see them. Her
+# Listings tab, the last one, shows the apartment, roommate post and item the seed gives her as squares, each named by its
+# kind and title.
+- tapOn: "Classes"
 - extendedWaitUntil:
-    visible: "Classes this semester: .*CS 3358.*"
+    visible: "CS 3358"
+    timeout: 15000
+- tapOn: "Listings"
+- extendedWaitUntil:
+    visible: "Apartment: Sunny 2-bed near Sewell Park"
     timeout: 15000
 - tapOn: "Follow"
 - extendedWaitUntil:

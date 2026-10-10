@@ -2,10 +2,12 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { formatPrice, ITEM_CONDITIONS, labelFor, photosFor, timeAgo, type ItemWithSeller } from "@apartment-book/shared";
-import { colors, radius } from "@/lib/theme";
+import { radius } from "@/lib/theme";
+import { makeStyles } from "@/lib/theme-provider";
 
 /** Marketplace grid tile: square photo, price, title. */
 export function ItemTile({ item }: { item: ItemWithSeller }) {
+  const styles = useStyles();
   const router = useRouter();
   const photo = photosFor(item.images, item.image_meta)[0];
   return (
@@ -29,12 +31,12 @@ export function ItemTile({ item }: { item: ItemWithSeller }) {
   );
 }
 
-const styles = StyleSheet.create({
-  tile: { flex: 1, maxWidth: "49%", backgroundColor: colors.card, borderRadius: radius.md, overflow: "hidden" },
+const useStyles = makeStyles((colors) => ({
+  tile: { flex: 1, maxWidth: "49%", backgroundColor: colors.card, borderRadius: radius.md, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   photo: { aspectRatio: 1, backgroundColor: colors.border },
-  price: { position: "absolute", left: 8, bottom: 8, backgroundColor: "rgba(0,0,0,0.65)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  priceText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  price: { position: "absolute", left: 8, bottom: 8, backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  priceText: { color: colors.onMedia, fontWeight: "700", fontSize: 13 },
   title: { fontSize: 14, fontWeight: "600", color: colors.text },
   meta: { fontSize: 12, color: colors.muted },
   time: { fontSize: 11, color: colors.faint },
-});
+}));

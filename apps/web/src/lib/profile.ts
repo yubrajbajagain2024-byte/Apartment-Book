@@ -1,7 +1,7 @@
 import { isProfileVisibility, type Profile, type ProfileSection, type ProfileVisibility } from "@apartment-book/shared";
 
 /** The profile tabs, in the order the bar shows them. Posts is the default. */
-export const PROFILE_TABS = ["posts", "classes", "reels", "saved", "liked"] as const;
+export const PROFILE_TABS = ["posts", "classes", "reels", "saved", "liked", "listings"] as const;
 export type ProfileTab = (typeof PROFILE_TABS)[number];
 
 export function isProfileTab(value: unknown): value is ProfileTab {

@@ -2,7 +2,7 @@
 
 import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
 import Link from "next/link";
-import { Bookmark, Clapperboard, GraduationCap, Grid3x3, Heart, Lock, type LucideIcon } from "lucide-react";
+import { Bookmark, Clapperboard, GraduationCap, Grid3x3, Heart, Lock, Store, type LucideIcon } from "lucide-react";
 import { PROFILE_TABS, profileTabHref, type ProfileTab } from "@/lib/profile";
 import { cn } from "@/lib/utils";
 
@@ -12,15 +12,16 @@ const TAB_META: Record<ProfileTab, { label: string; icon: LucideIcon }> = {
   reels: { label: "Reels", icon: Clapperboard },
   saved: { label: "Saved", icon: Bookmark },
   liked: { label: "Liked", icon: Heart },
+  listings: { label: "Listings", icon: Store },
 };
 
 /** The element the tabs control; the page renders the chosen tab into it. */
 export const PROFILE_PANEL_ID = "profile-panel";
 
 /**
- * TikTok's row of icon tabs under the profile header: Posts, Classes, Reels, Saved, Liked. They are links (?tab=…), so
- * the server renders the chosen tab; the tapped one lights up straight away while it loads. A small lock marks Classes,
- * Saved and Liked when the owner keeps them from everyone, or when the visitor may not open them.
+ * TikTok's row of icon tabs under the profile header: Posts, Classes, Reels, Saved, Liked, Listings. They are links
+ * (?tab=…), so the server renders the chosen tab; the tapped one lights up straight away while it loads. A small lock
+ * marks Classes, Saved and Liked when the owner keeps them from everyone, or when the visitor may not open them.
  */
 export function ProfileTabs({
   profileId,
@@ -69,7 +70,7 @@ export function ProfileTabs({
   }
 
   return (
-    <div ref={listRef} role="tablist" aria-label="Profile" onKeyDown={onKeyDown} className="sticky top-14 z-20 grid grid-cols-5 border-b border-gray-200 bg-white" data-testid="profile-tabs">
+    <div ref={listRef} role="tablist" aria-label="Profile" onKeyDown={onKeyDown} className="sticky top-14 z-20 grid grid-cols-6 border-b border-gray-200 bg-white" data-testid="profile-tabs">
       {PROFILE_TABS.map((tab) => {
         const { label, icon: Icon } = TAB_META[tab];
         const selected = tab === shown;
