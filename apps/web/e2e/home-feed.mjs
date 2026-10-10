@@ -1,5 +1,5 @@
 // Browser check of the website's navigation (desktop tabs Home | Housing | Messages | Marketplace next to the search box, phone bottom bar Home | Housing | Messages | Marketplace | Profile),
-// Home (For you | Buzz | Posts | Reels), Housing (Apartments | Roommates), following (the Follow button on a profile, the follower list, Home → Posts → Following) and the comment thread under a post (thumbs up, reply, delete),
+// Home (For you | Buzz | Posts | Reels), Housing (Apartments | Roommates), following (the Follow button on a profile, the follower list, Home → Posts → Following) and the TikTok-style comment thread under a post (heart, reply, the "N comments" header, delete from the comment's options menu),
 // signed out and signed in, on a desktop and a phone viewport.
 // Usage: start the site (npm run dev -w web -- -p 3060), seed test data (SUPABASE_ACCESS_TOKEN=... node apps/mobile/e2e/sim-seed.mjs),
 // then: BASE=http://localhost:3060 node apps/web/e2e/home-feed.mjs      (reads apps/mobile/e2e/.sim-state.json; Chromium only: the phone swipes go through a CDP session)
@@ -43,7 +43,7 @@ try {
     const reel = feed.locator("[data-testid='insta-post']").filter({ hasText: "Quick tour of my new place near Sewell Park" }).first(); await reel.waitFor();
     await reel.scrollIntoViewIfNeeded(); await reel.locator("video").first().waitFor({ state: "attached" });
   });
-  await step("Posts tab (/?tab=posts) looks like Instagram: no composer box, heart / comment / share / bookmark, Liked by, caption with hashtags, newest comment, age", async () => {
+  await step("Posts tab (/?tab=posts) looks like Instagram: no composer box, carousel dots on their own row above heart / comment / share / bookmark, Liked by, caption with hashtags, newest comment, age", async () => {
     await D.goto(BASE + "/?tab=posts"); await D.waitForLoadState("domcontentloaded");
     if (!(await D.locator("nav[aria-label='Home sections'] [data-testid='home-tab-posts'][aria-current='page']").count())) throw new Error("Posts is not the active tab");
     await D.getByText("First week back on campus").first().waitFor(); await D.screenshot({ caret: "initial", path: SHOTS + "web-01-posts.png" });
@@ -55,6 +55,9 @@ try {
     const caption = (await post.getByTestId("insta-caption").innerText()).replace(/\s+/g, " "); if (!caption.startsWith("UI Maya First week back")) throw new Error("caption: " + caption);
     const carousel = D.locator("[data-testid='insta-post']").filter({ hasText: "Move-in day at the new place" }).first();
     await carousel.getByLabel("1 of 3").waitFor();
+    // Instagram puts the carousel dots on their own centred row between the photo and the action row, so the dots end above the heart.
+    const dots = await carousel.getByLabel("1 of 3").boundingBox(); const heart = await carousel.getByLabel("Like", { exact: true }).boundingBox();
+    if (!dots || !heart || dots.y + dots.height > heart.y) throw new Error("the carousel dots are not above the Like button: " + JSON.stringify({ dots, heart }));
     const tag = carousel.locator("span", { hasText: /^#movein$/ }).first(); const color = await tag.evaluate((el) => getComputedStyle(el).color); if (color !== "rgb(0, 55, 107)") throw new Error("hashtag colour " + color);
     const words = D.locator("[data-testid='insta-post']").filter({ hasText: "rec center is open during fall break" }).first(); await words.getByTestId("insta-text").waitFor();
     await carousel.scrollIntoViewIfNeeded(); await D.screenshot({ caret: "initial", path: SHOTS + "web-01b-posts-instagram.png" });
@@ -151,30 +154,50 @@ try {
     await mine.locator("button[aria-label='Upvote'][aria-pressed='true']").waitFor();
     await D.screenshot({ caret: "initial", path: SHOTS + "web-05-buzz-thread.png" });
   });
-  await step("signed in: heart a post and the count goes up, the comment icon opens the thread under the post (thumbs up a comment and clear it, reply to it, delete the reply), the bookmark saves it", async () => {
+  await step("signed in: heart a post and the count goes up, the comment icon opens the TikTok-style thread under the post (heart a comment and clear it, reply to it, the \"N comments\" header and its sort menu, delete the reply from its options menu), the bookmark saves it", async () => {
     await D.goto(BASE + "/?tab=posts"); await D.waitForLoadState("networkidle");
     const post = D.locator("[data-testid='insta-post']").filter({ hasText: "First week back on campus" }).first(); await post.waitFor();
     await post.getByLabel("Like", { exact: true }).click(); await post.getByLabel("Unlike", { exact: true }).waitFor();
     const liked = (await post.getByTestId("liked-by").innerText()).replace(/\s+/g, " "); if (!/Liked by UI Leo and 1 other/.test(liked)) throw new Error("liked-by after my like: " + liked);
     await post.getByLabel("Comment", { exact: true }).click(); await post.getByTestId("comments").waitFor(); await post.getByText("Bring snacks and I will book a room.").waitFor();
-    // Comment threads: Maya's comment is a top-level row (data-depth 0) with thumbs up / down and a score. A vote left by a run that stopped halfway is cleared first, so the check can run again and again.
+    // Comment threads, TikTok style: Maya's comment is a top-level row (data-depth 0) with a heart, its count and a thumbs-down; the post is hers, so her name carries the "Author" tag (Leo's does not).
     const thread = post.getByTestId("comments"); const row = thread.locator("[data-testid='comment-row'][data-depth='0']").filter({ hasText: "Bring snacks and I will book a room." }).first(); await row.waitFor();
-    const like = row.getByLabel("Like comment", { exact: true }).first(); const pressed = (v) => row.locator(`[aria-label='Like comment'][aria-pressed='${v}']`).first().waitFor(); const scoreIs = (n) => row.locator("[data-testid='comment-score']").filter({ hasText: new RegExp(`^\\s*${n}\\s*$`) }).first().waitFor();
+    if (!(await row.getByText("Author", { exact: true }).count())) throw new Error("no Author tag on the post owner's comment");
+    if (await thread.locator("[data-testid='comment-row']").filter({ hasText: "Saturday morning works for me" }).getByText("Author", { exact: true }).count()) throw new Error("Author tag on Leo's comment");
+    // Only hearts are counted: the number beside the heart reads "1" after a like (labelled "1 like") and nothing at all once it is cleared; the thumbs-down never shows a count.
+    // A vote left by a run that stopped halfway is cleared first, so the check can run again and again.
+    const like = row.getByLabel("Like comment", { exact: true }).first(); const pressed = (v) => row.locator(`[aria-label='Like comment'][aria-pressed='${v}']`).first().waitFor();
+    const likes = row.locator("[data-testid='comment-likes']").first(); const likesRead = async (want) => { let got = ""; for (let i = 0; i < 40; i++) { got = (await likes.innerText()).trim(); if (got === want) return; await D.waitForTimeout(250); } throw new Error(`comment-likes reads "${got}", wanted "${want}"`); };
     if (!(await row.getByLabel("Dislike comment", { exact: true }).count())) throw new Error("no Dislike comment button on the comment");
     if ((await like.getAttribute("aria-pressed")) === "true") { await like.click(); await pressed("false"); }
-    await like.click(); await pressed("true"); await scoreIs(1);
-    await like.click(); await pressed("false"); await scoreIs(0);
-    // Reply: the chip names the author, the box asks for a reply, and the answer lands under her comment one level deep.
+    await like.click(); await pressed("true"); await likesRead("1"); const label = await likes.getAttribute("aria-label"); if (label !== "1 like") throw new Error("likes label: " + label);
+    await like.click(); await pressed("false"); await likesRead("");
+    // Reply: the chip names the author, the pill asks for a reply, and the answer lands under her comment one level deep.
     await row.getByRole("button", { name: "Reply", exact: true }).first().click(); await thread.getByTestId("reply-to").filter({ hasText: "UI Maya" }).waitFor();
     if (!(await thread.getByRole("button", { name: "Cancel reply" }).count())) throw new Error("no Cancel reply button on the Replying to chip");
-    const box = thread.getByLabel("Write a comment", { exact: true }); const hint = await box.getAttribute("placeholder"); if (!/^Write a reply/.test(hint ?? "")) throw new Error("placeholder while replying: " + hint);
+    const box = thread.getByLabel("Write a comment", { exact: true }); const hint = await box.getAttribute("placeholder"); if (!/^Add a reply/.test(hint ?? "")) throw new Error("placeholder while replying: " + hint);
     const stamp = Date.now(); await box.fill(`Count me in (web ${stamp})`); await thread.getByLabel("Post comment", { exact: true }).click();
-    // The thread may fold replies behind "View 1 reply" like Instagram: open it if it shows up before the row does.
+    // Replies fold behind "View 1 reply" like TikTok; a reply you post opens its thread, but unfold it if the line shows up before the row does.
     const reply = thread.locator("[data-testid='comment-row'][data-depth='1']").filter({ hasText: String(stamp) }).first(); const unfold = thread.getByRole("button", { name: /^View \d+ repl(y|ies)$/ }).first();
     for (let i = 0; i < 40 && !(await reply.isVisible()); i++) { if (await unfold.isVisible()) await unfold.click(); else await D.waitForTimeout(500); }
-    await reply.waitFor(); await reply.scrollIntoViewIfNeeded(); await D.screenshot({ caret: "initial", path: SHOTS + "web-11-comment-thread.png" });
-    // Delete the reply so the seed stays as it was.
-    await reply.getByLabel("Delete comment", { exact: true }).first().click(); await reply.waitFor({ state: "detached" });
+    await reply.waitFor(); await reply.scrollIntoViewIfNeeded();
+    if (!(await thread.getByRole("button", { name: "Hide replies", exact: true }).count())) throw new Error("no Hide replies line under the open thread");
+    // Posting expands the card's thread, which then shows the TikTok-style header: a bold "N comments" (replies included) with the Sort comments button offering Top (selected) and Newest. Skipped when the card shows no header.
+    const heading = thread.getByText(/^(\d+ comments|1 comment|No comments yet)$/).first(); const headerCount = async () => { const text = (await heading.innerText()).trim(); if (!/^\d+ comments$/.test(text)) throw new Error("thread header: " + text); return Number(text.split(" ")[0]); };
+    const before = (await heading.count()) ? await headerCount() : null;
+    if (before !== null) {
+      await thread.getByLabel("Sort comments", { exact: true }).click(); const sortMenu = D.getByRole("menu", { name: "Sort comments" }); await sortMenu.waitFor();
+      const top = sortMenu.getByRole("menuitemradio", { name: "Top", exact: true }); if (!(await top.count()) || !(await sortMenu.getByRole("menuitemradio", { name: "Newest", exact: true }).count())) throw new Error("the sort menu does not offer Top and Newest");
+      if ((await top.getAttribute("aria-checked")) !== "true") throw new Error("Top is not the selected sort");
+      await top.click(); await sortMenu.waitFor({ state: "detached" });
+    }
+    await D.screenshot({ caret: "initial", path: SHOTS + "web-11-comment-thread.png" });
+    // Delete the reply from its options menu (the "…" on the row; a long press or a right-click opens the same menu) and confirm "Delete this comment?", so the seed stays as it was.
+    await reply.getByLabel("Comment options", { exact: true }).first().click(); const menu = D.getByRole("menu", { name: "Comment options" }); await menu.waitFor();
+    await menu.getByRole("menuitem", { name: "Delete", exact: true }).click();
+    const confirm = D.getByRole("dialog", { name: "Comment options" }).getByRole("group", { name: "Delete this comment?" }); await confirm.waitFor(); await confirm.getByRole("button", { name: "Delete", exact: true }).click();
+    await reply.waitFor({ state: "detached" });
+    if (before !== null) { let after = await headerCount(); for (let i = 0; i < 40 && after !== before - 1; i++) { await D.waitForTimeout(250); after = await headerCount(); } if (after !== before - 1) throw new Error(`header after the delete: ${after} comments, expected ${before - 1}`); }
     await post.getByLabel("Save", { exact: true }).click(); await post.getByLabel("Unsave", { exact: true }).waitFor();
     await D.screenshot({ caret: "initial", path: SHOTS + "web-07-post-liked.png" });
     await post.getByLabel("Unsave", { exact: true }).click(); await post.getByLabel("Save", { exact: true }).waitFor();

@@ -96,7 +96,13 @@ export function AnonAvatar({ alias, size = 28 }: { alias: string; size?: number 
 
 /* ---------- voting ---------- */
 
-export type Vote = { score: number; myVote: -1 | 0 | 1 };
+/** A score and my vote. Post comments also carry `likes` (hearts only: dislikes stay private); Buzz passes none. */
+export type Vote = { score: number; myVote: -1 | 0 | 1; likes?: number };
+
+/** A copy with only the fields the parent gave: no `likes: undefined` key for Buzz. */
+function snapshot(v: Vote): Vote {
+  return v.likes === undefined ? { score: v.score, myVote: v.myVote } : { score: v.score, myVote: v.myVote, likes: v.likes };
+}
 
 /**
  * Votes on their way to the server, by "thread:<id>", "reply:<id>" or "comment:<id>" (a post's comment). The same row can be on screen twice
@@ -115,7 +121,7 @@ export function useVote(kind: "thread" | "reply" | "comment", id: string, initia
   const router = useRouter();
   const { user } = useSession();
   const key = `${kind}:${id}`;
-  const [vote, setVote] = useState<Vote>({ score: initial.score, myVote: initial.myVote });
+  const [vote, setVote] = useState<Vote>(() => snapshot(initial));
   // What is shown, what the server last confirmed, and the newest tap still waiting to be sent.
   const shown = useRef<Vote>(vote);
   const confirmed = useRef<Vote>(vote);
@@ -132,16 +138,19 @@ export function useVote(kind: "thread" | "reply" | "comment", id: string, initia
   // The parent reloaded: take its numbers (unless a vote is on its way).
   useEffect(() => {
     if (sending.current) return;
-    confirmed.current = { score: initial.score, myVote: initial.myVote };
+    confirmed.current = snapshot(initial);
     display(confirmed.current);
-  }, [id, initial.score, initial.myVote]);
+  }, [id, initial.score, initial.myVote, initial.likes]);
 
   async function cast(direction: 1 | -1) {
     if (!user) return router.push("/(auth)/login");
     const current = shown.current;
     // Tapping the arrow that is already lit clears the vote.
     const next = (current.myVote === direction ? 0 : direction) as Vote["myVote"];
-    display({ score: current.score - current.myVote + next, myVote: next });
+    const optimistic: Vote = { score: current.score - current.myVote + next, myVote: next };
+    // Hearts count only the +1s: one leaves when my like goes, one arrives when it lands. The server's answer wins in the end.
+    if (current.likes !== undefined) optimistic.likes = current.likes - (current.myVote === 1 ? 1 : 0) + (next === 1 ? 1 : 0);
+    display(optimistic);
     wanted.current = next;
     if (sending.current) return;
     sending.current = true;

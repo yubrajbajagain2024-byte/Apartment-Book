@@ -681,6 +681,7 @@ export type Database = {
           body: string;
           parent_id: string | null;
           score: number;
+          likes: number;
           created_at: string;
         };
         Insert: {
@@ -691,6 +692,7 @@ export type Database = {
           body: string;
           parent_id?: string | null;
           score?: number;
+          likes?: number;
           created_at?: string;
         };
         Update: {
@@ -701,6 +703,7 @@ export type Database = {
           body?: string;
           parent_id?: string | null;
           score?: number;
+          likes?: number;
           created_at?: string;
         };
         Relationships: [
@@ -1182,7 +1185,7 @@ export type Database = {
       };
       post_comment_vote: {
         Args: { p_comment_id: string; p_value: number };
-        Returns: { score: number; my_vote: number }[];
+        Returns: { score: number; likes: number; my_vote: number }[];
       };
       follow_stats: {
         Args: { p_user_ids: string[] };

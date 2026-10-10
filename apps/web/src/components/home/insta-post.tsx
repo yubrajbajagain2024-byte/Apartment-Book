@@ -160,34 +160,36 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
         </p>
       ) : null}
 
-      <div className="relative flex items-center gap-4 px-3 pt-1.5">
+      {/* Instagram puts the carousel dots on their own line between the photo and the actions. */}
+      {media.length > 1 ? (
+        <div className="flex justify-center gap-1 pt-2.5" aria-label={`${slide + 1} of ${media.length}`}>
+          {media.slice(0, 12).map((_, i) => (
+            <span key={i} className={cn("h-1.5 w-1.5 rounded-full", i === slide ? "bg-brand-600" : "bg-gray-300")} />
+          ))}
+        </div>
+      ) : null}
+
+      <div className={cn("flex items-center gap-[18px] px-3", media.length > 1 ? "pt-1" : "pt-1.5")}>
         <button type="button" onClick={like.toggle} disabled={like.pending} aria-pressed={like.liked} aria-label={like.liked ? "Unlike" : "Like"} className={cn(icon, like.liked && "text-[#ed4956] hover:text-[#ed4956]")}>
-          <Heart className={cn("h-[26px] w-[26px]", like.liked && "fill-current")} />
+          <Heart className={cn("h-7 w-7", like.liked && "fill-current")} />
           {like.likes > 0 ? <span className="text-sm font-semibold tabular-nums text-gray-900">{compactCount(like.likes)}</span> : null}
         </button>
         <button type="button" onClick={openComments} aria-label="Comment" className={icon}>
-          <MessageCircle className="h-[25px] w-[25px] -scale-x-100" />
+          <MessageCircle className="h-[26px] w-[26px] -scale-x-100" />
           {commentCount > 0 ? <span className="text-sm font-semibold tabular-nums">{compactCount(commentCount)}</span> : null}
         </button>
         <button type="button" onClick={share} aria-label={copied ? "Link copied" : "Share"} className={icon}>
-          {copied ? <Check className="h-6 w-6 text-brand-600" /> : <Send className="h-6 w-6" />}
+          {copied ? <Check className="h-[26px] w-[26px] text-brand-600" /> : <Send className="h-[26px] w-[26px]" />}
           {copied ? <span className="text-xs font-semibold text-brand-700">Link copied</span> : null}
         </button>
-        {media.length > 1 ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1" aria-label={`${slide + 1} of ${media.length}`}>
-            {media.slice(0, 12).map((_, i) => (
-              <span key={i} className={cn("h-1.5 w-1.5 rounded-full", i === slide ? "bg-brand-600" : "bg-gray-300")} />
-            ))}
-          </div>
-        ) : null}
         <span className="flex-1" />
         {save.signedIn ? (
           <button type="button" onClick={save.toggle} disabled={save.pending} aria-pressed={save.saved} aria-label={save.saved ? "Unsave" : "Save"} className={icon}>
-            <Bookmark className={cn("h-[25px] w-[25px]", save.saved && "fill-current")} />
+            <Bookmark className={cn("h-[26px] w-[26px]", save.saved && "fill-current")} />
           </button>
         ) : (
           <a href={`/login?next=${encodeURIComponent(href)}`} aria-label="Save" className={icon}>
-            <Bookmark className="h-[25px] w-[25px]" />
+            <Bookmark className="h-[26px] w-[26px]" />
           </a>
         )}
       </div>
