@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useOptimistic, useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserCheck, UserPlus } from "lucide-react";
 import type { FollowStats } from "@apartment-book/shared";
@@ -63,35 +62,4 @@ export function FollowButton({
       {following ? "Following" : optimistic.followsMe ? "Follow back" : "Follow"}
     </Button>
   );
-}
-
-/** "12 posts · 3 followers · 8 following" under a profile's name; the last two open the lists. */
-export function FollowCounts({ userId, stats, posts }: { userId: string; stats: FollowStats; posts?: number }) {
-  return (
-    <p className="flex flex-wrap items-center gap-x-1.5 text-sm tabular-nums text-gray-600" data-testid="follow-counts">
-      {posts !== undefined ? (
-        <>
-          <span>
-            <Count n={posts} /> {posts === 1 ? "post" : "posts"}
-          </span>
-          <Dot />
-        </>
-      ) : null}
-      <Link href={`/profile/${userId}/followers`} className="hover:underline">
-        <Count n={stats.followers} /> {stats.followers === 1 ? "follower" : "followers"}
-      </Link>
-      <Dot />
-      <Link href={`/profile/${userId}/following`} className="hover:underline">
-        <Count n={stats.following} /> following
-      </Link>
-    </p>
-  );
-}
-
-function Count({ n }: { n: number }) {
-  return <span className="font-semibold text-gray-900">{n}</span>;
-}
-
-function Dot() {
-  return <span aria-hidden="true">·</span>;
 }

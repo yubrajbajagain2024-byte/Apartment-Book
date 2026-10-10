@@ -1,12 +1,15 @@
 // Browser check of the website's navigation (desktop tabs Home | Housing | Messages | Marketplace next to the search box, phone bottom bar Home | Housing | Messages | Marketplace | Profile),
 // Home (For you | Buzz | Posts | Reels), Housing (Apartments | Roommates), following (the Follow button on a profile, the follower list, Home → Posts → Following), the TikTok-style comment thread under a post (heart, reply, the "N comments" header, delete from the comment's options menu)
 // and sharing a post with a friend (the Share dialog offers the people you follow who follow you back; Send leaves the post as a card in your chat with them),
+// and the TikTok-style profile page (Following · Followers · Likes, @username, the Posts | Classes | Reels | Saved | Liked tabs, the grid, the classes card, a locked Saved tab, your own Saved setting),
 // signed out and signed in, on a desktop and a phone viewport.
 // Usage: start the site (npm run dev -w web -- -p 3060), seed test data (SUPABASE_ACCESS_TOKEN=... node apps/mobile/e2e/sim-seed.mjs),
 // then: BASE=http://localhost:3060 node apps/web/e2e/home-feed.mjs      (reads apps/mobile/e2e/.sim-state.json; Chromium only: the phone swipes go through a CDP session)
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+// The profile page's wording comes from the shared package (Node 22.18+ loads its TypeScript directly, as npm run test:shared does).
+import { lockedSectionMessage, ownSectionNote } from "../../../packages/shared/src/profile.ts";
 const BASE = process.env.BASE || "http://localhost:3060";
 const state = JSON.parse(fs.readFileSync(new URL("../../mobile/e2e/.sim-state.json", import.meta.url), "utf8"));
 const SHOTS = fileURLToPath(new URL("./screenshots/", import.meta.url)); fs.mkdirSync(SHOTS, { recursive: true }); // fileURLToPath: the repo path has a space in it
@@ -15,6 +18,13 @@ const SHOTS = fileURLToPath(new URL("./screenshots/", import.meta.url)); fs.mkdi
 let failures = 0; const errors = [];
 const ok = (m) => console.log(`  ✓ ${m}`); const bad = (m, e) => { failures++; console.log(`  ✗ ${m}: ${(e?.message ?? String(e)).split("\n").slice(0, 3).join(" // ").slice(0, 400)}`); };
 const step = async (n, fn) => { try { await fn(); ok(n); } catch (e) { bad(n, e); } };
+/** The numbers under a profile's name, TikTok style: "0 Following 1 Follower 3 Likes" (one Follower or Like, otherwise Followers and Likes). */
+async function profileCounts(page) {
+  const text = (await page.getByTestId("follow-counts").innerText()).replace(/\s+/g, " ").trim();
+  const m = /^(\S+) Following (\S+) (Followers?) (\S+) (Likes?)$/.exec(text); if (!m) throw new Error("follow-counts reads: " + text);
+  for (const [n, word] of [[m[2], m[3]], [m[4], m[5]]]) if ((n === "1") !== !word.endsWith("s")) throw new Error(`"${n} ${word}" in the counts: ${text}`);
+  return { text, followers: `${m[2]} ${m[3]}`, likes: Number(m[4]) };
+}
 // PLAYWRIGHT_CHANNEL=chrome uses the installed Google Chrome when Playwright's own Chromium was never downloaded.
 const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
 async function newPage(viewport) { const ctx = await browser.newContext({ viewport, isMobile: viewport.width < 500, hasTouch: viewport.width < 500 }); const page = await ctx.newPage(); page.setDefaultTimeout(30000); page.on("pageerror", (e) => errors.push(e.message)); page.on("console", (m) => { if (m.type() === "error") errors.push(m.text().slice(0, 300)); }); return page; }
@@ -106,11 +116,30 @@ try {
     await D.locator("video").first().waitFor({ state: "attached" }); await D.waitForTimeout(2500);
     await D.screenshot({ caret: "initial", path: SHOTS + "web-03-reels.png" });
   });
-  await step("signed out: Maya's profile shows her follower count and a Follow button that leads to /login", async () => {
-    await D.goto(BASE + "/profile/" + state.other.id); const counts = D.getByTestId("follow-counts"); await counts.waitFor();
-    const text = (await counts.innerText()).replace(/\s+/g, " "); if (!text.includes("1 follower")) throw new Error("counts (Leo follows her from the seed): " + text);
+  await step("signed out: Maya's profile shows Following · Followers · Likes (1 Follower: Leo follows her from the seed; at least 1 Like: he likes her first post) and a Follow button that leads to /login", async () => {
+    await D.goto(BASE + "/profile/" + state.other.id); await D.getByTestId("follow-counts").waitFor();
+    const counts = await profileCounts(D); if (counts.followers !== "1 Follower" || !(counts.likes >= 1)) throw new Error("counts: " + counts.text);
     const button = D.getByTestId("follow-button"); if (!(await button.count())) throw new Error("no Follow button for a signed-out visitor");
     await button.click(); await D.waitForURL(/\/login/);
+  });
+  await step("signed out: Maya's profile page, TikTok style: an @username, the tabs Posts | Classes | Reels | Saved | Liked with Posts open on a grid of her posts, her listings, the \"Classes this semester\" card with CS 3358 (the seed lets everyone see her classes) and a locked Saved tab (only she can see it, the default)", async () => {
+    await D.goto(BASE + "/profile/" + state.other.id); await D.getByTestId("profile").waitFor();
+    const handle = (await D.getByTestId("profile-username").innerText()).trim(); if (!/^@[a-z0-9][a-z0-9._]{1,28}[a-z0-9]$/.test(handle)) throw new Error("username: " + handle);
+    const tabs = await D.locator("[data-testid='profile-tabs'] [role='tab']").evaluateAll((els) => els.map((el) => el.getAttribute("data-testid")));
+    if (tabs.join(" ") !== "profile-tab-posts profile-tab-classes profile-tab-reels profile-tab-saved profile-tab-liked") throw new Error("tabs: " + tabs.join(" "));
+    if ((await D.getByTestId("profile-tab-posts").getAttribute("aria-selected")) !== "true") throw new Error("Posts is not the open tab");
+    await D.locator("[data-testid='profile-grid'] [data-testid='profile-tile']").first().waitFor();
+    await D.locator("[data-testid='profile-listings'] [data-testid='profile-listing']").filter({ hasText: "Sunny 2-bed near Sewell Park" }).first().waitFor();
+    const card = (await D.getByTestId("profile-classes-card").innerText()).replace(/\s+/g, " ");
+    if (!card.includes("Classes this semester") || !/(^|\s)CS 3358(\s|$)/.test(card)) throw new Error("classes card: " + card);
+    if (!(await D.locator("[data-testid='profile-tab-saved'] [data-testid='profile-tab-lock']").count())) throw new Error("no lock on the Saved tab, which she keeps to herself");
+    await D.screenshot({ caret: "initial", path: SHOTS + "web-14-profile.png" });
+    // The Saved tab itself: the lock and lockedSectionMessage's words ("Only UI can see their saved posts"), never the list.
+    await D.getByTestId("profile-tab-saved").click(); await D.waitForURL(/[?&]tab=saved/);
+    const locked = D.getByTestId("profile-locked"); await locked.waitFor();
+    const said = (await locked.innerText()).replace(/\s+/g, " ").trim(); const want = lockedSectionMessage("saved", "private", state.other.name.split(/\s+/)[0]);
+    if (said !== want) throw new Error(`the locked Saved tab says "${said}", wanted "${want}"`);
+    if (await D.getByTestId("profile-grid").count()) throw new Error("a visitor sees the Saved grid");
   });
   await step("phone: bottom bar is Home, Housing, Messages, Marketplace, Profile like the app (Profile links to /profile/me; Search is the header magnifier)", async () => {
     await M.goto(BASE + "/?tab=posts"); await M.getByText("First week back on campus").first().waitFor();
@@ -224,16 +253,18 @@ try {
     await message.scrollIntoViewIfNeeded(); await D.screenshot({ caret: "initial", path: SHOTS + "web-13-shared-post-chat.png" });
   });
   await step("signed in: Posts → Following holds Leo's post (we follow each other from the seed) and none of Maya's; follow Maya from her profile, the counts and the list update, her post joins Following, unfollow", async () => {
-    const profile = BASE + "/profile/" + state.other.id; const counts = () => D.getByTestId("follow-counts"); const button = () => D.getByTestId("follow-button");
+    const profile = BASE + "/profile/" + state.other.id; const button = () => D.getByTestId("follow-button");
+    // The Followers number under her name links to the list and reads "1 Follower" or "2 Followers".
+    const followers = (text) => D.getByTestId("follow-counts").locator(`a[href='/profile/${state.other.id}/followers']`).filter({ hasText: text });
     // Home → Posts → Following keeps only posts by the people I follow. The seed makes Leo and me friends, so before I follow Maya it shows his post and none of hers.
     const followingPost = (text) => D.locator("[data-testid='insta-post']").filter({ hasText: text });
     await D.goto(BASE + "/?tab=posts&feed=following"); await followingPost("Move-in day at the new place").first().waitFor();
     if (await followingPost("First week back on campus").count()) throw new Error("Maya's post is in the Following feed, but I do not follow her yet");
     await D.goto(profile); await D.waitForLoadState("networkidle"); // hydrated before clicking
-    const before = (await counts().innerText()).replace(/\s+/g, " "); if (!before.includes("1 follower")) throw new Error("counts before (Leo follows her from the seed): " + before);
+    const before = await profileCounts(D); if (before.followers !== "1 Follower") throw new Error("counts before (Leo follows her from the seed): " + before.text);
     const label = (await button().innerText()).trim(); if (!/^Follow( back)?$/.test(label)) throw new Error("button before: " + label);
     await button().click(); await D.locator("[data-testid='follow-button'][aria-pressed='true']").filter({ hasText: /^Following$/ }).waitFor();
-    await counts().filter({ hasText: "2 followers" }).waitFor();
+    await followers(/^2 Followers$/).waitFor();
     // Now Following shows her post next to Leo's, and the switch marks Following.
     await D.goto(BASE + "/?tab=posts&feed=following"); await D.getByText("First week back on campus").first().waitFor();
     const sw = D.getByTestId("posts-feed-switch"); const options = (await sw.locator("a").allInnerTexts()).map((t) => t.trim()).filter(Boolean); if (options.join("|") !== "Everyone|Following") throw new Error("feed switch: " + options.join("|"));
@@ -247,7 +278,39 @@ try {
     // Back on the profile, the button reads Following; one more click unfollows, so the check can run again and again.
     await D.goto(profile); await D.waitForLoadState("networkidle"); await D.locator("[data-testid='follow-button'][aria-pressed='true']").waitFor(); await D.screenshot({ caret: "initial", path: SHOTS + "web-09-follow.png" });
     await button().click(); await button().filter({ hasText: /^Follow( back)?$/ }).waitFor();
-    await counts().filter({ hasText: "1 follower" }).waitFor();
+    await followers(/^1 Follower$/).waitFor();
+  });
+  await step("signed in: /profile/me is my own profile (Edit profile, Share profile, Find friends, no Follow button); \"Who can see your saved posts\" → Everyone opens my Saved tab to a signed-out visitor, and Only me locks it again", async () => {
+    await D.goto(BASE + "/profile/me?tab=saved"); await D.waitForURL(new RegExp(`/profile/${state.me.id}\\?tab=saved$`)); await D.waitForLoadState("networkidle"); // hydrated before clicking
+    const mine = D.getByTestId("profile");
+    if (!(await mine.getByRole("link", { name: "Edit profile", exact: true }).count())) throw new Error("no Edit profile on my own profile");
+    if (!(await mine.getByRole("button", { name: "Share profile", exact: true }).count()) || !(await mine.getByRole("link", { name: "Find friends", exact: true }).count())) throw new Error("no Share profile or Find friends on my own profile");
+    if (await mine.getByTestId("follow-button").count()) throw new Error("a Follow button on my own profile");
+    // The owner's line above the tab: who can see it, and Change, a menu of Everyone / Friends / Only me. Once saved, the page comes
+    // back from the server, and the Saved tab's lock (shown while not everyone can see it) goes or returns with the setting.
+    const line = D.getByTestId("profile-visibility-saved"); const tabLock = D.locator("[data-testid='profile-tab-saved'] [data-testid='profile-tab-lock']");
+    const pick = async (option, value, shot) => {
+      await line.getByRole("button", { name: /who can see your saved posts/i }).click();
+      const menu = D.getByRole("menu", { name: "Who can see your saved posts" }); await menu.waitFor();
+      if (shot) await D.screenshot({ caret: "initial", path: SHOTS + shot });
+      await menu.getByRole("menuitemradio", { name: new RegExp(`^${option}`) }).click(); await menu.waitFor({ state: "detached" });
+      const lockWanted = value !== "public";
+      for (let i = 0; ((await tabLock.count()) > 0) !== lockWanted; i++) {
+        if (await line.getByRole("alert").count()) throw new Error(`${option}: ${await line.getByRole("alert").innerText()}`);
+        if (i >= 60) throw new Error(`${option}: the Saved tab's lock did not ${lockWanted ? "come back" : "go away"}`);
+        await D.waitForTimeout(500);
+      }
+      await D.reload({ waitUntil: "networkidle" }); await line.getByText(ownSectionNote("saved", value), { exact: true }).waitFor(); // saved, not only shown
+    };
+    // What a signed-out visitor gets on my Saved tab (I saved nothing, or the earlier steps unsaved it): the empty tab, or the lock with lockedSectionMessage's words.
+    const visitorSees = async (value) => {
+      await M.goto(BASE + `/profile/${state.me.id}?tab=saved`); await M.getByTestId("profile").waitFor(); const locked = M.getByTestId("profile-locked");
+      if (value === "public") { await M.locator("[data-testid='profile-empty'], [data-testid='profile-grid']").first().waitFor(); if (await locked.count()) throw new Error("a visitor still meets the lock after Everyone"); return; }
+      await locked.waitFor(); const said = (await locked.innerText()).replace(/\s+/g, " ").trim(); const want = lockedSectionMessage("saved", value, state.me.name.split(/\s+/)[0]);
+      if (said !== want) throw new Error(`a visitor reads "${said}", wanted "${want}"`);
+    };
+    await pick("Everyone", "public", "web-15-profile-saved-setting.png"); await visitorSees("public");
+    await pick("Only me", "private"); await visitorSees("private");
   });
   await step("create pages render: /posts/new, /reels/new, /buzz/new (with the anonymity notice)", async () => {
     for (const p of ["/posts/new", "/reels/new", "/buzz/new"]) { const r = await D.goto(BASE + p); if (!r || r.status() >= 400) throw new Error(`${p} -> ${r?.status()}`); }

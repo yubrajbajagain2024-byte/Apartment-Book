@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { useRouter } from "expo-router";
-import { compactCount, getFollowStatsMany, NO_FOLLOW_STATS, setFollowing, type FollowStats } from "@apartment-book/shared";
+import { StyleSheet, type StyleProp, type ViewStyle } from "react-native";
+import { getFollowStatsMany, NO_FOLLOW_STATS, setFollowing, type FollowStats } from "@apartment-book/shared";
 import { Button } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
 
 /**
  * Follow state of one profile, modelled on useLike: the button and the follower count flip at once, the numbers the
@@ -87,38 +85,6 @@ export function FollowButton({ targetId, stats, userId, onNeedLogin, compact, on
   );
 }
 
-/**
- * "12 posts · 340 followers · 18 following" under a profile's name, Instagram style: bold number, grey word. The last two
- * open the lists; without a handler they open /follows/[id] for `userId` themselves.
- */
-export function FollowCounts({ userId, stats, posts, onPressFollowers, onPressFollowing }: { userId: string; stats: FollowStats; posts: number; onPressFollowers?: () => void; onPressFollowing?: () => void }) {
-  const router = useRouter();
-  const open = (kind: "followers" | "following") => router.push({ pathname: "/follows/[id]", params: { id: userId, kind } });
-  return (
-    <View style={styles.counts}>
-      <Count n={posts} word={posts === 1 ? "post" : "posts"} />
-      <Text style={styles.dot}>·</Text>
-      <Count n={stats.followers} word={stats.followers === 1 ? "follower" : "followers"} onPress={onPressFollowers ?? (() => open("followers"))} />
-      <Text style={styles.dot}>·</Text>
-      <Count n={stats.following} word="following" onPress={onPressFollowing ?? (() => open("following"))} />
-    </View>
-  );
-}
-
-function Count({ n, word, onPress }: { n: number; word: string; onPress?: () => void }) {
-  return (
-    <Pressable onPress={onPress} disabled={!onPress} hitSlop={6} accessibilityRole={onPress ? "button" : "text"} accessibilityLabel={`${n} ${word}`} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
-      <Text style={styles.countWord}>
-        <Text style={styles.countNumber}>{compactCount(n)}</Text> {word}
-      </Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   compact: { minHeight: 32, paddingHorizontal: 14, minWidth: 104 },
-  counts: { flexDirection: "row", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 6 },
-  countWord: { fontSize: 14, color: colors.muted },
-  countNumber: { fontWeight: "800", color: colors.text },
-  dot: { color: colors.faint, fontSize: 14 },
 });

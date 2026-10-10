@@ -1,4 +1,4 @@
-// Creates test users, sample posts and follows for simulator runs (SUPABASE_ACCESS_TOKEN env). The test account ("me") and Leo follow each other, so they are friends.
+// Creates test users, sample posts, follows and Maya's classes for simulator runs (SUPABASE_ACCESS_TOKEN env). The test account ("me") and Leo follow each other, so they are friends.
 // Writes .sim-state.json (git-ignored); run sim-cleanup.mjs afterwards.
 import fs from "node:fs";
 import { createClient } from "@supabase/supabase-js";
@@ -14,6 +14,16 @@ await admin.from("follows").insert({ follower_id: leo.id, followee_id: other.id 
 // The test account and Leo follow each other, which makes them friends: the Share sheet offers Leo (list_friends), and Home → Posts → Following starts with his post. The test account and Maya do not follow each other, so she is not offered.
 const friends = await admin.from("follows").insert([{ follower_id: me.id, followee_id: leo.id }, { follower_id: leo.id, followee_id: me.id }]);
 if (friends.error) throw friends.error;
+// Profile page (migration 18): Maya lists two classes for this semester and lets everyone see them (classes_visibility "public"; the default is friends),
+// so visitors get her "Classes this semester" card. Saved and Liked keep their defaults (only her, everyone). The term follows currentTerm() in
+// packages/shared: January to May is Spring, June and July Summer, August to December Fall. Two inserts, so CS 3358 is the older one and comes first.
+// The rows go with her account in sim-cleanup.mjs (profile_classes cascades from profiles). Without migration 18 the seed only warns.
+const today = new Date(); const term = `${today.getMonth() <= 4 ? "Spring" : today.getMonth() <= 6 ? "Summer" : "Fall"} ${today.getFullYear()}`;
+for (const r of [
+  await admin.from("profile_classes").insert({ user_id: other.id, term, code: "CS 3358", title: "Data Structures" }),
+  await admin.from("profile_classes").insert({ user_id: other.id, term, code: "MATH 3398" }),
+  await admin.from("profiles").update({ classes_visibility: "public" }).eq("id", other.id),
+]) if (r.error) console.warn(`Maya's classes were not fully seeded (they need migration 18, supabase/migrations/20260927000000_profile_page.sql): ${r.error.message}`);
 const photos = ["https://picsum.photos/seed/sim-a/900/1125", "https://picsum.photos/seed/sim-b/900/1125", "https://picsum.photos/seed/sim-c/900/1125"];
 const meta = photos.map((u) => ({ url: u, width: 900, height: 1125, blur: null }));
 const { data: apt } = await admin.from("apartments").insert({ owner_id: other.id, university_id: uni.id, title: "Sunny 2-bed near Sewell Park", description: "Bright two-bedroom with a balcony, five minutes from campus on the bus line. Utilities included, laundry in unit, parking for one car.", price_per_month: 1150, address: "100 Sessom Dr", city: "San Marcos", bedrooms: 2, bathrooms: 1, furnished: true, utilities_included: true, images: photos, image_meta: meta }).select("id").single();
@@ -26,7 +36,14 @@ const { data: post } = await admin.from("feed_posts").insert({ author_id: other.
 // Posts look like Instagram: a words-only post, then a three-photo post with hashtags; likes and comments from other people fill the "Liked by …" and comment lines.
 await admin.from("feed_posts").insert({ author_id: other.id, university_id: uni.id, body: "Does anyone know if the rec center is open during fall break?" });
 const { data: carousel } = await admin.from("feed_posts").insert({ author_id: leo.id, university_id: uni.id, body: "Move-in day at the new place. Boxes everywhere, but the view is worth it #movein #txst #bobcats", images: photos, image_meta: meta }).select("id").single();
-await admin.from("post_likes").insert([{ target_type: "post", target_id: post.id, user_id: leo.id }, { target_type: "post", target_id: carousel.id, user_id: other.id }, { target_type: "post", target_id: carousel.id, user_id: leo.id }]);
+// Distinct times: "Liked by" shows the newest liker first, and the flows expect Maya on Leo's carousel (likes from the
+// same instant would be ordered by user id, a coin flip between seeds).
+const minutesAgo = (m) => new Date(Date.now() - m * 60_000).toISOString();
+await admin.from("post_likes").insert([
+  { target_type: "post", target_id: post.id, user_id: leo.id, created_at: minutesAgo(3) },
+  { target_type: "post", target_id: carousel.id, user_id: leo.id, created_at: minutesAgo(2) },
+  { target_type: "post", target_id: carousel.id, user_id: other.id, created_at: minutesAgo(1) },
+]);
 await admin.from("post_comments").insert({ target_type: "post", target_id: post.id, user_id: other.id, body: "Bring snacks and I will book a room." });
 await admin.from("post_comments").insert({ target_type: "post", target_id: post.id, user_id: leo.id, body: "I'm in! Saturday morning works for me." });
 await admin.from("feed_posts").insert({ author_id: other.id, university_id: uni.id, kind: "reel", body: "Quick tour of my new place near Sewell Park", videos: [SAMPLE] });

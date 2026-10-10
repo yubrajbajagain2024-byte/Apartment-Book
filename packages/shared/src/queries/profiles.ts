@@ -54,9 +54,12 @@ export async function updateProfile(
   return data;
 }
 
-/** A sanitised query matches the name or the @handle ("@crf153" and "crf153" both find it). */
-function nameOrHandle(q: string): string {
-  const handle = q.replace(/^@+/, "").replace(/\s+/g, "").toLowerCase();
+/**
+ * The name part uses the sanitised query; the @handle part comes from the raw query, keeping "_" (usernames may contain
+ * it; inside ilike it matches any one character, "_" included) and dropping what or() cannot take.
+ */
+function nameOrHandle(q: string, raw: string): string {
+  const handle = raw.trim().replace(/^@+/, "").toLowerCase().replace(/[^a-z0-9._]/g, "");
   return handle ? `full_name.ilike.%${q}%,username.ilike.%${handle}%` : `full_name.ilike.%${q}%`;
 }
 
@@ -72,7 +75,7 @@ export async function searchProfiles(
     .select(PROFILE_SUMMARY_COLUMNS)
     .order("full_name")
     .limit(opts.limit ?? 10);
-  if (q) request = request.or(nameOrHandle(q));
+  if (q) request = request.or(nameOrHandle(q, query));
   const { data, error } = await request;
   if (error) throw error;
   const exclude = new Set(opts.excludeIds ?? []);
@@ -100,7 +103,7 @@ export async function searchPeople(supabase: Client, query: string, opts: People
     .from("profiles")
     .select("id, full_name, avatar_url, university:universities(email_domain)")
     .limit((opts.limit ?? 30) + exclude.size);
-  if (q) request = request.or(nameOrHandle(q));
+  if (q) request = request.or(nameOrHandle(q, query));
   if (opts.universityId) request = request.eq("university_id", opts.universityId);
   request = opts.sort === "newest" ? request.order("created_at", { ascending: false }) : request.order("full_name");
   const { data, error } = await request;

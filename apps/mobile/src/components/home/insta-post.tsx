@@ -1,8 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reportContent, REPORT_REASONS, sharedPostFromFeedPost, timeAgo, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
+import { captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromFeedPost, timeAgo, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
+import { hapticTap } from "@/lib/haptics";
+import { errorText } from "@/lib/hooks";
+import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
@@ -58,6 +61,11 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   const save = useSave("post", post.id, saved, user?.id ?? null, needLogin);
   const [expanded, setExpanded] = useState(Boolean(detail));
   const [slide, setSlide] = useState(0);
+  /** Pinned to the top of the author's profile (three at most). Rows read before migration 18 have no pinned_at at all. */
+  const [pinned, setPinned] = useState(Boolean(post.pinned_at));
+  useEffect(() => setPinned(Boolean(post.pinned_at)), [post.pinned_at]);
+  // Pinned from the profile grid (or another copy of this post) while this one is on screen.
+  useEffect(() => onPostPinned((id, next) => id === post.id && setPinned(next)), [post.id]);
   const heart = useRef(new Animated.Value(0)).current;
   const lastTextTap = useRef(0);
 
@@ -131,12 +139,29 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
     ]);
   }
 
+  /** Your own post or reel: pin it to the top of your profile, or unpin it. The profile grids hear about it straight away. */
+  async function togglePin() {
+    const next = !pinned;
+    setPinned(next);
+    try {
+      await setPostPinned(supabase, post.id, next);
+      hapticTap();
+      emitPostPinned(post.id, next);
+    } catch (e) {
+      setPinned(!next);
+      Alert.alert(next ? "Could not pin" : "Could not unpin", errorText(e));
+    }
+  }
+
   function menu() {
     show([
       { label: save.saved ? `Unsave ${noun}` : `Save ${noun}`, icon: save.saved ? "bookmark" : "bookmark-outline", onPress: () => void save.toggle() },
       { label: `Share ${noun}`, icon: "paper-plane-outline", onPress: share },
       ...(own
-        ? [{ label: `Delete ${noun}`, icon: "trash-outline" as const, destructive: true, onPress: remove }]
+        ? [
+            { label: pinned ? "Unpin from profile" : "Pin to profile", icon: pinned ? ("pin" as const) : ("pin-outline" as const), onPress: () => void togglePin() },
+            { label: `Delete ${noun}`, icon: "trash-outline" as const, destructive: true, onPress: remove },
+          ]
         : [
             { label: `Message ${author.full_name.split(" ")[0]}`, icon: "chatbubble-ellipses-outline" as const, onPress: () => void message() },
             { label: `Report ${noun}`, icon: "flag-outline" as const, destructive: true, onPress: report },

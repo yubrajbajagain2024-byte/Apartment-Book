@@ -15,22 +15,22 @@ export const PROFILE_TABS: { key: ProfileTabKey; label: string; icon: keyof type
 
 /**
  * The row of icon tabs above a profile's grid, TikTok style: the active icon dark with a thick underline, the others grey,
- * a hairline under the row. `locked` puts a small lock on a tab: on your own profile when it is not public, on someone
- * else's when you may not open it (`lockHint` says which, for VoiceOver).
+ * a hairline under the row. A tab with an entry in `locks` gets a small lock: on your own profile when it is not public, on
+ * someone else's when you may not open it. The entry is what VoiceOver adds ("Only you can see your saved posts").
  */
-export function ProfileTabs({ active, onSelect, locked, lockHint }: { active: ProfileTabKey; onSelect: (tab: ProfileTabKey) => void; locked: Partial<Record<ProfileTabKey, boolean>>; lockHint: string }) {
+export function ProfileTabs({ active, onSelect, locks }: { active: ProfileTabKey; onSelect: (tab: ProfileTabKey) => void; locks: Partial<Record<ProfileTabKey, string>> }) {
   return (
     <View style={styles.row} accessibilityRole="tablist">
       {PROFILE_TABS.map((t) => {
         const selected = t.key === active;
-        const lock = Boolean(locked[t.key]);
+        const lock = locks[t.key];
         return (
           <Pressable
             key={t.key}
             onPress={() => onSelect(t.key)}
             accessibilityRole="tab"
             accessibilityLabel={t.label}
-            accessibilityHint={lock ? lockHint : undefined}
+            accessibilityHint={lock}
             accessibilityState={{ selected }}
             hitSlop={{ top: 4, bottom: 4 }}
             style={styles.tab}

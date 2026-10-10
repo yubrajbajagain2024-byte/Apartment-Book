@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { addProfileClass, classCodeProblem, currentTerm, groupClassesByTerm, pickableTerms, removeProfileClass, type ProfileClass } from "@apartment-book/shared";
@@ -49,9 +49,10 @@ export function ClassesCard({ classes, own, onPress }: { classes: ProfileClass[]
 /**
  * The Classes tab: classes grouped by semester, this one first ("Fall 2026 · This semester"). The owner adds a class with
  * a code ("CS 3358", checked as it would be by the database), an optional name and the semester, and removes one with the
- * cross beside it. `onChange` edits the list the profile holds, so the card above follows.
+ * cross beside it. `onChange` edits the list the profile holds, so the card above follows. `onOpenForm` lets the profile
+ * bring the form up the screen, clear of the keyboard.
  */
-export function ClassesSection({ own, userId, classes, onChange }: { own: boolean; userId: string; classes: ProfileClass[]; onChange: UpdateClasses }) {
+export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: { own: boolean; userId: string; classes: ProfileClass[]; onChange: UpdateClasses; onOpenForm?: () => void }) {
   const groups = useMemo(() => groupClassesByTerm(classes), [classes]);
   const [adding, setAdding] = useState(false);
 
@@ -68,7 +69,18 @@ export function ClassesSection({ own, userId, classes, onChange }: { own: boolea
 
   return (
     <View style={styles.section}>
-      {own ? adding ? <AddClassForm userId={userId} onAdded={(c) => onChange((list) => [...list, c])} onClose={() => setAdding(false)} /> : <Button title="Add class" variant="secondary" icon="add" onPress={() => setAdding(true)} /> : null}
+      {own && adding ? <AddClassForm userId={userId} onAdded={(c) => onChange((list) => [...list, c])} onClose={() => setAdding(false)} /> : null}
+      {own && !adding ? (
+        <Button
+          title="Add class"
+          variant="secondary"
+          icon="add"
+          onPress={() => {
+            setAdding(true);
+            onOpenForm?.();
+          }}
+        />
+      ) : null}
       {groups.length === 0 ? (
         own ? (
           adding ? null : <Text style={styles.empty}>Add the classes you're taking so classmates can find you.</Text>
@@ -121,6 +133,7 @@ function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
+  const titleInput = useRef<TextInput>(null);
 
   async function add() {
     if (busy) return;
@@ -167,13 +180,15 @@ function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (
           autoCorrect={false}
           maxLength={20}
           returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => titleInput.current?.focus()}
           style={[styles.input, codeError ? { borderColor: colors.red } : null]}
         />
         {codeError ? <Text style={styles.error}>{codeError}</Text> : null}
       </View>
       <View style={{ gap: 6 }}>
         <Text style={styles.label}>Class name (optional)</Text>
-        <TextInput value={title} onChangeText={setTitle} placeholder="Data Structures" placeholderTextColor={colors.faint} accessibilityLabel="Class name (optional)" maxLength={80} returnKeyType="done" onSubmitEditing={() => void add()} style={styles.input} />
+        <TextInput ref={titleInput} value={title} onChangeText={setTitle} placeholder="Data Structures" placeholderTextColor={colors.faint} accessibilityLabel="Class name (optional)" maxLength={80} returnKeyType="done" onSubmitEditing={() => void add()} style={styles.input} />
       </View>
       <View style={{ gap: 6 }}>
         <Text style={styles.label}>Semester</Text>
@@ -207,7 +222,7 @@ const styles = StyleSheet.create({
   emptyBox: { alignItems: "center", gap: space.sm, paddingVertical: space.xl },
   emptyTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
   group: { gap: 2 },
-  term: { fontSize: 13, fontWeight: "700", color: colors.muted, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 },
+  term: { fontSize: 14, fontWeight: "700", color: colors.muted, marginBottom: 4 },
   classRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: 8 },
   codeBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
   code: { fontSize: 15, fontWeight: "700", color: colors.text },

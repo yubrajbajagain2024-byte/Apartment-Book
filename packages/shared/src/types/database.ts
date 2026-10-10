@@ -1056,11 +1056,11 @@ export type Database = {
         Returns: { target_id: string; user_id: string; full_name: string; avatar_url: string | null }[];
       };
       profile_saved_items: {
-        Args: { p_user_id: string; p_limit?: number; p_before?: string | null };
+        Args: { p_user_id: string; p_limit?: number; p_before?: string | null; p_before_id?: string | null };
         Returns: { target_type: string; target_id: string; created_at: string }[];
       };
       profile_liked_items: {
-        Args: { p_user_id: string; p_limit?: number; p_before?: string | null };
+        Args: { p_user_id: string; p_limit?: number; p_before?: string | null; p_before_id?: string | null };
         Returns: { target_type: string; target_id: string; created_at: string }[];
       };
       profile_stats: {

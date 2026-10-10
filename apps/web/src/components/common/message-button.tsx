@@ -22,6 +22,7 @@ export function MessageButton({
   label = "Message",
   className,
   variant = "primary",
+  tone = "primary",
   target,
 }: {
   userId: string;
@@ -32,6 +33,8 @@ export function MessageButton({
   className?: string;
   /** "action" renders a compact icon + label for post action bars. */
   variant?: "primary" | "action";
+  /** The colour of the "primary" variant: brand blue, or light grey next to another main button (a profile's Follow). */
+  tone?: "primary" | "secondary";
   /** The listing this button sits on, so the contact is counted in its stats. Home-feed posts have no contact stats. */
   target?: { type: PostTargetType; id: string };
 }) {
@@ -50,7 +53,7 @@ export function MessageButton({
         <MessageCircle className="h-5 w-5" /> {label}
       </a>
     ) : (
-      <LinkButton href={href} className={className}>
+      <LinkButton href={href} variant={tone} className={className}>
         <MessageCircle className="h-5 w-5" />
         {label}
       </LinkButton>
@@ -81,7 +84,7 @@ export function MessageButton({
           <MessageCircle className="h-5 w-5" /> {label}
         </button>
       ) : (
-        <Button type="submit" onClick={onClick} loading={pending} className="w-full">
+        <Button type="submit" onClick={onClick} loading={pending} variant={tone} className="w-full">
           <MessageCircle className="h-5 w-5" />
           {label}
         </Button>

@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Ban, Flag } from "lucide-react";
+import { Flag } from "lucide-react";
 import { REPORT_REASONS, type ReportReason, type ReportTargetType } from "@apartment-book/shared";
-import { reportAction, setBlockedAction } from "@/lib/actions/moderation";
+import { reportAction } from "@/lib/actions/moderation";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
 /** Reason picker shown inside a menu; sends the report and thanks the user. */
 export function ReportMenu({ targetType, targetId, onDone, className }: { targetType: ReportTargetType; targetId: string; onDone?: () => void; className?: string }) {
@@ -35,27 +34,5 @@ export function ReportMenu({ targetType, targetId, onDone, className }: { target
       ))}
       {state === "error" ? <p className="px-2.5 pt-1 text-xs text-red-600">Could not send the report. Try again.</p> : null}
     </div>
-  );
-}
-
-/** Block / Unblock button for profile pages. */
-export function BlockButton({ otherId, initialBlocked, name }: { otherId: string; initialBlocked: boolean; name: string }) {
-  const [blocked, setBlocked] = useState(initialBlocked);
-  const [pending, start] = useTransition();
-  return (
-    <Button
-      type="button"
-      variant={blocked ? "secondary" : "outline"}
-      disabled={pending}
-      onClick={() => {
-        if (!blocked && !window.confirm(`Block ${name}? They won't be able to message you, and you won't see each other's posts.`)) return;
-        start(async () => {
-          const result = await setBlockedAction(otherId, !blocked);
-          if (!result.error) setBlocked(!blocked);
-        });
-      }}
-    >
-      <Ban className="h-4 w-4" /> {blocked ? "Unblock" : "Block"}
-    </Button>
   );
 }

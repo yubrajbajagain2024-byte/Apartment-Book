@@ -11,16 +11,20 @@ appId: host.exp.Exponent
     duration: 800
 # SAFETY: these flows tap, vote and post. They must only ever run as a seeded test account (ui-sim-…),
 # never as a real person who happens to be signed in on this simulator. Fails here otherwise.
+# Signed in, the Profile tab is your profile ("Edit profile" under the numbers): your name at the top ("…, account options")
+# opens the account sheet, titled with the signed-in email.
 - tapOn: "Profile.*"
 - extendedWaitUntil:
-    visible: "Join Apartment Book|.*Log out"
+    visible: "Join Apartment Book|Edit profile"
     timeout: 30000
 - runFlow:
     when:
-      visible: ".*Log out"
+      visible: "Edit profile"
     commands:
+      - tapOn: ".*ccount options"
       - assertVisible: "ui-sim-.*@txstate.edu"
-- assertVisible: ".*Log out"
+      - tapOn: "Cancel"
+- assertVisible: "Edit profile"
 - tapOn: "Home.*"
 - tapOn: "Buzz"
 - extendedWaitUntil:
