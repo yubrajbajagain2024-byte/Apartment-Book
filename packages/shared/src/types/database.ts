@@ -49,6 +49,41 @@ export type Database = {
         };
         Relationships: [];
       };
+      profile_classes: {
+        Row: {
+          id: string;
+          user_id: string;
+          term: string;
+          code: string;
+          title: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          term: string;
+          code: string;
+          title?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          term?: string;
+          code?: string;
+          title?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "profile_classes_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           id: string;
@@ -61,6 +96,10 @@ export type Database = {
           notify_nearby_listings: boolean;
           last_seen_at: string | null;
           show_active_status: boolean;
+          username: string;
+          classes_visibility: string;
+          saved_visibility: string;
+          liked_visibility: string;
           created_at: string;
           updated_at: string;
         };
@@ -75,6 +114,10 @@ export type Database = {
           notify_nearby_listings?: boolean;
           last_seen_at?: string | null;
           show_active_status?: boolean;
+          username?: string;
+          classes_visibility?: string;
+          saved_visibility?: string;
+          liked_visibility?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -89,6 +132,10 @@ export type Database = {
           notify_nearby_listings?: boolean;
           last_seen_at?: string | null;
           show_active_status?: boolean;
+          username?: string;
+          classes_visibility?: string;
+          saved_visibility?: string;
+          liked_visibility?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -847,6 +894,7 @@ export type Database = {
           image_meta: Json;
           videos: Json;
           has_video: boolean;
+          pinned_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -860,6 +908,7 @@ export type Database = {
           image_meta?: Json;
           videos?: Json;
           has_video?: boolean;
+          pinned_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -873,6 +922,7 @@ export type Database = {
           image_meta?: Json;
           videos?: Json;
           has_video?: boolean;
+          pinned_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -985,6 +1035,46 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      are_friends: {
+        Args: { p_a: string; p_b: string };
+        Returns: boolean;
+      };
+      can_view_profile_section: {
+        Args: { p_owner: string; p_section: string };
+        Returns: boolean;
+      };
+      profile_section_access: {
+        Args: { p_owner: string };
+        Returns: { classes: boolean; saved: boolean; liked: boolean }[];
+      };
+      post_like_count: {
+        Args: { p_target_type: string; p_target_id: string };
+        Returns: number;
+      };
+      post_likers_many: {
+        Args: { p_target_type: string; p_target_ids: string[]; p_per?: number };
+        Returns: { target_id: string; user_id: string; full_name: string; avatar_url: string | null }[];
+      };
+      profile_saved_items: {
+        Args: { p_user_id: string; p_limit?: number; p_before?: string | null };
+        Returns: { target_type: string; target_id: string; created_at: string }[];
+      };
+      profile_liked_items: {
+        Args: { p_user_id: string; p_limit?: number; p_before?: string | null };
+        Returns: { target_type: string; target_id: string; created_at: string }[];
+      };
+      profile_stats: {
+        Args: { p_user_id: string };
+        Returns: { posts: number; reels: number; likes_received: number }[];
+      };
+      post_view_counts: {
+        Args: { p_target_type: string; p_target_ids: string[] };
+        Returns: { target_id: string; views: number }[];
+      };
+      username_base: {
+        Args: { p_seed: string };
+        Returns: string;
+      };
       is_conversation_member: {
         Args: { p_conversation_id: string; p_user_id: string };
         Returns: boolean;

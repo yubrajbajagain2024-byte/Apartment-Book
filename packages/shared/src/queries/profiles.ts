@@ -1,4 +1,4 @@
-import type { Client, PosterSummary, Profile, ProfileSummary, ProfileWithUniversity } from "../types/models";
+import type { Client, PosterSummary, Profile, ProfileSummary, ProfileVisibility, ProfileWithUniversity } from "../types/models";
 
 export const PROFILE_SUMMARY_COLUMNS = "id, full_name, avatar_url";
 
@@ -24,6 +24,11 @@ export async function updateProfile(
     avatarUrl?: string | null;
     notifyNearbyListings?: boolean;
     showActiveStatus?: boolean;
+    /** The @handle. The database tidies it and explains a refusal ("That username is taken."). */
+    username?: string;
+    classesVisibility?: ProfileVisibility;
+    savedVisibility?: ProfileVisibility;
+    likedVisibility?: ProfileVisibility;
   },
 ): Promise<Profile> {
   const { data, error } = await supabase
@@ -37,6 +42,10 @@ export async function updateProfile(
       avatar_url: input.avatarUrl ?? null,
       ...(input.notifyNearbyListings === undefined ? {} : { notify_nearby_listings: input.notifyNearbyListings }),
       ...(input.showActiveStatus === undefined ? {} : { show_active_status: input.showActiveStatus }),
+      ...(input.username === undefined ? {} : { username: input.username }),
+      ...(input.classesVisibility === undefined ? {} : { classes_visibility: input.classesVisibility }),
+      ...(input.savedVisibility === undefined ? {} : { saved_visibility: input.savedVisibility }),
+      ...(input.likedVisibility === undefined ? {} : { liked_visibility: input.likedVisibility }),
     })
     .eq("id", id)
     .select("*")
@@ -45,7 +54,13 @@ export async function updateProfile(
   return data;
 }
 
-/** Search people by name (for starting chats / adding group members). */
+/** A sanitised query matches the name or the @handle ("@crf153" and "crf153" both find it). */
+function nameOrHandle(q: string): string {
+  const handle = q.replace(/^@+/, "").replace(/\s+/g, "").toLowerCase();
+  return handle ? `full_name.ilike.%${q}%,username.ilike.%${handle}%` : `full_name.ilike.%${q}%`;
+}
+
+/** Search people by name or @handle (for starting chats / adding group members). */
 export async function searchProfiles(
   supabase: Client,
   query: string,
@@ -57,7 +72,7 @@ export async function searchProfiles(
     .select(PROFILE_SUMMARY_COLUMNS)
     .order("full_name")
     .limit(opts.limit ?? 10);
-  if (q) request = request.ilike("full_name", `%${q}%`);
+  if (q) request = request.or(nameOrHandle(q));
   const { data, error } = await request;
   if (error) throw error;
   const exclude = new Set(opts.excludeIds ?? []);
@@ -85,7 +100,7 @@ export async function searchPeople(supabase: Client, query: string, opts: People
     .from("profiles")
     .select("id, full_name, avatar_url, university:universities(email_domain)")
     .limit((opts.limit ?? 30) + exclude.size);
-  if (q) request = request.ilike("full_name", `%${q}%`);
+  if (q) request = request.or(nameOrHandle(q));
   if (opts.universityId) request = request.eq("university_id", opts.universityId);
   request = opts.sort === "newest" ? request.order("created_at", { ascending: false }) : request.order("full_name");
   const { data, error } = await request;
