@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View, type LayoutChangeEvent, type Animated } from "react-native";
+import { memo, useMemo, useState, useSyncExternalStore } from "react";
+import { Animated, Modal, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,14 +25,51 @@ const MENU_GAP = 6;
 type MenuRow = { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; selected: boolean; pick: () => boolean | void };
 
 /**
+ * Whether the bar is drawn for the Reels video: white text and icons with a soft shadow, and touches between them going
+ * through to the video. A tiny store rather than a prop: Home's scroll listener flips it the moment the pager crosses the
+ * halfway point between Posts and Reels (a swipe or a label tap's scroll), and only the bar and Home's status bar
+ * re-render, never Home and its pages.
+ */
+export type OverVideoStore = { get: () => boolean; set: (next: boolean) => void; subscribe: (listener: () => void) => () => void };
+
+export function createOverVideoStore(initial: boolean): OverVideoStore {
+  let value = initial;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => value,
+    set: (next) => {
+      if (next === value) return;
+      value = next;
+      listeners.forEach((l) => l());
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
+/** The current value of an OverVideoStore; re-renders the caller when it flips. */
+export function useOverVideo(store: OverVideoStore): boolean {
+  return useSyncExternalStore(store.subscribe, store.get, store.get);
+}
+
+/** How solid the bar's background is on each page: fully on For you, Buzz and Posts, gone on Reels. */
+const SOLID = HOME_SECTIONS.map((s) => (s.value === "reels" ? 0 : 1));
+
+/**
  * Floating top bar of Home, Instagram style, in two rows. Row 1: "+" on the left, the CampConnect wordmark in the middle
  * with a chevron that drops down the feed menu (your university | all universities | Following, see useHomeScope), the
  * Search magnifier on the right. Row 2: For you | Buzz | Posts | Reels with X's sliding underline, and a hairline under them.
- * `overVideo` = the Reels page is showing, so the bar is see-through with white text. `scrollX` is the pager's offset in
- * points and `pageWidth` the width of one page: the underline slides between the labels with the finger instead of
- * jumping once a swipe settles. The label colours still snap with `section`.
+ * `scrollX` is the pager's offset in points and `pageWidth` the width of one page: the underline slides, the labels
+ * crossfade (see SlidingTabs) and the bar's solid background (colors.bar and its hairline) fades out towards Reels with
+ * the finger, all on the native driver. `overVideo` says when the text and icons turn white for the video: Home flips it
+ * halfway between Posts and Reels. `section` is the section committed once the pager settles: the "Following" title, the
+ * menu and what screen readers hear as selected follow it. Memoized: Home mounting a page ahead of time leaves it alone.
  */
-export function HomeTopTabs({ section, onSelect, overVideo, onLayout, scrollX, pageWidth }: { section: HomeSection; onSelect: (s: HomeSection) => void; overVideo: boolean; onLayout?: (e: LayoutChangeEvent) => void; scrollX: Animated.Value; pageWidth: number }) {
+export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVideo: overVideoStore, onPosts: onPostsStore, onLayout, scrollX, pageWidth }: { section: HomeSection; onSelect: (s: HomeSection) => void; overVideo: OverVideoStore; onPosts: OverVideoStore; onLayout?: (e: LayoutChangeEvent) => void; scrollX: Animated.Value; pageWidth: number }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const show = useActionSheet();
@@ -41,6 +78,12 @@ export function HomeTopTabs({ section, onSelect, overVideo, onLayout, scrollX, p
   const [menu, setMenu] = useState(false);
   const colors = useColors();
   const styles = useStyles();
+  const overVideo = useOverVideo(overVideoStore);
+  // Whether the page under the finger is Posts: flipped halfway, like overVideo, so the "Following" title changes with the swipe, not after it.
+  const onPosts = useOverVideo(onPostsStore);
+  // Page i (offset i * pageWidth) shows SOLID[i]; in between the background follows the finger. Only once pageWidth > 0
+  // (strictly increasing input range); until then it simply matches `overVideo`.
+  const solid = useMemo(() => (pageWidth > 0 ? scrollX.interpolate({ inputRange: SOLID.map((_, i) => i * pageWidth), outputRange: SOLID, extrapolate: "clamp" }) : null), [pageWidth, scrollX]);
   const fg = overVideo ? colors.onMedia : colors.text;
   const dim = overVideo ? colors.onMediaMuted : colors.muted;
   const ink = overVideo ? colors.onMedia : colors.brand;
@@ -48,7 +91,7 @@ export function HomeTopTabs({ section, onSelect, overVideo, onLayout, scrollX, p
   const following = Boolean(user) && scope.following;
   // Like Instagram, the wordmark reads "Following" while that feed is showing. Only Posts can filter by follows, so on the
   // other sections the menu checks the campus the page is really showing.
-  const followingShown = following && section === "posts";
+  const followingShown = following && onPosts;
   const title = followingShown ? "Following" : HOME_BRAND;
 
   function create() {
@@ -90,10 +133,11 @@ export function HomeTopTabs({ section, onSelect, overVideo, onLayout, scrollX, p
   }
 
   return (
-    <View onLayout={onLayout} pointerEvents={overVideo ? "box-none" : "auto"} style={[styles.bar, { paddingTop: insets.top }, overVideo ? styles.clear : styles.solid]}>
+    <View onLayout={onLayout} pointerEvents={overVideo ? "box-none" : "auto"} style={[styles.bar, { paddingTop: insets.top }]}>
+      <Animated.View pointerEvents="none" style={[styles.solid, { opacity: solid ?? (overVideo ? 0 : 1) }]} />
       <View style={styles.row}>
         <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" style={styles.side}>
-          <Ionicons name="add-circle-outline" size={30} color={fg} />
+          <Ionicons name="add-circle-outline" size={30} color={fg} style={overVideo ? styles.shadow : undefined} />
         </Pressable>
         <View style={styles.middle}>
           <Pressable onPress={() => setMenu(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Choose feed" accessibilityHint="Your university, all universities or people you follow" accessibilityValue={{ text: title }} accessibilityState={{ expanded: menu }} style={styles.title}>
@@ -104,7 +148,7 @@ export function HomeTopTabs({ section, onSelect, overVideo, onLayout, scrollX, p
           </Pressable>
         </View>
         <View style={styles.side}>
-          <HeaderActions color={fg} />
+          <HeaderActions color={fg} iconStyle={overVideo ? styles.shadow : undefined} />
         </View>
       </View>
       <View style={styles.row}>
@@ -129,12 +173,13 @@ export function HomeTopTabs({ section, onSelect, overVideo, onLayout, scrollX, p
       </Modal>
     </View>
   );
-}
+});
 
 const useStyles = makeStyles((colors, scheme) => ({
-  bar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 },
-  solid: { backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  clear: { backgroundColor: "transparent", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "transparent" },
+  // The bar itself is see-through; its transparent hairline keeps the height the same as when the solid look was drawn on it.
+  bar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "transparent" },
+  // The solid look behind the rows, safe area included, its hairline on the bar's bottom edge: faded by the pager (see `solid`).
+  solid: { position: "absolute", top: 0, left: 0, right: 0, bottom: -StyleSheet.hairlineWidth, backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   row: { height: ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: 12 },
   side: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   // Two equal side slots keep the wordmark truly centred.

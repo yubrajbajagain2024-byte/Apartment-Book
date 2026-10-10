@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProfileTile } from "@apartment-book/shared";
 import { errorText } from "@/lib/hooks";
 
@@ -15,7 +15,8 @@ const MAX_EMPTY_HOPS = 3;
  * may see it); a new `resetKey` (another profile or another viewer) starts again from the first page. `refresh` reloads the
  * first page while the squares stay up; `quietRefresh` does the same without a spinner or an error, and only while a single
  * page is loaded, so coming back to the screen never throws away a scrolled-down grid. `update` edits the squares in place.
- * The Listings tab uses it too, as a single page (`next` is always null).
+ * The Listings tab uses it too, as a single page (`next` is always null). The returned object only changes when something
+ * in it does, so a profile page that is handed it re-renders for its own grid alone.
  */
 export function useTileGrid(load: (cursor: GridCursor | null) => Promise<GridPage>, { resetKey, enabled }: { resetKey: string; enabled: boolean }) {
   const [tiles, setTiles] = useState<ProfileTile[]>([]);
@@ -115,5 +116,9 @@ export function useTileGrid(load: (cursor: GridCursor | null) => Promise<GridPag
   }, [enabled, status, error, loadFirst]);
   const update = useCallback((fn: (tiles: ProfileTile[]) => ProfileTile[]) => setTiles(fn), []);
 
-  return { tiles, status, error, hasMore: next !== null, loadingMore, moreError, loadMore, refresh, quietRefresh, update };
+  const hasMore = next !== null;
+  return useMemo(
+    () => ({ tiles, status, error, hasMore, loadingMore, moreError, loadMore, refresh, quietRefresh, update }),
+    [tiles, status, error, hasMore, loadingMore, moreError, loadMore, refresh, quietRefresh, update],
+  );
 }

@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { deleteFeedPost, getFeedPost, getOrCreateDirectConversation, likePost, muxPlaybackUrl, muxPosterUrl, reelPath, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromReel, toggleSaved, unlikePost, type Reel, type ReportReason } from "@apartment-book/shared";
-import { hapticLike, hapticTap } from "@/lib/haptics";
+import { hapticLike, hapticSelect, hapticTap } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
@@ -173,6 +173,8 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
 
   async function toggleSave() {
     if (!user) return login();
+    // A selection tick as the bookmark fills (or empties), as everywhere else you save.
+    hapticSelect();
     const before = reel.savedByMe;
     onPatch(key, { savedByMe: !before });
     try {

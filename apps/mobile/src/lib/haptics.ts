@@ -16,7 +16,16 @@ export function hapticSuccess() {
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 }
 
-/** The soft tick of a picker wheel: Home plays it when the section under the finger changes (For you | Buzz | Posts | Reels). */
+/** The soft tick of a picker wheel: the bookmark filling or emptying when you save a post, a reel or a listing. */
 export function hapticSelect() {
   Haptics.selectionAsync().catch(() => {});
+}
+
+/**
+ * A clear knock (a medium impact, noticeably firmer than the selection tick) when Home moves to another section
+ * (For you | Buzz | Posts | Reels): once when the page under the finger changes halfway through a swipe, or once for a
+ * tap on another label. Never for a move nobody made (opening Home on Reels after posting a reel).
+ */
+export function hapticSwipe() {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 }

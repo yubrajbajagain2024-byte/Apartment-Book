@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { getPostEngagement, likePost, toggleSaved, unlikePost, type PostEngagement, type PostTargetType } from "@apartment-book/shared";
-import { hapticLike } from "@/lib/haptics";
+import { hapticLike, hapticSelect } from "@/lib/haptics";
 import { supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
@@ -51,6 +51,8 @@ export function useSave(targetType: PostTargetType, targetId: string, initial: b
     if (!userId) return onNeedLogin();
     if (busy.current) return;
     busy.current = true;
+    // A selection tick as the bookmark fills (or empties), the same for posts, reels and listings.
+    hapticSelect();
     setSaved((s) => !s);
     try {
       setSaved(await toggleSaved(supabase, userId, targetType, targetId));
