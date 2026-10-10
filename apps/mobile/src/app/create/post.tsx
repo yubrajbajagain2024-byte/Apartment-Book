@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, ScrollView, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { createFeedPost, feedPostSchema, MAX_IMAGES_PER_POST, type ListingVideo, type PhotoMeta } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
@@ -8,11 +8,13 @@ import { Button, Card } from "@/components/ui";
 import { markPostsStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 
 const MAX_LENGTH = 4000;
 
 export default function CreatePostScreen() {
+  const { colors, isDark } = useAppTheme();
+  const styles = useStyles();
   const { user, profile, loading } = useSession();
   const router = useRouter();
   const [body, setBody] = useState("");
@@ -64,7 +66,7 @@ export default function CreatePostScreen() {
             <Text style={{ fontSize: 12, color: colors.muted }}>{profile?.university?.name ? `Posting to ${profile.university.name}` : "Posting with your name"}</Text>
           </View>
         </View>
-        <TextInput value={body} onChangeText={setBody} placeholder="What's on your mind?" placeholderTextColor={colors.faint} multiline autoFocus maxLength={MAX_LENGTH} style={styles.input} accessibilityLabel="Post text" />
+        <TextInput value={body} onChangeText={setBody} placeholder="What's on your mind?" placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} multiline autoFocus maxLength={MAX_LENGTH} style={styles.input} accessibilityLabel="Post text" />
         {error ? <Text style={{ color: colors.red, fontSize: 13 }}>{error}</Text> : null}
         {body.length > MAX_LENGTH - 200 ? <Text style={{ color: colors.muted, fontSize: 12, textAlign: "right" }}>{MAX_LENGTH - body.length} characters left</Text> : null}
       </Card>
@@ -78,6 +80,6 @@ export default function CreatePostScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   input: { minHeight: 120, fontSize: 17, lineHeight: 23, color: colors.text, textAlignVertical: "top", paddingVertical: 4 },
-});
+}));

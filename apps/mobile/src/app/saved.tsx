@@ -6,11 +6,12 @@ import { Card, EmptyState, Loading } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { useColors } from "@/lib/theme-provider";
 
 export default function SavedScreen() {
   const { user } = useSession();
   const router = useRouter();
+  const colors = useColors();
   const { data, loading } = useQuery(async () => {
     if (!user) return null;
     const saved = await listSaved(supabase, user.id);

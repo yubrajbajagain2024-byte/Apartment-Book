@@ -173,7 +173,7 @@ export type ProfileClass = Tables<"profile_classes">;
 /** The numbers under the profile photo. Followers and following come from FollowStats. */
 export type ProfileStats = { posts: number; reels: number; likesReceived: number };
 export type ProfileTileType = "post" | "reel" | "apartment" | "roommate" | "item";
-/** One square of a profile grid (Posts, Reels, Saved, Liked) or a card of the Listings row. */
+/** One square of a profile grid (Posts, Reels, Saved, Liked, Listings). */
 export type ProfileTile = {
   key: string;
   type: ProfileTileType;

@@ -44,6 +44,7 @@ export function ProfileGrid({
   initialTiles,
   initialHasMore,
   initialNext = null,
+  emptyText,
 }: {
   userId: string;
   kind: ProfileGridKind;
@@ -51,6 +52,8 @@ export function ProfileGrid({
   initialHasMore: boolean;
   /** Saved and Liked: where the next page starts. */
   initialNext?: string | null;
+  /** Shown when every page turned out to hold nothing the reader can see. */
+  emptyText?: string;
 }) {
   const signature = signatureOf(kind, initialTiles);
   const [state, setState] = useState<GridState>(() => ({ signature, tiles: initialTiles, page: 1, next: initialNext, hasMore: initialHasMore }));
@@ -74,7 +77,9 @@ export function ProfileGrid({
         setState((s) => (s.signature !== from.signature ? s : { ...s, tiles: merge(s.tiles, result.tiles), page: from.page + 1, hasMore: result.hasMore }));
       } else {
         const list = kind === "saved" ? listProfileSaved : listProfileLiked;
-        const result = await list(supabase, userId, { before: from.next });
+        let result = await list(supabase, userId, { before: from.next });
+        // Items the reader can no longer see (rented places, blocked people) can fill whole pages: skip a few, like the app.
+        for (let hops = 0; hops < 3 && result.tiles.length === 0 && result.next; hops++) result = await list(supabase, userId, { before: result.next });
         setState((s) => (s.signature !== from.signature ? s : { ...s, tiles: merge(s.tiles, result.tiles), next: result.next, hasMore: result.next !== null }));
       }
     } catch (e) {
@@ -94,6 +99,11 @@ export function ProfileGrid({
           </li>
         ))}
       </ul>
+      {state.tiles.length === 0 && !state.hasMore && !error && emptyText ? (
+        <p className="px-6 py-14 text-center text-base font-semibold text-gray-900" data-testid="profile-empty">
+          {emptyText}
+        </p>
+      ) : null}
       {state.hasMore || error ? (
         <div className="flex flex-col items-center gap-2 px-4 py-5">
           {error ? (

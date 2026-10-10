@@ -1,15 +1,18 @@
 import { Alert, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { budgetLabel, deleteRoommatePost, formatDate, formatDistance, GENDER_PREFERENCES, getRoommatePost, labelFor, listingMedia } from "@apartment-book/shared";
-import { detailStyles, Fact, ListingDetail } from "@/components/listing-detail";
+import { Fact, ListingDetail, useDetailStyles } from "@/components/listing-detail";
 import { Badge, Button, EmptyState, Loading } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
+import { useColors } from "@/lib/theme-provider";
 
 export default function RoommateScreen() {
   const { id, comment } = useLocalSearchParams<{ id: string; comment?: string }>();
   const router = useRouter();
   const { data: p, loading } = useQuery(() => getRoommatePost(supabase, id), [id]);
+  const colors = useColors();
+  const detailStyles = useDetailStyles();
   if (loading) return <Loading />;
   if (!p) return <EmptyState icon="people-outline" title="This post is no longer available" />;
   const budget = budgetLabel(p);
@@ -61,8 +64,8 @@ export default function RoommateScreen() {
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {prefs.map(([k, v]) => (
           <View key={k} style={[detailStyles.card, { minWidth: "45%" }]}>
-            <Text style={{ fontSize: 12, color: "#65676b" }}>{k}</Text>
-            <Text style={{ fontSize: 14, fontWeight: "600" }}>{v}</Text>
+            <Text style={{ fontSize: 12, color: colors.muted }}>{k}</Text>
+            <Text style={{ fontSize: 14, fontWeight: "600", color: colors.text }}>{v}</Text>
           </View>
         ))}
       </View>

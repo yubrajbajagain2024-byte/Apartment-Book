@@ -1,8 +1,9 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { ownSectionNote, PROFILE_SECTION_NOUNS, PROFILE_VISIBILITY_OPTIONS, type ProfileSection, type ProfileVisibility } from "@apartment-book/shared";
+import { ownSectionNote, PROFILE_SECTION_NOUNS, PROFILE_VISIBILITY_OPTIONS, visibilityLabel, type ProfileSection, type ProfileVisibility } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
-import { colors, radius, space } from "@/lib/theme";
+import { radius, space } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 
 export const VISIBILITY_ICONS: Record<ProfileVisibility, keyof typeof Ionicons.glyphMap> = { public: "earth-outline", friends: "people-outline", private: "lock-closed-outline" };
 
@@ -13,11 +14,16 @@ export function visibilityQuestion(section: ProfileSection): string {
 
 /**
  * The owner's line at the top of Classes, Saved and Liked: a globe, people or lock, "Only you can see your saved posts",
- * and Change, which offers Everyone, Friends and Only me (the current one ticked where the sheet can show it).
+ * and Change, which offers Everyone, Friends and Only me. The sheet's title names the current one ("… Now: Only me"),
+ * since the iOS sheet shows no icons; elsewhere it is ticked as well.
  */
 export function VisibilityRow({ section, value, busy, onChange }: { section: ProfileSection; value: ProfileVisibility; busy?: boolean; onChange: (value: ProfileVisibility) => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const show = useActionSheet();
   const question = visibilityQuestion(section);
+  // "Change who can see your saved posts": the button's name starts with the word it shows.
+  const changeLabel = `Change ${question.charAt(0).toLowerCase()}${question.slice(1)}`;
   function change() {
     show(
       PROFILE_VISIBILITY_OPTIONS.map((o) => ({
@@ -27,14 +33,14 @@ export function VisibilityRow({ section, value, busy, onChange }: { section: Pro
           if (o.value !== value) onChange(o.value);
         },
       })),
-      `${question}?`,
+      `${question}? Now: ${visibilityLabel(value)}`,
     );
   }
   return (
     <View style={styles.row}>
       <Ionicons name={VISIBILITY_ICONS[value]} size={16} color={colors.muted} />
       <Text style={styles.note}>{ownSectionNote(section, value)}</Text>
-      <Pressable onPress={change} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel={question} accessibilityState={{ disabled: Boolean(busy), busy: Boolean(busy) }} style={({ pressed }) => [styles.change, pressed && { opacity: 0.6 }]}>
+      <Pressable onPress={change} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel={changeLabel} accessibilityState={{ disabled: Boolean(busy), busy: Boolean(busy) }} style={({ pressed }) => [styles.change, pressed && { opacity: 0.6 }]}>
         {busy ? <ActivityIndicator size="small" color={colors.brand} /> : <Text style={styles.changeText}>Change</Text>}
       </Pressable>
     </View>
@@ -43,6 +49,8 @@ export function VisibilityRow({ section, value, busy, onChange }: { section: Pro
 
 /** What a visitor sees on a tab they may not open: a lock and "Only Sunil's friends can see their classes". */
 export function LockedNotice({ message }: { message: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.locked} accessible accessibilityLabel={message}>
       <View style={styles.lockCircle}>
@@ -58,6 +66,8 @@ export function LockedNotice({ message }: { message: string }) {
  * chosen one means.
  */
 export function VisibilityPicker({ section, value, onChange }: { section: ProfileSection; value: ProfileVisibility; onChange: (value: ProfileVisibility) => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const question = visibilityQuestion(section);
   const chosen = PROFILE_VISIBILITY_OPTIONS.find((o) => o.value === value);
   return (
@@ -87,7 +97,7 @@ export function VisibilityPicker({ section, value, onChange }: { section: Profil
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: space.lg, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   note: { flex: 1, fontSize: 13, color: colors.muted },
   change: { minWidth: 64, minHeight: 30, paddingHorizontal: 12, borderRadius: radius.sm, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
@@ -101,4 +111,4 @@ const styles = StyleSheet.create({
   segmentOn: { backgroundColor: colors.brandSoft, borderColor: colors.brand },
   segmentText: { fontSize: 13, fontWeight: "600", color: colors.muted },
   pickerHint: { fontSize: 12, color: colors.muted },
-});
+}));

@@ -1,7 +1,7 @@
 // Browser check of the website's navigation (desktop tabs Home | Housing | Messages | Marketplace next to the search box, phone bottom bar Home | Housing | Messages | Marketplace | Profile),
 // Home (For you | Buzz | Posts | Reels), Housing (Apartments | Roommates), following (the Follow button on a profile, the follower list, Home → Posts → Following), the TikTok-style comment thread under a post (heart, reply, the "N comments" header, delete from the comment's options menu)
 // and sharing a post with a friend (the Share dialog offers the people you follow who follow you back; Send leaves the post as a card in your chat with them),
-// and the TikTok-style profile page (Following · Followers · Likes, @username, the Posts | Classes | Reels | Saved | Liked tabs, the grid, the classes card, a locked Saved tab, your own Saved setting),
+// and the TikTok-style profile page (Following · Followers · Likes, @username, the Posts | Classes | Reels | Saved | Liked | Listings tabs, the grid, the Classes and Listings tabs, a locked Saved tab, your own Saved setting),
 // signed out and signed in, on a desktop and a phone viewport.
 // Usage: start the site (npm run dev -w web -- -p 3060), seed test data (SUPABASE_ACCESS_TOKEN=... node apps/mobile/e2e/sim-seed.mjs),
 // then: BASE=http://localhost:3060 node apps/web/e2e/home-feed.mjs      (reads apps/mobile/e2e/.sim-state.json; Chromium only: the phone swipes go through a CDP session)
@@ -122,18 +122,27 @@ try {
     const button = D.getByTestId("follow-button"); if (!(await button.count())) throw new Error("no Follow button for a signed-out visitor");
     await button.click(); await D.waitForURL(/\/login/);
   });
-  await step("signed out: Maya's profile page, TikTok style: an @username, the tabs Posts | Classes | Reels | Saved | Liked with Posts open on a grid of her posts, her listings, the \"Classes this semester\" card with CS 3358 (the seed lets everyone see her classes) and a locked Saved tab (only she can see it, the default)", async () => {
+  await step("signed out: Maya's profile page, TikTok style: an @username, the tabs Posts | Classes | Reels | Saved | Liked | Listings with Posts open on a grid of her posts, nothing between her bio and the tabs (no \"Classes this semester\" card, no listings), a locked Saved tab (only she can see it, the default), CS 3358 under this semester on her Classes tab (the seed lets everyone see her classes) and her apartment on her Listings tab", async () => {
     await D.goto(BASE + "/profile/" + state.other.id); await D.getByTestId("profile").waitFor();
     const handle = (await D.getByTestId("profile-username").innerText()).trim(); if (!/^@[a-z0-9][a-z0-9._]{1,28}[a-z0-9]$/.test(handle)) throw new Error("username: " + handle);
     const tabs = await D.locator("[data-testid='profile-tabs'] [role='tab']").evaluateAll((els) => els.map((el) => el.getAttribute("data-testid")));
-    if (tabs.join(" ") !== "profile-tab-posts profile-tab-classes profile-tab-reels profile-tab-saved profile-tab-liked") throw new Error("tabs: " + tabs.join(" "));
+    if (tabs.join(" ") !== "profile-tab-posts profile-tab-classes profile-tab-reels profile-tab-saved profile-tab-liked profile-tab-listings") throw new Error("tabs: " + tabs.join(" "));
     if ((await D.getByTestId("profile-tab-posts").getAttribute("aria-selected")) !== "true") throw new Error("Posts is not the open tab");
     await D.locator("[data-testid='profile-grid'] [data-testid='profile-tile']").first().waitFor();
-    await D.locator("[data-testid='profile-listings'] [data-testid='profile-listing']").filter({ hasText: "Sunny 2-bed near Sewell Park" }).first().waitFor();
-    const card = (await D.getByTestId("profile-classes-card").innerText()).replace(/\s+/g, " ");
-    if (!card.includes("Classes this semester") || !/(^|\s)CS 3358(\s|$)/.test(card)) throw new Error("classes card: " + card);
+    // Her classes and listings have tabs of their own: neither sits under the bio any more.
+    if (await D.getByTestId("profile").getByText("Classes this semester").count()) throw new Error("the \"Classes this semester\" card is still under the bio");
+    if (await D.getByTestId("profile-listings").count()) throw new Error("her listings still show above the tabs");
     if (!(await D.locator("[data-testid='profile-tab-saved'] [data-testid='profile-tab-lock']").count())) throw new Error("no lock on the Saved tab, which she keeps to herself");
     await D.screenshot({ caret: "initial", path: SHOTS + "web-14-profile.png" });
+    // The Classes tab lists CS 3358 under this semester.
+    await D.getByTestId("profile-tab-classes").click(); await D.waitForURL(/[?&]tab=classes/);
+    const thisTerm = D.locator("[data-testid='profile-classes'] section").filter({ hasText: "This semester" }).first(); await thisTerm.locator("[data-testid='profile-class']").first().waitFor();
+    const listed = (await thisTerm.innerText()).replace(/\s+/g, " "); if (!/(^|\s)CS 3358(\s|$)/.test(listed)) throw new Error("this semester on the Classes tab: " + listed);
+    // The Listings tab, last in the row: her apartment as a square that opens it.
+    await D.getByTestId("profile-tab-listings").click(); await D.waitForURL(/[?&]tab=listings/);
+    const listing = D.locator("[data-testid='profile-listings'] [data-testid='profile-listing']").filter({ hasText: "Sunny 2-bed near Sewell Park" }).first(); await listing.waitFor();
+    const href = (await listing.getAttribute("href")) ?? ""; if (!/^\/apartments\/[0-9a-f-]{36}$/.test(href)) throw new Error("the apartment's square links to " + href);
+    await D.screenshot({ caret: "initial", path: SHOTS + "web-14b-profile-listings.png" });
     // The Saved tab itself: the lock and lockedSectionMessage's words ("Only UI can see their saved posts"), never the list.
     await D.getByTestId("profile-tab-saved").click(); await D.waitForURL(/[?&]tab=saved/);
     const locked = D.getByTestId("profile-locked"); await locked.waitFor();

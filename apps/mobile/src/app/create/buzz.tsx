@@ -12,11 +12,14 @@ import { pickBuzzPhotos, takeBuzzPhoto, uploadBuzzPhoto, type BuzzPickedPhoto } 
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors, radius } from "@/lib/theme";
+import { radius } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 import { pickVideo, uploadVideo } from "@/lib/video";
 
 /** Start an anonymous Buzz thread. Photos only ever leave the phone through buzz-photos.ts (re-encoded, no metadata, no user id in the link). */
 export default function CreateBuzzScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const { user, profile, loading } = useSession();
   const router = useRouter();
   const show = useActionSheet();
@@ -155,7 +158,7 @@ export default function CreateBuzzScreen() {
             <View key={p.url} style={styles.thumb}>
               <Image source={{ uri: p.url }} style={StyleSheet.absoluteFill} contentFit="cover" />
               <Pressable onPress={() => removePhoto(p.url)} style={styles.remove} hitSlop={6} accessibilityRole="button" accessibilityLabel="Remove photo">
-                <Ionicons name="close" size={14} color="#fff" />
+                <Ionicons name="close" size={14} color={colors.onMedia} />
               </Pressable>
             </View>
           ))}
@@ -181,7 +184,7 @@ export default function CreateBuzzScreen() {
           ) : (
             <Pressable onPress={pickVideoSource} style={{ flexDirection: "row", alignItems: "center", gap: 10 }} accessibilityRole="button" accessibilityLabel="Add a video">
               <View style={styles.iconCircle}>
-                <Ionicons name="videocam" size={20} color="#fff" />
+                <Ionicons name="videocam" size={20} color={colors.onBrand} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: "700", color: colors.text }}>Add one video</Text>
@@ -200,7 +203,7 @@ export default function CreateBuzzScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   notice: { flexDirection: "row", gap: 10, backgroundColor: colors.brandSoft, borderRadius: radius.lg, padding: 14 },
   noticeTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
   noticeText: { fontSize: 13, color: colors.text, lineHeight: 18 },
@@ -209,9 +212,9 @@ const styles = StyleSheet.create({
   addTile: { width: 104, height: 88, borderRadius: radius.md, borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.brand, alignItems: "center", justifyContent: "center", gap: 2, backgroundColor: colors.brandSoft, paddingHorizontal: 4 },
   addText: { fontSize: 11, color: colors.brand, fontWeight: "600", textAlign: "center" },
   thumb: { width: 88, height: 88, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.border },
-  remove: { position: "absolute", right: 4, top: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center" },
+  remove: { position: "absolute", right: 4, top: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.mediaPill, alignItems: "center", justifyContent: "center" },
   videoBox: { borderWidth: 1.5, borderColor: colors.border, borderStyle: "dashed", borderRadius: radius.md, padding: 12, backgroundColor: colors.card },
   iconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
   track: { height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: "hidden" },
   fill: { height: 6, backgroundColor: colors.brand },
-});
+}));

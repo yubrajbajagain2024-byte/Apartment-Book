@@ -154,7 +154,7 @@ export function tileFromFeedPost(post: Pick<FeedPostWithAuthor, "id" | "kind" | 
   };
 }
 
-/** An apartment, roommate post or marketplace item as a grid square or a Listings card. */
+/** An apartment, roommate post or marketplace item as a square of a profile grid (Listings, Saved, Liked). */
 export function tileFromListing(type: keyof typeof LISTING_BASES, row: { id: string; title: string }, media: FeedMedia[]): ProfileTile {
   const { url, isVideo } = firstImage(media);
   return {

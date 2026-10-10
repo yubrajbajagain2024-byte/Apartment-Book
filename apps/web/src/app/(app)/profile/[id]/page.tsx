@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Bookmark, Clapperboard, Grid3x3, Heart, Lock, type LucideIcon } from "lucide-react";
+import { Bookmark, Clapperboard, Grid3x3, Heart, Lock, Store, type LucideIcon } from "lucide-react";
 import {
-  currentTerm,
   getFollowStats,
   getProfile,
   getProfileSectionAccess,
@@ -39,7 +38,7 @@ import { firstNameOf, isProfileTab, profileHandle, profileTabHref, sectionVisibi
 import { createClient } from "@/lib/supabase/server";
 import { errorMessage, firstParam } from "@/lib/utils";
 import { LinkButton } from "@/components/ui/button";
-import { ListingsRow, type ProfileListingCard } from "@/components/profile/listings-row";
+import { ListingsGrid, type ProfileListing } from "@/components/profile/listings-grid";
 import { ProfileClasses } from "@/components/profile/profile-classes";
 import { ProfileGrid } from "@/components/profile/profile-grid";
 import { ProfileHeader } from "@/components/profile/profile-header";
@@ -55,6 +54,8 @@ const NO_PROFILE_STATS: ProfileStats = { posts: 0, reels: 0, likesReceived: 0 };
 const OWNER_ACCESS: ProfileSectionAccess = { classes: true, saved: true, liked: true };
 /** What the database says when someone's Saved or Liked setting keeps the reader out. */
 const PRIVATE_LIST = "This list is private.";
+/** Saved and Liked drop what the reader may no longer see, so a page can come back empty with more behind it. */
+const MAX_EMPTY_HOPS = 3;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
@@ -78,8 +79,11 @@ async function loadPostGrid(supabase: Client, userId: string, kind: "post" | "re
 
 async function loadListGrid(supabase: Client, userId: string, section: "saved" | "liked", allowed: boolean | null): Promise<GridTab> {
   if (allowed === false) return { status: "locked" };
+  const list = section === "saved" ? listProfileSaved : listProfileLiked;
   try {
-    const page = await (section === "saved" ? listProfileSaved : listProfileLiked)(supabase, userId);
+    let page = await list(supabase, userId);
+    // An empty page with a cursor is not the end: look a few pages on, as the app does. The cursor goes back unchanged.
+    for (let hop = 0; hop < MAX_EMPTY_HOPS && page.tiles.length === 0 && page.next !== null; hop++) page = await list(supabase, userId, { before: page.next });
     return { status: "ready", tiles: page.tiles, hasMore: page.next !== null, next: page.next };
   } catch (error) {
     return errorMessage(error).includes(PRIVATE_LIST) ? { status: "locked" } : { status: "error" };
@@ -91,17 +95,17 @@ function statusLabel(statuses: readonly { value: string; label: string }[], valu
 }
 
 /**
- * The Listings row. Visitors see what is live; the owner also sees what is rented, sold or found (marked so), because
+ * The Listings tab. Visitors see what is live; the owner also sees what is rented, sold or found (marked so), because
  * this is where they find those again to reopen them.
  */
-async function loadListings(supabase: Client, userId: string, isMe: boolean): Promise<ProfileListingCard[]> {
+async function loadListings(supabase: Client, userId: string, isMe: boolean): Promise<ProfileListing[]> {
   if (!isMe) return (await listProfileListings(supabase, userId)).map((tile) => ({ tile, status: null }));
   const [apartments, roommates, items] = await Promise.all([
     listApartmentsByOwner(supabase, userId, { includeInactive: true }),
     listRoommatePostsByAuthor(supabase, userId, { includeInactive: true }),
     listItemsBySeller(supabase, userId, { includeInactive: true }),
   ]);
-  const dated: { at: string; card: ProfileListingCard }[] = [
+  const dated: { at: string; card: ProfileListing }[] = [
     ...apartments.map((a) => ({
       at: a.created_at,
       card: { tile: tileFromListing("apartment", a, listingMedia(a.images, a.image_meta, a.videos)), status: a.status === "active" ? null : statusLabel(LISTING_STATUSES, a.status) },
@@ -121,9 +125,8 @@ async function loadListings(supabase: Client, userId: string, isMe: boolean): Pr
 
 /**
  * /profile/[id], TikTok style: photo, name, @handle and QR, Following · Followers · Likes, the main buttons, bio and
- * campus, this semester's classes, the Listings row, then Posts | Classes | Reels | Saved | Liked as tabs (?tab=…).
- * Only the chosen tab's first page is read here. Anything that fails to load falls back (zeros, no classes card, a line
- * in the tab), so the header always renders.
+ * campus, then Posts | Classes | Reels | Saved | Liked | Listings as tabs (?tab=…). Only the chosen tab's first page is
+ * read here. Anything that fails to load falls back (zeros, a line in the tab), so the header always renders.
  */
 export default async function ProfilePage({ params, searchParams }: Props) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
@@ -146,18 +149,16 @@ export default async function ProfilePage({ params, searchParams }: Props) {
     getProfileStats(supabase, profile.id).catch(() => NO_PROFILE_STATS),
     // Unknown (null) when the check fails: no lock badges then, and the tab finds out for itself.
     isMe ? Promise.resolve<ProfileSectionAccess | null>(OWNER_ACCESS) : getProfileSectionAccess(supabase, profile.id).catch(() => null),
-    // Row-level security returns none when the reader may not see them; null means the read failed.
-    listProfileClasses(supabase, profile.id).catch(() => null),
-    loadListings(supabase, profile.id, isMe).catch((): ProfileListingCard[] => []),
+    // Classes and listings are read on their own tabs only; null means the read failed. Row-level security returns no
+    // classes when the reader may not see them.
+    tab === "classes" ? listProfileClasses(supabase, profile.id).catch(() => null) : Promise.resolve(null),
+    tab === "listings" ? loadListings(supabase, profile.id, isMe).catch(() => null) : Promise.resolve(null),
     postKind ? loadPostGrid(supabase, profile.id, postKind) : Promise.resolve(null),
   ]);
   const listTab = tab === "saved" || tab === "liked" ? await loadListGrid(supabase, profile.id, tab, access ? access[tab] : null) : null;
 
   const now = new Date();
-  const term = currentTerm(now);
   const groups = classes ? groupClassesByTerm(classes, now) : [];
-  const thisTerm = groups.find((g) => g.current)?.classes ?? [];
-  const showClassesCard = classes !== null && (isMe || thisTerm.length > 0);
   const locks: Partial<Record<ProfileTab, string>> = {};
   for (const section of PROFILE_SECTIONS) {
     if (isMe) {
@@ -190,7 +191,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
   } else if (tab === "classes") {
     panel = (
       <>
-        {isMe ? <VisibilityControl section="classes" value={visibility.classes} /> : null}
+        {isMe ? <VisibilityControl key="classes" section="classes" value={visibility.classes} /> : null}
         {!isMe && access?.classes === false ? (
           <LockedTab message={lockedSectionMessage("classes", visibility.classes, firstName)} />
         ) : classes === null ? (
@@ -200,23 +201,33 @@ export default async function ProfilePage({ params, searchParams }: Props) {
         )}
       </>
     );
+  } else if (tab === "listings") {
+    panel =
+      listings === null ? (
+        <TabError what="listings" href={profileTabHref(profile.id, tab)} />
+      ) : listings.length === 0 ? (
+        <TabEmpty icon={Store} title="No listings yet" />
+      ) : (
+        <ListingsGrid listings={listings} />
+      );
   } else {
     const list = listTab ?? { status: "error" as const };
     panel = (
       <>
-        {isMe ? <VisibilityControl section={tab} value={visibility[tab]} /> : null}
+        {/* Keyed by tab, so the shown choice, an error or an open menu stays with its own tab. */}
+        {isMe ? <VisibilityControl key={tab} section={tab} value={visibility[tab]} /> : null}
         {list.status === "locked" ? (
           <LockedTab message={lockedSectionMessage(tab, visibility[tab], firstName)} />
         ) : list.status === "error" ? (
           <TabError what={tab === "saved" ? "saved posts" : "liked posts"} href={profileTabHref(profile.id, tab)} />
-        ) : list.tiles.length === 0 ? (
+        ) : list.tiles.length === 0 && list.next === null ? (
           tab === "saved" ? (
             <TabEmpty icon={Bookmark} title="Nothing saved yet" />
           ) : (
             <TabEmpty icon={Heart} title="No liked posts yet" />
           )
         ) : (
-          <ProfileGrid key={`${profile.id}:${tab}`} userId={profile.id} kind={tab} initialTiles={list.tiles} initialHasMore={list.hasMore} initialNext={list.next} />
+          <ProfileGrid key={`${profile.id}:${tab}`} userId={profile.id} kind={tab} initialTiles={list.tiles} initialHasMore={list.hasMore} initialNext={list.next} emptyText={tab === "saved" ? "Nothing saved yet" : "No liked posts yet"} />
         )}
       </>
     );
@@ -236,10 +247,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
           follow={follow}
           likes={stats.likesReceived}
           share={share}
-          classesCard={showClassesCard ? { term, classes: thisTerm } : null}
         />
-
-        {listings.length > 0 ? <ListingsRow cards={listings} /> : null}
 
         <ProfileTabs profileId={profile.id} active={tab} locks={locks} />
         <div role="tabpanel" id={PROFILE_PANEL_ID} aria-labelledby={`profile-tab-${tab}`} className="min-h-[16rem]">

@@ -9,13 +9,15 @@ import { useHomeScope } from "@/lib/home-scope";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { BUZZ_GUTTER, BuzzCard, BuzzSearchRow, emitBuzzEvent, onBuzzEvent } from "./buzz-card";
 
 const SORT_ICONS: Record<BuzzSort, keyof typeof Ionicons.glyphMap> = { hot: "flame-outline", new: "time-outline", top: "trending-up-outline" };
 
 /** A small rounded filter pill, like the ones under Reddit's search bar. */
 function FilterPill({ label, icon, active, caret, onPress, accessibilityLabel }: { label: string; icon?: keyof typeof Ionicons.glyphMap; active?: boolean; caret?: boolean; onPress: () => void; accessibilityLabel?: string }) {
+  const colors = useColors();
+  const styles = useStyles();
   const ink = active ? colors.brand : colors.text;
   return (
     <Pressable onPress={onPress} style={[styles.filter, active && { backgroundColor: colors.brandSoft }]} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} accessibilityState={{ selected: Boolean(active) }}>
@@ -31,6 +33,8 @@ export function BuzzSection({ topInset }: { active: boolean; topInset: number })
   const router = useRouter();
   const show = useActionSheet();
   const { user, profile } = useSession();
+  const { colors, isDark } = useAppTheme();
+  const styles = useStyles();
   const [search, setSearch] = useState("");
   const [q, setQ] = useState("");
   /** The search the list on screen was loaded with. */
@@ -138,7 +142,7 @@ export function BuzzSection({ topInset }: { active: boolean; topInset: number })
   const startOffset = useMemo(() => ({ x: 0, y: -topInset }), [topInset]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.card }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <FlatList
         data={items}
         keyExtractor={(p) => p.id}
@@ -156,7 +160,7 @@ export function BuzzSection({ topInset }: { active: boolean; topInset: number })
             <View style={styles.searchRow}>
               <View style={styles.search}>
                 <Ionicons name="search" size={18} color={colors.muted} />
-                <TextInput value={search} onChangeText={setSearch} placeholder="Search Buzz" placeholderTextColor={colors.muted} returnKeyType="search" clearButtonMode="while-editing" autoCorrect={false} style={styles.searchInput} accessibilityLabel="Search Buzz" />
+                <TextInput value={search} onChangeText={setSearch} placeholder="Search Buzz" placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} returnKeyType="search" clearButtonMode="while-editing" autoCorrect={false} style={styles.searchInput} accessibilityLabel="Search Buzz" />
               </View>
               <Pressable onPress={create} style={styles.plus} accessibilityRole="button" accessibilityLabel="Post anonymously on Buzz">
                 <Ionicons name="add" size={26} color={colors.text} />
@@ -222,10 +226,11 @@ export function BuzzSection({ topInset }: { active: boolean; topInset: number })
 }
 
 function Hairline() {
+  const styles = useStyles();
   return <View style={styles.hairline} />;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   header: { paddingHorizontal: BUZZ_GUTTER, paddingTop: 10, paddingBottom: 8, gap: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   searchRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   search: { flex: 1, height: 42, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.input, borderRadius: 21, paddingHorizontal: 14 },
@@ -238,4 +243,4 @@ const styles = StyleSheet.create({
   noticeText: { flex: 1, fontSize: 11, color: colors.faint },
   retry: { textAlign: "center", color: colors.brand, fontSize: 13, fontWeight: "600" },
   end: { textAlign: "center", color: colors.faint, fontSize: 12, paddingVertical: 12 },
-});
+}));

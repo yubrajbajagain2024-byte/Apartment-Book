@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromFeedPost, timeAgo, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
@@ -8,7 +8,7 @@ import { errorText } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "../action-sheet";
 import { Avatar } from "../avatar";
 import { useLike, useSave } from "../engagement";
@@ -34,8 +34,6 @@ export type InstaPostProps = {
 };
 
 const CAPTION_LIMIT = 110;
-const LIKE_RED = "#ed4956";
-const TAG_BLUE = "#00376b";
 const TALLEST = 4 / 5;
 const WIDEST = 1.91;
 
@@ -56,6 +54,8 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   const show = useActionSheet();
   const shareSheet = useShareSheet();
   const { user } = useSession();
+  const colors = useColors();
+  const styles = useStyles();
   const needLogin = () => router.push("/(auth)/login");
   const like = useLike("post", post.id, engagement, user?.id ?? null, needLogin);
   const save = useSave("post", post.id, saved, user?.id ?? null, needLogin);
@@ -221,7 +221,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
         <View>
           <PhotoCarousel media={media} aspect={frameAspect(media, reel)} active={active} videoLabel={null} dots={false} onIndexChange={setSlide} onDoubleTap={doubleTap} />
           <Animated.View pointerEvents="none" style={[styles.heart, { opacity: heart, transform: [{ scale: heart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
-            <Ionicons name="heart" size={96} color="#fff" />
+            <Ionicons name="heart" size={96} color={colors.onMedia} />
           </Animated.View>
         </View>
       ) : text ? (
@@ -245,7 +245,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
 
       <View style={[styles.actions, media.length > 1 && { paddingTop: 6 }]}>
         <Pressable onPress={() => void like.toggle()} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel={like.liked ? "Unlike" : "Like"} accessibilityState={{ selected: like.liked }}>
-          <Ionicons name={like.liked ? "heart" : "heart-outline"} size={28} color={like.liked ? LIKE_RED : colors.text} />
+          <Ionicons name={like.liked ? "heart" : "heart-outline"} size={28} color={like.liked ? colors.like : colors.text} />
           {like.likes > 0 ? <Text style={styles.count}>{compactCount(like.likes)}</Text> : null}
         </Pressable>
         <Pressable onPress={onComments} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel="Comment">
@@ -315,17 +315,17 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   );
 }
 
-const styles = StyleSheet.create({
-  post: { width: "100%", backgroundColor: colors.card, paddingBottom: 14 },
+const useStyles = makeStyles((colors) => ({
+  post: { width: "100%", backgroundColor: colors.bg, paddingBottom: 14 },
   header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 9 },
   name: { fontSize: 14, fontWeight: "700", color: colors.text, flexShrink: 1 },
   subtitle: { fontSize: 12, color: colors.text, marginTop: 1 },
   dots: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
-  heart: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 2 } },
+  heart: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", shadowColor: colors.shadow, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 2 } },
   textOnly: { paddingHorizontal: 12, paddingTop: 2, paddingBottom: 4 },
   textOnlyBody: { fontSize: 16, lineHeight: 22, color: colors.text },
   slideDots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingTop: 10 },
-  slideDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#c7c7cc" },
+  slideDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.faint },
   slideDotActive: { backgroundColor: colors.brand },
   actions: { flexDirection: "row", alignItems: "center", gap: 18, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6 },
   action: { flexDirection: "row", alignItems: "center", gap: 6 },
@@ -333,11 +333,12 @@ const styles = StyleSheet.create({
   count: { fontSize: 14, fontWeight: "600", color: colors.text },
   below: { paddingHorizontal: 12, gap: 4 },
   likedBy: { flexDirection: "row", alignItems: "center", gap: 6 },
-  face: { borderWidth: 1.5, borderColor: colors.card, borderRadius: 12 },
+  face: { borderWidth: 1.5, borderColor: colors.bg, borderRadius: 12 },
   line: { fontSize: 14, lineHeight: 19, color: colors.text, flexShrink: 1 },
   bold: { fontWeight: "700" },
-  tag: { color: TAG_BLUE },
+  // Hashtags in the brand blue: Instagram's dark navy would vanish on the dark theme.
+  tag: { color: colors.hashtag },
   more: { color: colors.muted },
   viewAll: { fontSize: 14, color: colors.muted },
   age: { fontSize: 12, color: colors.muted, marginTop: 1 },
-});
+}));

@@ -1,19 +1,24 @@
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { deleteMyAccount, isProfileVisibility, listUniversities, normalizeUsername, PROFILE_VISIBILITY_COLUMNS, updateProfile, USERNAME_RULES, usernameProblem, type ProfileSection, type ProfileVisibility, type ProfileWithUniversity } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { VisibilityPicker } from "@/components/profile/visibility-row";
 import { Button, Card, Chip, Field } from "@/components/ui";
 import { errorText, useQuery } from "@/lib/hooks";
+import { THEME_PREFERENCES } from "@/lib/palette";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors, radius } from "@/lib/theme";
+import { radius } from "@/lib/theme";
+import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { useChangeAvatar } from "@/lib/use-change-avatar";
 
 /** The database's defaults, for a profile read before these settings existed. */
 const DEFAULT_VISIBILITY: Record<ProfileSection, ProfileVisibility> = { classes: "friends", saved: "private", liked: "public" };
 const SECTIONS: ProfileSection[] = ["classes", "saved", "liked"];
+/** The line under System Default in the Theme card (the app is iPhone-only on iOS). */
+const SYSTEM_THEME_HINT = Platform.OS === "ios" ? "Follows your iPhone's appearance" : "Follows your phone's appearance";
 
 function storedUsername(profile: ProfileWithUniversity): string {
   const name: unknown = profile.username;
@@ -28,6 +33,8 @@ function storedVisibility(profile: ProfileWithUniversity, section: ProfileSectio
 export default function SettingsScreen() {
   const { user, profile, loading: sessionLoading, refreshProfile, signOut } = useSession();
   const router = useRouter();
+  const styles = useStyles();
+  const { colors, isDark } = useAppTheme();
   const { data: universities } = useQuery(() => listUniversities(supabase), []);
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
@@ -140,6 +147,7 @@ export default function SettingsScreen() {
               }}
               placeholder="yourname"
               placeholderTextColor={colors.faint}
+              keyboardAppearance={isDark ? "dark" : "light"}
               accessibilityLabel="Username"
               accessibilityHint={USERNAME_RULES}
               autoCapitalize="none"
@@ -172,8 +180,9 @@ export default function SettingsScreen() {
         <ToggleRow label="Notify me about new places within 2 miles of campus" value={notify} onChange={setNotify} />
         <ToggleRow label="Show when I'm active (green dot and “Active now” in chats)" value={active} onChange={setActive} />
       </Card>
-      {message ? <Text style={{ color: message === "Saved." ? colors.green : colors.red }}>{message}</Text> : null}
+      {message ? <Text style={{ color: message === "Saved." ? colors.successText : colors.red }}>{message}</Text> : null}
       <Button title="Save changes" onPress={() => void save()} loading={busy} />
+      <ThemeCard />
       <Card>
         <Text style={{ fontWeight: "700", color: colors.text }}>Danger zone</Text>
         <Text style={{ color: colors.muted, fontSize: 13 }}>Deleting your account removes your profile, posts, messages and saved items for good.</Text>
@@ -183,7 +192,44 @@ export default function SettingsScreen() {
   );
 }
 
+/** Settings → Theme: Light, Dark or System Default. A tap repaints the app at once and is remembered, so it needs no Save. */
+function ThemeCard() {
+  const styles = useStyles();
+  const { colors, preference, setPreference } = useAppTheme();
+  return (
+    <Card>
+      <Text style={styles.cardTitle} accessibilityRole="header">
+        Theme
+      </Text>
+      <View accessibilityRole="radiogroup">
+        {THEME_PREFERENCES.map((option, i) => {
+          const checked = option.value === preference;
+          const hint = option.value === "system" ? SYSTEM_THEME_HINT : undefined;
+          return (
+            <Pressable
+              key={option.value}
+              onPress={() => setPreference(option.value)}
+              accessibilityRole="radio"
+              accessibilityState={{ checked }}
+              accessibilityLabel={option.label}
+              accessibilityHint={hint}
+              style={({ pressed }) => [styles.themeRow, i > 0 && styles.themeDivider, pressed && { opacity: 0.7 }]}
+            >
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.themeLabel}>{option.label}</Text>
+                {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+              </View>
+              {checked ? <Ionicons name="checkmark" size={22} color={colors.brand} /> : null}
+            </Pressable>
+          );
+        })}
+      </View>
+    </Card>
+  );
+}
+
 function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+  const colors = useColors();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
       <Text style={{ flex: 1, color: colors.text }}>{label}</Text>
@@ -192,7 +238,7 @@ function ToggleRow({ label, value, onChange }: { label: string; value: boolean; 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   label: { fontSize: 13, fontWeight: "600", color: colors.muted },
   handleBox: { flexDirection: "row", alignItems: "center", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingLeft: 12 },
   at: { fontSize: 16, color: colors.muted, fontWeight: "600" },
@@ -200,4 +246,7 @@ const styles = StyleSheet.create({
   hint: { color: colors.muted, fontSize: 12 },
   error: { color: colors.red, fontSize: 12 },
   cardTitle: { fontWeight: "700", color: colors.text, fontSize: 16 },
-});
+  themeRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 48, paddingVertical: 8 },
+  themeDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  themeLabel: { fontSize: 16, color: colors.text },
+}));

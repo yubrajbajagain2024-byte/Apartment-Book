@@ -3,13 +3,15 @@ import { Animated, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressabl
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { PostTargetType } from "@apartment-book/shared";
-import { colors, radius } from "@/lib/theme";
+import { radius } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 import { CommentComposer, CommentList, CommentsHeading, useCommentThread } from "./comments";
 
 export type CommentsTarget = { targetType: PostTargetType; targetId: string; ownerId: string; comments: number };
 
 /** Bottom sheet with the comment thread of one post or reel, TikTok style: the count up top, the thread, and the composer pinned under it. Pass `target = null` to keep it closed. */
 export function CommentsSheet({ target, onClose, onCountChange }: { target: CommentsTarget | null; onClose: () => void; onCountChange: (delta: number) => void }) {
+  const styles = useStyles();
   const drag = useRef(new Animated.Value(0)).current;
   const closeRef = useRef(onClose);
   // Keep showing the last thread while the sheet slides away, so it does not go blank mid-animation.
@@ -58,6 +60,8 @@ export function CommentsSheet({ target, onClose, onCountChange }: { target: Comm
 
 /** The thread of one target: header with the count and sort button, the scrolling list, and the composer pinned at the bottom. */
 function SheetBody({ target, panHandlers, onClose, onCountChange }: { target: CommentsTarget; panHandlers: GestureResponderHandlers; onClose: () => void; onCountChange: (delta: number) => void }) {
+  const colors = useColors();
+  const styles = useStyles();
   const insets = useSafeAreaInsets();
   const thread = useCommentThread({ targetType: target.targetType, targetId: target.targetId, ownerId: target.ownerId, onCountChange });
   // The post's number until the thread has loaded, then what is really there (replies included).
@@ -81,12 +85,12 @@ function SheetBody({ target, panHandlers, onClose, onCountChange }: { target: Co
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.25)" },
-  sheet: { height: "70%", backgroundColor: colors.card, borderTopLeftRadius: radius.lg + 4, borderTopRightRadius: radius.lg + 4, overflow: "hidden" },
+const useStyles = makeStyles((colors) => ({
+  root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
+  sheet: { height: "70%", backgroundColor: colors.elevated, borderTopLeftRadius: radius.lg + 4, borderTopRightRadius: radius.lg + 4, overflow: "hidden" },
   header: { alignItems: "center", paddingTop: 8, paddingBottom: 10, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 10 },
   close: { position: "absolute", right: 12, top: 16, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
   list: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 8 },
-  footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: 14, paddingTop: 10, backgroundColor: colors.card },
-});
+  footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: 14, paddingTop: 10, backgroundColor: colors.elevated },
+}));

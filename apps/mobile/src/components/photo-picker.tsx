@@ -5,12 +5,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { MAX_IMAGES_PER_LISTING, type ListingVideo, type PhotoMeta, type UploadKind } from "@apartment-book/shared";
 import { pickPhotos, takePhoto, uploadPickedPhoto } from "@/lib/photos";
 import { pickVideo, uploadVideo } from "@/lib/video";
-import { colors, radius } from "@/lib/theme";
+import { radius } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "./action-sheet";
 
 /** Photo (and optional video-tour) picker with immediate uploads; hands back URLs + meta for the form. */
 /** `plain` = wording for Home posts (no "tour" talk). `maxPhotos` defaults to the listing limit. */
 export function MediaPicker({ kind, userId, photos, onPhotos, video, onVideo, videoFirst, plain = false, maxPhotos = MAX_IMAGES_PER_LISTING }: { kind: UploadKind; userId: string; photos: PhotoMeta[]; onPhotos: (p: PhotoMeta[]) => void; video?: ListingVideo | null; onVideo?: (v: ListingVideo | null) => void; videoFirst?: boolean; plain?: boolean; maxPhotos?: number }) {
+  const colors = useColors();
+  const styles = useStyles();
   const show = useActionSheet();
   const [uploading, setUploading] = useState(0);
   const [videoState, setVideoState] = useState<{ phase: "uploading" | "processing"; progress: number } | null>(null);
@@ -75,7 +78,7 @@ export function MediaPicker({ kind, userId, photos, onPhotos, video, onVideo, vi
           ) : (
             <Pressable onPress={pickVideoSource} style={{ flexDirection: "row", alignItems: "center", gap: 10 }} accessibilityRole="button" accessibilityLabel={plain ? "Add a video" : "Add a video tour"}>
               <View style={styles.iconCircle}>
-                <Ionicons name="videocam" size={20} color="#fff" />
+                <Ionicons name="videocam" size={20} color={colors.onBrand} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: "700", color: colors.text }}>{videoFirst ? "Start with a video tour" : "Add a video (optional)"}</Text>
@@ -95,11 +98,11 @@ export function MediaPicker({ kind, userId, photos, onPhotos, video, onVideo, vi
             <Image source={{ uri: p.url }} style={StyleSheet.absoluteFill} contentFit="cover" />
             {i === 0 ? (
               <View style={styles.cover}>
-                <Text style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>Cover</Text>
+                <Text style={{ color: colors.onMedia, fontSize: 10, fontWeight: "700" }}>Cover</Text>
               </View>
             ) : null}
             <Pressable onPress={() => onPhotos(photos.filter((x) => x.url !== p.url))} style={styles.remove} accessibilityRole="button" accessibilityLabel="Remove photo">
-              <Ionicons name="close" size={14} color="#fff" />
+              <Ionicons name="close" size={14} color={colors.onMedia} />
             </Pressable>
           </View>
         ))}
@@ -108,13 +111,13 @@ export function MediaPicker({ kind, userId, photos, onPhotos, video, onVideo, vi
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   videoBox: { borderWidth: 1.5, borderColor: colors.border, borderStyle: "dashed", borderRadius: radius.md, padding: 12, backgroundColor: colors.card },
   iconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
   track: { height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: "hidden" },
   fill: { height: 6, backgroundColor: colors.brand },
   addTile: { width: 88, height: 88, borderRadius: radius.md, borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.brand, alignItems: "center", justifyContent: "center", gap: 2, backgroundColor: colors.brandSoft },
   thumb: { width: 88, height: 88, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.border },
-  cover: { position: "absolute", left: 4, bottom: 4, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 },
-  remove: { position: "absolute", right: 4, top: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center" },
-});
+  cover: { position: "absolute", left: 4, bottom: 4, backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 },
+  remove: { position: "absolute", right: 4, top: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.mediaPill, alignItems: "center", justifyContent: "center" },
+}));

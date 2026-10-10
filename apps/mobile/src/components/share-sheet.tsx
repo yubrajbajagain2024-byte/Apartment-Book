@@ -25,7 +25,8 @@ import { hapticSuccess, hapticTap } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors, radius } from "@/lib/theme";
+import { radius } from "@/lib/theme";
+import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { Avatar } from "./avatar";
 
 /** Besides the snapshot, the sheet needs the website link for "Share to…" and, optionally, the words that go before it. */
@@ -73,6 +74,7 @@ export function useShareSheet(): ShareSheetApi {
 }
 
 function ShareSheet({ request, onClose }: { request: ShareRequest | null; onClose: (seq?: number) => void }) {
+  const styles = useStyles();
   const drag = useRef(new Animated.Value(0)).current;
   const closeRef = useRef(onClose);
   // Keep showing the last request while the sheet slides away, so it does not go blank mid-animation.
@@ -146,6 +148,8 @@ type SendStatus = "idle" | "sending" | "sent";
 
 /** One opening of the sheet: remounted (fresh search, selection and note) each time it opens. */
 function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { shared: SharedPost; options: ShareOptions; panHandlers: GestureResponderHandlers; onClose: () => void; closeThen: (fn: () => void) => void }) {
+  const styles = useStyles();
+  const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useSession();
@@ -308,10 +312,10 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
               style={({ pressed }) => [styles.tile, { width: `${100 / columns}%` }, pressed && { opacity: 0.7 }]}
             >
               <View>
-                <Avatar name={p.full_name} url={p.avatar_url} size={64} userId={p.id} />
+                <Avatar name={p.full_name} url={p.avatar_url} size={64} userId={p.id} ringColor={colors.elevated} />
                 {selected ? (
                   <View style={styles.check}>
-                    <Ionicons name="checkmark" size={14} color="#fff" />
+                    <Ionicons name="checkmark" size={14} color={colors.onBrand} />
                   </View>
                 ) : null}
               </View>
@@ -344,6 +348,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
             onChangeText={setQ}
             placeholder="Search friends"
             placeholderTextColor={colors.faint}
+            keyboardAppearance={isDark ? "dark" : "light"}
             accessibilityLabel="Search friends"
             autoCorrect={false}
             autoCapitalize="none"
@@ -379,6 +384,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
                 onChangeText={setNote}
                 placeholder="Write a message…"
                 placeholderTextColor={colors.faint}
+                keyboardAppearance={isDark ? "dark" : "light"}
                 accessibilityLabel="Write a message"
                 maxLength={500}
                 multiline
@@ -391,15 +397,15 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
                 accessibilityRole="button"
                 accessibilityLabel={sendLabel}
                 accessibilityState={{ disabled: busy || picked.size === 0 }}
-                style={({ pressed }) => [styles.send, status === "sent" && { backgroundColor: colors.green }, pressed && !busy && { opacity: 0.85 }]}
+                style={({ pressed }) => [styles.send, status === "sent" && { backgroundColor: colors.successFill }, pressed && !busy && { opacity: 0.85 }]}
               >
-                {status === "sending" ? <ActivityIndicator size="small" color="#fff" /> : status === "sent" ? <Ionicons name="checkmark" size={16} color="#fff" /> : null}
+                {status === "sending" ? <ActivityIndicator size="small" color={colors.onBrand} /> : status === "sent" ? <Ionicons name="checkmark" size={16} color={colors.onBrand} /> : null}
                 <Text style={styles.sendText}>{sendLabel}</Text>
               </Pressable>
             </View>
           </View>
         ) : null}
-        <Pressable onPress={() => void shareTo()} disabled={busy} accessibilityRole="button" accessibilityLabel="Share to…" style={({ pressed }) => [styles.secondary, pressed && { backgroundColor: colors.bg }]}>
+        <Pressable onPress={() => void shareTo()} disabled={busy} accessibilityRole="button" accessibilityLabel="Share to…" style={({ pressed }) => [styles.secondary, pressed && { backgroundColor: colors.input }]}>
           <View style={styles.secondaryIcon}>
             <Ionicons name="share-outline" size={20} color={colors.text} />
           </View>
@@ -411,9 +417,9 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.25)" },
-  sheet: { height: "72%", backgroundColor: colors.card, borderTopLeftRadius: radius.lg + 4, borderTopRightRadius: radius.lg + 4, overflow: "hidden" },
+const useStyles = makeStyles((colors) => ({
+  root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
+  sheet: { height: "72%", backgroundColor: colors.elevated, borderTopLeftRadius: radius.lg + 4, borderTopRightRadius: radius.lg + 4, overflow: "hidden" },
   header: { alignItems: "center", paddingTop: 8, paddingBottom: 10, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 10 },
   title: { fontSize: 16, fontWeight: "700", color: colors.text },
@@ -423,7 +429,8 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8, flexGrow: 1 },
   grid: { flexDirection: "row", flexWrap: "wrap" },
   tile: { alignItems: "center", paddingVertical: 8, paddingHorizontal: 4, gap: 6 },
-  check: { position: "absolute", right: -2, bottom: -2, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.brand, borderWidth: 2, borderColor: colors.card, alignItems: "center", justifyContent: "center" },
+  // The ring is the sheet's own colour, cutting the tick out of the photo.
+  check: { position: "absolute", right: -2, bottom: -2, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.brand, borderWidth: 2, borderColor: colors.elevated, alignItems: "center", justifyContent: "center" },
   tileName: { fontSize: 12, lineHeight: 15, color: colors.text, textAlign: "center" },
   empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 32, paddingHorizontal: 24 },
   emptyTitle: { fontSize: 15, fontWeight: "600", color: colors.text, textAlign: "center" },
@@ -431,19 +438,19 @@ const styles = StyleSheet.create({
   loginText: { fontSize: 16, fontWeight: "700", color: colors.brand, textAlign: "center" },
   errorText: { fontSize: 14, color: colors.red, textAlign: "center" },
   // The look of ErrorBanner in components/ui.
-  banner: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8, padding: 12, borderRadius: radius.md, backgroundColor: "#fdecec" },
-  bannerText: { flex: 1, fontSize: 14, color: "#8a1c1c" },
-  bannerRetry: { fontSize: 14, fontWeight: "700", color: "#8a1c1c" },
+  banner: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8, padding: 12, borderRadius: radius.md, backgroundColor: colors.dangerSoft },
+  bannerText: { flex: 1, fontSize: 14, color: colors.dangerText },
+  bannerRetry: { fontSize: 14, fontWeight: "700", color: colors.dangerText },
   ghostButton: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: radius.pill, backgroundColor: colors.brandSoft },
   ghostButtonText: { fontSize: 14, fontWeight: "700", color: colors.brand },
-  footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: 12, paddingTop: 8, backgroundColor: colors.card },
+  footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: 12, paddingTop: 8, backgroundColor: colors.elevated },
   composer: { gap: 6, paddingBottom: 8 },
   to: { fontSize: 12, color: colors.muted, marginLeft: 2 },
   composerRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
   note: { flex: 1, minHeight: 40, maxHeight: 96, backgroundColor: colors.input, borderRadius: 20, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 10, fontSize: 15, color: colors.text },
   send: { minWidth: 84, height: 40, borderRadius: 20, paddingHorizontal: 16, backgroundColor: colors.brand, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
-  sendText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  sendText: { color: colors.onBrand, fontSize: 15, fontWeight: "700" },
   secondary: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingHorizontal: 4, borderRadius: radius.md },
   secondaryIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
   secondaryText: { flex: 1, fontSize: 15, fontWeight: "600", color: colors.text },
-});
+}));

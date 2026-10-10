@@ -15,7 +15,7 @@ await admin.from("follows").insert({ follower_id: leo.id, followee_id: other.id 
 const friends = await admin.from("follows").insert([{ follower_id: me.id, followee_id: leo.id }, { follower_id: leo.id, followee_id: me.id }]);
 if (friends.error) throw friends.error;
 // Profile page (migration 18): Maya lists two classes for this semester and lets everyone see them (classes_visibility "public"; the default is friends),
-// so visitors get her "Classes this semester" card. Saved and Liked keep their defaults (only her, everyone). The term follows currentTerm() in
+// so visitors see them in her Classes tab. Saved and Liked keep their defaults (only her, everyone). The term follows currentTerm() in
 // packages/shared: January to May is Spring, June and July Summer, August to December Fall. Two inserts, so CS 3358 is the older one and comes first.
 // The rows go with her account in sim-cleanup.mjs (profile_classes cascades from profiles). Without migration 18 the seed only warns.
 const today = new Date(); const term = `${today.getMonth() <= 4 ? "Spring" : today.getMonth() <= 6 ? "Summer" : "Fall"} ${today.getFullYear()}`;

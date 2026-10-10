@@ -10,7 +10,7 @@ import { useQuery } from "@/lib/hooks";
 import { emitPostRemoved } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 
 const NO_ENGAGEMENT: PostEngagement = { likes: 0, comments: 0, likedByMe: false };
 
@@ -35,6 +35,8 @@ export default function PostScreen() {
 }
 
 function PostDetail({ post, engagement, saved, preview, focusComments }: { post: FeedPostWithAuthor; engagement: PostEngagement; saved: boolean; preview?: PostPreview; focusComments: boolean }) {
+  const colors = useColors();
+  const styles = useStyles();
   const { user } = useSession();
   const router = useRouter();
   const [comments, setComments] = useState(engagement.comments);
@@ -52,7 +54,7 @@ function PostDetail({ post, engagement, saved, preview, focusComments }: { post:
   }
 
   return (
-    <ScrollView ref={scroll} style={{ backgroundColor: colors.card }} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+    <ScrollView ref={scroll} style={{ backgroundColor: colors.bg }} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
       <InstaPost
         post={post}
         saved={saved}
@@ -71,6 +73,6 @@ function PostDetail({ post, engagement, saved, preview, focusComments }: { post:
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   thread: { padding: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-});
+}));

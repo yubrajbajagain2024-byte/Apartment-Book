@@ -8,7 +8,8 @@ import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { useFeed, useQuery } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors, space } from "@/lib/theme";
+import { space } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 
 type Kind = "followers" | "following";
 /** A list entry keyed by the person, which is what useFeed needs to drop a row that two pages both return. */
@@ -22,6 +23,8 @@ const KINDS: { value: Kind; label: string }[] = [
 /** Followers | Following of one person, newest first, with a Follow button on every row but your own. Opened from the counts on a profile. */
 export default function FollowsScreen() {
   const { id, kind: initialKind, name } = useLocalSearchParams<{ id: string; kind?: string; name?: string }>();
+  const styles = useStyles();
+  const colors = useColors();
   const { user } = useSession();
   const navigation = useNavigation();
   const [kind, setKind] = useState<Kind>(initialKind === "following" ? "following" : "followers");
@@ -55,6 +58,7 @@ export default function FollowsScreen() {
 }
 
 function PeopleList({ userId, kind, viewerId, onRowChange, onRefresh }: { userId: string; kind: Kind; viewerId: string | null; onRowChange?: (stats: FollowStats) => void; onRefresh: () => void }) {
+  const styles = useStyles();
   const router = useRouter();
   const feed = useFeed<Row>(
     async (page) => {
@@ -92,8 +96,9 @@ function PeopleList({ userId, kind, viewerId, onRowChange, onRefresh }: { userId
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.card },
+const useStyles = makeStyles((colors) => ({
+  // The screen colour (white in light, as before; black in dark like every other screen).
+  screen: { flex: 1, backgroundColor: colors.bg },
   name: { textAlign: "center", color: colors.muted, fontSize: 13, paddingTop: space.sm },
   segments: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   segment: { flex: 1, alignItems: "center", paddingTop: space.md, gap: space.sm },
@@ -101,4 +106,4 @@ const styles = StyleSheet.create({
   segmentTextActive: { color: colors.text, fontWeight: "800" },
   underline: { height: 2, alignSelf: "stretch", backgroundColor: "transparent" },
   more: { textAlign: "center", color: colors.faint, padding: 12 },
-});
+}));

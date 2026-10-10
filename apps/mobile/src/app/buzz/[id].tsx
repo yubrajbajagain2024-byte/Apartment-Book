@@ -29,7 +29,7 @@ import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 
 /** How far each level of replies moves to the right. One thin vertical line is drawn per level. */
 const INDENT = 14;
@@ -39,6 +39,8 @@ type Row = BuzzCommentNode & { lineOwners: string[]; collapsed: boolean };
 
 /** Reddit's round header button. */
 function RoundButton({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+  const colors = useColors();
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} hitSlop={6} style={({ pressed }) => [styles.round, pressed && { opacity: 0.6 }]} accessibilityRole="button" accessibilityLabel={label}>
       <Ionicons name={icon} size={22} color={colors.text} />
@@ -53,6 +55,8 @@ export default function BuzzThreadScreen() {
   const show = useActionSheet();
   const insets = useSafeAreaInsets();
   const { user } = useSession();
+  const { colors, isDark } = useAppTheme();
+  const styles = useStyles();
   const [post, setPost] = useState<BuzzPost | null>(null);
   const [comments, setComments] = useState<BuzzComment[]>([]);
   const [sort, setSort] = useState<BuzzCommentSort>("best");
@@ -314,7 +318,7 @@ export default function BuzzThreadScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.card }}>
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
         {header}
         <Loading />
       </View>
@@ -322,7 +326,7 @@ export default function BuzzThreadScreen() {
   }
   if (!post) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.card }}>
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
         {header}
         <View style={{ flex: 1, padding: 12 }}>
           {error ? <ErrorBanner message={error} onRetry={() => void load()} /> : <EmptyState icon="chatbubbles-outline" title="This post is no longer available" body="It may have been deleted, or it is hidden for you." action={<Button title="Go back" variant="secondary" onPress={leave} />} />}
@@ -334,7 +338,7 @@ export default function BuzzThreadScreen() {
   const canSend = !busy && body.trim().length > 0;
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.card }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       {header}
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <FlatList
@@ -443,14 +447,15 @@ export default function BuzzThreadScreen() {
                 if (!body.trim() && !busy) closeComposer();
               }}
               placeholder={replyTo ? "Write your reply…" : "Join the conversation"}
-              placeholderTextColor={colors.muted}
+              placeholderTextColor={colors.faint}
+              keyboardAppearance={isDark ? "dark" : "light"}
               multiline
               maxLength={2000}
               style={styles.input}
               accessibilityLabel="Reply anonymously"
             />
             <Pressable onPress={() => void send()} disabled={!canSend} style={[styles.send, !canSend && { opacity: 0.4 }]} accessibilityRole="button" accessibilityLabel="Send reply">
-              <Ionicons name="arrow-up" size={20} color="#fff" />
+              <Ionicons name="arrow-up" size={20} color={colors.onBrand} />
             </Pressable>
           </View>
         ) : (
@@ -478,6 +483,8 @@ type ReplyRowProps = {
 
 /** One reply, Reddit style: lines on the left for each level, avatar and alias, the text, then ⋯ / Reply / votes on the right. */
 function ReplyRow({ reply: c, vote: override, onVoted, onToggle, onReply, onMenu }: ReplyRowProps) {
+  const colors = useColors();
+  const styles = useStyles();
   const { vote, cast } = useVote("reply", c.id, override ?? c, (value) => voteBuzzComment(supabase, c.id, value), onVoted);
   const label = `Reply from ${c.alias}${c.isMine ? ", you" : ""}${c.isOp ? ", who started the thread" : ""}`;
 
@@ -535,20 +542,21 @@ function ReplyRow({ reply: c, vote: override, onVoted, onToggle, onReply, onMenu
   );
 }
 
-const styles = StyleSheet.create({
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingBottom: 6, backgroundColor: colors.card },
+const useStyles = makeStyles((colors, scheme) => ({
+  // In dark the bar is black over the grey post, so a hairline marks the edge; in light both are white and run together.
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingBottom: 6, backgroundColor: colors.bar, borderBottomWidth: scheme === "dark" ? StyleSheet.hairlineWidth : 0, borderBottomColor: colors.border },
   headerGroup: { flexDirection: "row", alignItems: "center", gap: 8 },
   round: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
 
   sortRow: { flexDirection: "row", paddingHorizontal: BUZZ_GUTTER, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   sort: { flexDirection: "row", alignItems: "center", gap: 4 },
   sortText: { fontSize: 13, fontWeight: "700", color: colors.muted },
-  emptyWrap: { marginTop: 6, backgroundColor: colors.card, paddingVertical: 28, paddingHorizontal: BUZZ_GUTTER },
+  emptyWrap: { marginTop: 6, backgroundColor: colors.card, paddingVertical: 28, paddingHorizontal: BUZZ_GUTTER, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   empty: { color: colors.muted, textAlign: "center" },
 
   reply: { backgroundColor: colors.card, paddingRight: BUZZ_GUTTER, paddingTop: 10, paddingBottom: 4 },
-  /** The grey band between two top-level replies is the list's background showing through. */
-  replyTop: { marginTop: 6 },
+  /** The band between two top-level replies is the list's background (colors.bg) showing through, with a hairline so it shows on white too. */
+  replyTop: { marginTop: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   lineHit: { position: "absolute", top: 0, bottom: 0, width: 13, alignItems: "center" },
   line: { position: "absolute", top: 0, bottom: 0, left: 6, width: 1, backgroundColor: colors.border },
   replyHead: { flexDirection: "row", alignItems: "center", gap: 6, paddingBottom: 6 },
@@ -568,17 +576,20 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: colors.card,
+    backgroundColor: colors.elevated,
+    // The shadow lifts it off a light screen; on black only this hairline outline does.
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
+    shadowColor: colors.shadow,
     shadowOpacity: 0.18,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
 
-  composerWrap: { paddingHorizontal: 12, paddingTop: 8, gap: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.card },
+  composerWrap: { paddingHorizontal: 12, paddingTop: 8, gap: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.bar },
   replyingTo: { alignSelf: "flex-start", maxWidth: "100%", flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.input, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
   replyingText: { flexShrink: 1, fontSize: 12, fontWeight: "600", color: colors.muted },
   formError: { color: colors.red, fontSize: 12, paddingHorizontal: 4 },
@@ -587,4 +598,4 @@ const styles = StyleSheet.create({
   composer: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
   input: { flex: 1, minHeight: 44, maxHeight: 140, backgroundColor: colors.input, borderRadius: 22, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, fontSize: 15, color: colors.text },
   send: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-});
+}));

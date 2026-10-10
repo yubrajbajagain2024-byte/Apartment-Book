@@ -77,5 +77,6 @@ export async function deleteApartmentAction(id: string): Promise<void> {
   await deleteApartment(supabase, id);
   revalidatePath("/apartments");
   revalidatePath("/");
-  redirect("/profile/me");
+  // Back to your remaining listings, which live on the profile's Listings tab.
+  redirect("/profile/me?tab=listings");
 }

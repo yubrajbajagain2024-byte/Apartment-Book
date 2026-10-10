@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from "expo-video";
 import type { FeedMedia } from "@apartment-book/shared";
-import { colors } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 
 const DOUBLE_TAP_MS = 260;
 
@@ -26,6 +26,8 @@ type PhotoCarouselProps = {
  * `videoLabel` is the pill shown when the first slide is a video: "Video tour" suits listings; pass another word, or null for no pill.
  */
 export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, active = true, videoLabel = "Video tour", dots = true, onIndexChange }: PhotoCarouselProps) {
+  const colors = useColors();
+  const styles = useStyles();
   const [width, setWidth] = useState(0);
   const [index, setIndex] = useState(0);
   const listRef = useRef<FlatList<FeedMedia>>(null);
@@ -62,7 +64,7 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
 
   if (count === 0) return null;
   return (
-    <View style={{ width: "100%", backgroundColor: "#000" }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+    <View style={{ width: "100%", backgroundColor: colors.mediaBg }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {width > 0 ? (
         <FlatList
           ref={listRef}
@@ -107,7 +109,7 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
       ) : null}
       {videoLabel && media[0]?.type === "video" ? (
         <View style={styles.videoBadge}>
-          <Ionicons name="videocam" size={13} color="#fff" />
+          <Ionicons name="videocam" size={13} color={colors.onMedia} />
           <Text style={styles.videoBadgeText}>{videoLabel}</Text>
         </View>
       ) : null}
@@ -118,6 +120,8 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
 let soundOn = false;
 
 function VideoSlide({ media, width, height, playing }: { media: Extract<FeedMedia, { type: "video" }>; width: number; height: number; playing: boolean }) {
+  const colors = useColors();
+  const styles = useStyles();
   const player = useVideoPlayer({ uri: media.playbackUrl }, (p) => {
     p.loop = true;
     p.muted = !soundOn;
@@ -132,7 +136,7 @@ function VideoSlide({ media, width, height, playing }: { media: Extract<FeedMedi
     player.muted = muted;
   }, [muted, player]);
   return (
-    <View style={{ width, height, backgroundColor: "#000" }}>
+    <View style={{ width, height, backgroundColor: colors.mediaBg }}>
       <VideoView player={player} style={{ width, height }} contentFit="cover" nativeControls={false} onFirstFrameRender={() => setHasFrame(true)} />
       {/* Poster stays on top until the first video frame is painted, so the slide is never a black box. */}
       {media.poster && !hasFrame ? <Image source={{ uri: media.poster }} style={StyleSheet.absoluteFill} contentFit="cover" pointerEvents="none" /> : null}
@@ -144,19 +148,20 @@ function VideoSlide({ media, width, height, playing }: { media: Extract<FeedMedi
         accessibilityRole="button" accessibilityLabel={muted ? "Unmute" : "Mute"}
         style={styles.mute}
       >
-        <Ionicons name={muted ? "volume-mute" : "volume-high"} size={16} color="#fff" />
+        <Ionicons name={muted ? "volume-mute" : "volume-high"} size={16} color={colors.onMedia} />
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  counter: { position: "absolute", top: 10, right: 10, backgroundColor: "rgba(0,0,0,0.65)", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
-  counterText: { color: "#fff", fontSize: 12, fontWeight: "700" },
+// Everything here sits on the photo or video, so it uses the media colours, which are the same in both themes.
+const useStyles = makeStyles((colors) => ({
+  counter: { position: "absolute", top: 10, right: 10, backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
+  counterText: { color: colors.onMedia, fontSize: 12, fontWeight: "700" },
   dots: { position: "absolute", bottom: 10, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 5 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.6)" },
-  dotActive: { width: 18, backgroundColor: "#fff" },
-  videoBadge: { position: "absolute", top: 10, left: 10, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.65)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  videoBadgeText: { color: "#fff", fontSize: 12, fontWeight: "700" },
-  mute: { position: "absolute", right: 10, bottom: 28, width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center" },
-});
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.onMediaMuted },
+  dotActive: { width: 18, backgroundColor: colors.onMedia },
+  videoBadge: { position: "absolute", top: 10, left: 10, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  videoBadgeText: { color: colors.onMedia, fontSize: 12, fontWeight: "700" },
+  mute: { position: "absolute", right: 10, bottom: 28, width: 32, height: 32, borderRadius: 16, backgroundColor: colors.mediaPill, alignItems: "center", justifyContent: "center" },
+}));

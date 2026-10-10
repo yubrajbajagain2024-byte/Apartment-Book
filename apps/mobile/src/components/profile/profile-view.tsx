@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
-import { ActivityIndicator, Alert, FlatList, Linking, RefreshControl, StyleSheet, Text, View, useWindowDimensions, type ListRenderItem } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Linking, RefreshControl, Text, View, useWindowDimensions, type ListRenderItem } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,6 +27,7 @@ import {
   setPostPinned,
   setProfileVisibility,
   unblockUser,
+  type FollowStats,
   type ProfileClass,
   type ProfileSection,
   type ProfileSectionAccess,
@@ -44,12 +45,13 @@ import { errorText, useQuery } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned, onPostRemoved } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { colors, radius, space } from "@/lib/theme";
+import { radius, space } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useChangeAvatar } from "@/lib/use-change-avatar";
-import { ClassesCard, ClassesSection } from "./classes-section";
+import { ClassesSection } from "./classes-section";
 import { HeaderButton, HeaderIconButton, PROFILE_BUTTON_HEIGHT, ProfileHeader, ProfileTopBar, profileHandle } from "./profile-header";
 import { ProfileTabs, type ProfileTabKey } from "./profile-tabs";
-import { ListingsRow, ProfileGridTile, useOpenTile } from "./profile-tile";
+import { ListingGridTile, ProfileGridTile, useOpenTile } from "./profile-tile";
 import { ShareProfileSheet } from "./share-profile-sheet";
 import { useTileGrid, type GridCursor, type GridPage, type TileGrid } from "./use-tile-grid";
 import { LockedNotice, VisibilityRow } from "./visibility-row";
@@ -62,10 +64,12 @@ const NO_PROFILE_STATS: ProfileStats = { posts: 0, reels: 0, likesReceived: 0 };
 /** The database's defaults, for a profile read before the settings existed. */
 const DEFAULT_VISIBILITY: Record<ProfileSection, ProfileVisibility> = { classes: "friends", saved: "private", liked: "public" };
 /** What each tab holds, for "Could not load …". */
-const TAB_NOUNS: Record<ProfileTabKey, string> = { posts: "posts", classes: "classes", reels: "reels", saved: PROFILE_SECTION_NOUNS.saved, liked: PROFILE_SECTION_NOUNS.liked };
+const TAB_NOUNS: Record<ProfileTabKey, string> = { posts: "posts", classes: "classes", reels: "reels", saved: PROFILE_SECTION_NOUNS.saved, liked: PROFILE_SECTION_NOUNS.liked, listings: "listings" };
 
+/** The tabs that show squares: all but Classes. Listings is a single page; the others load more as you scroll. */
 type GridTab = Exclude<ProfileTabKey, "classes">;
 
+/** The tabs with a who-can-see setting. Posts, Reels and Listings are for everyone. */
 const isSection = (tab: ProfileTabKey): tab is ProfileSection => tab === "classes" || tab === "saved" || tab === "liked";
 
 function visibilityOf(profile: ProfileWithUniversity, section: ProfileSection): ProfileVisibility {
@@ -77,6 +81,11 @@ async function postTiles(userId: string, kind: "post" | "reel", cursor: GridCurs
   const page = typeof cursor === "number" ? cursor : 1;
   const result = await listProfilePostTiles(supabase, userId, kind, page);
   return { tiles: result.tiles, next: result.hasMore ? page + 1 : null };
+}
+
+/** Someone's live apartments, roommate posts and items for sale, newest first, all at once: a single page. */
+async function listingTiles(userId: string): Promise<GridPage> {
+  return { tiles: await listProfileListings(supabase, userId), next: null };
 }
 
 const before = (cursor: GridCursor | null) => (typeof cursor === "string" ? cursor : null);
@@ -112,15 +121,19 @@ function RowGap() {
 
 /**
  * A whole profile, yours or someone else's, as one list (TikTok's profile): the header (photo, name, @username, Following |
- * Followers | Likes, the buttons, bio and university), "Classes this semester", the Listings row and the tabs Posts | Classes
- * | Reels | Saved | Liked, then the open tab's squares, three to a row, loading more as you scroll. Classes, Saved and Liked
- * follow the owner's settings: the owner sees who can see each (and changes it there), a visitor without access sees a lock.
+ * Followers | Likes, the buttons, bio and university), the tabs Posts | Classes | Reels | Saved | Liked | Listings, then the
+ * open tab: its squares three to a row, loading more as you scroll, or for Classes the classes by semester (where the owner
+ * adds them). Listings (apartments, roommate posts and items for sale) come all at once. Classes, Saved and Liked follow the
+ * owner's settings: the owner sees who can see each (and changes it there), a visitor without access sees a lock; Posts,
+ * Reels and Listings are public.
  *
  * `topBar` is the Profile tab, which draws its own bar (Find friends, your name with the account sheet, the menu); on a
  * stacked screen the navigation header shows the name instead. Everything that needs migration 18 (likes received, classes,
  * Saved and Liked, the grids) fails on its own: the header still shows, with zeros, and the tab says what could not load.
  */
 export function ProfileView({ userId, topBar = false }: { userId: string; topBar?: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
   const { user, profile: myProfile, refreshProfile, signOut } = useSession();
   const router = useRouter();
   const navigation = useNavigation();
@@ -141,8 +154,10 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   const followQ = useQuery(() => getFollowStats(supabase, userId), [userId, viewerId]);
   const statsQ = useQuery(() => getProfileStats(supabase, userId).catch(() => NO_PROFILE_STATS), [userId, viewerId]);
   const accessQ = useQuery(() => (own ? Promise.resolve(OWNER_ACCESS) : getProfileSectionAccess(supabase, userId)), [userId, viewerId, own]);
-  const classesQ = useQuery(() => listProfileClasses(supabase, userId), [userId, viewerId]);
-  const listingsQ = useQuery(() => listProfileListings(supabase, userId), [userId]);
+  // The database hides classes the reader may not see (the list just comes back empty), so they load again whenever that
+  // access changes: following each other, a block.
+  const classesOpen = own || accessQ.data?.classes === true;
+  const classesQ = useQuery(() => listProfileClasses(supabase, userId), [userId, viewerId, classesOpen]);
   const blockedQ = useQuery(() => (viewerId && !own ? isBlocked(supabase, viewerId, userId) : Promise.resolve(false)), [viewerId, userId, own]);
 
   const access = own ? OWNER_ACCESS : accessQ.data;
@@ -163,7 +178,9 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   const reels = useTileGrid((c) => postTiles(userId, "reel", c), { resetKey, enabled: visited.has("reels") });
   const saved = useTileGrid((c) => listProfileSaved(supabase, userId, { before: before(c) }), { resetKey, enabled: visited.has("saved") && canSee("saved") });
   const liked = useTileGrid((c) => listProfileLiked(supabase, userId, { before: before(c) }), { resetKey, enabled: visited.has("liked") && canSee("liked") });
-  const grids: Record<GridTab, TileGrid> = { posts, reels, saved, liked };
+  // Listings are public, so they need no access check, and come as a single page.
+  const listings = useTileGrid(() => listingTiles(userId), { resetKey, enabled: visited.has("listings") });
+  const grids: Record<GridTab, TileGrid> = { posts, reels, saved, liked, listings };
   const grid = tab === "classes" ? null : grids[tab];
 
   // A pin or a delete anywhere in the app (the post screen, Home) moves or drops the square here too.
@@ -171,15 +188,27 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   const { update: updateReels } = reels;
   const { update: updateSaved } = saved;
   const { update: updateLiked } = liked;
+  // Posts and Reels come in pages by position, so a square that moved or went would make the next page skip a post: after
+  // the instant change, the grid that had it loads again from the first page (on your own profile a pin reloads both when
+  // neither had it yet). Saved and Liked page by a cursor, which a pin or a delete does not move.
+  const reloadPaged = useRef<(id: string, pin: boolean) => void>(() => {});
+  useEffect(() => {
+    reloadPaged.current = (id, pin) => {
+      const held = [posts, reels].filter((g) => g.tiles.some((t) => t.id === id));
+      for (const g of held.length > 0 ? held : pin && own ? [posts, reels] : []) void g.refresh();
+    };
+  });
   useEffect(() => {
     const offPin = onPostPinned((id, pinned) => {
       updatePosts((t) => repin(t, id, pinned, true));
       updateReels((t) => repin(t, id, pinned, true));
       updateSaved((t) => repin(t, id, pinned, false));
       updateLiked((t) => repin(t, id, pinned, false));
+      reloadPaged.current(id, true);
     });
     const offRemoved = onPostRemoved((id) => {
       for (const update of [updatePosts, updateReels, updateSaved, updateLiked]) update(dropPost(id));
+      reloadPaged.current(id, false);
     });
     return () => {
       offPin();
@@ -249,7 +278,6 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
         statsQ.refresh(),
         accessQ.refresh(),
         classesQ.refresh(),
-        listingsQ.refresh(),
         blockedQ.refresh(),
         ...Object.values(grids).map((g) => g.refresh()),
       ]);
@@ -258,15 +286,16 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
     }
   }
 
-  // Back on this screen (a post published, someone followed, a listing added): the numbers and a one-page grid reload quietly.
+  // Back on this screen (a post published, someone followed, a listing added): the numbers, a one-page grid and the Listings
+  // (once that tab has been opened, even while another tab shows) reload quietly.
   const onFocusAgain = useRef<() => void>(() => {});
   useEffect(() => {
     onFocusAgain.current = () => {
       void followQ.refresh();
       void statsQ.refresh();
-      void listingsQ.refresh();
       if (!own) void accessQ.refresh();
       grid?.quietRefresh();
+      if (grid !== listings) listings.quietRefresh();
     };
   });
   const focusedBefore = useRef(false);
@@ -311,10 +340,17 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
       Alert.alert("Message", errorText(e, "Could not open the chat. Try again."));
     }
   }
+  /** The Follow button moves the counts above with it. Following each other makes you friends, who may open more (Classes by default). */
+  function followChanged(stats: FollowStats) {
+    followQ.setData(stats);
+    // Heard for the guess and again once the server has answered: the last read wins, so access ends up as the server has it.
+    void accessQ.refresh();
+  }
   function afterBlockChange() {
     void blockedQ.refresh();
     void followQ.refresh();
     void statsQ.refresh();
+    // A block closes Classes, Saved and Liked both ways and unblocking can open them again; Classes reload with the access.
     void accessQ.refresh();
   }
   function more() {
@@ -396,7 +432,7 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   ) : (
     <>
       {/* A block forbids following on the server, so the button goes while "Blocked" shows. onChange keeps the counts above in step with the button. */}
-      {!blocked ? <FollowButton targetId={userId} stats={followQ.data ?? undefined} userId={viewerId} onNeedLogin={needLogin} onChange={followQ.setData} style={styles.follow} /> : null}
+      {!blocked ? <FollowButton targetId={userId} stats={followQ.data ?? undefined} userId={viewerId} onNeedLogin={needLogin} onChange={followChanged} style={styles.follow} /> : null}
       <HeaderButton title={blocked ? "Blocked" : "Message"} onPress={() => void message()} disabled={blocked} />
       <HeaderIconButton icon="ellipsis-horizontal" label="More" onPress={more} />
     </>
@@ -415,14 +451,14 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
         changingPhoto={avatar.busy}
         actions={actions}
       />
-      {classes && !classesQ.error && canSee("classes") ? <ClassesCard classes={classes} own={own} onPress={() => selectTab("classes")} /> : null}
-      <ListingsRow tiles={listingsQ.data ?? NO_TILES} onOpen={openTile} />
       <ProfileTabs active={tab} onSelect={selectTab} locks={locks} />
       {own && isSection(tab) ? <VisibilityRow section={tab} value={visibility(tab)} busy={savingVisibility === tab} onChange={(v) => void changeVisibility(tab, v)} /> : null}
     </View>
   );
 
-  const renderTile: ListRenderItem<ProfileTile> = ({ item }) => <ProfileGridTile tile={item} width={tileWidth} onOpen={openTile} onLongPress={pinnable ? pinMenu : undefined} />;
+  // Listings show their kind and title on the square (as on the website); the other tabs keep TikTok's plain squares.
+  const renderTile: ListRenderItem<ProfileTile> = ({ item }) =>
+    tab === "listings" ? <ListingGridTile tile={item} width={tileWidth} onOpen={openTile} /> : <ProfileGridTile tile={item} width={tileWidth} onOpen={openTile} onLongPress={pinnable ? pinMenu : undefined} />;
 
   return (
     <View style={styles.screen}>
@@ -479,6 +515,7 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
 }
 
 function ErrorLine({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const styles = useStyles();
   return (
     <View style={styles.errorLine}>
       <ErrorBanner message={message} onRetry={onRetry} />
@@ -488,12 +525,15 @@ function ErrorLine({ message, onRetry }: { message: string; onRetry: () => void 
 
 /** An empty tab: your own Posts and Reels offer to make the first one. */
 function TabEmpty({ tab, own }: { tab: GridTab; own: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
   const router = useRouter();
   const copy: Record<GridTab, { icon: keyof typeof Ionicons.glyphMap; title: string; action?: { title: string; href: "/create/post" | "/create/reel" } }> = {
     posts: own ? { icon: "grid-outline", title: "Share your first post", action: { title: "Create post", href: "/create/post" } } : { icon: "grid-outline", title: "No posts yet" },
     reels: own ? { icon: "film-outline", title: "No reels yet", action: { title: "Create reel", href: "/create/reel" } } : { icon: "film-outline", title: "No reels yet" },
     saved: { icon: "bookmark-outline", title: "Nothing saved yet" },
     liked: { icon: "heart-outline", title: "No liked posts yet" },
+    listings: { icon: "storefront-outline", title: "No listings yet" },
   };
   const { icon, title, action } = copy[tab];
   return (
@@ -507,9 +547,11 @@ function TabEmpty({ tab, own }: { tab: GridTab; own: boolean }) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.card },
-  list: { flex: 1, backgroundColor: colors.card },
+const useStyles = makeStyles((colors) => ({
+  // The profile is a screen: white in light, pure black in dark, and so are its bars (the Profile tab's top bar, a stacked
+  // profile's navigation header), which use colors.bar.
+  screen: { flex: 1, backgroundColor: colors.bg },
+  list: { flex: 1, backgroundColor: colors.bg },
   gridRow: { gap: GAP },
   follow: { flex: 1, minHeight: PROFILE_BUTTON_HEIGHT, height: PROFILE_BUTTON_HEIGHT, borderRadius: radius.sm },
   spinner: { paddingVertical: space.xl },
@@ -518,4 +560,4 @@ const styles = StyleSheet.create({
   emptyIcon: { width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, borderColor: colors.text, alignItems: "center", justifyContent: "center" },
   emptyTitle: { fontSize: 16, fontWeight: "700", color: colors.text, textAlign: "center" },
   emptyAction: { minWidth: 160 },
-});
+}));

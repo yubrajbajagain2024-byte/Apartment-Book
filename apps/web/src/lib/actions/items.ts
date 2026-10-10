@@ -66,5 +66,6 @@ export async function deleteItemAction(id: string): Promise<void> {
   await requireUser(`/marketplace/${id}`);
   await deleteItem(await createClient(), id);
   revalidatePath("/marketplace");
-  redirect("/profile/me");
+  // Back to your remaining listings, which live on the profile's Listings tab.
+  redirect("/profile/me?tab=listings");
 }

@@ -30,7 +30,8 @@ import { useQuery } from "@/lib/hooks";
 import { useIsOnline } from "@/lib/presence";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors, radius } from "@/lib/theme";
+import { radius } from "@/lib/theme";
+import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 
 type ChatMessage = MessageWithSender & { pending?: boolean; failed?: boolean };
 
@@ -48,6 +49,8 @@ export default function ChatScreen() {
 }
 
 function Chat({ conversation, userId, prefill, contact }: { conversation: ConversationSummary; userId: string; prefill?: string; contact: { type: "apartment" | "item" | "roommate"; id: string } | null }) {
+  const { colors, isDark } = useAppTheme();
+  const styles = useStyles();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [memberStatus, setMemberStatus] = useState<Record<string, MemberStatus>>(conversation.memberStatus);
@@ -136,15 +139,15 @@ function Chat({ conversation, userId, prefill, contact }: { conversation: Conver
   const subtitle = isGroup ? `${conversation.members.length} members` : otherOnline ? "Active now" : lastSeen ? `Active ${timeAgo(lastSeen)}` : "";
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.card }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={90}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={90}>
       <Stack.Screen
         options={{
           headerTitle: () => (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              {!isGroup ? <Avatar name={other?.full_name} url={other?.avatar_url} size="sm" userId={other?.id} /> : null}
+              {!isGroup ? <Avatar name={other?.full_name} url={other?.avatar_url} size="sm" userId={other?.id} ringColor={colors.bar} /> : null}
               <View>
                 <Text style={{ fontWeight: "700", fontSize: 16, color: colors.text }}>{conversation.title}</Text>
-                {subtitle ? <Text style={{ fontSize: 11, color: otherOnline ? colors.green : colors.muted }}>{subtitle}</Text> : null}
+                {subtitle ? <Text style={{ fontSize: 11, color: otherOnline ? colors.successText : colors.muted }}>{subtitle}</Text> : null}
               </View>
             </View>
           ),
@@ -174,8 +177,8 @@ function Chat({ conversation, userId, prefill, contact }: { conversation: Conver
                   {!mine && isGroup && !continued ? <Text style={styles.sender}>{m.sender?.full_name ?? "Unknown"}</Text> : null}
                   {shared ? <SharedPostCard shared={shared} dimmed={Boolean(m.pending)} /> : null}
                   {m.content || !shared ? (
-                    <View style={[styles.bubble, mine ? styles.mine : styles.theirs, m.pending && { opacity: 0.6 }, m.failed && { backgroundColor: "#fdecec" }]}>
-                      <Text style={{ color: mine && !m.failed ? "#fff" : colors.text, fontSize: 15 }}>{m.content}</Text>
+                    <View style={[styles.bubble, mine ? styles.mine : styles.theirs, m.pending && { opacity: 0.6 }, m.failed && { backgroundColor: colors.dangerSoft }]}>
+                      <Text style={{ color: m.failed ? colors.dangerText : mine ? colors.onBrand : colors.text, fontSize: 15 }}>{m.content}</Text>
                     </View>
                   ) : null}
                   <Text style={styles.time}>{m.failed ? "Failed to send" : m.pending ? "Sending…" : formatMessageTime(m.created_at)}</Text>
@@ -198,9 +201,9 @@ function Chat({ conversation, userId, prefill, contact }: { conversation: Conver
         }}
       />
       <View style={styles.composer}>
-        <TextInput value={text} onChangeText={setText} placeholder="Aa" placeholderTextColor={colors.faint} multiline maxLength={4000} style={styles.input} accessibilityLabel="Message" />
+        <TextInput value={text} onChangeText={setText} placeholder="Aa" placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} multiline maxLength={4000} style={styles.input} accessibilityLabel="Message" />
         <Pressable onPress={send} disabled={!text.trim()} style={[styles.send, !text.trim() && { opacity: 0.4 }]} accessibilityRole="button" accessibilityLabel="Send">
-          <Ionicons name="send" size={18} color="#fff" />
+          <Ionicons name="send" size={18} color={colors.onBrand} />
         </Pressable>
       </View>
     </KeyboardAvoidingView>
@@ -224,6 +227,7 @@ function sharedPostHref(shared: SharedPost) {
 
 /** A shared post, reel or listing inside a chat: picture, who posted it, what it says, and "View post" to open it. */
 function SharedPostCard({ shared, dimmed }: { shared: SharedPost; dimmed: boolean }) {
+  const styles = useStyles();
   const router = useRouter();
   const label = sharedPostLabel(shared);
   return (
@@ -257,7 +261,7 @@ function SharedPostCard({ shared, dimmed }: { shared: SharedPost; dimmed: boolea
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   day: { textAlign: "center", fontSize: 11, color: colors.faint, marginVertical: 10, textTransform: "uppercase", letterSpacing: 0.5 },
   card: { width: 240, maxWidth: "100%", borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.card, overflow: "hidden", marginBottom: 2 },
   // 4:5 would be 300pt tall at this width, so the picture is capped at 200 and cropped.
@@ -275,7 +279,7 @@ const styles = StyleSheet.create({
   theirs: { backgroundColor: colors.input },
   time: { fontSize: 10, color: colors.faint, marginTop: 2, marginHorizontal: 4 },
   receipt: { width: 16, alignItems: "center", marginBottom: 16 },
-  composer: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.card },
+  composer: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.bar },
   input: { flex: 1, backgroundColor: colors.input, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, maxHeight: 120, color: colors.text },
   send: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-});
+}));

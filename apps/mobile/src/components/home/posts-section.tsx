@@ -10,7 +10,7 @@ import { useFeed } from "@/lib/hooks";
 import { emitPostRemoved, onPostRemoved, takePostsStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { useColors } from "@/lib/theme-provider";
 import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { InstaPost } from "./insta-post";
 
@@ -18,6 +18,7 @@ import { InstaPost } from "./insta-post";
 export function PostsSection({ active, topInset }: { active: boolean; topInset: number }) {
   const { user, profile } = useSession();
   const router = useRouter();
+  const colors = useColors();
   const [scope] = useHomeScope();
   // The campus is chosen from the dropdown in the top bar; someone without a university sees every campus.
   const universityId = scope.campus === "all" || !profile?.university_id ? undefined : profile.university_id;
@@ -63,7 +64,7 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
   }
 
   return (
-    <View style={{ flex: 1, paddingTop: topInset, backgroundColor: colors.card }}>
+    <View style={{ flex: 1, paddingTop: topInset, backgroundColor: colors.bg }}>
       <FlatList
         ref={listRef}
         data={feed.items}

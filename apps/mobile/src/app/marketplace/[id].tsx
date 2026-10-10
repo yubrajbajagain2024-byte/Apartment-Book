@@ -1,7 +1,7 @@
 import { Alert, Text } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { deleteItem, formatPrice, getItem, ITEM_CATEGORIES, ITEM_CONDITIONS, labelFor, listingMedia, setItemStatus } from "@apartment-book/shared";
-import { detailStyles, Fact, ListingDetail } from "@/components/listing-detail";
+import { Fact, ListingDetail, useDetailStyles } from "@/components/listing-detail";
 import { Button, EmptyState, Loading } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
@@ -10,6 +10,7 @@ export default function ItemScreen() {
   const { id, comment } = useLocalSearchParams<{ id: string; comment?: string }>();
   const router = useRouter();
   const { data: item, loading, refresh } = useQuery(() => getItem(supabase, id), [id]);
+  const detailStyles = useDetailStyles();
   if (loading) return <Loading />;
   if (!item) return <EmptyState icon="bag-handle-outline" title="This item is no longer available" />;
   return (

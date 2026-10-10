@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import { ActionSheetIOS, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActionSheetIOS, Modal, Platform, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radius } from "@/lib/theme";
+import { radius } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 
 export type SheetOption = { label: string; icon?: keyof typeof Ionicons.glyphMap; destructive?: boolean; onPress: () => void };
 type Show = (options: SheetOption[], title?: string) => void;
@@ -9,6 +10,8 @@ const Ctx = createContext<Show>(() => {});
 
 /** Native action sheet on iOS, a bottom sheet elsewhere (Android, web). */
 export function ActionSheetProvider({ children }: { children: ReactNode }) {
+  const styles = useStyles();
+  const colors = useColors();
   const [state, setState] = useState<{ options: SheetOption[]; title?: string } | null>(null);
   const show = useCallback<Show>((options, title) => {
     if (Platform.OS === "ios") {
@@ -32,7 +35,7 @@ export function ActionSheetProvider({ children }: { children: ReactNode }) {
               <Pressable
                 key={o.label}
                 accessibilityRole="menuitem"
-                style={({ pressed }) => [styles.item, pressed && { backgroundColor: colors.bg }]}
+                style={({ pressed }) => [styles.item, pressed && { backgroundColor: colors.input }]}
                 onPress={() => {
                   setState(null);
                   o.onPress();
@@ -56,10 +59,10 @@ export function useActionSheet(): Show {
   return useContext(Ctx);
 }
 
-const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
-  sheet: { backgroundColor: colors.card, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: 8, paddingBottom: 24, gap: 2 },
+const useStyles = makeStyles((colors) => ({
+  backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: "flex-end" },
+  sheet: { backgroundColor: colors.elevated, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: 8, paddingBottom: 24, gap: 2 },
   title: { textAlign: "center", color: colors.muted, fontSize: 13, paddingVertical: 8 },
   item: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, paddingHorizontal: 12, borderRadius: radius.md },
   itemText: { fontSize: 16, fontWeight: "600", color: colors.text },
-});
+}));

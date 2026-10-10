@@ -1,7 +1,7 @@
 import { Alert, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { AMENITIES, deleteApartment, formatDate, formatDistance, formatPrice, getApartment, labelFor, listingMedia } from "@apartment-book/shared";
-import { detailStyles, Fact, ListingDetail } from "@/components/listing-detail";
+import { Fact, ListingDetail, useDetailStyles } from "@/components/listing-detail";
 import { Badge, Button, EmptyState, Loading } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
@@ -10,6 +10,7 @@ export default function ApartmentScreen() {
   const { id, comment } = useLocalSearchParams<{ id: string; comment?: string }>();
   const router = useRouter();
   const { data: a, loading } = useQuery(() => getApartment(supabase, id), [id]);
+  const detailStyles = useDetailStyles();
   if (loading) return <Loading />;
   if (!a) return <EmptyState icon="home-outline" title="This listing is no longer available" />;
   return (

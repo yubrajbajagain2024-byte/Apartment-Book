@@ -69,5 +69,6 @@ export async function deleteRoommatePostAction(id: string): Promise<void> {
   await deleteRoommatePost(await createClient(), id);
   revalidatePath("/roommates");
   revalidatePath("/");
-  redirect("/profile/me");
+  // Back to your remaining listings, which live on the profile's Listings tab.
+  redirect("/profile/me?tab=listings");
 }

@@ -10,7 +10,8 @@ import { SlidingTabs } from "@/components/sliding-tabs";
 import { hapticTap } from "@/lib/haptics";
 import { useHomeScope } from "@/lib/home-scope";
 import { useSession } from "@/lib/session";
-import { colors, radius } from "@/lib/theme";
+import { radius } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 
 /** Height of each of the bar's two rows. */
 const ROW = 44;
@@ -38,9 +39,11 @@ export function HomeTopTabs({ section, onSelect, overVideo, onLayout, scrollX, p
   const { user, profile } = useSession();
   const [scope, setScope] = useHomeScope();
   const [menu, setMenu] = useState(false);
-  const fg = overVideo ? "#fff" : colors.text;
-  const dim = overVideo ? "rgba(255,255,255,0.7)" : colors.muted;
-  const ink = overVideo ? "#fff" : colors.brand;
+  const colors = useColors();
+  const styles = useStyles();
+  const fg = overVideo ? colors.onMedia : colors.text;
+  const dim = overVideo ? colors.onMediaMuted : colors.muted;
+  const ink = overVideo ? colors.onMedia : colors.brand;
   // Signed out there is nobody you follow: the Posts page drops the filter too (see PostsSection).
   const following = Boolean(user) && scope.following;
   // Like Instagram, the wordmark reads "Following" while that feed is showing. Only Posts can filter by follows, so on the
@@ -107,13 +110,13 @@ export function HomeTopTabs({ section, onSelect, overVideo, onLayout, scrollX, p
       <View style={styles.row}>
         <SlidingTabs sections={HOME_SECTIONS} section={section} onSelect={onSelect} scrollX={scrollX} pageWidth={pageWidth} tint={ink} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} />
       </View>
-      {/* Instagram's feed menu: a card anchored just under the wordmark, the page still fully visible behind it. The card stays white over video. */}
+      {/* Instagram's feed menu: a card anchored just under the wordmark, the page still fully visible behind it. The card keeps the theme's colours over video. */}
       <Modal visible={menu} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setMenu(false)}>
         <Pressable style={styles.backdrop} onPress={() => setMenu(false)} accessibilityRole="button" accessibilityLabel="Close" />
         <View pointerEvents="box-none" style={[styles.anchor, { top: insets.top + ROW + MENU_GAP }]}>
           <View style={styles.menu} accessibilityRole="menu">
             {rows.map((r) => (
-              <Pressable key={r.key} onPress={() => pick(r)} accessibilityRole="menuitem" accessibilityLabel={r.label} accessibilityState={{ selected: r.selected }} style={({ pressed }) => [styles.item, pressed && { backgroundColor: colors.bg }]}>
+              <Pressable key={r.key} onPress={() => pick(r)} accessibilityRole="menuitem" accessibilityLabel={r.label} accessibilityState={{ selected: r.selected }} style={({ pressed }) => [styles.item, pressed && { backgroundColor: colors.input }]}>
                 <Ionicons name={r.icon} size={20} color={colors.text} />
                 <Text style={[styles.itemText, r.selected && styles.itemSelected]} numberOfLines={1}>
                   {r.label}
@@ -128,9 +131,9 @@ export function HomeTopTabs({ section, onSelect, overVideo, onLayout, scrollX, p
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, scheme) => ({
   bar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 },
-  solid: { backgroundColor: colors.card, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  solid: { backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   clear: { backgroundColor: "transparent", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "transparent" },
   row: { height: ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: 12 },
   side: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
@@ -139,12 +142,13 @@ const styles = StyleSheet.create({
   // As tall as its row, so the whole 44pt under the wordmark opens the menu.
   title: { minHeight: ROW, flexDirection: "row", alignItems: "center", gap: 2, maxWidth: "100%" },
   wordmark: { fontSize: 22, fontWeight: "800", letterSpacing: -0.5, flexShrink: 1 },
-  shadow: { textShadowColor: "rgba(0,0,0,0.45)", textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
+  shadow: { textShadowColor: colors.mediaScrim, textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
   // Transparent like Instagram's: the page stays fully visible behind the menu, and a tap anywhere outside it closes it.
   backdrop: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   anchor: { position: "absolute", left: 0, right: 0, alignItems: "center" },
-  menu: { width: MENU_WIDTH, backgroundColor: colors.card, borderRadius: radius.lg, paddingVertical: 6, shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 10 },
+  // A shadow cannot be seen on black, so in the dark theme a hairline outline keeps the menu apart from the page.
+  menu: { width: MENU_WIDTH, backgroundColor: colors.elevated, borderRadius: radius.lg, paddingVertical: 6, shadowColor: colors.shadow, shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 10, borderWidth: scheme === "dark" ? StyleSheet.hairlineWidth : 0, borderColor: colors.border },
   item: { height: ROW, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16 },
   itemText: { flex: 1, fontSize: 15, fontWeight: "600", color: colors.text },
   itemSelected: { fontWeight: "700" },
-});
+}));

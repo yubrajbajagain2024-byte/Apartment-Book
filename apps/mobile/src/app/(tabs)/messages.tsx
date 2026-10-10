@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { listConversations, timeAgo, type ConversationSummary } from "@apartment-book/shared";
@@ -8,10 +8,12 @@ import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { colors } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
 
 /** Your chats, newest first: the Messages tab, between Housing and Marketplace in the bottom bar. */
 export default function MessagesScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const { user, loading: sessionLoading } = useSession();
   const router = useRouter();
   const userId = user?.id ?? null;
@@ -67,7 +69,7 @@ export default function MessagesScreen() {
               </View>
               {c.unreadCount > 0 ? (
                 <View style={styles.unread}>
-                  <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800" }}>{c.unreadCount}</Text>
+                  <Text style={{ color: colors.onBrand, fontSize: 11, fontWeight: "800" }}>{c.unreadCount}</Text>
                 </View>
               ) : null}
             </Pressable>
@@ -76,13 +78,13 @@ export default function MessagesScreen() {
         ListEmptyComponent={loading ? <Loading /> : error ? <ErrorBanner message={error} onRetry={refresh} /> : <EmptyState icon="chatbubbles-outline" title="No chats yet" body="Message someone from a post, or start a new chat." />}
       />
       <Pressable onPress={() => router.push("/messages/new")} style={styles.fab} accessibilityRole="button" accessibilityLabel="New message">
-        <Ionicons name="create-outline" size={24} color="#fff" />
+        <Ionicons name="create-outline" size={24} color={colors.onBrand} />
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
   groupAvatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 16, fontWeight: "600", color: colors.text, flexShrink: 1 },
@@ -90,4 +92,4 @@ const styles = StyleSheet.create({
   preview: { fontSize: 14, color: colors.muted },
   unread: { minWidth: 20, height: 20, borderRadius: 10, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
   fab: { position: "absolute", right: 16, bottom: 20, width: 52, height: 52, borderRadius: 26, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", elevation: 5 },
-});
+}));

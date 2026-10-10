@@ -15,6 +15,7 @@ const MAX_EMPTY_HOPS = 3;
  * may see it); a new `resetKey` (another profile or another viewer) starts again from the first page. `refresh` reloads the
  * first page while the squares stay up; `quietRefresh` does the same without a spinner or an error, and only while a single
  * page is loaded, so coming back to the screen never throws away a scrolled-down grid. `update` edits the squares in place.
+ * The Listings tab uses it too, as a single page (`next` is always null).
  */
 export function useTileGrid(load: (cursor: GridCursor | null) => Promise<GridPage>, { resetKey, enabled }: { resetKey: string; enabled: boolean }) {
   const [tiles, setTiles] = useState<ProfileTile[]>([]);
