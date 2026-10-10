@@ -1,216 +1,286 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BadgeCheck, Building2, GraduationCap, Newspaper, School, Settings, ShoppingBag, Users } from "lucide-react";
+import { Bookmark, Clapperboard, Grid3x3, Heart, Lock, type LucideIcon } from "lucide-react";
 import {
+  currentTerm,
   getFollowStats,
-  getPostEngagementMany,
-  getPostPreviewsMany,
   getProfile,
-  getSavedIds,
+  getProfileSectionAccess,
+  getProfileStats,
+  groupClassesByTerm,
   isBlocked,
+  ITEM_STATUSES,
+  LISTING_STATUSES,
   listApartmentsByOwner,
-  listFeedPosts,
+  listingMedia,
   listItemsBySeller,
+  listProfileClasses,
+  listProfileLiked,
+  listProfileListings,
+  listProfilePostTiles,
+  listProfileSaved,
   listRoommatePostsByAuthor,
+  lockedSectionMessage,
   NO_FOLLOW_STATS,
-  type FeedPostWithAuthor,
-  type PostEngagement,
-  type PostPreview,
+  pickableTerms,
+  PROFILE_SECTIONS,
+  tileFromListing,
+  visibilityLabel,
+  type Client,
+  type ProfileSectionAccess,
+  type ProfileStats,
+  type ProfileTile,
 } from "@apartment-book/shared";
-import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
+import { getSiteUrl } from "@/lib/env";
+import { firstNameOf, isProfileTab, profileHandle, profileTabHref, sectionVisibility, type ProfileTab } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate } from "@/lib/utils";
-import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { errorMessage, firstParam } from "@/lib/utils";
 import { LinkButton } from "@/components/ui/button";
-import { Card, CardBody } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
-import { FollowButton, FollowCounts } from "@/components/common/follow-button";
-import { MessageButton } from "@/components/common/message-button";
-import { BlockButton } from "@/components/common/report-block";
-import { ApartmentCard } from "@/components/apartments/apartment-card";
-import { ItemCard } from "@/components/marketplace/item-card";
-import { RoommateCard } from "@/components/roommates/roommate-card";
-import { FeedPostCard } from "@/components/home/posts-feed";
+import { ListingsRow, type ProfileListingCard } from "@/components/profile/listings-row";
+import { ProfileClasses } from "@/components/profile/profile-classes";
+import { ProfileGrid } from "@/components/profile/profile-grid";
+import { ProfileHeader } from "@/components/profile/profile-header";
+import { PROFILE_PANEL_ID, ProfileTabs } from "@/components/profile/profile-tabs";
+import type { ShareProfileTarget } from "@/components/profile/share-profile-dialog";
+import { VisibilityControl } from "@/components/profile/visibility-control";
 
-/** How many of someone's latest posts and reels their profile shows. */
-const PROFILE_POSTS = 12;
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ [key: string]: string | string[] | undefined }> };
 
-type Props = { params: Promise<{ id: string }> };
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const NO_PROFILE_STATS: ProfileStats = { posts: 0, reels: 0, likesReceived: 0 };
+/** Owners may always open their own tabs. */
+const OWNER_ACCESS: ProfileSectionAccess = { classes: true, saved: true, liked: true };
+/** What the database says when someone's Saved or Liked setting keeps the reader out. */
+const PRIVATE_LIST = "This list is private.";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const profile = await getProfile(await createClient(), id).catch(() => null);
-  return { title: profile ? profile.full_name : "Profile" };
+  const profile = UUID.test(id) ? await getProfile(await createClient(), id).catch(() => null) : null;
+  if (!profile) return { title: "Profile" };
+  const handle = profileHandle(profile);
+  return { title: handle ? `${profile.full_name} (@${handle})` : profile.full_name, description: profile.bio?.slice(0, 160) || undefined };
 }
 
-export default async function ProfilePage({ params }: Props) {
-  const { id } = await params;
+/** One tab's first page, or why there is none. */
+type GridTab = { status: "ready"; tiles: ProfileTile[]; hasMore: boolean; next: string | null } | { status: "locked" } | { status: "error" };
+
+async function loadPostGrid(supabase: Client, userId: string, kind: "post" | "reel"): Promise<GridTab> {
+  try {
+    const page = await listProfilePostTiles(supabase, userId, kind);
+    return { status: "ready", tiles: page.tiles, hasMore: page.hasMore, next: null };
+  } catch {
+    return { status: "error" };
+  }
+}
+
+async function loadListGrid(supabase: Client, userId: string, section: "saved" | "liked", allowed: boolean | null): Promise<GridTab> {
+  if (allowed === false) return { status: "locked" };
+  try {
+    const page = await (section === "saved" ? listProfileSaved : listProfileLiked)(supabase, userId);
+    return { status: "ready", tiles: page.tiles, hasMore: page.next !== null, next: page.next };
+  } catch (error) {
+    return errorMessage(error).includes(PRIVATE_LIST) ? { status: "locked" } : { status: "error" };
+  }
+}
+
+function statusLabel(statuses: readonly { value: string; label: string }[], value: string): string {
+  return statuses.find((s) => s.value === value)?.label ?? value;
+}
+
+/**
+ * The Listings row. Visitors see what is live; the owner also sees what is rented, sold or found (marked so), because
+ * this is where they find those again to reopen them.
+ */
+async function loadListings(supabase: Client, userId: string, isMe: boolean): Promise<ProfileListingCard[]> {
+  if (!isMe) return (await listProfileListings(supabase, userId)).map((tile) => ({ tile, status: null }));
+  const [apartments, roommates, items] = await Promise.all([
+    listApartmentsByOwner(supabase, userId, { includeInactive: true }),
+    listRoommatePostsByAuthor(supabase, userId, { includeInactive: true }),
+    listItemsBySeller(supabase, userId, { includeInactive: true }),
+  ]);
+  const dated: { at: string; card: ProfileListingCard }[] = [
+    ...apartments.map((a) => ({
+      at: a.created_at,
+      card: { tile: tileFromListing("apartment", a, listingMedia(a.images, a.image_meta, a.videos)), status: a.status === "active" ? null : statusLabel(LISTING_STATUSES, a.status) },
+    })),
+    ...roommates.map((r) => ({
+      at: r.created_at,
+      card: { tile: tileFromListing("roommate", r, listingMedia(r.images, r.image_meta, r.videos)), status: r.is_active ? null : "Found" },
+    })),
+    ...items.map((i) => ({
+      at: i.created_at,
+      card: { tile: tileFromListing("item", i, listingMedia(i.images, i.image_meta)), status: i.status === "available" ? null : statusLabel(ITEM_STATUSES, i.status) },
+    })),
+  ];
+  // Live ones first, newest first within each group.
+  return dated.sort((a, b) => Number(a.card.status !== null) - Number(b.card.status !== null) || b.at.localeCompare(a.at)).map((d) => d.card);
+}
+
+/**
+ * /profile/[id], TikTok style: photo, name, @handle and QR, Following · Followers · Likes, the main buttons, bio and
+ * campus, this semester's classes, the Listings row, then Posts | Classes | Reels | Saved | Liked as tabs (?tab=…).
+ * Only the chosen tab's first page is read here. Anything that fails to load falls back (zeros, no classes card, a line
+ * in the tab), so the header always renders.
+ */
+export default async function ProfilePage({ params, searchParams }: Props) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  if (!UUID.test(id)) notFound();
+  const requested = firstParam(query.tab);
+  const tab: ProfileTab = isProfileTab(requested) ? requested : "posts";
   const supabase = await createClient();
   const [profile, user] = await Promise.all([getProfile(supabase, id), getCurrentUser()]);
   if (!profile) notFound();
 
   const isMe = user?.id === profile.id;
-  const blocked = user && !isMe ? await isBlocked(supabase, user.id, profile.id).catch(() => false) : false;
-  const [apartments, posts, items, savedIds, viewer, feed, stats] = await Promise.all([
-    listApartmentsByOwner(supabase, profile.id, { includeInactive: isMe }),
-    listRoommatePostsByAuthor(supabase, profile.id, { includeInactive: isMe }),
-    listItemsBySeller(supabase, profile.id, { includeInactive: isMe }),
-    user ? getSavedIds(supabase, user.id) : Promise.resolve(new Set<string>()),
-    user ? getCurrentProfile() : Promise.resolve(null),
-    // Home posts and reels by this person, newest first; the two counts make the "n posts" next to their followers.
-    Promise.all([listFeedPosts(supabase, { kind: "post", authorId: profile.id, pageSize: PROFILE_POSTS }), listFeedPosts(supabase, { kind: "reel", authorId: profile.id, pageSize: PROFILE_POSTS })])
-      .then(([a, b]) => ({ items: [...a.data, ...b.data].sort((x, y) => y.created_at.localeCompare(x.created_at)).slice(0, PROFILE_POSTS), count: a.count + b.count }))
-      .catch(() => ({ items: [] as FeedPostWithAuthor[], count: 0 })),
+  const firstName = firstNameOf(profile.full_name);
+  const handle = profileHandle(profile);
+  const visibility = sectionVisibility(profile);
+  const postKind = tab === "posts" ? "post" : tab === "reels" ? "reel" : null;
+
+  const [blocked, follow, stats, access, classes, listings, postTab] = await Promise.all([
+    user && !isMe ? isBlocked(supabase, user.id, profile.id).catch(() => false) : Promise.resolve(false),
     getFollowStats(supabase, profile.id).catch(() => NO_FOLLOW_STATS),
+    getProfileStats(supabase, profile.id).catch(() => NO_PROFILE_STATS),
+    // Unknown (null) when the check fails: no lock badges then, and the tab finds out for itself.
+    isMe ? Promise.resolve<ProfileSectionAccess | null>(OWNER_ACCESS) : getProfileSectionAccess(supabase, profile.id).catch(() => null),
+    // Row-level security returns none when the reader may not see them; null means the read failed.
+    listProfileClasses(supabase, profile.id).catch(() => null),
+    loadListings(supabase, profile.id, isMe).catch((): ProfileListingCard[] => []),
+    postKind ? loadPostGrid(supabase, profile.id, postKind) : Promise.resolve(null),
   ]);
-  const feedPosts = feed.items;
-  const feedIds = feedPosts.map((p) => p.id);
-  const [feedEngagement, feedPreviews] = await Promise.all([
-    getPostEngagementMany(supabase, "post", feedIds).catch(() => ({}) as Record<string, PostEngagement>),
-    getPostPreviewsMany(supabase, "post", feedIds).catch(() => ({}) as Record<string, PostPreview>),
-  ]);
-  const currentUser = user && viewer ? { id: user.id, name: viewer.full_name, avatarUrl: viewer.avatar_url } : null;
-  const signedIn = Boolean(user);
-  const firstName = profile.full_name.split(" ")[0];
+  const listTab = tab === "saved" || tab === "liked" ? await loadListGrid(supabase, profile.id, tab, access ? access[tab] : null) : null;
+
+  const now = new Date();
+  const term = currentTerm(now);
+  const groups = classes ? groupClassesByTerm(classes, now) : [];
+  const thisTerm = groups.find((g) => g.current)?.classes ?? [];
+  const showClassesCard = classes !== null && (isMe || thisTerm.length > 0);
+  const locks: Partial<Record<ProfileTab, string>> = {};
+  for (const section of PROFILE_SECTIONS) {
+    if (isMe) {
+      if (visibility[section] !== "public") locks[section] = visibilityLabel(visibility[section]);
+    } else if (access && !access[section]) {
+      locks[section] = "locked";
+    }
+  }
+  const share: ShareProfileTarget = { url: `${getSiteUrl()}/profile/${profile.id}`, name: profile.full_name, username: handle, avatarUrl: profile.avatar_url, isMe };
+
+  let panel: ReactNode;
+  if (tab === "posts" || tab === "reels") {
+    const noun = tab === "posts" ? "posts" : "reels";
+    if (!postTab || postTab.status !== "ready") {
+      panel = <TabError what={noun} href={profileTabHref(profile.id, tab)} />;
+    } else if (postTab.tiles.length === 0) {
+      panel =
+        tab === "posts" ? (
+          isMe ? (
+            <TabEmpty icon={Grid3x3} title="Share your first post" action={<LinkButton href="/posts/new">Create post</LinkButton>} />
+          ) : (
+            <TabEmpty icon={Grid3x3} title="No posts yet" />
+          )
+        ) : (
+          <TabEmpty icon={Clapperboard} title="No reels yet" action={isMe ? <LinkButton href="/reels/new" variant="secondary">Create reel</LinkButton> : undefined} />
+        );
+    } else {
+      panel = <ProfileGrid key={`${profile.id}:${tab}`} userId={profile.id} kind={tab === "posts" ? "post" : "reel"} initialTiles={postTab.tiles} initialHasMore={postTab.hasMore} />;
+    }
+  } else if (tab === "classes") {
+    panel = (
+      <>
+        {isMe ? <VisibilityControl section="classes" value={visibility.classes} /> : null}
+        {!isMe && access?.classes === false ? (
+          <LockedTab message={lockedSectionMessage("classes", visibility.classes, firstName)} />
+        ) : classes === null ? (
+          <TabError what="classes" href={profileTabHref(profile.id, tab)} />
+        ) : (
+          <ProfileClasses isOwner={isMe} groups={groups} terms={pickableTerms(now)} />
+        )}
+      </>
+    );
+  } else {
+    const list = listTab ?? { status: "error" as const };
+    panel = (
+      <>
+        {isMe ? <VisibilityControl section={tab} value={visibility[tab]} /> : null}
+        {list.status === "locked" ? (
+          <LockedTab message={lockedSectionMessage(tab, visibility[tab], firstName)} />
+        ) : list.status === "error" ? (
+          <TabError what={tab === "saved" ? "saved posts" : "liked posts"} href={profileTabHref(profile.id, tab)} />
+        ) : list.tiles.length === 0 ? (
+          tab === "saved" ? (
+            <TabEmpty icon={Bookmark} title="Nothing saved yet" />
+          ) : (
+            <TabEmpty icon={Heart} title="No liked posts yet" />
+          )
+        ) : (
+          <ProfileGrid key={`${profile.id}:${tab}`} userId={profile.id} kind={tab} initialTiles={list.tiles} initialHasMore={list.hasMore} initialNext={list.next} />
+        )}
+      </>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      <Card>
-        <CardBody className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <Avatar name={profile.full_name} src={profile.avatar_url} size="xl" />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold text-gray-900">{profile.full_name}</h1>
-              {profile.university?.email_domain ? (
-                <Badge tone="green" className="gap-1">
-                  <BadgeCheck className="h-3.5 w-3.5" /> Verified @{profile.university.email_domain} student
-                </Badge>
-              ) : null}
-            </div>
-            <div className="mt-1.5">
-              <FollowCounts userId={profile.id} stats={stats} posts={feed.count} />
-            </div>
-            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
-              {profile.university ? (
-                <span className="flex items-center gap-1">
-                  <School className="h-4 w-4" /> {profile.university.name}
-                </span>
-              ) : null}
-              {profile.program || profile.graduation_year ? (
-                <span className="flex items-center gap-1">
-                  <GraduationCap className="h-4 w-4" />
-                  {[profile.program, profile.graduation_year ? `Class of ${profile.graduation_year}` : null].filter(Boolean).join(" · ")}
-                </span>
-              ) : null}
-              <span>Joined {formatDate(profile.created_at)}</span>
-            </div>
-            {profile.bio ? <p className="mt-3 whitespace-pre-line text-gray-800">{profile.bio}</p> : null}
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            {isMe ? (
-              <LinkButton href="/settings/profile" variant="secondary">
-                <Settings className="h-4 w-4" /> Edit profile
-              </LinkButton>
-            ) : (
-              <>
-                {/* Blocking them removed the follows both ways; the Block button's re-render brings this back after an unblock. */}
-                {!blocked ? <FollowButton userId={profile.id} initial={stats} signedIn={signedIn} /> : null}
-                <MessageButton userId={profile.id} currentUserId={user?.id ?? null} returnTo={`/profile/${profile.id}`} />
-                {user ? <BlockButton otherId={profile.id} initialBlocked={blocked} name={profile.full_name} /> : null}
-              </>
-            )}
-          </div>
-        </CardBody>
-      </Card>
+    <div className="mx-auto w-full max-w-2xl">
+      {/* Edge to edge on phones like the app; a white card in the middle of wider screens (its bottom padding keeps the
+          grid's square corners inside the rounded ones, so nothing needs overflow-hidden and menus are never clipped). */}
+      <div className="-mx-3 -mt-4 bg-white pb-1 sm:mx-0 sm:mt-0 sm:rounded-2xl sm:pb-4 sm:shadow-sm sm:ring-1 sm:ring-gray-200" data-testid="profile">
+        <ProfileHeader
+          profile={profile}
+          handle={handle}
+          isMe={isMe}
+          viewerId={user?.id ?? null}
+          blocked={blocked}
+          follow={follow}
+          likes={stats.likesReceived}
+          share={share}
+          classesCard={showClassesCard ? { term, classes: thisTerm } : null}
+        />
 
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Newspaper className="h-5 w-5 text-brand-600" /> Posts
-          </h2>
-          {isMe ? (
-            <LinkButton href="/posts/new" size="sm" variant="secondary">
-              Write a post
-            </LinkButton>
-          ) : null}
-        </div>
-        {feedPosts.length === 0 ? (
-          <EmptyState title={isMe ? "You have not posted anything yet" : `${firstName} has not posted anything yet`} />
-        ) : (
-          <div className="-mx-3 grid items-start gap-1 sm:mx-0 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {feedPosts.map((p) => (
-              <FeedPostCard key={p.id} post={p} saved={savedIds.has(p.id)} signedIn={signedIn} currentUserId={user?.id ?? null} currentUser={currentUser} engagement={feedEngagement[p.id]} preview={feedPreviews[p.id]} />
-            ))}
-          </div>
-        )}
-      </section>
+        {listings.length > 0 ? <ListingsRow cards={listings} /> : null}
 
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Building2 className="h-5 w-5 text-brand-600" /> Apartments
-          </h2>
-          {isMe ? (
-            <LinkButton href="/apartments/new" size="sm" variant="secondary">
-              Post a listing
-            </LinkButton>
-          ) : null}
+        <ProfileTabs profileId={profile.id} active={tab} locks={locks} />
+        <div role="tabpanel" id={PROFILE_PANEL_ID} aria-labelledby={`profile-tab-${tab}`} className="min-h-[16rem]">
+          {panel}
         </div>
-        {apartments.length === 0 ? (
-          <EmptyState title={isMe ? "You have not posted any apartments" : `${firstName} has no apartment listings`} />
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {apartments.map((a) => (
-              <ApartmentCard key={a.id} apartment={a} saved={savedIds.has(a.id)} signedIn={signedIn} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Users className="h-5 w-5 text-brand-600" /> Roommate posts
-          </h2>
-          {isMe ? (
-            <LinkButton href="/roommates/new" size="sm" variant="secondary">
-              Create post
-            </LinkButton>
-          ) : null}
-        </div>
-        {posts.length === 0 ? (
-          <EmptyState title={isMe ? "You have no roommate posts" : `${firstName} has no roommate posts`} />
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {posts.map((p) => (
-              <RoommateCard key={p.id} post={p} saved={savedIds.has(p.id)} signedIn={signedIn} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <ShoppingBag className="h-5 w-5 text-brand-600" /> Marketplace items
-          </h2>
-          {isMe ? (
-            <LinkButton href="/marketplace/new" size="sm" variant="secondary">
-              Sell something
-            </LinkButton>
-          ) : null}
-        </div>
-        {items.length === 0 ? (
-          <EmptyState title={isMe ? "You have nothing for sale" : `${firstName} has nothing for sale`} />
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {items.map((i) => (
-              <ItemCard key={i.id} item={i} saved={savedIds.has(i.id)} signedIn={signedIn} />
-            ))}
-          </div>
-        )}
-      </section>
+      </div>
     </div>
+  );
+}
+
+function TabEmpty({ icon: Icon, title, action }: { icon: LucideIcon; title: string; action?: ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-3 px-6 py-14 text-center" data-testid="profile-empty">
+      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-700">
+        <Icon className="h-6 w-6" aria-hidden="true" />
+      </span>
+      <p className="text-base font-semibold text-gray-900">{title}</p>
+      {action}
+    </div>
+  );
+}
+
+/** A tab the visitor may not open: "Only Sunil can see their saved posts". */
+function LockedTab({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center gap-3 px-6 py-14 text-center" data-testid="profile-locked">
+      <span className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-gray-900 text-gray-900">
+        <Lock className="h-6 w-6" aria-hidden="true" />
+      </span>
+      <p className="max-w-xs text-sm font-semibold text-gray-900">{message}</p>
+    </div>
+  );
+}
+
+function TabError({ what, href }: { what: string; href: string }) {
+  return (
+    <p role="alert" className="px-6 py-14 text-center text-sm text-gray-600" data-testid="profile-tab-error">
+      Could not load {what} right now.{" "}
+      <Link href={href} scroll={false} className="font-semibold text-brand-700 hover:underline">
+        Try again
+      </Link>
+    </p>
   );
 }

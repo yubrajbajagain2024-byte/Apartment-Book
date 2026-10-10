@@ -47,21 +47,37 @@ The Share button on posts, reels and listings opens a sheet of your friends, the
 note and Send, and each friend gets a chat message with the post as a card that opens it, the note under it; "Share to…"
 at the bottom is the system share sheet. It needs migration 17 (`supabase/migrations/20260926000000_shared_posts.sql`).
 
+The Profile tab is your profile, TikTok style (`src/components/profile/`, one `ProfileView` for the tab and for
+`/profile/[id]`): a top bar with Find friends, your name (the account sheet, Log out) and the menu (Settings and privacy,
+Saved, the legal pages, Log out); your photo with a "+" to change it, @username (made from your name at sign-up, changed
+in Settings) with a QR icon, Following | Followers | Likes (every like on your posts, reels and listings), Edit profile /
+Share profile (a sheet with the profile's QR code and Share) / Find friends, the bio and university, "Classes this
+semester", your live listings, then the tabs Posts | Classes | Reels | Saved | Liked over a three-column grid with view
+counts. The Classes tab lists classes by semester, this one first (up to 12 each; add and remove your own there).
+Classes, Saved and Liked each have a setting (Everyone, Friends, Only me; friends are people you follow who follow you
+back), changed from the line at the top of the tab or in Settings → Privacy; by default Classes is Friends, Saved is Only
+me and Liked is Everyone, and visitors without access see a lock. Hold one of your own posts or reels in the grid (or use
+its ••• menu) to pin it to the top of your profile, three at most. Someone else's profile has Follow, Message and More
+(block, report) instead. It needs migration 18 (`supabase/migrations/20260927000000_profile_page.sql`: usernames, the
+who-can-see settings, `profile_classes`, likes readable only through functions, `profile_stats`, `post_view_counts` and
+`feed_posts.pinned_at`); without it the header still shows, with zeros, and each tab says what it could not load.
+
 The Maestro flows in `e2e/flows/` check this in Expo Go on the booted iOS Simulator and save
 screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.dev) installed in
 `~/.maestro`, `npx expo start` running, and seeded test data:
 
 ```bash
 cd apps/mobile
-SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts (the test account and Leo follow each other, so Leo is a friend to share with); prints the login, writes e2e/.sim-state.json
+SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts (the test account and Leo follow each other, so Leo is a friend to share with; Maya lists CS 3358 and MATH 3398 for this semester, visible to everyone); prints the login, writes e2e/.sim-state.json
 e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you, opens the feed menu (All universities alone, signed out), swipes to Buzz, opens Search from the top-right magnifier, Messages (bottom tab), Housing (Apartments, Roommates, swipe back), Marketplace, Profile (several flows at once is fine)
-EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # likes, comments (write, heart, reply, delete from the hold menu), shares the top post with Leo and finds the card in your chat with him (Messages), votes, replies, Following from the feed menu (Leo's post alone, then Maya's too once she is followed), follows and unfollows Maya, as the seeded account
+EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # your own profile (adds CS 1428 under Classes and removes it, Saved says only you can see it), then likes, comments (write, heart, reply, delete from the hold menu), shares the top post with Leo and finds the card in your chat with him (Messages), votes, replies, Following from the feed menu (Leo's post alone, then Maya's too once she is followed), follows and unfollows Maya (her classes card shows CS 3358), as the seeded account
 node e2e/sim-seed-thread.mjs                            # nested replies and votes for 03-buzz-thread.yaml
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards
 ```
 
 The flows that like, vote or post (01 to 03) only ever act as a seeded `ui-sim-…` account and
-stop if someone else is signed in on the simulator; 00 and 04 only look.
+stop if someone else is signed in on the simulator (they read the email on the account sheet behind your name on the
+Profile tab, which shows "Edit profile" when you are signed in); 00 and 04 only look.
 
 ## Project state
 

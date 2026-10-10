@@ -2,7 +2,8 @@
 // profile numbers, view counts and pinned posts.
 import { boot, read, expectOk, expectError, done } from "./harness.mjs";
 const { db, mk, as, asAnon } = await boot();
-await expectOk("the profile-page migration re-runs cleanly", async () => { await db.exec(read("migrations/20260927000000_profile_page.sql")); });
+// Migration 19 replaces some of these functions, so a re-run replays both in order, as a fresh setup would.
+await expectOk("the profile-page migration re-runs cleanly", async () => { await db.exec(read("migrations/20260927000000_profile_page.sql")); await db.exec(read("migrations/20260928000000_profile_page_tuning.sql")); });
 const one = async (p) => (await p).rows[0];
 const rows = async (p) => (await p).rows;
 const A = await mk("a@txstate.edu", "Sunil Sherpa"), B = await mk("b@txstate.edu", "Bob Builder"), C = await mk("c@txstate.edu", "Carol Chen"), D = await mk("d@txstate.edu", "Sunil Sherpa");

@@ -141,10 +141,17 @@ async function listProfileTargets(
   opts: { before?: string | null; limit?: number },
 ): Promise<{ tiles: ProfileTile[]; next: string | null }> {
   const limit = opts.limit ?? PROFILE_LIST_PAGE_SIZE;
-  const { data, error } = await supabase.rpc(fn, { p_user_id: userId, p_limit: limit, p_before: opts.before ?? null });
+  // `before` is the cursor this function returned: "<time>|<id>" of the last item shown, so items saved or liked in the
+  // same instant are not skipped (migration 19). The first page sends no cursor at all.
+  const [beforeAt, beforeId] = (opts.before ?? "").split("|");
+  const args = beforeAt
+    ? { p_user_id: userId, p_limit: limit, p_before: beforeAt, ...(beforeId ? { p_before_id: beforeId } : {}) }
+    : { p_user_id: userId, p_limit: limit };
+  const { data, error } = await supabase.rpc(fn, args);
   if (error) throw error;
   const rows = (data ?? []) as TargetRow[];
-  return { tiles: await tilesForTargets(supabase, rows), next: rows.length === limit ? rows[rows.length - 1].created_at : null };
+  const last = rows[rows.length - 1];
+  return { tiles: await tilesForTargets(supabase, rows), next: rows.length === limit && last ? `${last.created_at}|${last.target_id}` : null };
 }
 
 /** What someone saved, newest first, if their setting lets the reader see it (an error says the list is private). */

@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-import { Bookmark, Check, Flag, MoreHorizontal, Share2 } from "lucide-react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { Bookmark, Check, Flag, MoreHorizontal, Pin, PinOff, Share2 } from "lucide-react";
 import type { ReportTargetType } from "@apartment-book/shared";
+import { setPinnedAction } from "@/lib/actions/profile-page";
 import { ReportMenu } from "@/components/common/report-block";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import type { SaveController } from "@/components/common/save-button";
 import { useShare } from "@/components/common/share-button";
@@ -19,10 +21,29 @@ function placeBelow(button: HTMLButtonElement | null): { top: number; right: num
 }
 
 /**
- * Facebook-style "•••" menu in a post header: Save/Unsave post and Share post.
- * The dropdown is position:fixed so the card's overflow-hidden can't clip it.
+ * Facebook-style "•••" menu in a post header: Save/Unsave post and Share post; on your own post or reel also
+ * Pin to profile / Unpin from profile. The dropdown is position:fixed so the card's overflow-hidden can't clip it.
  */
-export function PostMenu({ save, path, title, className, report, extra }: { save: SaveController; path: string; title: string; className?: string; /** Enables "Report post" (omit on your own posts). */ report?: { targetType: ReportTargetType; targetId: string }; /** One more row between Share and Report, e.g. a Message button. */ extra?: React.ReactNode }) {
+export function PostMenu({
+  save,
+  path,
+  title,
+  className,
+  report,
+  extra,
+  pin,
+}: {
+  save: SaveController;
+  path: string;
+  title: string;
+  className?: string;
+  /** Enables "Report post" (omit on your own posts). */
+  report?: { targetType: ReportTargetType; targetId: string };
+  /** One more row between Share and Report, e.g. a Message button. */
+  extra?: React.ReactNode;
+  /** Your own post or reel: pin it to the top of your profile, or unpin it. */
+  pin?: { postId: string; pinned: boolean };
+}) {
   const [reporting, setReporting] = useState(false);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
@@ -30,6 +51,16 @@ export function PostMenu({ save, path, title, className, report, extra }: { save
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
   const { share, copied } = useShare(path, title);
+  // Pinned as last saved here; a fresh value from the server (the post re-rendered) wins.
+  const pinnedProp = pin?.pinned ?? false;
+  const [pinned, setPinned] = useState(pinnedProp);
+  const [seenPinned, setSeenPinned] = useState(pinnedProp);
+  if (seenPinned !== pinnedProp) {
+    setSeenPinned(pinnedProp);
+    setPinned(pinnedProp);
+  }
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [pinPending, startPin] = useTransition();
 
   function toggle() {
     if (open) {
@@ -38,8 +69,25 @@ export function PostMenu({ save, path, title, className, report, extra }: { save
       return;
     }
     setReporting(false);
+    setPinError(null);
     setPos(placeBelow(buttonRef.current));
     setOpen(true);
+  }
+
+  function togglePin() {
+    if (!pin || pinPending) return;
+    const next = !pinned;
+    setPinError(null);
+    startPin(async () => {
+      const result = await setPinnedAction(pin.postId, next);
+      if (result.error) {
+        // Stays open so the reason ("You can pin up to 3 posts…") can be read.
+        setPinError(result.error);
+        return;
+      }
+      setPinned(next);
+      setOpen(false);
+    });
   }
 
   useEffect(() => {
@@ -120,6 +168,17 @@ export function PostMenu({ save, path, title, className, report, extra }: { save
             {copied ? <Check className="h-5 w-5 text-brand-600" /> : <Share2 className="h-5 w-5" />}
             {copied ? "Link copied" : "Share post"}
           </button>
+          {pin ? (
+            <button type="button" role="menuitem" onClick={togglePin} aria-disabled={pinPending || undefined} className={cn(item, "aria-disabled:opacity-60")} data-testid="post-pin">
+              {pinPending ? <Spinner className="h-5 w-5" /> : pinned ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />}
+              {pinned ? "Unpin from profile" : "Pin to profile"}
+            </button>
+          ) : null}
+          {pinError ? (
+            <p role="alert" className="px-2.5 pb-1.5 text-xs text-red-600">
+              {pinError}
+            </p>
+          ) : null}
           {/* Close on the next tick: a form inside `extra` must still be on the page when the browser submits it. */}
           {extra && !reporting ? <div onClick={() => setTimeout(() => setOpen(false), 0)}>{extra}</div> : null}
           {report && save.signedIn ? (

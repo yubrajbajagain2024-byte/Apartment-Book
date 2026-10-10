@@ -1,6 +1,6 @@
 /**
- * Lets the create and detail screens tell Home → Posts and Home → For you what changed, so a feed only reloads
- * when there is something new (and keeps its scroll position the rest of the time).
+ * Lets the create and detail screens tell Home → Posts and Home → For you (and the profile grids) what changed, so a feed
+ * only reloads when there is something new (and keeps its scroll position the rest of the time).
  */
 let stale = false;
 let forYouStale = false;
@@ -40,5 +40,19 @@ export function onPostRemoved(listener: (id: string) => void): () => void {
   removeListeners.add(listener);
   return () => {
     removeListeners.delete(listener);
+  };
+}
+
+const pinListeners = new Set<(id: string, pinned: boolean) => void>();
+
+/** A post or reel was pinned to its author's profile, or unpinned: profile grids move the square without reloading. */
+export function emitPostPinned(id: string, pinned: boolean) {
+  pinListeners.forEach((l) => l(id, pinned));
+}
+
+export function onPostPinned(listener: (id: string, pinned: boolean) => void): () => void {
+  pinListeners.add(listener);
+  return () => {
+    pinListeners.delete(listener);
   };
 }

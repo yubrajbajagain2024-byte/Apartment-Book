@@ -15,7 +15,8 @@ export default function TabsLayout() {
       <Tabs.Screen name="housing" options={{ title: "Housing", tabBarIcon: ({ color, size }) => <Ionicons name="business-outline" size={size} color={color} /> }} />
       <Tabs.Screen name="messages" options={{ title: "Messages", tabBarBadge: unread > 0 ? (unread > 99 ? "99+" : unread) : undefined, tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-outline" size={size} color={color} /> }} />
       <Tabs.Screen name="marketplace" options={{ title: "Marketplace", tabBarIcon: ({ color, size }) => <Ionicons name="bag-handle-outline" size={size} color={color} /> }} />
-      <Tabs.Screen name="profile" options={{ title: "Profile", tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" size={size} color={color} /> }} />
+      {/* Profile draws its own top bar (Find friends, your name, the menu), like TikTok. */}
+      <Tabs.Screen name="profile" options={{ title: "Profile", headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" size={size} color={color} /> }} />
     </Tabs>
   );
 }

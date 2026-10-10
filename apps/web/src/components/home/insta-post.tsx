@@ -131,6 +131,7 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
           title={label}
           className="-mr-1.5"
           report={currentUserId !== author.id ? { targetType: "post", targetId: post.id } : undefined}
+          pin={currentUserId === author.id ? { postId: post.id, pinned: Boolean(post.pinned_at) } : undefined}
           extra={
             <MessageButton
               userId={author.id}

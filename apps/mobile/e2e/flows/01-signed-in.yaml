@@ -1,4 +1,4 @@
-# Signed-in tour of the new Home: like a post, comment on it (heart, reply, delete from the hold menu), share it with Leo (a friend: the seed has him and this account follow each other) and find it as a card in your chat with him, vote and reply anonymously in Buzz, watch a reel, reach the profile, see Leo's post alone under Following (the feed menu next to the wordmark), follow Maya and see hers join it, unfollow.
+# Signed-in tour: your own profile first (Edit profile, Share profile, the classes card; add CS 1428 under Classes and remove it again; Saved says only you can see it), then the new Home: like a post, comment on it (heart, reply, delete from the hold menu), share it with Leo (a friend: the seed has him and this account follow each other) and find it as a card in your chat with him, vote and reply anonymously in Buzz, watch a reel, reach the profile, see Leo's post alone under Following (the feed menu next to the wordmark), follow Maya (her profile shows the classes the seed lists for her) and see hers join it, unfollow.
 # Needs test data: SUPABASE_ACCESS_TOKEN=... node e2e/sim-seed.mjs   (then pass EMAIL and PASSWORD from its output)
 appId: host.exp.Exponent
 env:
@@ -12,10 +12,11 @@ env:
     start: "88%,10%"
     end: "12%,62%"
     duration: 800
-# Log in through the Profile tab in the bottom bar (skipped when a session is already stored).
+# Log in through the Profile tab in the bottom bar (skipped when a session is already stored). Signed in, the tab is your own
+# profile, with "Edit profile" under the numbers.
 - tapOn: "Profile.*"
 - extendedWaitUntil:
-    visible: "Join Apartment Book|.*Log out"
+    visible: "Join Apartment Book|Edit profile"
     timeout: 30000
 - runFlow:
     when:
@@ -29,13 +30,70 @@ env:
       - tapOn:
           text: "Log in"
           index: 1
-# SAFETY: never act as a real person who happens to be signed in on this simulator.
+# SAFETY: never act as a real person who happens to be signed in on this simulator. Signed in, the Profile tab is your
+# profile ("Edit profile"): your name at the top ("…, account options") opens the account sheet, titled with the signed-in email.
+- extendedWaitUntil:
+    visible: "Edit profile|Not Now"
+    timeout: 30000
+# iOS may offer to save the password after a login: dismiss it before opening the sheet.
 - runFlow:
     when:
-      visible: ".*Log out"
+      visible: "Not Now"
     commands:
-      - assertVisible: "ui-sim-.*@txstate.edu"
-      - tapOn: "Home.*"
+      - tapOn: "Not Now"
+- extendedWaitUntil:
+    visible: "Edit profile"
+    timeout: 30000
+- tapOn: ".*ccount options"
+- assertVisible: "ui-sim-.*@txstate.edu"
+- tapOn: "Cancel"
+# Your own profile, TikTok style: Edit profile and Share profile under Following | Followers | Likes, the "Classes this
+# semester" card ("Add your classes" while none are listed for this term), then the tabs Posts | Classes | Reels | Saved | Liked.
+- assertVisible: "Edit profile"
+- assertVisible: "Share profile"
+- assertVisible: "Classes this semester.*|Add your classes"
+# Classes: "Add class" opens the form with this semester picked; type a code, Add, and the class is listed with its remove
+# button. Remove it again so the flow can run again and again (one left by a run that stopped halfway goes first). The code
+# box is found by its placeholder, because "Class code" also names the label above it. A tap on the form's title puts the
+# keyboard away, so Add is never under it. The Add class and Add buttons show an icon, which can come first in their
+# accessibility names: hence the leading ".*".
+- tapOn: "Classes"
+- extendedWaitUntil:
+    visible: ".*Add class"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Remove CS 1428"
+    commands:
+      - tapOn: "Remove CS 1428"
+      - extendedWaitUntil:
+          notVisible: "Remove CS 1428"
+          timeout: 15000
+- tapOn: ".*Add class"
+- tapOn: "CS 3358"
+- inputText: "CS 1428"
+- tapOn: "Add a class"
+- tapOn: ".*Add"
+- extendedWaitUntil:
+    visible: "Remove CS 1428"
+    timeout: 30000
+- assertVisible: "CS 1428"
+- tapOn: "Remove CS 1428"
+- extendedWaitUntil:
+    notVisible: "Remove CS 1428"
+    timeout: 15000
+# Saved is only yours until you change it (the default), and the line at the top of the tab says so.
+- tapOn: "Saved"
+- extendedWaitUntil:
+    visible: "Only you can see your saved posts"
+    timeout: 15000
+- takeScreenshot: e2e/screenshots/21-profile
+# Back to the top of the profile and its Posts tab, the way the other flows find it ("Edit profile" in view).
+- scrollUntilVisible:
+    element: "Edit profile"
+    direction: UP
+- tapOn: "Posts"
+- tapOn: "Home.*"
 - extendedWaitUntil:
     visible: "Create|Not Now"
     timeout: 60000
@@ -258,6 +316,10 @@ env:
 - extendedWaitUntil:
     visible: "Follow"
     timeout: 30000
+# Her "Classes this semester" card lists this term's codes: the seed gives her CS 3358 and MATH 3398 and lets everyone see them.
+- extendedWaitUntil:
+    visible: "Classes this semester: .*CS 3358.*"
+    timeout: 15000
 - tapOn: "Follow"
 - extendedWaitUntil:
     visible: "Following"
