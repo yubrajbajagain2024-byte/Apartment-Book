@@ -21,14 +21,14 @@ export async function takePhoto(): Promise<PickedAsset | null> {
 }
 
 /** iPhone photos are often HEIC, which the app shows but most browsers (Chrome, Firefox, older Safari) cannot. */
-function isHeic(asset: PickedAsset): boolean {
+export function isHeic(asset: PickedAsset): boolean {
   const type = asset.mimeType?.toLowerCase() ?? "";
   const name = (asset.fileName ?? asset.uri).toLowerCase();
   return type === "image/heic" || type === "image/heif" || /\.(heic|heif)$/.test(name);
 }
 
 /** The same picture as a JPEG at full size, so the website can show it too. */
-async function heicToJpeg(asset: PickedAsset): Promise<{ uri: string; width: number; height: number }> {
+export async function heicToJpeg(asset: PickedAsset): Promise<{ uri: string; width: number; height: number }> {
   const rendered = await ImageManipulator.manipulate(asset.uri).renderAsync();
   const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.9, base64: false });
   if (!saved.uri) throw new Error("Could not prepare this photo. Try another one.");

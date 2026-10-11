@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database";
+import type { MessageAttachment } from "../message-media";
 
 /** A typed Supabase client. Works in the browser, on the server and in React Native. */
 export type Client = SupabaseClient<Database>;
@@ -21,7 +22,8 @@ export type Item = Tables<"items">;
 export type SavedListing = Tables<"saved_listings">;
 export type Conversation = Tables<"conversations">;
 export type ConversationMember = Tables<"conversation_members">;
-export type Message = Tables<"messages">;
+/** `attachments` is optional: rows from a database without migration 20 have none. The shared queries always fill it. */
+export type Message = Omit<Tables<"messages">, "attachments"> & { attachments?: MessageAttachment[] };
 export type DevicePushToken = Tables<"device_push_tokens">;
 export type Media = Tables<"media">;
 export type PostLike = Tables<"post_likes">;

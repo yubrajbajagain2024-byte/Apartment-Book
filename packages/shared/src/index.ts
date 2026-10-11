@@ -4,6 +4,7 @@ export * from "./format";
 export * from "./media";
 export * from "./for-you";
 export * from "./share";
+export * from "./message-media";
 export * from "./profile";
 export * from "./qr";
 export * from "./types/database";

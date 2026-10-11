@@ -1,6 +1,16 @@
 import { MESSAGES_PAGE_SIZE } from "../constants";
 import type { Client, ConversationSummary, ConversationType, MemberStatus, MessageWithSender, ProfileSummary, SharedPost } from "../types/models";
 import type { Json } from "../types/database";
+import {
+  MESSAGE_ATTACHMENT_LIMITS,
+  MESSAGE_MEDIA_BUCKET,
+  parseAttachments,
+  sharedItemsFromMessages,
+  type MessageAttachment,
+  type SharedContentKind,
+  type SharedItem,
+  type SharedSourceMessage,
+} from "../message-media";
 import { sharedPostOf } from "../share";
 import { conversationTitle } from "../utils";
 
@@ -19,6 +29,14 @@ function memberStatusOf(rows: MemberRow[]): Record<string, MemberStatus> {
   const out: Record<string, MemberStatus> = {};
   for (const r of rows) out[r.user_id] = { lastReadAt: r.last_read_at, lastDeliveredAt: r.last_delivered_at, lastSeenAt: r.profile?.last_seen_at ?? null };
   return out;
+}
+
+/** A message row as it comes from the API: attachments are raw JSON, or missing before migration 20. */
+type MessageRow = Omit<MessageWithSender, "attachments"> & { attachments?: unknown };
+
+/** Rows as the apps use them: attachments always a checked list (empty when there are none). */
+function messageOf(row: MessageRow): MessageWithSender {
+  return { ...row, attachments: parseAttachments(row.attachments) };
 }
 
 function summaryOf(rows: MemberRow[]): ProfileSummary[] {
@@ -136,7 +154,7 @@ export async function listMessages(
       .order("created_at", { ascending: true })
       .limit(opts.limit ?? MESSAGES_PAGE_SIZE);
     if (error) throw error;
-    return data as MessageWithSender[];
+    return (data as unknown as MessageRow[]).map(messageOf);
   }
   let query = supabase
     .from("messages")
@@ -147,14 +165,26 @@ export async function listMessages(
   if (opts.before) query = query.lt("created_at", opts.before);
   const { data, error } = await query;
   if (error) throw error;
-  return (data as MessageWithSender[]).reverse();
+  return (data as unknown as MessageRow[]).map(messageOf).reverse();
 }
 
-/** `sharedPost` attaches a post, reel or listing card; the text may then be empty. */
+/**
+ * `sharedPost` attaches a post, reel or listing card and `attachments` files already uploaded to MESSAGE_MEDIA_BUCKET
+ * (each path from messageAttachmentPath()); with either, the text may be empty.
+ */
 export async function sendMessage(
   supabase: Client,
-  input: { conversationId: string; senderId: string; content: string; imageUrl?: string | null; sharedPost?: SharedPost | null },
+  input: {
+    conversationId: string;
+    senderId: string;
+    content: string;
+    imageUrl?: string | null;
+    sharedPost?: SharedPost | null;
+    attachments?: MessageAttachment[];
+  },
 ): Promise<MessageWithSender> {
+  const attachments = input.attachments ?? [];
+  if (attachments.length > MESSAGE_ATTACHMENT_LIMITS.maxItems) throw new Error(`You can send up to ${MESSAGE_ATTACHMENT_LIMITS.maxItems} files at a time.`);
   const { data, error } = await supabase
     .from("messages")
     .insert({
@@ -164,11 +194,13 @@ export async function sendMessage(
       image_url: input.imageUrl ?? null,
       // Only shares carry the column, so plain messages keep working on a database that has not run migration 17 yet.
       ...(input.sharedPost ? { shared_post: input.sharedPost as unknown as Json } : {}),
+      // Likewise only messages with files send attachments (migration 20).
+      ...(attachments.length > 0 ? { attachments: attachments as unknown as Json } : {}),
     })
     .select(MESSAGE_SELECT)
     .single();
   if (error) throw error;
-  return data as MessageWithSender;
+  return messageOf(data as unknown as MessageRow);
 }
 
 /**
@@ -280,7 +312,96 @@ export async function getTotalUnread(supabase: Client): Promise<number> {
   return Number(data ?? 0);
 }
 
+/** Delete one of my messages, then (best effort) the files it carried. */
 export async function deleteMessage(supabase: Client, messageId: string): Promise<void> {
-  const { error } = await supabase.from("messages").delete().eq("id", messageId);
+  const { data, error } = await supabase.from("messages").delete().eq("id", messageId).select("*");
   if (error) throw error;
+  const row = (data ?? [])[0] as { conversation_id: string; sender_id: string | null; attachments?: unknown } | undefined;
+  if (row?.sender_id) await removeAttachmentFiles(supabase, row.conversation_id, row.sender_id, parseAttachments(row.attachments)).catch(() => {});
+}
+
+/** Remove a deleted message's own files, except any another message of the chat still shows (a resend reuses them). */
+async function removeAttachmentFiles(supabase: Client, conversationId: string, senderId: string, attachments: MessageAttachment[]): Promise<void> {
+  const prefix = `${conversationId}/${senderId}/`;
+  const paths = [...new Set(attachments.map((a) => a.path).filter((p) => p.startsWith(prefix)))];
+  if (paths.length === 0) return;
+  const stillShown = await Promise.all(
+    paths.map(async (path) => {
+      const { data, error } = await supabase
+        .from("messages")
+        .select("id")
+        .eq("conversation_id", conversationId)
+        .contains("attachments", JSON.stringify([{ path }]))
+        .limit(1);
+      // When unsure, keep the file.
+      return Boolean(error) || (data?.length ?? 0) > 0;
+    }),
+  );
+  const unused = paths.filter((_, i) => !stillShown[i]);
+  if (unused.length > 0) await supabase.storage.from(MESSAGE_MEDIA_BUCKET).remove(unused);
+}
+
+/**
+ * Signed URLs for chat files (the bucket is private), as path -> URL. Paths the user may not read are left out. Show
+ * images with a cache key equal to the path, so a fresh URL for the same file does not download it again.
+ */
+export async function signMessageMedia(supabase: Client, paths: string[], expiresIn = 3600): Promise<Record<string, string>> {
+  const unique = [...new Set(paths.filter((p) => typeof p === "string" && p.length > 0))];
+  const urls: Record<string, string> = {};
+  for (let i = 0; i < unique.length; i += 100) {
+    const { data, error } = await supabase.storage.from(MESSAGE_MEDIA_BUCKET).createSignedUrls(unique.slice(i, i + 100), expiresIn);
+    if (error) throw error;
+    for (const item of data ?? []) if (item.path && item.signedUrl && !item.error) urls[item.path] = item.signedUrl;
+  }
+  return urls;
+}
+
+async function searchMessages(supabase: Client, query: string, conversationId: string | null, limit: number): Promise<MessageWithSender[]> {
+  const q = query.trim().slice(0, 200);
+  if (!q) return [];
+  const { data, error } = await supabase
+    .rpc("search_messages", { p_q: q, p_conversation_id: conversationId, p_limit: limit })
+    .select(MESSAGE_SELECT)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as unknown as MessageRow[]).map(messageOf);
+}
+
+/** Messages of one chat whose text contains `query` (any case; % and _ are plain characters), newest first. */
+export async function searchConversationMessages(
+  supabase: Client,
+  conversationId: string,
+  query: string,
+  opts: { limit?: number } = {},
+): Promise<MessageWithSender[]> {
+  return searchMessages(supabase, query, conversationId, opts.limit ?? 50);
+}
+
+/** The same search across every chat I belong to, newest first; each row's conversation_id says where it is. */
+export async function searchMyMessages(supabase: Client, query: string, opts: { limit?: number } = {}): Promise<MessageWithSender[]> {
+  return searchMessages(supabase, query, null, opts.limit ?? 30);
+}
+
+/**
+ * One page of a chat's Media (photos and videos, website photos included), Files or Links (addresses in the text and
+ * shared posts), newest first. `limit` counts messages, so a page can hold more items than that (a message with three
+ * photos gives three). Pass `next` back as `before` for the following page; it is null after the last one.
+ */
+export async function listConversationShared(
+  supabase: Client,
+  conversationId: string,
+  opts: { kind: SharedContentKind; before?: string | null; limit?: number },
+): Promise<{ items: SharedItem[]; next: string | null }> {
+  const limit = Number.isFinite(opts.limit) ? Math.min(Math.max(Math.floor(opts.limit as number), 1), 100) : 30;
+  const { data, error } = await supabase
+    .rpc("conversation_shared_messages", { p_conversation_id: conversationId, p_kind: opts.kind, p_before: opts.before ?? null, p_limit: limit })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as SharedSourceMessage[];
+  return {
+    items: sharedItemsFromMessages(rows, opts.kind, sharedPostOf),
+    next: rows.length >= limit ? rows[rows.length - 1].created_at : null,
+  };
 }
