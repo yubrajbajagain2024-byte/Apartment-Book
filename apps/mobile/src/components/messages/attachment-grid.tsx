@@ -19,6 +19,8 @@ export type GridMedia = {
   duration?: number | null;
   /** Set while the message is being sent from this device. */
   status?: UploadStatus;
+  /** The file could not be signed (deleted with its sender's account, or out of reach): drawn as "Unavailable". */
+  missing?: boolean;
 };
 
 const GAP = 2;
@@ -107,19 +109,24 @@ function Tile({
       accessibilityLabel={label}
       style={({ pressed }) => [styles.tile, { width, height }, pressed && { opacity: 0.85 }]}
     >
-      {video ? (
+      {item.missing ? (
+        <View style={[styles.center, styles.missing, { pointerEvents: "none" }]}>
+          <Ionicons name={video ? "videocam-off-outline" : "image-outline"} size={26} color={colors.faint} />
+          <Text style={styles.missingText}>Unavailable</Text>
+        </View>
+      ) : video ? (
         <VideoPoster cacheKey={item.cacheKey ?? item.key} uri={item.uri} style={StyleSheet.absoluteFill} />
       ) : item.uri ? (
         <Image source={{ uri: item.uri, cacheKey: item.cacheKey }} recyclingKey={item.key} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
       ) : null}
-      {video && !busy ? (
+      {video && !busy && !item.missing ? (
         <View style={[styles.center, { pointerEvents: "none" }]}>
           <View style={styles.play}>
             <Ionicons name="play" size={22} color={colors.onMedia} style={{ marginLeft: 3 }} />
           </View>
         </View>
       ) : null}
-      {video && duration ? (
+      {video && duration && !item.missing ? (
         <View style={[styles.duration, { pointerEvents: "none" }]}>
           <Text style={styles.durationText}>{duration}</Text>
         </View>
@@ -144,6 +151,8 @@ const useStyles = makeStyles((colors) => ({
   column: { gap: GAP },
   tile: { backgroundColor: colors.skeleton, overflow: "hidden" },
   center: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, alignItems: "center", justifyContent: "center" },
+  missing: { gap: 6, backgroundColor: colors.input },
+  missingText: { fontSize: 12, fontWeight: "600", color: colors.faint },
   scrim: { backgroundColor: colors.mediaScrim },
   play: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
   duration: { position: "absolute", left: 6, bottom: 6, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, backgroundColor: colors.mediaPill },

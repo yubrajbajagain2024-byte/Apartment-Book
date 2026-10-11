@@ -3,7 +3,7 @@ import { BackHandler, FlatList, Keyboard, Platform, RefreshControl, View, type N
 import { useFocusEffect, useIsFocused, useRouter } from "expo-router";
 import { listConversations, markConversationRead, type ConversationSummary, type MessageWithSender } from "@apartment-book/shared";
 import { useActionSheet, type SheetOption } from "@/components/action-sheet";
-import { InboxHeader, InboxSearchField, inboxFilterLabel } from "@/components/messages/inbox-header";
+import { InboxHeader, InboxSearchField } from "@/components/messages/inbox-header";
 import { InboxMessageRow, InboxNewChatButton, InboxNote, InboxRow, InboxSectionHeader } from "@/components/messages/inbox-row";
 import { inFilter, matchConversations, useMessageSearch, useNow, useUsernames, type InboxFilter } from "@/components/messages/inbox-utils";
 import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
@@ -223,13 +223,13 @@ export default function MessagesScreen() {
   function empty() {
     if (searching) {
       if (messageSearch.loading || (loading && !data)) return <InboxNote loading />;
-      const label = inboxFilterLabel(filter).toLowerCase();
+      const scope = filter === "groups" ? "group chats" : "unread chats";
       return (
         <View style={styles.searchEmpty}>
           <EmptyState
             icon="search-outline"
             title={`No results for “${query}”`}
-            body={filter === "all" ? "Try another name, @username or word." : `Nothing in your ${label} chats matches.`}
+            body={filter === "all" ? "Try another name, @username or word." : `Nothing in your ${scope} matches.`}
             action={filter === "all" ? undefined : <Button title="Search all chats" variant="secondary" onPress={() => setFilter("all")} />}
           />
         </View>

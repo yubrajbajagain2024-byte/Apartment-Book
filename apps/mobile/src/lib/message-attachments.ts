@@ -312,11 +312,22 @@ export async function uploadAttachment(conversationId: string, userId: string, i
   return attachment;
 }
 
-/** Best effort: files uploaded for a message that was then discarded. */
+/**
+ * Best effort: files uploaded for a message that was then discarded. A send whose reply was lost may have gone through
+ * after all, so a file that a message in the chat shows is kept (and so is any file when the check itself fails).
+ */
 export async function removeUploadedFiles(paths: string[]): Promise<void> {
   if (paths.length === 0) return;
   try {
-    await supabase.storage.from(MESSAGE_MEDIA_BUCKET).remove(paths);
+    const shown = await Promise.all(
+      paths.map(async (path) => {
+        const conversationId = path.split("/")[0];
+        const { data, error } = await supabase.from("messages").select("id").eq("conversation_id", conversationId).contains("attachments", JSON.stringify([{ path }])).limit(1);
+        return Boolean(error) || (data?.length ?? 0) > 0;
+      }),
+    );
+    const unused = paths.filter((_, i) => !shown[i]);
+    if (unused.length > 0) await supabase.storage.from(MESSAGE_MEDIA_BUCKET).remove(unused);
   } catch {
     // Left behind; nothing points at them.
   }

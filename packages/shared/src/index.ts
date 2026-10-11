@@ -6,6 +6,7 @@ export * from "./for-you";
 export * from "./share";
 export * from "./message-media";
 export * from "./profile";
+export * from "./campus";
 export * from "./qr";
 export * from "./types/database";
 export * from "./types/models";

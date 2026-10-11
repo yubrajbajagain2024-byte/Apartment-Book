@@ -7,7 +7,6 @@ import {
   MESSAGE_ATTACHMENT_LIMITS,
   MESSAGES_PAGE_SIZE,
   REPORT_REASONS,
-  deleteMessage,
   getConversation,
   getMemberStatus,
   isBlocked,
@@ -481,7 +480,8 @@ function Chat({
       .finally(() => batch.forEach((p) => signing.current.delete(p)));
   }, [messages, signTick]);
 
-  const resolveMedia = useCallback<MediaResolver>((a) => ({ uri: signed[a.path]?.url ?? null, cacheKey: a.path }), [signed]);
+  // Asked and answered without a link: the file is gone (or out of reach), so the tile says so instead of loading forever.
+  const resolveMedia = useCallback<MediaResolver>((a) => ({ uri: signed[a.path]?.url ?? null, cacheKey: a.path, missing: signed[a.path] !== undefined && !signed[a.path].url }), [signed]);
 
   // ---------------------------------------------------------------------------
   // Sending: text right away; files are uploaded first (each tile shows its progress), then the message goes out.
@@ -575,7 +575,7 @@ function Chat({
   }
 
   // ---------------------------------------------------------------------------
-  // Long press: delete my message, report someone else's; a message that was not sent can be retried or edited.
+  // Long press: report someone else's message; one of mine that was not sent can be retried, edited or dropped.
   // ---------------------------------------------------------------------------
   function discard(m: ChatMessage) {
     setMessages((prev) => prev.filter((x) => x.id !== m.id));
@@ -587,23 +587,6 @@ function Chat({
     if (m.content) setText((t) => (t.trim() ? `${t} ${m.content}` : m.content));
     const items = m.outgoing?.items ?? [];
     if (items.length > 0) setPicked((prev) => [...prev, ...items.filter((item) => !prev.some((p) => p.id === item.id))].slice(0, MESSAGE_ATTACHMENT_LIMITS.maxItems));
-  }
-
-  function confirmDelete(m: ChatMessage) {
-    Alert.alert("Delete this message?", "It will be removed from this chat for everyone.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () => {
-          setMessages((prev) => prev.filter((x) => x.id !== m.id));
-          deleteMessage(supabase, m.id).catch((e) => {
-            setMessages((prev) => addFromServer(prev, [m], userId));
-            Alert.alert("Couldn't delete the message", errorText(e));
-          });
-        },
-      },
-    ]);
   }
 
   function reportMessage(m: ChatMessage) {
@@ -623,6 +606,8 @@ function Chat({
 
   function messageActions(m: ChatMessage) {
     if (m.pending) return;
+    // A sent message of mine has no actions: deleting it would leave its text in the inbox and in the other side's chat.
+    if (!m.failed && m.sender_id === userId) return;
     hapticTap();
     if (m.failed) {
       show(
@@ -635,8 +620,7 @@ function Chat({
       );
       return;
     }
-    if (m.sender_id === userId) show([{ label: "Delete", icon: "trash-outline", destructive: true, onPress: () => confirmDelete(m) }]);
-    else show([{ label: "Report message", icon: "flag-outline", destructive: true, onPress: () => reportMessage(m) }]);
+    show([{ label: "Report message", icon: "flag-outline", destructive: true, onPress: () => reportMessage(m) }]);
   }
 
   // Rows get one stable handler, so typing in the message field never re-renders the list.

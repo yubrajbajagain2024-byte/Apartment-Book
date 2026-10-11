@@ -20,8 +20,11 @@ import { makeStyles, useColors } from "@/lib/theme-provider";
 import { AttachmentFileRow } from "./attachment-file-row";
 import { AttachmentGrid, type GridMedia } from "./attachment-grid";
 
-/** A sent photo or video as something drawable: a signed URL with the storage path as its cache key, or null while signing. */
-export type MediaResolver = (attachment: MessageAttachment) => { uri: string | null; cacheKey?: string };
+/**
+ * A sent photo or video as something drawable: a signed URL with the storage path as its cache key, or null while
+ * signing; `missing` once signing came back without a link (the file was deleted, e.g. with its sender's account).
+ */
+export type MediaResolver = (attachment: MessageAttachment) => { uri: string | null; cacheKey?: string; missing?: boolean };
 
 /** The text the website stores with a photo sent without words; the photo says it already. */
 const WEBSITE_PHOTO_TEXT = "📷 Photo";
@@ -44,7 +47,7 @@ export function messageMedia(m: ChatMessage, resolve: MediaResolver): GridMedia[
   for (const a of m.attachments ?? []) {
     if (a.kind === "file") continue;
     const shown = resolve(a);
-    media.push({ key: a.path, kind: a.kind, uri: shown.uri, cacheKey: shown.cacheKey, width: a.width, height: a.height, duration: a.duration });
+    media.push({ key: a.path, kind: a.kind, uri: shown.uri, cacheKey: shown.cacheKey, width: a.width, height: a.height, duration: a.duration, missing: shown.missing });
   }
   return media;
 }

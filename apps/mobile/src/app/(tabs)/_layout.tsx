@@ -19,7 +19,8 @@ export default function TabsLayout() {
       <Tabs.Screen name="housing" options={{ title: "Housing", tabBarIcon: ({ color, size }) => <Ionicons name="business-outline" size={size} color={color} /> }} />
       {/* Messages draws its own top bar (your photo, "Chat", the All | Unread | Groups filter), like X's Chat. */}
       <Tabs.Screen name="messages" options={{ title: "Messages", headerShown: false, tabBarBadge: unread > 0 ? (unread > 99 ? "99+" : unread) : undefined, tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-outline" size={size} color={color} /> }} />
-      <Tabs.Screen name="marketplace" options={{ title: "Marketplace", tabBarIcon: ({ color, size }) => <Ionicons name="bag-handle-outline" size={size} color={color} /> }} />
+      {/* Marketplace draws its own top bar ("+" to sell, "<campus> marketplace" with the campus menu, and a magnifier that searches items). */}
+      <Tabs.Screen name="marketplace" options={{ title: "Marketplace", headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name="bag-handle-outline" size={size} color={color} /> }} />
       {/* Profile draws its own top bar (Find friends, your name, the menu), like TikTok. */}
       <Tabs.Screen name="profile" options={{ title: "Profile", headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" size={size} color={color} /> }} />
     </Tabs>
