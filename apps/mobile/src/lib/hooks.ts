@@ -28,8 +28,17 @@ export function useQuery<T>(load: () => Promise<T>, deps: unknown[]) {
   return { data, error, loading, refresh: run, setData };
 }
 
-/** Paged feed: first page on mount, `loadMore` appends, `refresh` restarts. */
-export function useFeed<T extends { id: string }>(loadPage: (page: number) => Promise<{ data: T[]; totalPages: number }>, deps: unknown[]) {
+/**
+ * Paged feed: first page on mount, `loadMore` appends, `refresh` restarts. When `deps` change it starts again from page 1;
+ * the rows on screen stay until the new first page arrives (no flicker while someone types a search), unless
+ * `clearOnChange` empties the list at once, for a filter whose old rows would be wrong, so the list shows its loading state.
+ */
+export function useFeed<T extends { id: string }>(
+  loadPage: (page: number) => Promise<{ data: T[]; totalPages: number }>,
+  deps: unknown[],
+  options?: { clearOnChange?: boolean },
+) {
+  const clearOnChange = options?.clearOnChange ?? false;
   const [items, setItems] = useState<T[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -62,9 +71,15 @@ export function useFeed<T extends { id: string }>(loadPage: (page: number) => Pr
   );
 
   useEffect(() => {
+    // The page count belonged to the old query: if the new first page fails, `loadMore` must not fetch the new query's
+    // page 2 and append it to the old rows.
+    setPage(1);
+    setTotalPages(1);
+    setError(null);
+    if (clearOnChange) setItems([]);
     setLoading(true);
     void fetchPage(1, true);
-  }, [fetchPage]);
+  }, [fetchPage, clearOnChange]);
 
   const loadMore = useCallback(() => {
     if (loading || refreshing || page >= totalPages) return;

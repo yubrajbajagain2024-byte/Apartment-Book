@@ -104,8 +104,9 @@ appId: host.exp.Exponent
 - waitForAnimationToEnd
 - assertVisible: "Search apartments"
 - tapOn: "Marketplace.*"
+# The Marketplace draws its own top bar (the magnifier opens the item search) over the category pills.
 - extendedWaitUntil:
-    visible: "Search mattresses.*"
+    visible: "Mattress & bedding"
     timeout: 30000
 - takeScreenshot: e2e/screenshots/03-marketplace
 # Messages: the third bottom tab (after Housing); signed out it asks to log in.
