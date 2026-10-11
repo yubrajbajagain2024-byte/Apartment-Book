@@ -49,7 +49,8 @@ export function SharedMediaRow({
 /**
  * A photo or video square. Photos load from their signed URL with the storage path as the cache key, so a URL signed
  * again later is not downloaded again; website photos from before attachments load from their public URL. Videos show
- * their first frame once it is ready (a dark tile until then), with a play mark and the length. GIFs hold still here.
+ * their first frame once it is ready (the soft placeholder until then, never black: it would vanish on the dark theme's
+ * black page), with a play mark and the length. GIFs hold still here.
  * Re-renders only when its own URL or label changes.
  */
 const SharedMediaTile = memo(function SharedMediaTile({ item, index, size, url, label, onOpen }: { item: SharedItem; index: number; size: number; url: string | undefined; label: string; onOpen: (index: number) => void }) {
@@ -65,12 +66,12 @@ const SharedMediaTile = memo(function SharedMediaTile({ item, index, size, url, 
       onPress={() => onOpen(index)}
       accessibilityRole="imagebutton"
       accessibilityLabel={label}
-      style={({ pressed }) => [styles.tile, { width: size, height: size }, video && styles.videoTile, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.tile, { width: size, height: size }, pressed && styles.pressed]}
     >
       {source ? <Image source={source} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} autoplay={false} recyclingKey={path ?? item.legacyImageUrl ?? null} accessible={false} /> : null}
       {video && !frame ? (
         <View style={styles.center} pointerEvents="none">
-          <Ionicons name="videocam" size={26} color={colors.onMediaMuted} />
+          <Ionicons name="videocam" size={26} color={colors.faint} />
         </View>
       ) : null}
       {video ? (
@@ -85,7 +86,6 @@ const SharedMediaTile = memo(function SharedMediaTile({ item, index, size, url, 
 
 const useStyles = makeStyles((colors) => ({
   tile: { backgroundColor: colors.skeleton, overflow: "hidden" },
-  videoTile: { backgroundColor: colors.mediaBg },
   pressed: { opacity: 0.8 },
   center: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, alignItems: "center", justifyContent: "center" },
   badge: { position: "absolute", left: 6, bottom: 6, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.mediaPill, borderRadius: radius.pill, paddingHorizontal: 6, paddingVertical: 2 },
