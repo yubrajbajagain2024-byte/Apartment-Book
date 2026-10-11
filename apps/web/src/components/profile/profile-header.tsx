@@ -107,7 +107,7 @@ export function ProfileHeader({ profile, handle, isMe, viewerId, blocked, follow
   );
 }
 
-/** A number over its label; Following and Followers open their lists. The space keeps "3 Followers" readable as text. */
+/** A number over its label; Following and Followers open the owner's lists (anyone else's mutual friends). The space keeps "3 Followers" readable as text. */
 function Stat({ value, label, href }: { value: number; label: string; href?: string }) {
   const body = (
     <>

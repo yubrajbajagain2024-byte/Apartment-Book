@@ -1,4 +1,4 @@
-import type { FeedMedia, FeedPostWithAuthor, ProfileClass, ProfileSection, ProfileTile, ProfileVisibility } from "./types/models";
+import type { FeedMedia, FeedPostWithAuthor, FollowListView, ProfileClass, ProfileSection, ProfileTile, ProfileVisibility } from "./types/models";
 
 // -----------------------------------------------------------------------------
 // Who can see Classes, Saved and Liked
@@ -37,6 +37,34 @@ export function lockedSectionMessage(section: ProfileSection, value: ProfileVisi
   const name = firstName.trim() || "This person";
   if (value === "friends") return `Only ${name}'s friends can see their ${noun}`;
   return `Only ${name} can see their ${noun}`;
+}
+
+// -----------------------------------------------------------------------------
+// Followers and Following
+// -----------------------------------------------------------------------------
+/**
+ * What the Followers and Following counts open. Only the owner sees who follows them and whom they follow; anyone
+ * else signed in gets one list, the friends they have in common with the owner, behind both counts; signed out there
+ * is no list. The database holds the same line, so this only picks the screen.
+ */
+export function followListView(viewerId: string | null | undefined, ownerId: string): FollowListView {
+  if (!viewerId) return "signed-out";
+  return viewerId === ownerId ? "own" : "mutual";
+}
+
+export const MUTUAL_FRIENDS_TITLE = "Mutual friends";
+export const MUTUAL_FRIENDS_LOGIN_PROMPT = "Log in to see mutual friends";
+
+/** The line over the mutual friends: "Only Sunil can see their followers and following". */
+export function privateFollowListsNote(firstName: string): string {
+  const name = firstName.trim();
+  return name ? `Only ${name} can see their followers and following` : "Followers and following are private";
+}
+
+/** The empty mutual friends list: "You and Sunil have no friends in common yet". */
+export function noMutualFriendsMessage(firstName: string): string {
+  const name = firstName.trim();
+  return name ? `You and ${name} have no friends in common yet` : "No friends in common yet";
 }
 
 // -----------------------------------------------------------------------------

@@ -10,8 +10,10 @@ export const NO_FOLLOW_STATS: FollowStats = { followers: 0, following: 0, follow
 /** One row of a followers or following list. */
 export type FollowListEntry = { profile: PosterSummary; followedAt: string };
 
-const FOLLOWER_SELECT = "created_at, profile:profiles!follows_follower_id_fkey(id, full_name, avatar_url, university:universities(email_domain))";
-const FOLLOWING_SELECT = "created_at, profile:profiles!follows_followee_id_fkey(id, full_name, avatar_url, university:universities(email_domain))";
+/** What a row in a list of people shows: avatar, name and the verified badge (university domain). */
+const PERSON_SELECT = "id, full_name, avatar_url, university:universities(email_domain)";
+const FOLLOWER_SELECT = `created_at, profile:profiles!follows_follower_id_fkey(${PERSON_SELECT})`;
+const FOLLOWING_SELECT = `created_at, profile:profiles!follows_followee_id_fkey(${PERSON_SELECT})`;
 
 /** Start following someone. Following them already is not an error (two taps in a row, two devices). */
 export async function followUser(supabase: Client, userId: string, followeeId: string): Promise<void> {
@@ -53,7 +55,10 @@ function toEntries(rows: FollowRow[] | null): FollowListEntry[] {
   return (rows ?? []).flatMap((r) => (r.profile ? [{ profile: r.profile, followedAt: r.created_at }] : []));
 }
 
-/** People who follow `userId`, newest first. */
+/**
+ * People who follow `userId`, newest first: the owner's own list. Follows are private to the two people in them, so
+ * for anyone else the database returns only the rows that involve the viewer; they get listMutualFriends instead.
+ */
 export async function listFollowers(supabase: Client, userId: string, opts: { page?: number; pageSize?: number } = {}): Promise<Paginated<FollowListEntry>> {
   const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
   const page = Math.max(1, opts.page ?? 1);
@@ -64,7 +69,7 @@ export async function listFollowers(supabase: Client, userId: string, opts: { pa
   return { data: toEntries(data as unknown as FollowRow[]), count: total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
 }
 
-/** People `userId` follows, newest first. */
+/** People `userId` follows, newest first: the owner's own list, private like listFollowers. */
 export async function listFollowing(supabase: Client, userId: string, opts: { page?: number; pageSize?: number } = {}): Promise<Paginated<FollowListEntry>> {
   const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
   const page = Math.max(1, opts.page ?? 1);
@@ -91,6 +96,26 @@ export async function listFollowingPosts(supabase: Client, filters: { kind?: "po
   if (error) throw error;
   const total = count ?? 0;
   return { data: data as unknown as FeedPostWithAuthor[], count: total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+}
+
+/**
+ * Behind the Followers and Following counts on someone else's profile: the friends (people who follow each other) the
+ * signed-in viewer and `userId` have in common, by name. Empty signed out, on your own profile and when the two of you
+ * are blocked either way; the database decides who is listed (the mutual_friends() function).
+ */
+export async function listMutualFriends(supabase: Client, userId: string, opts: { page?: number; pageSize?: number } = {}): Promise<Paginated<PosterSummary>> {
+  const pageSize = opts.pageSize ?? DEFAULT_PAGE_SIZE;
+  const page = Math.max(1, opts.page ?? 1);
+  const { from, to } = pageRange(page, pageSize);
+  const { data, error, count } = await supabase
+    .rpc("mutual_friends", { p_user_id: userId }, { count: "exact" })
+    .select(PERSON_SELECT)
+    .order("full_name")
+    .order("id")
+    .range(from, to);
+  if (error) throw error;
+  const total = count ?? 0;
+  return { data: (data ?? []) as unknown as PosterSummary[], count: total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
 }
 
 /** Friends = the people you follow who follow you back (blocks excluded), by name; `q` narrows by name. Signed out: none. */
