@@ -2,8 +2,11 @@
 // profile numbers, view counts and pinned posts.
 import { boot, read, expectOk, expectError, done } from "./harness.mjs";
 const { db, mk, as, asAnon } = await boot();
-// Migration 19 replaces some of these functions, so a re-run replays both in order, as a fresh setup would.
-await expectOk("the profile-page migration re-runs cleanly", async () => { await db.exec(read("migrations/20260927000000_profile_page.sql")); await db.exec(read("migrations/20260928000000_profile_page_tuning.sql")); });
+// Migrations 19 and 21 replace some of these functions (21 closes are_friends), so a re-run replays all three in order,
+// as a fresh setup would.
+await expectOk("the profile-page migration re-runs cleanly", async () => {
+  for (const f of ["20260927000000_profile_page.sql", "20260928000000_profile_page_tuning.sql", "20261010000000_private_follow_lists.sql"]) await db.exec(read(`migrations/${f}`));
+});
 const one = async (p) => (await p).rows[0];
 const rows = async (p) => (await p).rows;
 const A = await mk("a@txstate.edu", "Sunil Sherpa"), B = await mk("b@txstate.edu", "Bob Builder"), C = await mk("c@txstate.edu", "Carol Chen"), D = await mk("d@txstate.edu", "Sunil Sherpa");

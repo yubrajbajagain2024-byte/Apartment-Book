@@ -171,6 +171,8 @@ export type ProfileVisibility = "public" | "friends" | "private";
 export type ProfileSection = "classes" | "saved" | "liked";
 /** May the person looking see each of those tabs? (The owner always may.) */
 export type ProfileSectionAccess = Record<ProfileSection, boolean>;
+/** What a profile's Followers and Following counts open: your own lists, the friends you share, or a log-in prompt. */
+export type FollowListView = "own" | "mutual" | "signed-out";
 export type ProfileClass = Tables<"profile_classes">;
 /** The numbers under the profile photo. Followers and following come from FollowStats. */
 export type ProfileStats = { posts: number; reels: number; likesReceived: number };

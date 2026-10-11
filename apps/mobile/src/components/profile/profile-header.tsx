@@ -157,7 +157,7 @@ export function ProfileHeader({
   );
 }
 
-/** Bold number over a grey word; Following and Followers open their lists. Read out as "243 Followers". */
+/** Bold number over a grey word; Following and Followers open the owner's lists (anyone else's mutual friends). Read out as "243 Followers". */
 function Stat({ n, label, onPress }: { n: number; label: string; onPress?: () => void }) {
   const styles = useStyles();
   return (

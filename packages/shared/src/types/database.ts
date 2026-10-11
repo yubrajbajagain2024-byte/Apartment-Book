@@ -1039,10 +1039,6 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      are_friends: {
-        Args: { p_a: string; p_b: string };
-        Returns: boolean;
-      };
       can_view_profile_section: {
         Args: { p_owner: string; p_section: string };
         Returns: boolean;
@@ -1291,6 +1287,14 @@ export type Database = {
       list_friends: {
         Args: { p_q?: string | null };
         Returns: Database["public"]["Tables"]["profiles"]["Row"][];
+      };
+      mutual_friends: {
+        Args: { p_user_id: string };
+        Returns: Database["public"]["Tables"]["profiles"]["Row"][];
+      };
+      mutual_friend_ids: {
+        Args: { p_user_id: string };
+        Returns: string[];
       };
       following_posts: {
         Args: { p_kind?: string | null; p_university_id?: string | null };

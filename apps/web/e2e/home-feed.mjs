@@ -1,5 +1,5 @@
 // Browser check of the website's navigation (desktop tabs Home | Housing | Messages | Marketplace next to the search box, phone bottom bar Home | Housing | Messages | Marketplace | Profile),
-// Home (For you | Buzz | Posts | Reels), Housing (Apartments | Roommates), following (the Follow button on a profile, the follower list, Home → Posts → Following), the TikTok-style comment thread under a post (heart, reply, the "N comments" header, delete from the comment's options menu)
+// Home (For you | Buzz | Posts | Reels), Housing (Apartments | Roommates), following (the Follow button on a profile, the mutual friends behind someone else's Followers and Following numbers, your own follower lists, Home → Posts → Following), the TikTok-style comment thread under a post (heart, reply, the "N comments" header, delete from the comment's options menu)
 // and sharing a post with a friend (the Share dialog offers the people you follow who follow you back; Send leaves the post as a card in your chat with them),
 // and the TikTok-style profile page (Following · Followers · Likes, @username, the Posts | Classes | Reels | Saved | Liked | Listings tabs, the grid, the Classes and Listings tabs, a locked Saved tab, your own Saved setting),
 // signed out and signed in, on a desktop and a phone viewport.
@@ -9,7 +9,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 // The profile page's wording comes from the shared package (Node 22.18+ loads its TypeScript directly, as npm run test:shared does).
-import { lockedSectionMessage, ownSectionNote } from "../../../packages/shared/src/profile.ts";
+import { lockedSectionMessage, MUTUAL_FRIENDS_LOGIN_PROMPT, noMutualFriendsMessage, ownSectionNote, privateFollowListsNote } from "../../../packages/shared/src/profile.ts";
 const BASE = process.env.BASE || "http://localhost:3060";
 const state = JSON.parse(fs.readFileSync(new URL("../../mobile/e2e/.sim-state.json", import.meta.url), "utf8"));
 const SHOTS = fileURLToPath(new URL("./screenshots/", import.meta.url)); fs.mkdirSync(SHOTS, { recursive: true }); // fileURLToPath: the repo path has a space in it
@@ -261,7 +261,7 @@ try {
     if (!(await card.locator("img").count())) throw new Error("the card has no picture");
     await message.scrollIntoViewIfNeeded(); await D.screenshot({ caret: "initial", path: SHOTS + "web-13-shared-post-chat.png" });
   });
-  await step("signed in: Posts → Following holds Leo's post (we follow each other from the seed) and none of Maya's; follow Maya from her profile, the counts and the list update, her post joins Following, unfollow", async () => {
+  await step("signed in: Posts → Following holds Leo's post (we follow each other from the seed) and none of Maya's; follow Maya from her profile, the counts update, her post joins Following, her Followers and Following numbers open the friends she and I have in common (none: she does not follow Leo back) rather than her lists, signed out they ask to log in, my own lists still show Leo and Maya, unfollow", async () => {
     const profile = BASE + "/profile/" + state.other.id; const button = () => D.getByTestId("follow-button");
     // The Followers number under her name links to the list and reads "1 Follower" or "2 Followers".
     const followers = (text) => D.getByTestId("follow-counts").locator(`a[href='/profile/${state.other.id}/followers']`).filter({ hasText: text });
@@ -280,10 +280,25 @@ try {
     const active = (await sw.locator("[aria-current='page'], [aria-selected='true'], [aria-pressed='true']").allInnerTexts()).map((t) => t.trim()); if (active.join("|") !== "Following") throw new Error("active feed: " + active.join("|"));
     if (!(await followingPost("Move-in day at the new place").count())) throw new Error("Leo's post left the Following feed, but I still follow him");
     await D.screenshot({ caret: "initial", path: SHOTS + "web-09b-posts-following.png" });
-    // Her followers list has a row for me (and one for Leo).
-    await D.goto(profile + "/followers"); await D.waitForLoadState("networkidle"); /* streamed in: wait until the hidden copy has been swapped into place */ const list = D.getByTestId("follow-list"); await list.waitFor();
-    await list.locator("[data-testid='follow-row']").filter({ hasText: state.me.name }).first().waitFor();
-    if (!(await list.locator("[data-testid='follow-row']").filter({ hasText: state.extra[0].name }).count())) throw new Error("Leo's row is missing from the followers list");
+    // Her lists are hers alone: both numbers open the friends she and I have in common instead, under a line saying her followers and following are private,
+    // with no Followers | Following tabs. Leo follows her but she does not follow him back, so he is not her friend and nobody is listed.
+    const first = state.other.name.split(/\s+/)[0];
+    for (const kind of ["followers", "following"]) {
+      await D.goto(`${profile}/${kind}`); await D.waitForLoadState("networkidle"); /* streamed in: wait until the hidden copy has been swapped into place */ const mutual = D.getByTestId("mutual-friends"); await mutual.waitFor();
+      const note = (await mutual.getByTestId("mutual-friends-note").innerText()).trim(); if (note !== privateFollowListsNote(first)) throw new Error(`/${kind} says "${note}", wanted "${privateFollowListsNote(first)}"`);
+      await mutual.getByText(`${noMutualFriendsMessage(first)}.`, { exact: true }).waitFor();
+      if (await D.locator("[data-testid='follow-row'], [data-testid^='follow-tab-']").count()) throw new Error(`/${kind} shows her list or the Followers | Following tabs`);
+    }
+    await D.screenshot({ caret: "initial", path: SHOTS + "web-09c-mutual-friends.png" });
+    // Signed out there is nobody to have friends in common with: no list, and Log in comes back to the same page.
+    await M.goto(profile + "/followers"); const visitor = M.getByTestId("mutual-friends"); await visitor.getByText(MUTUAL_FRIENDS_LOGIN_PROMPT, { exact: true }).waitFor();
+    const login = await visitor.getByRole("link", { name: "Log in", exact: true }).getAttribute("href"); if (login !== `/login?next=${encodeURIComponent(`/profile/${state.other.id}/followers`)}`) throw new Error("Log in links to " + login);
+    if (await M.locator("[data-testid='follow-row']").count()) throw new Error("a signed-out visitor sees rows of her list");
+    // My own lists are still mine in full, under my Followers | Following tabs: Leo follows me, and I follow Leo and Maya (one way: she does not follow me back).
+    await D.goto(`${BASE}/profile/${state.me.id}/followers`); await D.waitForLoadState("networkidle"); const mine = D.locator("[data-testid='follow-list'] [data-testid='follow-row']");
+    await mine.filter({ hasText: state.extra[0].name }).first().waitFor(); if (await D.getByTestId("mutual-friends").count()) throw new Error("my own followers page shows the mutual friends view");
+    await D.getByTestId("follow-tab-following").click(); await D.waitForURL(new RegExp(`/profile/${state.me.id}/following$`));
+    for (const who of [state.other.name, state.extra[0].name]) await mine.filter({ hasText: who }).first().waitFor(); // Maya first: Leo's row is on both lists
     // Back on the profile, the button reads Following; one more click unfollows, so the check can run again and again.
     await D.goto(profile); await D.waitForLoadState("networkidle"); await D.locator("[data-testid='follow-button'][aria-pressed='true']").waitFor(); await D.screenshot({ caret: "initial", path: SHOTS + "web-09-follow.png" });
     await button().click(); await button().filter({ hasText: /^Follow( back)?$/ }).waitFor();

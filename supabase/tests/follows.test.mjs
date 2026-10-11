@@ -1,15 +1,19 @@
-// Migration 14 (follows) against PGlite: policies, counts, the Following feed, notifications, blocking and deletion.
+// Migration 14 (follows) against PGlite: policies, counts, the Following feed, notifications, blocking and deletion,
+// with the rows private to the two people in them since migration 21.
 import { boot, read, expectOk, expectError, done } from "./harness.mjs";
 const { db, mk, as, asAnon } = await boot();
-await expectOk("the follows migration re-runs cleanly", async () => { await db.exec(read("migrations/20260923000000_follows.sql")); });
+// Migration 21 replaces the read policy and follow_stats, so a re-run replays both in order, as a fresh setup would.
+await expectOk("the follows migration re-runs cleanly", async () => { await db.exec(read("migrations/20260923000000_follows.sql")); await db.exec(read("migrations/20261010000000_private_follow_lists.sql")); });
 const A = await mk("a@txstate.edu", "Alice"), B = await mk("b@txstate.edu", "Bob"), C = await mk("c@txstate.edu", "Carol");
 const one = async (p) => (await p).rows[0];
 const follow = (who, whom) => as(who, () => db.query("insert into public.follows (follower_id, followee_id) values ($1,$2)", [who, whom]));
 const stats = (viewer, id) => (viewer ? as(viewer, () => one(db.query("select * from public.follow_stats(array[$1]::uuid[])", [id]))) : asAnon(() => one(db.query("select * from public.follow_stats(array[$1]::uuid[])", [id]))));
 
-await expectOk("follow: A follows B; everyone (even signed out) can see it; counts and the relationship flags are right from every side", async () => {
+await expectOk("follow: A follows B; the two of them can read the row, nobody else can (signed out included); counts and the relationship flags are right from every side", async () => {
   await follow(A, B);
-  if ((await asAnon(() => db.query("select 1 from public.follows where follower_id=$1 and followee_id=$2", [A, B]))).rows.length !== 1) throw new Error("anon cannot see the follow");
+  const sees = async (viewer) => { const q = () => db.query("select 1 from public.follows where follower_id=$1 and followee_id=$2", [A, B]); return (await (viewer ? as(viewer, q) : asAnon(q))).rows.length === 1; };
+  if (!(await sees(A)) || !(await sees(B))) throw new Error("A or B cannot see the follow");
+  if ((await sees(C)) || (await sees(null))) throw new Error("someone else (C, or signed out) can see the follow");
   const b = await stats(A, B); if (Number(b.followers) !== 1 || Number(b.following) !== 0 || b.followed_by_me !== true || b.follows_me !== false) throw new Error("B as seen by A: " + JSON.stringify(b));
   const a = await stats(B, A); if (Number(a.followers) !== 0 || Number(a.following) !== 1 || a.followed_by_me !== false || a.follows_me !== true) throw new Error("A as seen by B: " + JSON.stringify(a));
   const anon = await stats(null, B); if (Number(anon.followers) !== 1 || anon.followed_by_me !== false) throw new Error("anon view: " + JSON.stringify(anon));
@@ -21,7 +25,7 @@ await expectError("follow: you cannot follow on someone else's behalf", () => as
 await expectOk("follow: you cannot remove someone else's follow", async () => {
   const r = await as(C, () => db.query("delete from public.follows where follower_id=$1 and followee_id=$2", [A, B]));
   if (r.affectedRows !== 0) throw new Error("deleted " + r.affectedRows);
-  if ((await asAnon(() => db.query("select 1 from public.follows where follower_id=$1", [A]))).rows.length !== 1) throw new Error("follow gone");
+  if ((await db.query("select 1 from public.follows where follower_id=$1", [A])).rows.length !== 1) throw new Error("follow gone");
 });
 await expectOk("notification: B gets one 'follow' notification linking to A's profile; follow / unfollow / follow keeps it to one unread row", async () => {
   const n = (await as(B, () => db.query("select type, actor_id, link, title from public.notifications where user_id=$1", [B]))).rows;

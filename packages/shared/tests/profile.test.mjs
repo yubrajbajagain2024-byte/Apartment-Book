@@ -59,6 +59,21 @@ test("visibility wording for owners and visitors", async () => {
   assert.ok(isProfileVisibility("public") && !isProfileVisibility("followers"));
 });
 
+test("follower lists: the owner gets their own, anyone else signed in the mutual friends, signed out a prompt", async () => {
+  const { followListView, privateFollowListsNote, noMutualFriendsMessage, MUTUAL_FRIENDS_TITLE, MUTUAL_FRIENDS_LOGIN_PROMPT } = await import("../src/profile.ts");
+  assert.equal(followListView("u1", "u1"), "own");
+  assert.equal(followListView("u2", "u1"), "mutual");
+  assert.equal(followListView(null, "u1"), "signed-out");
+  assert.equal(followListView(undefined, "u1"), "signed-out");
+  assert.equal(followListView("", "u1"), "signed-out");
+  assert.equal(MUTUAL_FRIENDS_TITLE, "Mutual friends");
+  assert.equal(MUTUAL_FRIENDS_LOGIN_PROMPT, "Log in to see mutual friends");
+  assert.equal(privateFollowListsNote("Sunil"), "Only Sunil can see their followers and following");
+  assert.equal(privateFollowListsNote(" "), "Followers and following are private");
+  assert.equal(noMutualFriendsMessage("Sunil "), "You and Sunil have no friends in common yet");
+  assert.equal(noMutualFriendsMessage(""), "No friends in common yet");
+});
+
 test("grid tiles: posts and reels with their first picture, views and pins; listings link to their page", async () => {
   const { tileFromFeedPost, tileFromListing, sortPinnedFirst } = await import("../src/profile.ts");
   const photo = { type: "photo", url: "https://img/1.jpg", width: 1, height: 1, blur: null };

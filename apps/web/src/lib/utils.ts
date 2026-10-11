@@ -31,7 +31,16 @@ export function errorMessage(error: unknown, fallback = "Something went wrong. P
 /** Only allow same-site relative paths for post-login redirects. */
 export function safeNextPath(next: string | null | undefined, fallback = "/"): string {
   if (!next || !next.startsWith("/") || next.startsWith("//")) return fallback;
-  return next;
+  // Browsers read "/\evil.example" (and the same with a tab or a line break after the slash) as another site, so keep
+  // only what a browser resolves to a path on this one.
+  let url: URL;
+  try {
+    url = new URL(next, "http://local");
+  } catch {
+    return fallback;
+  }
+  if (url.origin !== "http://local") return fallback;
+  return url.pathname + url.search + url.hash;
 }
 
 export function firstParam(value: string | string[] | undefined): string | undefined {
