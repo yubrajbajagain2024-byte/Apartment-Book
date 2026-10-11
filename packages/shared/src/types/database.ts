@@ -550,6 +550,8 @@ export type Database = {
           content: string;
           image_url: string | null;
           shared_post: Json | null;
+          /** Migration 20: [{kind, path, name, size, mime, width?, height?, duration?}]; read it with parseAttachments(). */
+          attachments: Json;
           created_at: string;
         };
         Insert: {
@@ -559,6 +561,7 @@ export type Database = {
           content: string;
           image_url?: string | null;
           shared_post?: Json | null;
+          attachments?: Json;
           created_at?: string;
         };
         Update: {
@@ -568,6 +571,7 @@ export type Database = {
           content?: string;
           image_url?: string | null;
           shared_post?: Json | null;
+          attachments?: Json;
           created_at?: string;
         };
         Relationships: [
@@ -1291,6 +1295,14 @@ export type Database = {
       following_posts: {
         Args: { p_kind?: string | null; p_university_id?: string | null };
         Returns: Database["public"]["Tables"]["feed_posts"]["Row"][];
+      };
+      search_messages: {
+        Args: { p_q: string; p_conversation_id?: string | null; p_limit?: number };
+        Returns: Database["public"]["Tables"]["messages"]["Row"][];
+      };
+      conversation_shared_messages: {
+        Args: { p_conversation_id: string; p_kind: string; p_before?: string | null; p_limit?: number };
+        Returns: Database["public"]["Tables"]["messages"]["Row"][];
       };
     };
     Enums: {

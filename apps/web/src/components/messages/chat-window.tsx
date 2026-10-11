@@ -11,6 +11,7 @@ import {
   isSameDay,
   listMessages,
   markConversationRead,
+  parseAttachments,
   receiptFor,
   sendMessage,
   sharedPostLabel,
@@ -20,6 +21,7 @@ import {
   type ConversationSummary,
   type MemberStatus,
   type Message,
+  type MessageAttachment,
   type MessageReceipt,
   type MessageWithSender,
   type SharedPost,
@@ -30,12 +32,26 @@ import { createClient, ensureRealtimeAuth, uniqueChannelName } from "@/lib/supab
 import { cn, errorMessage, formatMessageTime } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
+import { MessageAttachments } from "./message-attachments";
 
 type ChatMessage = MessageWithSender & { pending?: boolean; failed?: boolean };
 
-/** Is `temp` our pending copy of the saved `row`? Share-only messages all have empty text, so the shared post has to match too. */
-function isOptimisticCopy(temp: ChatMessage, row: Pick<Message, "content" | "shared_post">): boolean {
-  return Boolean(temp.pending) && temp.content === row.content && sharedPostOf(temp.shared_post)?.target_id === sharedPostOf(row.shared_post)?.target_id;
+/** A message's files as one string to compare: their storage paths, in order. */
+function attachmentKey(attachments: MessageAttachment[] | undefined): string {
+  return (attachments ?? []).map((a) => a.path).join("\n");
+}
+
+/**
+ * Is `temp` our pending copy of the saved `row`? Share-only and file-only messages all have empty text, so the shared
+ * post and the files have to match too (a message sent from the app with files never replaces one typed here).
+ */
+function isOptimisticCopy(temp: ChatMessage, row: Pick<Message, "content" | "shared_post" | "attachments">): boolean {
+  return (
+    Boolean(temp.pending) &&
+    temp.content === row.content &&
+    sharedPostOf(temp.shared_post)?.target_id === sharedPostOf(row.shared_post)?.target_id &&
+    attachmentKey(temp.attachments) === attachmentKey(row.attachments)
+  );
 }
 
 /** Where each kind of shared thing opens. The card links to one of these plus the id, never to the path stored in the message. */
@@ -142,7 +158,9 @@ export function ChatWindow({
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversation.id}` },
           (payload) => {
-            const row = payload.new as Message;
+            // Realtime rows carry the raw JSON of attachments (and none at all before migration 20).
+            const raw = payload.new as Omit<Message, "attachments"> & { attachments?: unknown };
+            const row: Message = { ...raw, attachments: parseAttachments(raw.attachments) };
             setMessages((prev) => {
               if (prev.some((m) => m.id === row.id)) return prev;
               const sender = row.sender_id ? (membersById.get(row.sender_id) ?? null) : null;
@@ -313,6 +331,7 @@ export function ChatWindow({
             const showDay = !previous || !isSameDay(previous.created_at, m.created_at);
             const continued = previous && previous.sender_id === m.sender_id && !showDay;
             const shared = sharedPostOf(m.shared_post);
+            const attachments = m.attachments ?? [];
             return (
               <li key={m.id} className="flex flex-col">
                 {showDay && hydrated ? <p className="my-3 text-center text-[11px] font-medium uppercase tracking-wide text-gray-400">{formatDayLabel(m.created_at)}</p> : null}
@@ -330,6 +349,10 @@ export function ChatWindow({
                       <a href={m.image_url} target="_blank" rel="noopener noreferrer" className="relative mb-1 block h-48 w-48 overflow-hidden rounded-2xl bg-gray-100">
                         <Image src={m.image_url} alt="Shared photo" fill sizes="192px" className="object-cover" />
                       </a>
+                    ) : null}
+                    {/* Photos, videos and files sent from the app, above the words (a message of files alone has no bubble). */}
+                    {attachments.length > 0 ? (
+                      <MessageAttachments attachments={attachments} mine={mine} senderName={mine ? "You" : (m.sender?.full_name ?? "Unknown")} sentAt={m.created_at} />
                     ) : null}
                     {m.content && !(m.image_url && m.content === "📷 Photo") ? (
                       <div

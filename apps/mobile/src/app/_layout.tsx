@@ -51,6 +51,8 @@ function ThemedStack() {
         <Stack.Screen name="buzz/[id]" options={{ headerShown: false, contentStyle: content }} />
         <Stack.Screen name="messages/[id]" options={{ title: "Chat" }} />
         <Stack.Screen name="messages/new" options={{ title: "New message" }} />
+        <Stack.Screen name="messages/info/[id]" options={{ title: "Chat info" }} />
+        <Stack.Screen name="messages/search/[id]" options={{ title: "Search" }} />
         <Stack.Screen name="search" options={{ title: "Search" }} />
         <Stack.Screen name="profile/[id]" options={{ title: "Profile" }} />
         <Stack.Screen name="follows/[id]" options={{ title: "Followers" }} />
