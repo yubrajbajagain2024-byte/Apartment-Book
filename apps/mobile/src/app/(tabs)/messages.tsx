@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BackHandler, FlatList, Keyboard, Platform, RefreshControl, View, type NativeScrollEvent, type NativeSyntheticEvent, type TextInput } from "react-native";
 import { useFocusEffect, useIsFocused, useRouter } from "expo-router";
-import { listConversations, markConversationRead, type ConversationSummary, type MessageWithSender } from "@apartment-book/shared";
+import { listConversations, listFriends, markConversationRead, type ConversationSummary, type MessageWithSender, type ProfileSummary } from "@apartment-book/shared";
 import { useActionSheet, type SheetOption } from "@/components/action-sheet";
 import { InboxHeader, InboxSearchField } from "@/components/messages/inbox-header";
 import { InboxMessageRow, InboxNewChatButton, InboxNote, InboxRow, InboxSectionHeader } from "@/components/messages/inbox-row";
 import { inFilter, matchConversations, useMessageSearch, useNow, useUsernames, type InboxFilter } from "@/components/messages/inbox-utils";
+import { InboxOnlineFriends, useOpenFriendChat } from "@/components/messages/online-friends";
 import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { hapticTap } from "@/lib/haptics";
 import { useQuery } from "@/lib/hooks";
@@ -24,14 +25,17 @@ type Item =
   | { key: string; type: "failed" };
 
 const NO_CHATS: ConversationSummary[] = [];
+const NO_FRIENDS: ProfileSummary[] = [];
 /** While searching, this many chats show above the messages until "Show all" is tapped. */
 const CHAT_MATCHES = 5;
 
 /**
- * The Messages tab (between Housing and Marketplace in the bottom bar), in the style of X's Chat: its own top bar (your
- * photo, "Chat", the All | Unread | Groups pill), a search box, then your chats newest first with the round new-chat
- * button in the corner. Typing searches chats by name, @username or group title, and below them the words of every
- * message you can read; a found message opens its chat at that message. The list follows new messages live.
+ * The Messages tab (between Housing and Marketplace in the bottom bar), in the style of X's Chat: its own top bar ("Chat"
+ * and the All | Unread | Groups pill), a search box, then your chats newest first with the round new-chat button in the
+ * corner. Above the chats, right under the search box, Messenger's row of your friends who are online now (a tap opens
+ * your chat with them) scrolls away with the list. Typing searches chats by name, @username or group title, and below
+ * them the words of every message you can read; a found message opens its chat at that message. The list follows new
+ * messages live, and the row follows who comes online or goes offline.
  */
 export default function MessagesScreen() {
   const styles = useStyles();
@@ -39,9 +43,11 @@ export default function MessagesScreen() {
   const router = useRouter();
   const showSheet = useActionSheet();
   const focused = useIsFocused();
-  const { user, profile, loading: sessionLoading } = useSession();
+  const { user, loading: sessionLoading } = useSession();
   const userId = user?.id ?? null;
   const { data, error, loading, refresh, setData } = useQuery(() => (userId ? listConversations(supabase, userId) : Promise.resolve(NO_CHATS)), [userId]);
+  const { data: friends, refresh: refreshFriends } = useQuery(() => (userId ? listFriends(supabase) : Promise.resolve(NO_FRIENDS)), [userId]);
+  const { openingFriend, openFriend } = useOpenFriendChat();
   const [filter, setFilter] = useState<InboxFilter>("all");
   const [text, setText] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
@@ -54,8 +60,10 @@ export default function MessagesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (userId) void refresh();
-    }, [userId, refresh]),
+      if (!userId) return;
+      void refresh();
+      void refreshFriends();
+    }, [userId, refresh, refreshFriends]),
   );
   useEffect(() => {
     if (!userId) return;
@@ -128,11 +136,11 @@ export default function MessagesScreen() {
   const onPull = useCallback(async () => {
     setPulling(true);
     try {
-      await refresh();
+      await Promise.all([refresh(), refreshFriends()]);
     } finally {
       setPulling(false);
     }
-  }, [refresh]);
+  }, [refresh, refreshFriends]);
 
   const cancelSearch = useCallback(() => {
     setText("");
@@ -166,7 +174,6 @@ export default function MessagesScreen() {
     [router],
   );
   const newChat = useCallback(() => router.push("/messages/new"), [router]);
-  const openMyProfile = useCallback(() => router.navigate("/(tabs)/profile"), [router]);
 
   const chatMenu = useCallback(
     (c: ConversationSummary) => {
@@ -193,7 +200,7 @@ export default function MessagesScreen() {
   if (!sessionLoading && !user) {
     return (
       <View style={styles.screen}>
-        <InboxHeader me={null} filter="all" unreadChats={0} onFilter={setFilter} onAvatar={openMyProfile} scrolled={false} />
+        <InboxHeader signedIn={false} filter="all" unreadChats={0} onFilter={setFilter} scrolled={false} />
         <EmptyState icon="chatbubbles-outline" title="Log in to see your messages" action={<Button title="Log in" onPress={() => router.push("/(auth)/login")} />} />
       </View>
     );
@@ -249,7 +256,7 @@ export default function MessagesScreen() {
 
   return (
     <View style={styles.screen}>
-      <InboxHeader me={user ? { name: profile?.full_name ?? null, avatarUrl: profile?.avatar_url ?? null } : null} filter={filter} unreadChats={unreadChats} onFilter={setFilter} onAvatar={openMyProfile} scrolled={scrolled}>
+      <InboxHeader signedIn={Boolean(user)} filter={filter} unreadChats={unreadChats} onFilter={setFilter} scrolled={scrolled}>
         {user ? <InboxSearchField value={text} onChangeText={setText} inputRef={inputRef} onFocusChange={setSearchFocused} showCancel={searchFocused || text.length > 0} onCancel={cancelSearch} accessibilityLabel="Search chats and messages" /> : null}
       </InboxHeader>
       {!user ? (
@@ -267,6 +274,7 @@ export default function MessagesScreen() {
           automaticallyAdjustKeyboardInsets
           contentContainerStyle={searching ? styles.searchContent : styles.listContent}
           refreshControl={searching ? undefined : <RefreshControl refreshing={pulling} onRefresh={onPull} tintColor={colors.muted} colors={[colors.brand]} progressBackgroundColor={colors.elevated} />}
+          ListHeaderComponent={searching ? null : <InboxOnlineFriends friends={friends ?? NO_FRIENDS} me={userId} scrolled={scrolled} opening={openingFriend} onOpen={openFriend} />}
           ListEmptyComponent={empty()}
         />
       )}

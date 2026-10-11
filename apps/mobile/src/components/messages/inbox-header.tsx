@@ -2,13 +2,12 @@ import { useState, type ReactNode, type Ref } from "react";
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Avatar } from "@/components/avatar";
 import { hapticSelect } from "@/lib/haptics";
 import { radius, space } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import type { InboxFilter } from "./inbox-utils";
 
-/** Height of the bar with the avatar, the title and the filter pill (the safe area comes on top). */
+/** Height of the bar with the title and the filter pill (the safe area comes on top). */
 const BAR = 48;
 const MENU_WIDTH = 220;
 
@@ -23,12 +22,11 @@ export function inboxFilterLabel(filter: InboxFilter): string {
 }
 
 /**
- * The Messages tab's own top bar, X's Chat style: your photo on the left (it opens your profile), "Chat" in the middle and
- * the outlined "All ⌄" pill on the right, whose menu picks All, Unread or Groups. `children` (the search field) sits under
- * the bar on the same surface; a hairline under both appears once the list underneath has scrolled. `me` is null while
- * signed out: the bar then shows only the title.
+ * The Messages tab's own top bar, X's Chat style: "Chat" in the middle and the outlined "All ⌄" pill on the right, whose
+ * menu picks All, Unread or Groups. `children` (the search field) sits under the bar on the same surface; a hairline under
+ * both appears once the list underneath has scrolled. Signed out, the bar shows only the title.
  */
-export function InboxHeader({ me, filter, unreadChats, onFilter, onAvatar, scrolled, children }: { me: { name: string | null; avatarUrl: string | null } | null; filter: InboxFilter; unreadChats: number; onFilter: (filter: InboxFilter) => void; onAvatar: () => void; scrolled: boolean; children?: ReactNode }) {
+export function InboxHeader({ signedIn, filter, unreadChats, onFilter, scrolled, children }: { signedIn: boolean; filter: InboxFilter; unreadChats: number; onFilter: (filter: InboxFilter) => void; scrolled: boolean; children?: ReactNode }) {
   const styles = useStyles();
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -45,18 +43,12 @@ export function InboxHeader({ me, filter, unreadChats, onFilter, onAvatar, scrol
   return (
     <View style={[styles.chrome, { paddingTop: insets.top }, scrolled && styles.chromeScrolled]}>
       <View style={styles.bar}>
-        <View style={styles.side}>
-          {me ? (
-            <Pressable onPress={onAvatar} hitSlop={8} accessibilityRole="button" accessibilityLabel="Your profile" style={({ pressed }) => pressed && { opacity: 0.7 }}>
-              {me.name ? <Avatar name={me.name} url={me.avatarUrl} size={32} online={false} /> : <View style={styles.avatarPlaceholder} />}
-            </Pressable>
-          ) : null}
-        </View>
+        <View style={styles.side} />
         <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>
           Chat
         </Text>
         <View style={[styles.side, styles.sideEnd]}>
-          {me ? (
+          {signedIn ? (
             <Pressable
               onPress={() => setOpen(true)}
               hitSlop={6}
@@ -148,10 +140,9 @@ const useStyles = makeStyles((colors, scheme) => ({
   chrome: { backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "transparent", zIndex: 1 },
   chromeScrolled: { borderBottomColor: colors.border },
   bar: { height: BAR, flexDirection: "row", alignItems: "center", paddingHorizontal: space.lg },
-  // Two equal sides keep the title truly centred whatever the pill says.
+  // Two equal sides (the left one empty) keep the title truly centred whatever the pill says.
   side: { flex: 1, flexDirection: "row", alignItems: "center" },
   sideEnd: { justifyContent: "flex-end" },
-  avatarPlaceholder: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.skeleton },
   title: { fontSize: 18, fontWeight: "800", color: colors.text, paddingHorizontal: space.sm },
   pill: { flexDirection: "row", alignItems: "center", gap: 4, height: 32, paddingLeft: 14, paddingRight: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border },
   pillText: { fontSize: 14, fontWeight: "700", color: colors.text },
