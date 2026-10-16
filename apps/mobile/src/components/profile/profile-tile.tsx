@@ -9,8 +9,11 @@ import { makeStyles, useColors } from "@/lib/theme-provider";
 
 /** What VoiceOver calls each kind of square: "Reel: Move-in day…". */
 export const TILE_TYPE_LABELS: Record<ProfileTileType, string> = { post: "Post", reel: "Reel", apartment: "Apartment", roommate: "Roommate post", item: "Item" };
-/** Squares are 3:4, like TikTok's grid. */
+/** Squares are 3:4, like TikTok's grid; reels (vertical video) are 9:16. The ratio is height over width. */
 export const TILE_ASPECT = 4 / 3;
+export const REEL_ASPECT = 16 / 9;
+/** The squares' rounded corners. */
+export const TILE_RADIUS = 10;
 
 type ListingType = "apartment" | "roommate" | "item";
 const LISTING_ICONS: Record<ListingType, keyof typeof Ionicons.glyphMap> = { apartment: "home", roommate: "people", item: "pricetag" };
@@ -46,7 +49,7 @@ export function useOpenTile() {
  * stack icon of several photos. A words-only post, or a listing without photos, shows its words on a soft background.
  * `onLongPress` is only given for your own posts and reels (Pin to profile).
  */
-export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, onOpen, onLongPress }: { tile: ProfileTile; width: number; onOpen: (tile: ProfileTile) => void; onLongPress?: (tile: ProfileTile) => void }) {
+export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspect = TILE_ASPECT, onOpen, onLongPress }: { tile: ProfileTile; width: number; aspect?: number; onOpen: (tile: ProfileTile) => void; onLongPress?: (tile: ProfileTile) => void }) {
   const styles = useStyles();
   const colors = useColors();
   const listing = isListing(tile.type) ? tile.type : null;
@@ -63,7 +66,7 @@ export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, onOp
       accessibilityLabel={tileLabel(tile)}
       accessibilityActions={onLongPress ? [{ name: "longpress", label: pinLabel }] : undefined}
       onAccessibilityAction={onLongPress ? (e) => e.nativeEvent.actionName === "longpress" && onLongPress(tile) : undefined}
-      style={({ pressed }) => [styles.tile, { width, height: width * TILE_ASPECT }, pressed && { opacity: 0.85 }]}
+      style={({ pressed }) => [styles.tile, { width, height: width * aspect }, pressed && { opacity: 0.85 }]}
     >
       {tile.imageUrl ? (
         <Image source={{ uri: tile.imageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={120} recyclingKey={tile.key} />
@@ -81,7 +84,7 @@ export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, onOp
 
       {tile.views !== null ? (
         <View style={styles.views} pointerEvents="none">
-          <Ionicons name={tile.isVideo ? "play-outline" : "eye-outline"} size={14} color={ink} style={inkShadow} />
+          <Ionicons name={tile.isVideo ? "play" : "eye-outline"} size={13} color={ink} style={inkShadow} />
           <Text style={[styles.viewsText, { color: ink }, inkShadow]}>{compactCount(tile.views)}</Text>
         </View>
       ) : listing ? (
@@ -104,7 +107,7 @@ export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, onOp
  * (otherwise the stack icon of several photos), and at the bottom the kind and a two-line title over a fade. Listing squares
  * in Saved and Liked stay plain ProfileGridTile squares.
  */
-export const ListingGridTile = memo(function ListingGridTile({ tile, width, onOpen }: { tile: ProfileTile; width: number; onOpen: (tile: ProfileTile) => void }) {
+export const ListingGridTile = memo(function ListingGridTile({ tile, width, aspect = TILE_ASPECT, onOpen }: { tile: ProfileTile; width: number; aspect?: number; onOpen: (tile: ProfileTile) => void }) {
   const styles = useStyles();
   const colors = useColors();
   const kind: ListingType = isListing(tile.type) ? tile.type : "apartment";
@@ -113,7 +116,7 @@ export const ListingGridTile = memo(function ListingGridTile({ tile, width, onOp
   const ink = picture ? colors.onMedia : colors.muted;
   const inkShadow = picture ? styles.iconShadow : null;
   return (
-    <Pressable onPress={() => onOpen(tile)} accessibilityRole="button" accessibilityLabel={tileLabel(tile)} style={({ pressed }) => [styles.tile, { width, height: width * TILE_ASPECT }, pressed && { opacity: 0.85 }]}>
+    <Pressable onPress={() => onOpen(tile)} accessibilityRole="button" accessibilityLabel={tileLabel(tile)} style={({ pressed }) => [styles.tile, { width, height: width * aspect }, pressed && { opacity: 0.85 }]}>
       {tile.imageUrl ? (
         <>
           <Image source={{ uri: tile.imageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={120} recyclingKey={tile.key} />
@@ -148,18 +151,18 @@ export const ListingGridTile = memo(function ListingGridTile({ tile, width, onOp
 
 // The soft grey fills (words-only and blank squares) are input: bg is now the screen itself.
 const useStyles = makeStyles((colors) => ({
-  tile: { backgroundColor: colors.border, overflow: "hidden" },
+  tile: { backgroundColor: colors.border, overflow: "hidden", borderRadius: TILE_RADIUS },
   words: { flex: 1, backgroundColor: colors.input, padding: space.sm, justifyContent: "center" },
   wordsText: { fontSize: 13, lineHeight: 17, color: colors.text, fontWeight: "500" },
   blank: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.input },
-  views: { position: "absolute", left: 6, bottom: 5, flexDirection: "row", alignItems: "center", gap: 3 },
+  views: { position: "absolute", left: 8, bottom: 7, flexDirection: "row", alignItems: "center", gap: 4 },
   viewsText: { fontSize: 12, fontWeight: "700" },
   iconShadow: { textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
-  corner: { position: "absolute", top: 6, right: 6 },
+  corner: { position: "absolute", top: 8, right: 8 },
   // The fade under a listing's kind and title: from clear to the photo-pill dark, drawn as a real gradient (no seams).
   listingShade: { position: "absolute", left: 0, right: 0, bottom: 0, height: "55%", experimental_backgroundImage: `linear-gradient(to bottom, transparent, ${colors.mediaPill})` },
   listingBlank: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 40, backgroundColor: colors.input },
-  listingText: { position: "absolute", left: 6, right: 6, bottom: 6, gap: 2 },
+  listingText: { position: "absolute", left: 8, right: 8, bottom: 8, gap: 2 },
   listingKindRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   listingKind: { flexShrink: 1, fontSize: 11, fontWeight: "600" },
   listingTitle: { fontSize: 12, fontWeight: "700", lineHeight: 15 },

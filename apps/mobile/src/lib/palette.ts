@@ -33,6 +33,14 @@ export type ThemeColors = {
   input: string;
   /** Placeholder shapes while content loads. */
   skeleton: string;
+  /** A soft panel on the screen: the profile's stats card. Lighter than the screen in dark, a grey wash in light. */
+  panel: string;
+  /** The profile's cover band: its top colour (it fades down into `bg`) and the two soft glows over it, violet and teal. */
+  coverTop: string;
+  coverGlowA: string;
+  coverGlowB: string;
+  /** The translucent round buttons floating on the cover (Back, Find friends, the menu); they sit on `bar` once the cover has scrolled away. */
+  coverButton: string;
   /** Green and red for text, icons and dots (the presence dot, unread markers). */
   green: string;
   red: string;
@@ -92,6 +100,11 @@ export const lightColors: ThemeColors = {
   border: "#e4e6eb",
   input: "#f0f2f5",
   skeleton: "#e4e6eb",
+  panel: "#f0f2f5",
+  coverTop: "#e4e8f4",
+  coverGlowA: "rgba(124,92,255,0.34)",
+  coverGlowB: "rgba(32,196,160,0.28)",
+  coverButton: "rgba(0,0,0,0.07)",
   green: "#31a24c",
   red: "#e41e3f",
   amber: "#f7b928",
@@ -133,6 +146,11 @@ export const darkColors: ThemeColors = {
   border: "#38383a",
   input: "#2c2c2e",
   skeleton: "#2c2c2e",
+  panel: "#1c1c1e",
+  coverTop: "#18163a",
+  coverGlowA: "rgba(118,84,240,0.55)",
+  coverGlowB: "rgba(36,200,160,0.34)",
+  coverButton: "rgba(255,255,255,0.14)",
   green: "#3fbf5f",
   red: "#ff453a",
   amber: "#ffd60a",
