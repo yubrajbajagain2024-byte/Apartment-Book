@@ -1,0 +1,104 @@
+import { type ReactNode } from "react";
+import { Pressable, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { compactCount } from "@apartment-book/shared";
+import { radius } from "@/lib/theme";
+import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Avatar } from "./avatar";
+
+/** The side gutter of every post: the header, the text, the photo's rounded frame and the rows under it keep to it. */
+export const POST_GUTTER = 16;
+/** The corner radius of a post's photo frame. */
+export const POST_FRAME_RADIUS = 18;
+const AVATAR = 42;
+
+/**
+ * The pieces every post in the app is built from, so posts, roommate posts and apartments look the same: the header
+ * (photo, name, a grey "<where> · Oct 2" line and the ••• menu), the rounded frame around the photo or video, and the
+ * row of heart, comment and share with their counts, the bookmark on the right. The words of a post sit between the
+ * header and the frame, Facebook style (see ExpandableText).
+ */
+export function PostHeader({ name, avatarUrl, userId, verified, meta, onOpen, onMenu }: { name: string; avatarUrl: string | null | undefined; userId: string; verified: boolean; meta: string; onOpen: () => void; onMenu: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
+  return (
+    <View style={styles.header}>
+      <Pressable onPress={onOpen} accessibilityLabel={`${name}'s profile`}>
+        <Avatar name={name} url={avatarUrl} size={AVATAR} userId={userId} />
+      </Pressable>
+      {/* Labelled with the name alone: the verified icon would otherwise join the label and hide the name from assistive tech (and Maestro). */}
+      <Pressable style={{ flex: 1, minWidth: 0 }} onPress={onOpen} accessibilityRole="button" accessibilityLabel={name}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Text style={styles.name} numberOfLines={1}>
+            {name}
+          </Text>
+          {verified ? <Ionicons name="checkmark-circle" size={15} color={colors.brand} accessibilityLabel="Verified student" /> : null}
+        </View>
+        {meta ? (
+          <Text style={styles.meta} numberOfLines={1}>
+            {meta}
+          </Text>
+        ) : null}
+      </Pressable>
+      <Pressable onPress={onMenu} hitSlop={10} accessibilityLabel="Post options" accessibilityRole="button" style={styles.dots}>
+        <Ionicons name="ellipsis-horizontal" size={20} color={colors.muted} />
+      </Pressable>
+    </View>
+  );
+}
+
+/** The rounded frame a post's photo or video sits in, inset from the screen edges; it clips whatever is laid over the picture too. */
+export function PostFrame({ children }: { children: ReactNode }) {
+  const styles = useStyles();
+  return <View style={styles.frame}>{children}</View>;
+}
+
+/**
+ * Heart, comment and share with their counts, then, on the right, an optional "Message" pill (listings: a chat with the
+ * owner; "Inbox" on your own) and the bookmark.
+ */
+export function PostActions({ liked, likes, comments, saved, onLike, onComment, onShare, onSave, message, tight }: { liked: boolean; likes: number; comments: number; saved: boolean; onLike: () => void; onComment: () => void; onShare: () => void; onSave: () => void; message?: { label: string; onPress: () => void }; tight?: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
+  return (
+    <View style={[styles.actions, tight && { paddingTop: 6 }]}>
+      <Pressable onPress={onLike} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel={liked ? "Unlike" : "Like"} accessibilityState={{ selected: liked }}>
+        <Ionicons name={liked ? "heart" : "heart-outline"} size={26} color={liked ? colors.like : colors.text} />
+        {likes > 0 ? <Text style={styles.count}>{compactCount(likes)}</Text> : null}
+      </Pressable>
+      <Pressable onPress={onComment} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel="Comment">
+        <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
+        {comments > 0 ? <Text style={styles.count}>{compactCount(comments)}</Text> : null}
+      </Pressable>
+      <Pressable onPress={onShare} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel="Share">
+        <Ionicons name="share-outline" size={24} color={colors.text} />
+      </Pressable>
+      <View style={{ flex: 1 }} />
+      {message ? (
+        <Pressable onPress={message.onPress} hitSlop={4} style={({ pressed }) => [styles.message, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={message.label}>
+          <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.text} />
+          <Text style={styles.messageText}>{message.label}</Text>
+        </Pressable>
+      ) : null}
+      <Pressable onPress={onSave} hitSlop={6} accessibilityRole="button" accessibilityLabel={saved ? "Unsave" : "Save"} accessibilityState={{ selected: saved }}>
+        <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={24} color={saved ? colors.text : colors.muted} />
+      </Pressable>
+    </View>
+  );
+}
+
+const useStyles = makeStyles((colors) => ({
+  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: POST_GUTTER, paddingVertical: 10 },
+  name: { fontSize: 16, fontWeight: "700", color: colors.text, flexShrink: 1 },
+  meta: { fontSize: 13, color: colors.muted, marginTop: 1 },
+  dots: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  frame: { marginHorizontal: POST_GUTTER, borderRadius: POST_FRAME_RADIUS, overflow: "hidden", backgroundColor: colors.mediaBg },
+  actions: { flexDirection: "row", alignItems: "center", gap: 22, paddingHorizontal: POST_GUTTER, paddingTop: 12, paddingBottom: 4 },
+  action: { flexDirection: "row", alignItems: "center", gap: 6 },
+  count: { fontSize: 14, fontWeight: "600", color: colors.text },
+  message: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, marginRight: 14 },
+  messageText: { fontSize: 13, fontWeight: "700", color: colors.text },
+}));
+
+/** The text of a post, the same size on posts, roommate posts and apartments. */
+export const POST_TEXT = { fontSize: 15, lineHeight: 21 } as const;

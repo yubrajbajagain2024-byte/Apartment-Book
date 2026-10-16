@@ -13,6 +13,12 @@ export type ThemeColors = {
   brandSoft: string;
   /** Text and icons drawn on a brand-blue fill. */
   onBrand: string;
+  /** The violet accent of the Home feed: the active label's underline, the slide dots under a photo and where the "New post" button's gradient starts. */
+  accent: string;
+  /** The blue the "New post" button's gradient ends in. */
+  accentBlue: string;
+  /** The teal the ring around your photo in the Home bar starts from (it ends in `accent`). */
+  accentTeal: string;
   /** Screen background. */
   bg: string;
   /** Cards and rows that sit on the screen. Bars use `bar`. */
@@ -90,6 +96,9 @@ export const lightColors: ThemeColors = {
   brandDark: "#166fe5",
   brandSoft: "#e7f0fd",
   onBrand: "#ffffff",
+  accent: "#6a4df0",
+  accentBlue: "#3b82f6",
+  accentTeal: "#14b8a6",
   bg: "#ffffff",
   card: "#ffffff",
   bar: "#ffffff",
@@ -136,6 +145,9 @@ export const darkColors: ThemeColors = {
   brandDark: "#166fe5",
   brandSoft: "#0f2747",
   onBrand: "#ffffff",
+  accent: "#8b7cff",
+  accentBlue: "#5b9bff",
+  accentTeal: "#2dd4bf",
   bg: "#000000",
   card: "#1c1c1e",
   bar: "#000000",

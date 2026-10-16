@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, RefreshControl, Text, View, type ViewToken } from "react-native";
 import { useRouter } from "expo-router";
 import { listFeedPosts, type FeedPostWithAuthor } from "@apartment-book/shared";
+import { CaughtUp } from "@/components/home/caught-up";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
@@ -14,7 +15,7 @@ import { useColors } from "@/lib/theme-provider";
 import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { InstaPost } from "./insta-post";
 
-/** Home → Posts: Instagram-style posts from students, newest first. The campus and "Following" (only the people you follow) are chosen from the dropdown in the top bar; new posts are made with its "+". */
+/** Home → Posts: photo-first posts from students, newest first. The campus and "Following" (only the people you follow) are chosen from the menu under your photo in the top bar; new posts are made with the floating "+ New post" pill. */
 export function PostsSection({ active, topInset }: { active: boolean; topInset: number }) {
   const { user, profile } = useSession();
   const router = useRouter();
@@ -69,7 +70,8 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
         ref={listRef}
         data={feed.items}
         keyExtractor={(p) => p.id}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        // Room under the last post for the floating "New post" pill.
+        contentContainerStyle={{ paddingBottom: 96 }}
         renderItem={({ item: p }) => (
           <InstaPost
             post={p}
@@ -96,7 +98,7 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
             <EmptyState icon="newspaper-outline" title="No posts yet" body={following ? "Posts from people you follow show up here." : campusId ? "Say hello to your campus, or switch to all universities." : "Be the first to share something."} />
           )
         }
-        ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : null}
+        ListFooterComponent={feed.items.length === 0 ? null : feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : <CaughtUp />}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
         onViewableItemsChanged={onViewable}

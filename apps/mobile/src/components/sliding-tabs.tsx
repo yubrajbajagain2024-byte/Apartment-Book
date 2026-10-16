@@ -31,6 +31,8 @@ export function SlidingTabs<T extends string>({
   labelColor,
   dimColor,
   textStyle,
+  gap = 28,
+  fontSize = 15,
 }: {
   sections: readonly { value: T; label: string }[];
   section: T;
@@ -41,6 +43,9 @@ export function SlidingTabs<T extends string>({
   labelColor: string;
   dimColor: string;
   textStyle?: StyleProp<TextStyle>;
+  /** Space between the labels and their size: Home's bar, with a slot on each side, packs its four a little tighter and taller. */
+  gap?: number;
+  fontSize?: number;
 }) {
   const [boxes, setBoxes] = useState<(LabelBox | undefined)[]>(() => sections.map(() => undefined));
   // Same array unless a label really moved, so the interpolation below is not rebuilt on every layout pass.
@@ -81,7 +86,7 @@ export function SlidingTabs<T extends string>({
   }, [count, pageWidth, scrollX]);
 
   return (
-    <View style={styles.labels} accessibilityRole="tablist">
+    <View style={[styles.labels, { gap }]} accessibilityRole="tablist">
       {sections.map((s, i) => {
         const active = s.value === section;
         const fade = fades?.[i];
@@ -89,16 +94,16 @@ export function SlidingTabs<T extends string>({
           <Pressable key={s.value} onPress={() => onSelect(s.value)} onLayout={(e) => measure(i, e.nativeEvent.layout)} hitSlop={6} accessibilityRole="tab" accessibilityLabel={s.label} accessibilityState={{ selected: active }} style={styles.tab}>
             <View>
               {/* An invisible bold copy gives every label the width of its bold form: nothing shifts when the active one changes weight, and the underline fits it exactly. */}
-              <Text style={[styles.label, styles.bold, styles.ghost, textStyle]} aria-hidden>
+              <Text style={[styles.label, { fontSize }, styles.bold, styles.ghost, textStyle]} aria-hidden>
                 {s.label}
               </Text>
               {fade ? (
                 <>
-                  <Animated.Text style={[styles.label, styles.text, { color: dimColor }, textStyle, { opacity: fade.off }]}>{s.label}</Animated.Text>
-                  <Animated.Text style={[styles.label, styles.text, styles.bold, { color: labelColor }, textStyle, { opacity: fade.on }]}>{s.label}</Animated.Text>
+                  <Animated.Text style={[styles.label, { fontSize }, styles.text, { color: dimColor }, textStyle, { opacity: fade.off }]}>{s.label}</Animated.Text>
+                  <Animated.Text style={[styles.label, { fontSize }, styles.text, styles.bold, { color: labelColor }, textStyle, { opacity: fade.on }]}>{s.label}</Animated.Text>
                 </>
               ) : (
-                <Text style={[styles.label, styles.text, { color: active ? labelColor : dimColor }, active && styles.bold, textStyle]}>{s.label}</Text>
+                <Text style={[styles.label, { fontSize }, styles.text, { color: active ? labelColor : dimColor }, active && styles.bold, textStyle]}>{s.label}</Text>
               )}
             </View>
             {slide ? null : <View style={[styles.underline, styles.staticUnderline, { backgroundColor: active ? tint : "transparent" }]} />}
@@ -111,8 +116,8 @@ export function SlidingTabs<T extends string>({
 }
 
 const styles = StyleSheet.create({
-  // Centred labels with nothing beside them (Home's "+" and Search moved to the row above): 28 between four labels at 15pt still fits a 320pt phone.
-  labels: { flex: 1, alignSelf: "stretch", flexDirection: "row", alignItems: "stretch", justifyContent: "center", gap: 28 },
+  // Centred labels; the gap and the size come in as props (28 and 15pt by default, Housing's bar).
+  labels: { flex: 1, alignSelf: "stretch", flexDirection: "row", alignItems: "stretch", justifyContent: "center" },
   // Stretched to the row's height so the underline sits on the row's bottom edge whatever the bar's height (44pt in Home and Housing).
   tab: { alignItems: "center", justifyContent: "center" },
   label: { fontSize: 15, fontWeight: "600" },

@@ -296,7 +296,7 @@ env:
 - assertVisible: "Post options"
 - takeScreenshot: e2e/screenshots/12-buzz-thread
 # Following, like Instagram. The thread is a stacked screen without the bottom tabs: Close brings Home back (the pager is
-# still on Buzz). Following is a row of the menu that drops down from the CampConnect wordmark ("Choose feed"). Before Maya
+# still on Buzz). Following is a row of the menu that drops down from your photo in the top bar ("Choose feed"). Before Maya
 # is followed it holds Leo's three-photo post (the seed has him and this account follow each other) and nothing of hers: the
 # scroll would bring her words-only post into view if it were there, and notVisible waits because the campus list stays on
 # screen until the Following one has loaded. Then, back on the campus, scroll to the top (Leo's three-photo post) and down to
@@ -371,9 +371,9 @@ env:
     visible: "Following"
     timeout: 15000
 - takeScreenshot: e2e/screenshots/16-profile-following
-# The Following feed again, from the menu that drops down from the CampConnect wordmark (Instagram style; the Posts page has
+# The Following feed again, from the menu that drops down from your photo in the top bar (Instagram style; the Posts page has
 # no chips of its own). Back on Home (the left-edge swipe pops the profile on iOS; the pager is still on Posts), "Choose feed"
-# is the wordmark button and opens the menu: the seeded account's university, "All universities" and "Following". Following
+# is the photo button and opens the menu: the seeded account's university, "All universities" and "Following". Following
 # keeps Posts to the people you follow: now Maya's words-only post shows too, under Leo's three-photo post.
 - swipe:
     start: "2%,45%"

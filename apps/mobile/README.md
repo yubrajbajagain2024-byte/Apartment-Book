@@ -24,13 +24,14 @@ is the magnifier in the top-right corner of every tab, like TikTok; on Home it s
 the floating top bar. Home opens on **For you**, a blend of posts, reels and hot anonymous Buzz threads
 (the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
 four pages, For you | Buzz | Posts | Reels, sit side by side in a pager: swipe left or right to move
-between them, or tap a label in the floating top bar. That bar has two rows, like Instagram's
-(`src/components/home/home-top-tabs.tsx`): "+" (create), the CampConnect wordmark (`HOME_BRAND` in
-`packages/shared`) with a chevron that drops down the feed menu, and Search; then the four labels,
-highlighted like X (`src/components/sliding-tabs.tsx`): the active one bold with a rounded underline as wide
-as the label, a hairline under the row, and a soft haptic each time the section changes, by tap or swipe. The
+between them, or tap a label in the floating top bar. That bar is one row (`src/components/home/home-top-tabs.tsx`): your photo in a teal-to-violet
+ring on the left, which drops down the feed menu; the four labels in the middle, highlighted like X
+(`src/components/sliding-tabs.tsx`): the active one bold with a rounded violet underline as wide as the label, a hairline
+under the row, and a soft haptic each time the section changes, by tap or swipe; and Search on the right. Creating is the
+"+ New post" pill floating over the bottom-right of the feed (`src/components/home/new-post-button.tsx`, the same
+Post / Reel / Buzz sheet as before); it fades out towards Reels, where the bar's left slot holds a white "+" instead. The
 menu chooses your university, All universities or, signed in, Following (only the posts of people you follow;
-it switches to Posts, and the wordmark reads "Following" while it shows). The choice lives in
+it switches to Posts). The choice lives in
 `src/lib/home-scope.ts` and drives For you, Buzz and Posts alike: the pages have no filter chips of their own.
 Housing works the same way with two pages,
 **Apartments | Roommates**: it opens on Apartments, a swipe or a tap on the label above the pager

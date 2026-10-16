@@ -1,15 +1,15 @@
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { getOrCreateDirectConversation, reportContent, sharedPostFromListing, timeAgo, type FeedMedia, type PostEngagement, type ReportReason, type PostTargetType, type SharedPost, REPORT_REASONS } from "@apartment-book/shared";
+import { getOrCreateDirectConversation, reportContent, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type PostTargetType, type SharedPost, REPORT_REASONS } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
+import { shortDate } from "@/lib/short-date";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { makeStyles, useColors } from "@/lib/theme-provider";
+import { makeStyles } from "@/lib/theme-provider";
 import { useActionSheet } from "./action-sheet";
-import { Avatar } from "./avatar";
-import { EngagementBar, EngagementSummary, useLike, useSave } from "./engagement";
+import { useLike, useSave } from "./engagement";
+import { ExpandableText } from "./expandable-text";
 import { PhotoCarousel } from "./photo-carousel";
+import { POST_GUTTER, POST_TEXT, PostActions, PostFrame, PostHeader } from "./post-bits";
 import { firstImageOf, useShareSheet } from "./share-sheet";
 
 export type PostCardProps = {
@@ -32,32 +32,29 @@ export type PostCardProps = {
   active?: boolean;
 };
 
-const LIMIT = 140;
-/** The band between two full-width cards in a feed (each card has a hairline top and bottom, so they stay apart on white). */
-export const FEED_GAP = 8;
-/** Side padding for a feed's header (search, chips, composer): the cards themselves have none. */
+/** Side padding for a feed's header (search, chips, composer): the posts keep their own gutter. */
 export const FEED_HEADER_PADDING = 12;
 
 /**
- * Facebook-style post: header → title/description → media → counts → Like / Comment / Message.
- * The card has no side margins and no rounded corners: it spans the whole screen so photos and videos touch both edges.
- * Feeds separate cards with an 8px band (FEED_GAP) and must not add horizontal padding around them.
+ * An apartment or roommate post in a feed, laid out like the posts on Home (see post-bits): header → title, price line
+ * and the description folded to three lines ("more…" / "less") with its chips → the photos or video in a rounded frame →
+ * heart, comment and share with their counts, the Message pill and the bookmark. No card box: posts follow each other on
+ * the screen with room between them.
  */
 export function PostCard(props: PostCardProps) {
   const { poster, title, lead, description, media, createdAt, path } = props;
-  const colors = useColors();
   const styles = useStyles();
   const router = useRouter();
   const show = useActionSheet();
   const shareSheet = useShareSheet();
   const { user } = useSession();
-  const [expanded, setExpanded] = useState(false);
   const needLogin = () => router.push("/(auth)/login");
   const like = useLike(props.targetType, props.targetId, props.engagement, user?.id ?? null, needLogin);
   const save = useSave(props.targetType, props.targetId, props.saved, user?.id ?? null, needLogin);
   const text = description?.trim() ?? "";
-  const long = text.length > LIMIT;
   const own = user?.id === poster.id;
+  // "1.2 mi from campus · San Marcos · Oct 2"
+  const meta = [props.subtitle, shortDate(createdAt)].filter(Boolean).join(" · ");
 
   const openDetail = (focusComments = false) => router.push({ pathname: path as never, params: focusComments ? { comment: "1" } : {} } as never);
 
@@ -107,60 +104,33 @@ export function PostCard(props: PostCardProps) {
   }
 
   return (
-    <View style={styles.card} accessibilityLabel={`Post: ${title ?? description?.slice(0, 40) ?? "post"}`}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })}>
-          <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.id} ringColor={colors.card} />
-        </Pressable>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Text style={styles.name} numberOfLines={1}>
-              {poster.name}
-            </Text>
-            {poster.verified ? <Ionicons name="checkmark-circle" size={15} color={colors.brand} accessibilityLabel="Verified student" /> : null}
-          </View>
-          <Text style={styles.meta} numberOfLines={1}>
-            {timeAgo(createdAt)}
-            {props.subtitle ? ` · ${props.subtitle}` : ""}
-          </Text>
-        </View>
-        <Pressable onPress={menu} hitSlop={8} accessibilityLabel="Post options" accessibilityRole="button" style={styles.dots}>
-          <Ionicons name="ellipsis-horizontal" size={20} color={colors.muted} />
-        </Pressable>
-      </View>
+    <View style={styles.post} accessibilityLabel={`Post: ${title ?? description?.slice(0, 40) ?? "post"}`}>
+      <PostHeader name={poster.name} avatarUrl={poster.avatarUrl} userId={poster.id} verified={poster.verified} meta={meta} onOpen={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })} onMenu={menu} />
 
+      {/* The words come before the picture, Facebook style; a tap on them opens the listing. */}
       <Pressable onPress={() => openDetail()} style={styles.body}>
         {title ? <Text style={styles.title}>{title}</Text> : null}
         {lead ? <Text style={styles.lead}>{lead}</Text> : null}
-        {text ? (
-          <Text style={styles.description}>
-            {expanded || !long ? text : `${text.slice(0, LIMIT).trimEnd()}… `}
-            {long && !expanded ? (
-              <Text style={{ color: colors.muted, fontWeight: "600" }} onPress={() => setExpanded(true)}>
-                more
-              </Text>
-            ) : null}
-          </Text>
-        ) : null}
+        {text ? <ExpandableText style={styles.description}>{text}</ExpandableText> : null}
         {props.details ? <View style={styles.details}>{props.details}</View> : null}
       </Pressable>
 
-      {media.length > 0 ? <PhotoCarousel media={media} onPress={() => openDetail()} active={props.active} videoLabel={props.targetType === "post" ? null : undefined} /> : null}
-      <EngagementSummary likes={like.likes} comments={props.engagement?.comments ?? 0} onComments={() => openDetail(true)} />
-      <EngagementBar liked={like.liked} likes={like.likes} onLike={() => void like.toggle()} onComment={() => openDetail(true)} onMessage={() => void message()} messageLabel={own ? "Inbox" : "Message"} />
+      {media.length > 0 ? (
+        <PostFrame>
+          <PhotoCarousel media={media} onPress={() => openDetail()} active={props.active} videoLabel={props.targetType === "post" ? null : undefined} />
+        </PostFrame>
+      ) : null}
+
+      <PostActions liked={like.liked} likes={like.likes} comments={props.engagement?.comments ?? 0} saved={save.saved} onLike={() => void like.toggle()} onComment={() => openDetail(true)} onShare={share} onSave={() => void save.toggle()} message={{ label: own ? "Inbox" : "Message", onPress: () => void message() }} />
     </View>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
-  card: { width: "100%", backgroundColor: colors.card, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  header: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, paddingBottom: 6 },
-  name: { fontSize: 15, fontWeight: "700", color: colors.text, flexShrink: 1 },
-  meta: { fontSize: 12, color: colors.muted },
-  dots: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 16 },
-  body: { paddingHorizontal: 12, paddingBottom: 12, gap: 3 },
-  title: { fontSize: 17, fontWeight: "700", color: colors.text },
+  post: { width: "100%", backgroundColor: colors.bg, paddingTop: 4, paddingBottom: 18 },
+  body: { paddingHorizontal: POST_GUTTER, paddingTop: 2, paddingBottom: 12, gap: 3 },
+  title: { fontSize: 16, fontWeight: "700", color: colors.text },
   lead: { fontSize: 14, fontWeight: "700", color: colors.brand },
-  description: { fontSize: 15, color: colors.text, lineHeight: 21 },
+  description: { ...POST_TEXT, color: colors.text },
   details: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 6 },
 }));
