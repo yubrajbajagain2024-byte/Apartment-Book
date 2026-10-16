@@ -5,6 +5,7 @@ import { Fab } from "@/components/feed-header";
 import { ApartmentsSection } from "@/components/housing/apartments-section";
 import { RoommatesSection } from "@/components/housing/roommates-section";
 import { SlidingTabs } from "@/components/sliding-tabs";
+import { useCollapsingHeader } from "@/lib/collapsing-header";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 const ORDER = HOUSING_SECTIONS.map((s) => s.value);
@@ -12,7 +13,12 @@ const START = Math.max(0, ORDER.indexOf(DEFAULT_HOUSING_SECTION));
 /** Height of the Apartments | Roommates row under the native header. */
 const TABS_ROW = 44;
 
-/** Housing: Apartments | Roommates side by side in a horizontal pager under a row of sliding tabs. Opens on Apartments. */
+/**
+ * Housing: Apartments | Roommates side by side in a horizontal pager under a row of sliding tabs. Opens on Apartments. The
+ * native header ("Housing", Search) stays put; the tabs row floats over the pager and slides up under the header as the half
+ * on screen scrolls down, back as soon as it scrolls up (useCollapsingHeader), so the search, the chips and the listings
+ * scroll as one.
+ */
 export default function HousingScreen() {
   const colors = useColors();
   const styles = useStyles();
@@ -30,6 +36,7 @@ export default function HousingScreen() {
   const scrollX = useRef(new Animated.Value(START * width)).current;
   /** Pages are mounted the first time they come into view, so Roommates does not load until someone looks at it. */
   const [mounted, setMounted] = useState<Set<number>>(() => new Set([START]));
+  const { translateY: tabsShift, select: followPage, reveal: revealTabs, onScroll: onPageScroll } = useCollapsingHeader(ORDER.length, TABS_ROW, START);
 
   const section: HousingSection = ORDER[index] ?? DEFAULT_HOUSING_SECTION;
 
@@ -37,7 +44,8 @@ export default function HousingScreen() {
     indexRef.current = i;
     setIndex(i);
     setMounted((prev) => (prev.has(i) ? prev : new Set(prev).add(i)));
-  }, []);
+    followPage(i);
+  }, [followPage]);
 
   // Keep the current page in place when the pager is first laid out and when the screen width changes.
   const place = useCallback(() => {
@@ -53,6 +61,7 @@ export default function HousingScreen() {
     const i = ORDER.indexOf(s);
     if (i < 0 || i === indexRef.current) return;
     target.current = i;
+    revealTabs();
     show(i);
     pager.current?.scrollTo({ x: i * width, animated: true });
   }
@@ -86,9 +95,9 @@ export default function HousingScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.bar}>
+      <Animated.View style={[styles.bar, { transform: [{ translateY: tabsShift }] }]}>
         <SlidingTabs sections={HOUSING_SECTIONS} section={section} onSelect={select} scrollX={scrollX} pageWidth={width} tint={colors.brand} labelColor={colors.text} dimColor={colors.muted} />
-      </View>
+      </Animated.View>
       <Animated.ScrollView
         ref={pager}
         horizontal
@@ -102,6 +111,8 @@ export default function HousingScreen() {
         onContentSizeChange={place}
         onScrollBeginDrag={() => {
           target.current = null;
+          // The labels come back for the swipe, wherever the half had scrolled them.
+          revealTabs();
         }}
         onScroll={onPagerScroll}
         onMomentumScrollEnd={onSettled}
@@ -109,7 +120,7 @@ export default function HousingScreen() {
       >
         {ORDER.map((s, i) => (
           <View key={s} style={{ width, flex: 1 }}>
-            {!mounted.has(i) ? null : s === "roommates" ? <RoommatesSection /> : <ApartmentsSection />}
+            {!mounted.has(i) ? null : s === "roommates" ? <RoommatesSection topInset={TABS_ROW} onScroll={onPageScroll(i)} /> : <ApartmentsSection topInset={TABS_ROW} onScroll={onPageScroll(i)} />}
           </View>
         ))}
       </Animated.ScrollView>
@@ -120,6 +131,7 @@ export default function HousingScreen() {
 }
 
 const useStyles = makeStyles((colors) => ({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  bar: { height: TABS_ROW, backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, alignItems: "center", justifyContent: "center" },
+  // Clipped, so the tabs row slid up out of the way never shows above the screen.
+  screen: { flex: 1, backgroundColor: colors.bg, overflow: "hidden" },
+  bar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 2, height: TABS_ROW, backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, alignItems: "center", justifyContent: "center" },
 }));

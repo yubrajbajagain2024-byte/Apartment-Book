@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { BUZZ_PAGE_SIZE, BUZZ_SORTS, BUZZ_TOPICS, labelFor, listBuzz, type BuzzPost, type BuzzSort, type BuzzTopic } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { AnimatedFlatList } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -28,8 +29,8 @@ function FilterPill({ label, icon, active, caret, onPress, accessibilityLabel }:
   );
 }
 
-/** Home → Buzz: anonymous Reddit-style threads. `topInset` is the height of the floating Home bar above the list. */
-export function BuzzSection({ topInset }: { active: boolean; topInset: number }) {
+/** Home → Buzz: anonymous Reddit-style threads. `topInset` is the height of the floating Home bar above the list, which `onScroll` reports its scroll to (the bar slides away with it). */
+export function BuzzSection({ topInset, onScroll }: { active: boolean; topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
   const router = useRouter();
   const show = useActionSheet();
   const { user, profile } = useSession();
@@ -143,9 +144,11 @@ export function BuzzSection({ topInset }: { active: boolean; topInset: number })
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <FlatList
+      <AnimatedFlatList
         data={items}
         keyExtractor={(p) => p.id}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         // Flat Reddit rows: no cards, no side padding, a hairline between rows.
         contentContainerStyle={{ paddingBottom: 96, paddingTop: ios ? 0 : topInset }}
         ItemSeparatorComponent={Hairline}

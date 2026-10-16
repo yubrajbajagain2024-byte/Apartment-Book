@@ -1,17 +1,18 @@
-import { useState } from "react";
-import { FlatList, RefreshControl, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { formatDistance, formatPrice, isVerifiedPoster, listApartments, listingMedia, type ApartmentWithOwner } from "@apartment-book/shared";
 import { FeedHeader } from "@/components/feed-header";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
 import { Badge, Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useColors } from "@/lib/theme-provider";
 import { useEngagement } from "@/lib/use-engagement";
 
-/** The Apartments half of the Housing tab: search, filters and the listings feed. The Housing screen owns the "+" button. */
-export function ApartmentsSection() {
+/** The Apartments half of the Housing tab: search, filters and the listings feed, starting `topInset` under the floating tabs row and reporting its scroll through `onScroll`. The Housing screen owns the "+" button. */
+export function ApartmentsSection({ topInset, onScroll }: { topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
   const colors = useColors();
   const { user, profile } = useSession();
   const [q, setQ] = useState("");
@@ -20,13 +21,17 @@ export function ApartmentsSection() {
   const universityId = allCampuses ? undefined : (profile?.university_id ?? undefined);
   const feed = useFeed<ApartmentWithOwner>((page) => listApartments(supabase, { q: q || undefined, universityId, videoOnly, page, sort: "newest" }), [q, universityId, videoOnly]);
   const { savedIds, engagement } = useEngagement("apartment", feed.items, user?.id ?? null);
+  const inset = useMemo(() => listInset(topInset), [topInset]);
 
   return (
     <View style={{ flex: 1 }}>
-      <FlatList
+      <AnimatedFlatList
         data={feed.items}
         keyExtractor={(a) => a.id}
-        contentContainerStyle={{ paddingBottom: 90 }}
+        {...inset.list}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={{ paddingBottom: 90, paddingTop: inset.paddingTop }}
         ListHeaderComponent={
           <View style={{ paddingHorizontal: FEED_HEADER_PADDING, paddingTop: FEED_HEADER_PADDING, paddingBottom: 4 }}>
             <FeedHeader placeholder="Search apartments" value={q} onChange={setQ}>
@@ -62,7 +67,7 @@ export function ApartmentsSection() {
         ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : null}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
-        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} />}
+        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} progressViewOffset={inset.progressViewOffset} />}
       />
     </View>
   );

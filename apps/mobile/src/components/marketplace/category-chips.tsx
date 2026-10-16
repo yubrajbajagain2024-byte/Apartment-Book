@@ -5,6 +5,8 @@ import { hapticSelect } from "@/lib/haptics";
 import { radius } from "@/lib/theme";
 import { makeStyles } from "@/lib/theme-provider";
 
+/** The row's height: the chips plus the space above and below them. The Marketplace hides it by this much. */
+export const CHIPS_ROW_HEIGHT = 56;
 const ALL = "all";
 const OPTIONS: { key: string; value: ItemCategoryValue | null; label: string }[] = [{ key: ALL, value: null, label: "All" }, ...ITEM_CATEGORIES.map((c) => ({ key: c.value, value: c.value, label: c.label }))];
 /** How much of the next chip stays in sight when the row scrolls to the chosen one, so it is clear there is more. */
@@ -91,7 +93,7 @@ export const CategoryChips = memo(function CategoryChips({ value, onChange }: { 
 });
 
 const useStyles = makeStyles((colors) => ({
-  strip: { flexGrow: 0, flexShrink: 0, backgroundColor: colors.bar },
+  strip: { flexGrow: 0, flexShrink: 0, height: CHIPS_ROW_HEIGHT, backgroundColor: colors.bar },
   row: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 10 },
   chip: { height: 36, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
   chipSelected: { backgroundColor: colors.brand },

@@ -274,6 +274,11 @@ env:
 - takeScreenshot: e2e/screenshots/10-posts-liked
 # Buzz (Reddit-style rows): upvote in the feed, open the thread from the replies pill, reply anonymously from the
 # "Join the conversation" bar (its label is "Reply anonymously"; tapping it opens the composer with the same label).
+# The top bar slid away with the scroll (Instagram style): a scroll up brings it back.
+- scrollUntilVisible:
+    element: "Buzz"
+    direction: UP
+    timeout: 15000
 - tapOn: "Buzz"
 - assertVisible: "Search Buzz"
 - extendedWaitUntil:
@@ -321,6 +326,11 @@ env:
     notVisible: "Post: Does anyone know if the rec center.*"
     timeout: 15000
 - assertNotVisible: "Post: First week back on campus.*"
+# The top bar slid away with the scroll (Instagram style): a scroll up brings it back.
+- scrollUntilVisible:
+    element: "Choose feed"
+    direction: UP
+    timeout: 15000
 - tapOn: "Choose feed"
 - tapOn: "Texas State University"
 - scrollUntilVisible:
@@ -380,8 +390,10 @@ env:
     end: "90%,45%"
     duration: 400
 - waitForAnimationToEnd
-- extendedWaitUntil:
-    visible: "Choose feed"
+# The top bar slid away with the scroll (Instagram style): a scroll up brings it back.
+- scrollUntilVisible:
+    element: "Choose feed"
+    direction: UP
     timeout: 15000
 - tapOn: "Choose feed"
 - assertVisible: "All universities"
@@ -395,6 +407,10 @@ env:
 - takeScreenshot: e2e/screenshots/19-posts-following
 # Back to the whole campus (the row reads the profile's university, Texas State for every ui-sim account): the choice lives
 # in memory for as long as the app runs, and the flows after this one expect the usual Posts page.
+- scrollUntilVisible:
+    element: "Choose feed"
+    direction: UP
+    timeout: 15000
 - tapOn: "Choose feed"
 - tapOn: "Texas State University"
 - scrollUntilVisible:

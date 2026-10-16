@@ -26,6 +26,11 @@ appId: host.exp.Exponent
       - tapOn: "Cancel"
 - assertVisible: "Edit profile"
 - tapOn: "Home.*"
+# The top bar slid away with the scroll (Instagram style): a scroll up brings it back.
+- scrollUntilVisible:
+    element: "Buzz"
+    direction: UP
+    timeout: 15000
 - tapOn: "Buzz"
 - extendedWaitUntil:
     visible: ".*Landlord wants to keep my whole deposit.*"
