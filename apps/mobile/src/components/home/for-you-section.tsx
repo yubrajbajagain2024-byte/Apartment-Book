@@ -14,6 +14,7 @@ import { supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { BUZZ_GUTTER, BuzzCard, emitBuzzEvent, onBuzzEvent } from "./buzz-card";
+import { CaughtUp } from "./caught-up";
 import { InstaPost } from "./insta-post";
 import { markReelsStale } from "./reels-section";
 
@@ -167,7 +168,8 @@ export function ForYouSection({ active, topInset }: { active: boolean; topInset:
         ref={listRef}
         data={items}
         keyExtractor={forYouKey}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        // Room under the last post for the floating "New post" pill.
+        contentContainerStyle={{ paddingBottom: 96 }}
         ListHeaderComponent={
           error && items.length > 0 ? (
             <View style={styles.banner}>
@@ -223,7 +225,7 @@ export function ForYouSection({ active, topInset }: { active: boolean; topInset:
               <Text style={styles.retry}>Could not load more. Tap to try again.</Text>
             </Pressable>
           ) : !hasMore && items.length > 0 ? (
-            <Text style={styles.end}>You're all caught up</Text>
+            <CaughtUp />
           ) : null
         }
         onEndReached={loadMore}
@@ -244,5 +246,4 @@ const useStyles = makeStyles((colors) => ({
   buzzLabel: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: BUZZ_GUTTER, paddingTop: 8 },
   buzzLabelText: { fontSize: 11, color: colors.faint },
   retry: { textAlign: "center", color: colors.brand, fontSize: 13, fontWeight: "600" },
-  end: { textAlign: "center", color: colors.faint, fontSize: 12, paddingVertical: 12 },
 }));

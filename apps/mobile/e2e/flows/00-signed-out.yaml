@@ -1,4 +1,4 @@
-# Signed-out tour: Home (For you | Buzz | Posts | Reels under the CampConnect wordmark and its feed menu: opens on For you, the pager swipes between them), Search (the magnifier
+# Signed-out tour: Home (For you | Buzz | Posts | Reels beside your photo and its feed menu: opens on For you, the pager swipes between them), Search (the magnifier
 # in the top-right corner of every tab, like TikTok: it lists people to follow), Messages (bottom tab: asks to log in),
 # Housing (Apartments | Roommates: opens on Apartments, same pager), Marketplace, and the sign-in prompt on the Profile tab.
 # The bottom bar is Home, Housing, Messages, Marketplace, Profile. Needs the seeded sample posts (node e2e/sim-seed.mjs).
@@ -31,8 +31,8 @@ appId: host.exp.Exponent
 - assertVisible: "Posts"
 - assertVisible: "Reels"
 - takeScreenshot: e2e/screenshots/01-home-foryou
-# The top bar has two rows like Instagram's: "+", the CampConnect wordmark with its feed menu ("Choose feed"), Search; then the
-# four labels. Signed out there is no university of your own and nobody you follow, so the menu offers "All universities"
+# The top bar is one row: your photo in a gradient ring ("Choose feed") drops down the feed menu, the four labels sit in the
+# middle, Search on the right; "+ New post" ("Create") floats over the feed. Signed out there is no university of your own and nobody you follow, so the menu offers "All universities"
 # alone; a tap on the see-through backdrop ("Close") puts it away.
 - tapOn: "Choose feed"
 - assertVisible: "All universities"

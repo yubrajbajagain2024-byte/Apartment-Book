@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromFeedPost, timeAgo, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
+import { captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromFeedPost, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
 import { hapticTap } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
+import { shortDate } from "@/lib/short-date";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "../action-sheet";
@@ -23,7 +24,7 @@ export type InstaPostProps = {
   preview?: PostPreview;
   /** Live comment count; falls back to the engagement numbers. */
   comments?: number;
-  /** Small grey line under the name, e.g. the university. */
+  /** Small grey line under the name, e.g. the university; the date joins it after a dot. */
   subtitle?: string;
   /** Videos only play while this is true. */
   active?: boolean;
@@ -36,8 +37,13 @@ export type InstaPostProps = {
 const CAPTION_LIMIT = 110;
 const TALLEST = 4 / 5;
 const WIDEST = 1.91;
+/** The side gutter of a post: the header, the photo's rounded frame and the lines under it all keep to it. */
+const GUTTER = 16;
+/** The corner radius of the photo frame. */
+const FRAME_RADIUS = 18;
+const AVATAR = 42;
 
-/** Instagram shows a photo in its own shape, but never taller than 4:5 or wider than 1.91:1. */
+/** A photo keeps its own shape, but never taller than 4:5 or wider than 1.91:1. */
 function frameAspect(media: FeedMedia[], reel: boolean): number {
   if (reel) return 9 / 16;
   const first = media[0];
@@ -46,8 +52,10 @@ function frameAspect(media: FeedMedia[], reel: boolean): number {
 }
 
 /**
- * Instagram-style post: avatar and name → photo or video from edge to edge → slide dots → heart, comment, share and bookmark →
- * "Liked by …" → caption → comments → age. No card box and no grey band: posts simply follow each other.
+ * A post in the Home feed: avatar, name and "<campus> · Oct 2" with the ••• menu → the photo or video in a rounded frame
+ * inset from the screen edges (a carousel's slide dots on their own row under it) → heart, comment and share with their
+ * counts, the bookmark on the right → "Liked by …" → caption → the newest comments. No card box: posts follow each other
+ * on the screen with room between them.
  */
 export function InstaPost({ post, saved, engagement, preview, subtitle, active, detail, onComments, onDeleted, ...props }: InstaPostProps) {
   const router = useRouter();
@@ -78,6 +86,8 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   const text = post.body?.trim() ?? "";
   const comments = props.comments ?? engagement?.comments ?? 0;
   const openProfile = (id: string) => router.push({ pathname: "/profile/[id]", params: { id } });
+  // "Texas State University · Oct 2", or just the date.
+  const meta = [subtitle, shortDate(post.created_at)].filter(Boolean).join(" · ");
 
   function doubleTap() {
     if (!like.liked) void like.toggle();
@@ -98,7 +108,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
     } else lastTextTap.current = now;
   }
 
-  /** Instagram's share sheet: send it to friends as a chat card, or "Share to…" the link with the system sheet. */
+  /** The share sheet: send it to friends as a chat card, or "Share to…" the link with the system sheet. */
   const share = () => shareSheet.open(sharedPostFromFeedPost(post, media), { url: `${SITE_URL}${path}`, label: `${author.full_name} on Apartment Book` });
 
   async function message() {
@@ -156,7 +166,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   function menu() {
     show([
       { label: save.saved ? `Unsave ${noun}` : `Save ${noun}`, icon: save.saved ? "bookmark" : "bookmark-outline", onPress: () => void save.toggle() },
-      { label: `Share ${noun}`, icon: "paper-plane-outline", onPress: share },
+      { label: `Share ${noun}`, icon: "share-outline", onPress: share },
       ...(own
         ? [
             { label: pinned ? "Unpin from profile" : "Pin to profile", icon: pinned ? ("pin" as const) : ("pin-outline" as const), onPress: () => void togglePin() },
@@ -196,7 +206,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
     <View style={styles.post} accessibilityLabel={`Post: ${text.slice(0, 40) || `by ${author.full_name}`}`}>
       <View style={styles.header}>
         <Pressable onPress={() => openProfile(author.id)} accessibilityLabel={`${author.full_name}'s profile`}>
-          <Avatar name={author.full_name} url={author.avatar_url} size="sm" userId={author.id} />
+          <Avatar name={author.full_name} url={author.avatar_url} size={AVATAR} userId={author.id} />
         </Pressable>
         {/* Labelled with the name alone: the verified icon would otherwise join the label and hide the name from assistive tech (and Maestro). */}
         <Pressable style={{ flex: 1, minWidth: 0 }} onPress={() => openProfile(author.id)} accessibilityRole="button" accessibilityLabel={author.full_name}>
@@ -204,21 +214,22 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
             <Text style={styles.name} numberOfLines={1}>
               {author.full_name}
             </Text>
-            {isVerifiedPoster(author) ? <Ionicons name="checkmark-circle" size={14} color={colors.brand} accessibilityLabel="Verified student" /> : null}
+            {isVerifiedPoster(author) ? <Ionicons name="checkmark-circle" size={15} color={colors.brand} accessibilityLabel="Verified student" /> : null}
           </View>
-          {subtitle ? (
-            <Text style={styles.subtitle} numberOfLines={1}>
-              {subtitle}
+          {meta ? (
+            <Text style={styles.meta} numberOfLines={1}>
+              {meta}
             </Text>
           ) : null}
         </Pressable>
         <Pressable onPress={menu} hitSlop={10} accessibilityLabel="Post options" accessibilityRole="button" style={styles.dots}>
-          <Ionicons name="ellipsis-horizontal" size={20} color={colors.text} />
+          <Ionicons name="ellipsis-horizontal" size={20} color={colors.muted} />
         </Pressable>
       </View>
 
       {media.length > 0 ? (
-        <View>
+        // The frame clips the photo (and the big heart) to rounded corners; the carousel measures the frame's width for its slides.
+        <View style={styles.frame}>
           <PhotoCarousel media={media} aspect={frameAspect(media, reel)} active={active} videoLabel={null} dots={false} onIndexChange={setSlide} onDoubleTap={doubleTap} />
           <Animated.View pointerEvents="none" style={[styles.heart, { opacity: heart, transform: [{ scale: heart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
             <Ionicons name="heart" size={96} color={colors.onMedia} />
@@ -234,7 +245,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
         </Pressable>
       ) : null}
 
-      {/* Instagram puts the slide dots on their own line under the photo, above the hearts. */}
+      {/* A carousel's slide dots on their own line under the photo, above the hearts. */}
       {media.length > 1 ? (
         <View style={styles.slideDots} accessibilityLabel={`${slide + 1} of ${media.length}`}>
           {media.map((_, i) => (
@@ -245,100 +256,99 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
 
       <View style={[styles.actions, media.length > 1 && { paddingTop: 6 }]}>
         <Pressable onPress={() => void like.toggle()} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel={like.liked ? "Unlike" : "Like"} accessibilityState={{ selected: like.liked }}>
-          <Ionicons name={like.liked ? "heart" : "heart-outline"} size={28} color={like.liked ? colors.like : colors.text} />
+          <Ionicons name={like.liked ? "heart" : "heart-outline"} size={26} color={like.liked ? colors.like : colors.text} />
           {like.likes > 0 ? <Text style={styles.count}>{compactCount(like.likes)}</Text> : null}
         </Pressable>
         <Pressable onPress={onComments} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel="Comment">
-          <Ionicons name="chatbubble-outline" size={26} color={colors.text} style={styles.flip} />
+          <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
           {comments > 0 ? <Text style={styles.count}>{compactCount(comments)}</Text> : null}
         </Pressable>
         <Pressable onPress={share} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel="Share">
-          <Ionicons name="paper-plane-outline" size={26} color={colors.text} />
+          <Ionicons name="share-outline" size={24} color={colors.text} />
         </Pressable>
         <View style={{ flex: 1 }} />
         <Pressable onPress={() => void save.toggle()} hitSlop={6} accessibilityRole="button" accessibilityLabel={save.saved ? "Unsave" : "Save"} accessibilityState={{ selected: save.saved }}>
-          <Ionicons name={save.saved ? "bookmark" : "bookmark-outline"} size={26} color={colors.text} />
+          <Ionicons name={save.saved ? "bookmark" : "bookmark-outline"} size={24} color={save.saved ? colors.text : colors.muted} />
         </Pressable>
       </View>
 
-      <View style={styles.below}>
-        {face && like.likes > 0 ? (
-          <View style={styles.likedBy}>
-            <View style={{ flexDirection: "row" }}>
-              {faces.map((l, i) => (
-                <View key={l.id} style={[styles.face, i > 0 && { marginLeft: -7 }]}>
-                  <Avatar name={l.name} url={l.avatarUrl} size="xs" online={false} />
-                </View>
-              ))}
-            </View>
-            <Text style={styles.line} numberOfLines={1}>
-              Liked by{" "}
-              <Text style={styles.bold} onPress={() => openProfile(face.id)}>
-                {face.name}
+      {(face && like.likes > 0) || (media.length > 0 && text) || (!detail && comments > 0) ? (
+        <View style={styles.below}>
+          {face && like.likes > 0 ? (
+            <View style={styles.likedBy}>
+              <View style={{ flexDirection: "row" }}>
+                {faces.map((l, i) => (
+                  <View key={l.id} style={[styles.face, i > 0 && { marginLeft: -7 }]}>
+                    <Avatar name={l.name} url={l.avatarUrl} size="xs" online={false} />
+                  </View>
+                ))}
+              </View>
+              <Text style={styles.line} numberOfLines={1}>
+                Liked by{" "}
+                <Text style={styles.bold} onPress={() => openProfile(face.id)}>
+                  {face.name}
+                </Text>
+                {others > 0 ? (
+                  <>
+                    {" "}
+                    and <Text style={styles.bold}>{others === 1 ? "1 other" : `${compactCount(others)} others`}</Text>
+                  </>
+                ) : null}
               </Text>
-              {others > 0 ? (
-                <>
-                  {" "}
-                  and <Text style={styles.bold}>{others === 1 ? "1 other" : `${compactCount(others)} others`}</Text>
-                </>
-              ) : null}
+            </View>
+          ) : null}
+
+          {media.length > 0 && text ? (
+            <Text style={styles.line} selectable={detail}>
+              <Text style={styles.bold} onPress={() => openProfile(author.id)}>
+                {author.full_name}
+              </Text>{" "}
+              {caption}
+              {more}
             </Text>
-          </View>
-        ) : null}
+          ) : null}
 
-        {media.length > 0 && text ? (
-          <Text style={styles.line} selectable={detail}>
-            <Text style={styles.bold} onPress={() => openProfile(author.id)}>
-              {author.full_name}
-            </Text>{" "}
-            {caption}
-            {more}
-          </Text>
-        ) : null}
-
-        {!detail && comments > 1 ? (
-          <Pressable onPress={onComments} accessibilityRole="button">
-            <Text style={styles.viewAll}>View all {compactCount(comments)} comments</Text>
-          </Pressable>
-        ) : null}
-        {!detail && comments > 0 && preview?.lastComment ? (
-          <Pressable onPress={onComments}>
-            <Text style={styles.line} numberOfLines={2}>
-              <Text style={styles.bold}>{preview.lastComment.author.full_name}</Text> {preview.lastComment.body}
-            </Text>
-          </Pressable>
-        ) : null}
-
-        <Text style={styles.age}>{timeAgo(post.created_at)}</Text>
-      </View>
+          {!detail && comments > 1 ? (
+            <Pressable onPress={onComments} accessibilityRole="button">
+              <Text style={styles.viewAll}>View all {compactCount(comments)} comments</Text>
+            </Pressable>
+          ) : null}
+          {!detail && comments > 0 && preview?.lastComment ? (
+            <Pressable onPress={onComments}>
+              <Text style={styles.line} numberOfLines={2}>
+                <Text style={styles.bold}>{preview.lastComment.author.full_name}</Text> {preview.lastComment.body}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
-  post: { width: "100%", backgroundColor: colors.bg, paddingBottom: 14 },
-  header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 9 },
-  name: { fontSize: 14, fontWeight: "700", color: colors.text, flexShrink: 1 },
-  subtitle: { fontSize: 12, color: colors.text, marginTop: 1 },
+  post: { width: "100%", backgroundColor: colors.bg, paddingTop: 4, paddingBottom: 18 },
+  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: GUTTER, paddingVertical: 10 },
+  name: { fontSize: 16, fontWeight: "700", color: colors.text, flexShrink: 1 },
+  meta: { fontSize: 13, color: colors.muted, marginTop: 1 },
   dots: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  frame: { marginHorizontal: GUTTER, borderRadius: FRAME_RADIUS, overflow: "hidden", backgroundColor: colors.mediaBg },
   heart: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", shadowColor: colors.shadow, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 2 } },
-  textOnly: { paddingHorizontal: 12, paddingTop: 2, paddingBottom: 4 },
+  textOnly: { paddingHorizontal: GUTTER, paddingTop: 2, paddingBottom: 4 },
   textOnlyBody: { fontSize: 16, lineHeight: 22, color: colors.text },
   slideDots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingTop: 10 },
   slideDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.faint },
-  slideDotActive: { backgroundColor: colors.brand },
-  actions: { flexDirection: "row", alignItems: "center", gap: 18, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6 },
+  slideDotActive: { backgroundColor: colors.accent },
+  actions: { flexDirection: "row", alignItems: "center", gap: 22, paddingHorizontal: GUTTER, paddingTop: 12, paddingBottom: 4 },
   action: { flexDirection: "row", alignItems: "center", gap: 6 },
-  flip: { transform: [{ scaleX: -1 }] },
   count: { fontSize: 14, fontWeight: "600", color: colors.text },
-  below: { paddingHorizontal: 12, gap: 4 },
+  below: { paddingHorizontal: GUTTER, paddingTop: 6, gap: 4 },
   likedBy: { flexDirection: "row", alignItems: "center", gap: 6 },
   face: { borderWidth: 1.5, borderColor: colors.bg, borderRadius: 12 },
   line: { fontSize: 14, lineHeight: 19, color: colors.text, flexShrink: 1 },
   bold: { fontWeight: "700" },
-  // Hashtags in the brand blue: Instagram's dark navy would vanish on the dark theme.
+  // Hashtags in the brand blue: a dark navy would vanish on the dark theme.
   tag: { color: colors.hashtag },
   more: { color: colors.muted },
   viewAll: { fontSize: 14, color: colors.muted },
-  age: { fontSize: 12, color: colors.muted, marginTop: 1 },
 }));
