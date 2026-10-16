@@ -13,7 +13,9 @@ import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "../action-sheet";
 import { Avatar } from "../avatar";
 import { useLike, useSave } from "../engagement";
+import { ExpandableText } from "../expandable-text";
 import { PhotoCarousel } from "../photo-carousel";
+import { POST_GUTTER, POST_TEXT, PostActions, PostFrame, PostHeader } from "../post-bits";
 import { useShareSheet } from "../share-sheet";
 
 export type InstaPostProps = {
@@ -28,20 +30,14 @@ export type InstaPostProps = {
   subtitle?: string;
   /** Videos only play while this is true. */
   active?: boolean;
-  /** The post's own screen: whole caption, no comment preview (the thread is right below). */
+  /** The post's own screen: the whole caption with no fold, no comment preview (the thread is right below). */
   detail?: boolean;
   onComments: () => void;
   onDeleted?: () => void;
 };
 
-const CAPTION_LIMIT = 110;
 const TALLEST = 4 / 5;
 const WIDEST = 1.91;
-/** The side gutter of a post: the header, the photo's rounded frame and the lines under it all keep to it. */
-const GUTTER = 16;
-/** The corner radius of the photo frame. */
-const FRAME_RADIUS = 18;
-const AVATAR = 42;
 
 /** A photo keeps its own shape, but never taller than 4:5 or wider than 1.91:1. */
 function frameAspect(media: FeedMedia[], reel: boolean): number {
@@ -52,10 +48,9 @@ function frameAspect(media: FeedMedia[], reel: boolean): number {
 }
 
 /**
- * A post in the Home feed: avatar, name and "<campus> · Oct 2" with the ••• menu → the photo or video in a rounded frame
- * inset from the screen edges (a carousel's slide dots on their own row under it) → heart, comment and share with their
- * counts, the bookmark on the right → "Liked by …" → caption → the newest comments. No card box: posts follow each other
- * on the screen with room between them.
+ * A post in the Home feed, laid out like every other post in the app (see post-bits): header → the caption folded to
+ * three lines ("more…" / "less") → the photo or video in a rounded frame (a carousel's slide dots on their own row under
+ * it) → heart, comment and share with their counts, the bookmark on the right → "Liked by …" → the newest comments.
  */
 export function InstaPost({ post, saved, engagement, preview, subtitle, active, detail, onComments, onDeleted, ...props }: InstaPostProps) {
   const router = useRouter();
@@ -67,7 +62,6 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   const needLogin = () => router.push("/(auth)/login");
   const like = useLike("post", post.id, engagement, user?.id ?? null, needLogin);
   const save = useSave("post", post.id, saved, user?.id ?? null, needLogin);
-  const [expanded, setExpanded] = useState(Boolean(detail));
   const [slide, setSlide] = useState(0);
   /** Pinned to the top of the author's profile (three at most). Rows read before migration 18 have no pinned_at at all. */
   const [pinned, setPinned] = useState(Boolean(post.pinned_at));
@@ -184,9 +178,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   const faces = (preview?.likers ?? []).filter((l) => l.id !== user?.id).slice(0, 3);
   const others = like.likes - 1;
 
-  const long = text.length > CAPTION_LIMIT || text.split("\n").length > 3;
-  const shownText = expanded || !long ? text : `${text.slice(0, CAPTION_LIMIT).split("\n").slice(0, 3).join("\n").trimEnd()}… `;
-  const caption = captionParts(shownText).map((part, i) =>
+  const caption = captionParts(text).map((part, i) =>
     part.tag ? (
       <Text key={i} style={styles.tag}>
         {part.text}
@@ -195,54 +187,27 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
       part.text
     ),
   );
-  const more =
-    long && !expanded ? (
-      <Text style={styles.more} onPress={() => setExpanded(true)} accessibilityRole="button">
-        more
-      </Text>
-    ) : null;
 
   return (
     <View style={styles.post} accessibilityLabel={`Post: ${text.slice(0, 40) || `by ${author.full_name}`}`}>
-      <View style={styles.header}>
-        <Pressable onPress={() => openProfile(author.id)} accessibilityLabel={`${author.full_name}'s profile`}>
-          <Avatar name={author.full_name} url={author.avatar_url} size={AVATAR} userId={author.id} />
+      <PostHeader name={author.full_name} avatarUrl={author.avatar_url} userId={author.id} verified={isVerifiedPoster(author)} meta={meta} onOpen={() => openProfile(author.id)} onMenu={menu} />
+
+      {text ? (
+        // The words come before the picture, Facebook style. Words only: the text is the post, and takes the double tap.
+        <Pressable onPress={media.length === 0 ? textTap : undefined} style={styles.body}>
+          <ExpandableText style={styles.text} expanded={detail} collapsible={!detail} selectable={detail}>
+            {caption}
+          </ExpandableText>
         </Pressable>
-        {/* Labelled with the name alone: the verified icon would otherwise join the label and hide the name from assistive tech (and Maestro). */}
-        <Pressable style={{ flex: 1, minWidth: 0 }} onPress={() => openProfile(author.id)} accessibilityRole="button" accessibilityLabel={author.full_name}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Text style={styles.name} numberOfLines={1}>
-              {author.full_name}
-            </Text>
-            {isVerifiedPoster(author) ? <Ionicons name="checkmark-circle" size={15} color={colors.brand} accessibilityLabel="Verified student" /> : null}
-          </View>
-          {meta ? (
-            <Text style={styles.meta} numberOfLines={1}>
-              {meta}
-            </Text>
-          ) : null}
-        </Pressable>
-        <Pressable onPress={menu} hitSlop={10} accessibilityLabel="Post options" accessibilityRole="button" style={styles.dots}>
-          <Ionicons name="ellipsis-horizontal" size={20} color={colors.muted} />
-        </Pressable>
-      </View>
+      ) : null}
 
       {media.length > 0 ? (
-        // The frame clips the photo (and the big heart) to rounded corners; the carousel measures the frame's width for its slides.
-        <View style={styles.frame}>
+        <PostFrame>
           <PhotoCarousel media={media} aspect={frameAspect(media, reel)} active={active} videoLabel={null} dots={false} onIndexChange={setSlide} onDoubleTap={doubleTap} />
           <Animated.View pointerEvents="none" style={[styles.heart, { opacity: heart, transform: [{ scale: heart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
             <Ionicons name="heart" size={96} color={colors.onMedia} />
           </Animated.View>
-        </View>
-      ) : text ? (
-        // Words only: the text is the post.
-        <Pressable onPress={textTap} style={styles.textOnly}>
-          <Text style={styles.textOnlyBody} selectable={detail}>
-            {caption}
-            {more}
-          </Text>
-        </Pressable>
+        </PostFrame>
       ) : null}
 
       {/* A carousel's slide dots on their own line under the photo, above the hearts. */}
@@ -254,25 +219,9 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
         </View>
       ) : null}
 
-      <View style={[styles.actions, media.length > 1 && { paddingTop: 6 }]}>
-        <Pressable onPress={() => void like.toggle()} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel={like.liked ? "Unlike" : "Like"} accessibilityState={{ selected: like.liked }}>
-          <Ionicons name={like.liked ? "heart" : "heart-outline"} size={26} color={like.liked ? colors.like : colors.text} />
-          {like.likes > 0 ? <Text style={styles.count}>{compactCount(like.likes)}</Text> : null}
-        </Pressable>
-        <Pressable onPress={onComments} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel="Comment">
-          <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
-          {comments > 0 ? <Text style={styles.count}>{compactCount(comments)}</Text> : null}
-        </Pressable>
-        <Pressable onPress={share} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel="Share">
-          <Ionicons name="share-outline" size={24} color={colors.text} />
-        </Pressable>
-        <View style={{ flex: 1 }} />
-        <Pressable onPress={() => void save.toggle()} hitSlop={6} accessibilityRole="button" accessibilityLabel={save.saved ? "Unsave" : "Save"} accessibilityState={{ selected: save.saved }}>
-          <Ionicons name={save.saved ? "bookmark" : "bookmark-outline"} size={24} color={save.saved ? colors.text : colors.muted} />
-        </Pressable>
-      </View>
+      <PostActions liked={like.liked} likes={like.likes} comments={comments} saved={save.saved} onLike={() => void like.toggle()} onComment={onComments} onShare={share} onSave={() => void save.toggle()} tight={media.length > 1} />
 
-      {(face && like.likes > 0) || (media.length > 0 && text) || (!detail && comments > 0) ? (
+      {(face && like.likes > 0) || (!detail && comments > 0) ? (
         <View style={styles.below}>
           {face && like.likes > 0 ? (
             <View style={styles.likedBy}>
@@ -298,16 +247,6 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
             </View>
           ) : null}
 
-          {media.length > 0 && text ? (
-            <Text style={styles.line} selectable={detail}>
-              <Text style={styles.bold} onPress={() => openProfile(author.id)}>
-                {author.full_name}
-              </Text>{" "}
-              {caption}
-              {more}
-            </Text>
-          ) : null}
-
           {!detail && comments > 1 ? (
             <Pressable onPress={onComments} accessibilityRole="button">
               <Text style={styles.viewAll}>View all {compactCount(comments)} comments</Text>
@@ -328,27 +267,18 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
 
 const useStyles = makeStyles((colors) => ({
   post: { width: "100%", backgroundColor: colors.bg, paddingTop: 4, paddingBottom: 18 },
-  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: GUTTER, paddingVertical: 10 },
-  name: { fontSize: 16, fontWeight: "700", color: colors.text, flexShrink: 1 },
-  meta: { fontSize: 13, color: colors.muted, marginTop: 1 },
-  dots: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
-  frame: { marginHorizontal: GUTTER, borderRadius: FRAME_RADIUS, overflow: "hidden", backgroundColor: colors.mediaBg },
+  body: { paddingHorizontal: POST_GUTTER, paddingTop: 2, paddingBottom: 12 },
+  text: { ...POST_TEXT, color: colors.text },
   heart: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", shadowColor: colors.shadow, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 2 } },
-  textOnly: { paddingHorizontal: GUTTER, paddingTop: 2, paddingBottom: 4 },
-  textOnlyBody: { fontSize: 16, lineHeight: 22, color: colors.text },
   slideDots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingTop: 10 },
   slideDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.faint },
   slideDotActive: { backgroundColor: colors.accent },
-  actions: { flexDirection: "row", alignItems: "center", gap: 22, paddingHorizontal: GUTTER, paddingTop: 12, paddingBottom: 4 },
-  action: { flexDirection: "row", alignItems: "center", gap: 6 },
-  count: { fontSize: 14, fontWeight: "600", color: colors.text },
-  below: { paddingHorizontal: GUTTER, paddingTop: 6, gap: 4 },
+  below: { paddingHorizontal: POST_GUTTER, paddingTop: 6, gap: 4 },
   likedBy: { flexDirection: "row", alignItems: "center", gap: 6 },
   face: { borderWidth: 1.5, borderColor: colors.bg, borderRadius: 12 },
   line: { fontSize: 14, lineHeight: 19, color: colors.text, flexShrink: 1 },
   bold: { fontWeight: "700" },
   // Hashtags in the brand blue: a dark navy would vanish on the dark theme.
   tag: { color: colors.hashtag },
-  more: { color: colors.muted },
   viewAll: { fontSize: 14, color: colors.muted },
 }));

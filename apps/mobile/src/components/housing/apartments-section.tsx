@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FlatList, RefreshControl, Text, View } from "react-native";
 import { formatDistance, formatPrice, isVerifiedPoster, listApartments, listingMedia, type ApartmentWithOwner } from "@apartment-book/shared";
 import { FeedHeader } from "@/components/feed-header";
-import { FEED_GAP, FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
+import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
 import { Badge, Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -26,7 +26,7 @@ export function ApartmentsSection() {
       <FlatList
         data={feed.items}
         keyExtractor={(a) => a.id}
-        contentContainerStyle={{ gap: FEED_GAP, paddingBottom: 90 }}
+        contentContainerStyle={{ paddingBottom: 90 }}
         ListHeaderComponent={
           <View style={{ paddingHorizontal: FEED_HEADER_PADDING, paddingTop: FEED_HEADER_PADDING, paddingBottom: 4 }}>
             <FeedHeader placeholder="Search apartments" value={q} onChange={setQ}>

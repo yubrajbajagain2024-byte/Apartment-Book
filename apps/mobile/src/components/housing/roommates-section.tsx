@@ -3,7 +3,7 @@ import { FlatList, RefreshControl, Text, View } from "react-native";
 import { budgetLabel, formatDate, formatDistance, isVerifiedPoster, listRoommatePosts, listingMedia, type RoommatePostWithAuthor } from "@apartment-book/shared";
 import { FeedHeader } from "@/components/feed-header";
 import { OnlineStrip } from "@/components/online-strip";
-import { FEED_GAP, FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
+import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
 import { Badge, Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -27,7 +27,7 @@ export function RoommatesSection() {
       <FlatList
         data={feed.items}
         keyExtractor={(p) => p.id}
-        contentContainerStyle={{ gap: FEED_GAP, paddingBottom: 90 }}
+        contentContainerStyle={{ paddingBottom: 90 }}
         ListHeaderComponent={
           <View style={{ gap: 12, paddingHorizontal: FEED_HEADER_PADDING, paddingTop: FEED_HEADER_PADDING, paddingBottom: 4 }}>
             <FeedHeader placeholder="Search roommate posts" value={q} onChange={setQ}>
