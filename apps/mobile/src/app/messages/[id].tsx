@@ -19,7 +19,6 @@ import {
   reportContent,
   sendMessage,
   signMessageMedia,
-  timeAgo,
   unblockUser,
   type ConversationMember,
   type ConversationSummary,
@@ -38,10 +37,10 @@ import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { hapticTap } from "@/lib/haptics";
 import { errorText, useQuery } from "@/lib/hooks";
 import { openMessageFile, removeUploadedFiles, uploadAttachment, type ChatMessage, type OutgoingFiles, type PendingAttachment, type UploadStatus } from "@/lib/message-attachments";
-import { useIsOnline } from "@/lib/presence";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
+import { useChatActivity } from "@/lib/use-activity-status";
 
 /** Messages from one person this close together form one run: hugging bubbles, one avatar, one time. */
 const RUN_GAP_MS = 5 * 60 * 1000;
@@ -214,8 +213,13 @@ function Chat({
   const membersById = useMemo(() => new Map(conversation.members.map((m) => [m.id, m])), [conversation.members]);
   const other = conversation.otherMembers[0];
   const otherId = other?.id ?? null;
-  const otherOnline = useIsOnline(other?.id);
   const isGroup = conversation.type === "group";
+  // Under the other person's name: "Active now" or when they were last active, when that may be shown.
+  const activity = useChatActivity(isGroup ? null : otherId, conversation.id);
+  const activeNow = Boolean(activity.line?.online);
+  // For the realtime handler below, which outlives renders.
+  const refreshActivity = useRef(activity.refresh);
+  refreshActivity.current = activity.refresh;
 
   // ---------------------------------------------------------------------------
   // Keyboard: the bar sits right on top of the keyboard. KeyboardAvoidingView measures the overlap from the top of the
@@ -271,11 +275,15 @@ function Chat({
         // Realtime rows carry attachments as raw JSON.
         const row = chatMessageOf(payload.new as Message & { attachments?: unknown }, membersById);
         setMessages((prev) => addFromServer(prev, [row], userId));
-        if (row.sender_id !== userId) markConversationRead(supabase, conversation.id).catch(() => {});
+        if (row.sender_id !== userId) {
+          markConversationRead(supabase, conversation.id).catch(() => {});
+          // They are active right now (and their first message is what lets you see their status): ask again.
+          refreshActivity.current();
+        }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversation_members", filter: `conversation_id=eq.${conversation.id}` }, (payload) => {
         const row = payload.new as ConversationMember;
-        setMemberStatus((prev) => ({ ...prev, [row.user_id]: { lastReadAt: row.last_read_at, lastDeliveredAt: row.last_delivered_at, lastSeenAt: prev[row.user_id]?.lastSeenAt ?? null } }));
+        setMemberStatus((prev) => ({ ...prev, [row.user_id]: { lastReadAt: row.last_read_at, lastDeliveredAt: row.last_delivered_at } }));
       })
       .subscribe((status) => {
         if (status !== "SUBSCRIBED") return;
@@ -434,7 +442,11 @@ function Chat({
   function unblock() {
     if (!otherId) return;
     unblockUser(supabase, userId, otherId).then(
-      () => void checkBlocked(),
+      () => {
+        void checkBlocked();
+        // Their status can show again.
+        refreshActivity.current();
+      },
       (e) => Alert.alert("Couldn't unblock", errorText(e)),
     );
   }
@@ -685,8 +697,7 @@ function Chat({
     () => (lastMine ? (lastMine.pending ? ("sending" as const) : receiptFor(lastMine.created_at, others.map((o) => o.status))) : null),
     [lastMine, others],
   );
-  const lastSeen = other ? memberStatus[other.id]?.lastSeenAt : null;
-  const subtitle = isGroup ? `${conversation.members.length} members` : otherOnline ? "Active now" : lastSeen ? `Active ${timeAgo(lastSeen)}` : "";
+  const subtitle = isGroup ? `${conversation.members.length} members` : (activity.line?.label ?? "");
 
   // Newest first: the list is inverted, so it opens at the bottom and stays there as the keyboard comes and goes.
   const data = useMemo(() => [...messages].reverse(), [messages]);
@@ -723,7 +734,13 @@ function Chat({
   const headerOptions = useMemo(
     () => ({
       headerTitle: () => (
-        <Pressable onPress={openInfo} hitSlop={8} accessibilityRole="button" accessibilityLabel={`${conversation.title}. Chat details`} style={[styles.headerTitle, { maxWidth: windowWidth - 180 }]}>
+        <Pressable
+          onPress={openInfo}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={`${conversation.title}${!isGroup && subtitle ? `, ${subtitle}` : ""}. Chat details`}
+          style={[styles.headerTitle, { maxWidth: windowWidth - 180 }]}
+        >
           {isGroup ? (
             <View style={styles.groupAvatar}>
               <Ionicons name="people" size={17} color={colors.brand} />
@@ -736,9 +753,15 @@ function Chat({
               {conversation.title}
             </Text>
             {subtitle ? (
-              <Text style={[styles.headerSub, !isGroup && otherOnline && { color: colors.successText }]} numberOfLines={1}>
-                {subtitle}
-              </Text>
+              <View style={styles.headerSubRow}>
+                {activeNow ? <View style={styles.activeDot} /> : null}
+                <Text style={[styles.headerSub, activeNow && { color: colors.successText }]} numberOfLines={1}>
+                  {subtitle}
+                </Text>
+              </View>
+            ) : activity.waiting ? (
+              // Nothing to show yet, but maybe in a moment: the line keeps its place, so the name does not jump.
+              <Text style={styles.headerSub}> </Text>
             ) : null}
           </View>
         </Pressable>
@@ -754,7 +777,7 @@ function Chat({
         </View>
       ),
     }),
-    [openInfo, openSearch, conversation.title, isGroup, other?.full_name, other?.avatar_url, other?.id, subtitle, otherOnline, colors, styles, windowWidth],
+    [openInfo, openSearch, conversation.title, isGroup, other?.full_name, other?.avatar_url, other?.id, subtitle, activeNow, activity.waiting, colors, styles, windowWidth],
   );
 
   const notice =
@@ -825,7 +848,9 @@ const useStyles = makeStyles((colors) => ({
   headerTitle: { flexDirection: "row", alignItems: "center", gap: 8 },
   headerText: { flexShrink: 1 },
   headerName: { fontWeight: "700", fontSize: 16, color: colors.text },
-  headerSub: { fontSize: 11, color: colors.muted },
+  headerSubRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  headerSub: { flexShrink: 1, fontSize: 11, color: colors.muted },
+  activeDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.green },
   headerButtons: { flexDirection: "row", alignItems: "center", gap: 14 },
   headerButton: { paddingHorizontal: 2 },
   groupAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },

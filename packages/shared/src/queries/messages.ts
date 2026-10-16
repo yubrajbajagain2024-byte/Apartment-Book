@@ -15,19 +15,19 @@ import { sharedPostOf } from "../share";
 import { conversationTitle } from "../utils";
 
 export const MESSAGE_SELECT = "*, sender:profiles!messages_sender_id_fkey(id, full_name, avatar_url)";
-const MEMBER_SELECT = "conversation_id, user_id, last_read_at, last_delivered_at, profile:profiles!conversation_members_user_id_fkey(id, full_name, avatar_url, last_seen_at)";
+const MEMBER_SELECT = "conversation_id, user_id, last_read_at, last_delivered_at, profile:profiles!conversation_members_user_id_fkey(id, full_name, avatar_url)";
 
 type MemberRow = {
   conversation_id: string;
   user_id: string;
   last_read_at: string;
   last_delivered_at: string;
-  profile: (ProfileSummary & { last_seen_at: string | null }) | null;
+  profile: ProfileSummary | null;
 };
 
 function memberStatusOf(rows: MemberRow[]): Record<string, MemberStatus> {
   const out: Record<string, MemberStatus> = {};
-  for (const r of rows) out[r.user_id] = { lastReadAt: r.last_read_at, lastDeliveredAt: r.last_delivered_at, lastSeenAt: r.profile?.last_seen_at ?? null };
+  for (const r of rows) out[r.user_id] = { lastReadAt: r.last_read_at, lastDeliveredAt: r.last_delivered_at };
   return out;
 }
 
@@ -40,7 +40,7 @@ function messageOf(row: MessageRow): MessageWithSender {
 }
 
 function summaryOf(rows: MemberRow[]): ProfileSummary[] {
-  return rows.map((r) => r.profile).filter((p): p is ProfileSummary & { last_seen_at: string | null } => p !== null).map(({ id, full_name, avatar_url }) => ({ id, full_name, avatar_url }));
+  return rows.map((r) => r.profile).filter((p): p is ProfileSummary => p !== null);
 }
 
 /** All conversations the user belongs to, newest activity first, with unread counts. */
@@ -277,7 +277,7 @@ export async function markConversationRead(supabase: Client, conversationId: str
   if (error) throw error;
 }
 
-/** Fresh read/delivered/active times for every member of a conversation. */
+/** Fresh read/delivered times for every member of a conversation. */
 export async function getMemberStatus(supabase: Client, conversationId: string): Promise<Record<string, MemberStatus>> {
   const { data, error } = await supabase.from("conversation_members").select(MEMBER_SELECT).eq("conversation_id", conversationId);
   if (error) throw error;
@@ -287,12 +287,6 @@ export async function getMemberStatus(supabase: Client, conversationId: string):
 /** Every message in all my conversations reached this device ("Delivered" for senders). */
 export async function markDeliveredAll(supabase: Client): Promise<void> {
   const { error } = await supabase.rpc("mark_delivered_all");
-  if (error) throw error;
-}
-
-/** Heartbeat while the app is open, for "Active 5m ago". Ignored when the user hides their active status. */
-export async function touchPresence(supabase: Client): Promise<void> {
-  const { error } = await supabase.rpc("touch_presence");
   if (error) throw error;
 }
 

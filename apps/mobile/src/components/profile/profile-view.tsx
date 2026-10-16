@@ -65,15 +65,16 @@ import { radius, space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useChangeAvatar } from "@/lib/use-change-avatar";
 import { ClassesSection } from "./classes-section";
-import { HeaderButton, HeaderIconButton, PROFILE_BUTTON_HEIGHT, ProfileHeader, ProfileTopBar, profileHandle } from "./profile-header";
+import { HeaderButton, HeaderIconButton, PROFILE_BAR_ROW_HEIGHT, PROFILE_BUTTON_HEIGHT, ProfileFloatingBar, ProfileHeader, profileHandle, type CoverAction } from "./profile-header";
 import { PROFILE_TABS, ProfileTabs, type ProfileTabKey } from "./profile-tabs";
-import { ListingGridTile, ProfileGridTile, useOpenTile } from "./profile-tile";
+import { ListingGridTile, ProfileGridTile, REEL_ASPECT, TILE_ASPECT, useOpenTile } from "./profile-tile";
 import { ShareProfileSheet } from "./share-profile-sheet";
 import { useTileGrid, type GridCursor, type GridPage, type TileGrid } from "./use-tile-grid";
 import { LockedNotice, VisibilityRow } from "./visibility-row";
 
-/** Space between the squares of the grid, across and down. */
-const GAP = 1.5;
+/** Space between the squares of the grid, across and down, and from the grid to the screen's edges. */
+const GAP = 6;
+const GRID_INSET = 8;
 /** Between the header and the tabs row: part of the header, so it goes up with it. */
 const TABS_GAP = 14;
 const NO_TILES: ProfileTile[] = [];
@@ -227,8 +228,11 @@ type PagerLink = {
  * pages are scrolled (without animation) to where the header leaves them. While the header is partly showing every page
  * goes to the open page's offset; once it is tucked away a page above the tuck point goes to it, and a page further
  * down keeps its place.
+ *
+ * `barHeight` is the floating bar at the top of the screen (the status bar and the round buttons): the tabs row stops
+ * under it, never above, and the bar's background fades in (`barOpacity`) as the row gets there.
  */
-function useProfilePager({ pageWidth, tuck, onRefresh, onHeaderHeight }: { pageWidth: number; tuck: number; onRefresh: (index: number) => void; onHeaderHeight: (height: number) => void }) {
+function useProfilePager({ pageWidth, tuck, barHeight, onRefresh, onHeaderHeight }: { pageWidth: number; tuck: number; barHeight: number; onRefresh: (index: number) => void; onHeaderHeight: (height: number) => void }) {
   const pager = useRef<ScrollView>(null);
   /** The pager's offset on the native side: the tab underline, the tabs row's choice of page and the header copies follow it. */
   const [scrollX] = useState(() => new Animated.Value(START_PAGE * pageWidth));
@@ -382,19 +386,22 @@ function useProfilePager({ pageWidth, tuck, onRefresh, onHeaderHeight }: { pageW
     }
     return sum as Animated.AnimatedInterpolation<number>;
   }, [scrollX, scrollYs, pageWidth]);
-  // The tabs row's top: the header's height minus the open page's offset, never above the top (it sticks there), and lower
-  // with a pull (negative offsets). The height comes in through an Animated.Value, so a new height (a bio loading, the
-  // follow state) moves the row at once without rebuilding the native graph, which would wait for the next scroll event.
+  // The tabs row's top: the bar's height plus the rest of the header (`tuck`) minus the open page's offset, never above the
+  // bar (it sticks under it), and lower with a pull (negative offsets). The tuck comes in through an Animated.Value, so a
+  // new header height (a bio loading, the follow state) moves the row at once without rebuilding the native graph, which
+  // would wait for the next scroll event.
   const [tuckValue] = useState(() => new Animated.Value(Math.max(0, tuck)));
   useEffect(() => {
     tuckValue.setValue(Math.max(0, tuck));
   }, [tuck, tuckValue]);
   const tabsShift = useMemo(
-    () => Animated.subtract<number>(tuckValue, openOffset).interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: "clamp", extrapolateRight: "extend" }),
-    [tuckValue, openOffset],
+    () => Animated.add<number>(Animated.subtract<number>(tuckValue, openOffset).interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: "clamp", extrapolateRight: "extend" }), barHeight),
+    [tuckValue, openOffset, barHeight],
   );
+  // The floating bar's background and the name on it: clear while the cover shows, solid by the time the tabs row reaches the bar.
+  const barOpacity = useMemo(() => tabsShift.interpolate({ inputRange: [barHeight, barHeight + 56], outputRange: [1, 0], extrapolate: "clamp" }), [tabsShift, barHeight]);
 
-  return { pager, scrollX, link, active, mounted, select, onPagerScroll, onPagerDragBegin, onPagerDragEnd, onPagerSettle, onPagerLayout, tabsShift };
+  return { pager, scrollX, link, active, mounted, select, onPagerScroll, onPagerDragBegin, onPagerDragEnd, onPagerSettle, onPagerLayout, tabsShift, barOpacity };
 }
 
 /** What a visitor may see of Classes, Saved or Liked: still asking, could not ask, a lock, or the tab itself. */
@@ -417,6 +424,8 @@ type PageFrame = {
   /** The page's height + `tuck`: every page can scroll far enough to tuck the header away. */
   minHeight: number;
   bottomPad: number;
+  /** The status bar's height: the pull-to-refresh spinner shows under it, not behind it. */
+  topInset: number;
   refreshing: boolean;
 };
 
@@ -504,7 +513,7 @@ type TilesPageProps = PageFrame & {
  * website); the other tabs keep TikTok's plain squares.
  */
 const TilesPage = memo(function TilesPage(props: TilesPageProps) {
-  const { index, link, header, pageWidth, tabsHeight, active, refreshing, tab, grid, own, tileWidth, onOpen, onPin, gate, gateMessage, onRetryGate, visibility, savingVisibility, onChangeVisibility } = props;
+  const { index, link, header, pageWidth, tabsHeight, active, refreshing, topInset, tab, grid, own, tileWidth, onOpen, onPin, gate, gateMessage, onRetryGate, visibility, savingVisibility, onChangeVisibility } = props;
   const styles = useStyles();
   const colors = useColors();
   const list = useRef<Animated.FlatList<ProfileTile>>(null);
@@ -512,7 +521,7 @@ const TilesPage = memo(function TilesPage(props: TilesPageProps) {
   const scroll = usePageScroll(props, scrollTo);
 
   const renderTile = useCallback<ListRenderItem<ProfileTile>>(
-    ({ item }) => (tab === "listings" ? <ListingGridTile tile={item} width={tileWidth} onOpen={onOpen} /> : <ProfileGridTile tile={item} width={tileWidth} onOpen={onOpen} onLongPress={onPin} />),
+    ({ item }) => (tab === "listings" ? <ListingGridTile tile={item} width={tileWidth} onOpen={onOpen} /> : <ProfileGridTile tile={item} width={tileWidth} aspect={tab === "reels" ? REEL_ASPECT : TILE_ASPECT} onOpen={onOpen} onLongPress={onPin} />),
     [tab, tileWidth, onOpen, onPin],
   );
 
@@ -558,7 +567,7 @@ const TilesPage = memo(function TilesPage(props: TilesPageProps) {
       onScrollToTop={scroll.onSettle}
       onContentSizeChange={scroll.onContentSizeChange}
       contentOffset={scroll.contentOffset}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={scroll.onRefresh} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={scroll.onRefresh} progressViewOffset={topInset} />}
       scrollsToTop={active}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
@@ -589,7 +598,7 @@ type ClassesPageProps = PageFrame & {
  * own, so the add-class form keeps its text and focus across renders and swipes.
  */
 const ClassesPage = memo(function ClassesPage(props: ClassesPageProps) {
-  const { index, link, header, pageWidth, tabsHeight, active, refreshing, tuck, own, userId, classes, error, onRetry, onChange, gate, gateMessage, onRetryGate, visibility, savingVisibility, onChangeVisibility } = props;
+  const { index, link, header, pageWidth, tabsHeight, active, refreshing, topInset, tuck, own, userId, classes, error, onRetry, onChange, gate, gateMessage, onRetryGate, visibility, savingVisibility, onChangeVisibility } = props;
   const styles = useStyles();
   const colors = useColors();
   const scroller = useRef<ScrollView>(null);
@@ -617,7 +626,7 @@ const ClassesPage = memo(function ClassesPage(props: ClassesPageProps) {
       onScrollToTop={scroll.onSettle}
       onContentSizeChange={scroll.onContentSizeChange}
       contentOffset={scroll.contentOffset}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={scroll.onRefresh} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={scroll.onRefresh} progressViewOffset={topInset} />}
       scrollsToTop={active}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
@@ -636,19 +645,20 @@ const ClassesPage = memo(function ClassesPage(props: ClassesPageProps) {
 });
 
 /**
- * A whole profile, yours or someone else's, TikTok and Instagram style: the header (photo, name, @username, Following |
- * Followers | Likes, the buttons, bio and university) tops every page of a horizontal pager with one page per tab, and the
- * tabs Posts | Classes | Reels | Saved | Liked | Listings stay over the pages. Swipe between the tabs (no haptic) or tap one
- * (a light tap). Each page keeps its own scroll position: the header scrolls up with the open page (a drag on it scrolls
- * the page too) until only the tabs row is left at the top.
+ * A whole profile, yours or someone else's: the header (the cover, the photo with the buttons beside it, name, @username,
+ * university, bio and the card with Posts | Followers | Following | Likes) tops every page of a horizontal pager with one
+ * page per tab, and the tabs Posts | Classes | Reels | Saved | Liked | Listings stay over the pages. Swipe between the tabs
+ * (no haptic) or tap one (a light tap). Each page keeps its own scroll position: the header scrolls up with the open page
+ * (a drag on it scrolls the page too) until only the floating bar and the tabs row under it are left at the top.
  * A grid page shows its squares three to a row, loading more as you scroll; Classes shows the classes by semester (where
  * the owner adds them). Listings (apartments, roommate posts and items for sale) come all at once. Classes, Saved and Liked
  * follow the owner's settings: the owner sees who can see each (and changes it there), a visitor without access sees a
  * lock; Posts, Reels and Listings are public. A page loads once it is open or next to the open one.
  *
- * `topBar` is the Profile tab, which draws its own bar (Find friends, your name with the account sheet, the menu); on a
- * stacked screen the navigation header shows the name instead. Everything that needs migration 18 (likes received, classes,
- * Saved and Liked, the grids) fails on its own: the header still shows, with zeros, and the tab says what could not load.
+ * `topBar` is the Profile tab: Find friends floats at the top left and the menu at the top right, and your name opens the
+ * account sheet. A stacked screen (its navigation header hidden) floats Back at the top left instead, with More on someone
+ * else's profile. Everything that needs migration 18 (likes received, classes, Saved and Liked, the grids) fails on its
+ * own: the header still shows, with zeros, and the tab says what could not load.
  */
 export function ProfileView({ userId, topBar = false }: { userId: string; topBar?: boolean }) {
   const styles = useStyles();
@@ -686,12 +696,16 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   const [body, setBody] = useState(() => ({ width: windowWidth, height: 0 }));
   const [tabsHeight, setTabsHeight] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(0);
-  const tuck = headerHeight;
+  // The floating bar (the status bar and the round buttons) stays; a page scrolls the rest of the header away.
+  const topInset = insets.top;
+  const barHeight = topInset + PROFILE_BAR_ROW_HEIGHT;
+  const tuck = Math.max(0, headerHeight - barHeight);
   /** The page whose pull started the refresh: only its spinner shows. */
   const [refreshingPage, setRefreshingPage] = useState<number | null>(null);
-  const { pager, scrollX, link, active, mounted, select, onPagerScroll, onPagerDragBegin, onPagerDragEnd, onPagerSettle, onPagerLayout, tabsShift } = useProfilePager({
+  const { pager, scrollX, link, active, mounted, select, onPagerScroll, onPagerDragBegin, onPagerDragEnd, onPagerSettle, onPagerLayout, tabsShift, barOpacity } = useProfilePager({
     pageWidth: body.width,
     tuck,
+    barHeight,
     onRefresh: (index) => void refreshAll(index),
     onHeaderHeight: (height) => setHeaderHeight((h) => (h === height ? h : height)),
   });
@@ -946,13 +960,12 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
     () =>
       own ? (
         <>
+          <HeaderIconButton icon="share-outline" label="Share profile" onPress={onShare} />
           <HeaderButton title="Edit profile" onPress={onEditProfile} />
-          <HeaderButton title="Share profile" onPress={onShare} />
-          <HeaderIconButton icon="person-add-outline" label="Find friends" onPress={onFindFriends} />
         </>
       ) : (
         <>
-          {/* A block forbids following on the server, so the button goes while "Blocked" shows. The counts above move with the button. */}
+          {/* A block forbids following on the server, so the button goes while "Blocked" shows. The counts below move with the button; More floats at the top. */}
           {!blocked ? (
             <Button
               title={followLabel}
@@ -966,14 +979,15 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
             />
           ) : null}
           <HeaderButton title={blocked ? "Blocked" : "Message"} onPress={onMessage} disabled={blocked} />
-          <HeaderIconButton icon="ellipsis-horizontal" label="More" onPress={onMore} />
         </>
       ),
-    [own, blocked, followLabel, followedByMe, followPending, styles.follow, onEditProfile, onShare, onFindFriends, onToggleFollow, onMessage, onMore],
+    [own, blocked, followLabel, followedByMe, followPending, styles.follow, onEditProfile, onShare, onToggleFollow, onMessage],
   );
   const followStats = followQ.data ?? NO_FOLLOW_STATS;
   const likes = statsQ.data?.likesReceived ?? 0;
+  const postCount = statsQ.data?.posts ?? 0;
   const changingPhoto = avatar.busy;
+  const onAccount = useStableCallback(accountSheet);
   const header = useMemo(
     () =>
       profile ? (
@@ -982,17 +996,27 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
           own={own}
           follow={followStats}
           likes={likes}
+          posts={postCount}
+          topInset={topInset}
           onOpenFollows={onOpenFollows}
           onShowQr={onShare}
           onChangePhoto={own ? onChangePhoto : undefined}
           changingPhoto={changingPhoto}
+          onAccount={own && topBar ? onAccount : undefined}
           actions={actions}
         />
       ) : null,
-    [profile, own, followStats, likes, onOpenFollows, onShare, onChangePhoto, changingPhoto, actions],
+    [profile, own, topBar, followStats, likes, postCount, topInset, onOpenFollows, onShare, onChangePhoto, changingPhoto, onAccount, actions],
   );
 
-  const bar = topBar ? <ProfileTopBar name={name} topInset={insets.top} onFindFriends={() => router.push("/search")} onAccount={accountSheet} onMenu={menu} /> : null;
+  // The round buttons floating over the cover (and over the bar once the cover has gone). Your own tab: Find friends at the
+  // left, the menu (Settings and privacy, Saved, the legal pages, Log out) at the right. A stacked profile: Back at the left,
+  // then on your own the menu with Find friends beside it, on someone else's More (Block, Report).
+  const onMenu = useStableCallback(menu);
+  const onBack = useStableCallback(() => (router.canGoBack() ? router.back() : router.replace("/(tabs)")));
+  const leftAction: CoverAction = topBar ? { icon: "person-add-outline", label: "Find friends", onPress: onFindFriends } : { icon: "chevron-back", label: "Back", onPress: onBack };
+  const findFriends: CoverAction = { icon: "person-add-outline", label: "Find friends", onPress: onFindFriends };
+  const rightActions: CoverAction[] = own ? [...(topBar ? [] : [findFriends]), { icon: "settings-outline", label: "Menu", onPress: onMenu }] : [{ icon: "ellipsis-horizontal", label: "More", onPress: onMore }];
 
   if (!profile || (followQ.loading && !followQ.data && !followQ.error)) {
     let content: ReactNode = <Loading />;
@@ -1005,16 +1029,17 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
         <EmptyState icon="person-outline" title="Profile not found" />
       );
     }
+    // Under the floating bar, which stays solid here (there is no cover yet): Back, or your own tab's menu, still work.
     return (
       <View style={styles.screen}>
-        {bar}
-        {content}
+        <View style={{ flex: 1, paddingTop: barHeight }}>{content}</View>
+        <ProfileFloatingBar topInset={topInset} name="" left={leftAction} right={topBar ? rightActions : []} opacity={1} />
       </View>
     );
   }
 
   const handle = profileHandle(profile);
-  const tileWidth = (body.width - GAP * 2) / 3;
+  const tileWidth = (body.width - GRID_INSET * 2 - GAP * 2) / 3;
   const bottomPad = (topBar ? 0 : insets.bottom) + space.xl;
   // The pages wait for the space's size and the tabs row's (each leaves room for the row). Nothing shows until the open
   // page's copy of the header is measured too, so the row never shows out of place.
@@ -1029,6 +1054,16 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
     if (!own && access && !access[section]) locks[section] = lockedSectionMessage(section, value, firstName);
   }
 
+  // The numbers beside the tab names, where they are known: Posts and Reels from the profile's stats, Classes and Listings
+  // once they have loaded. Saved and Liked come in pages, so their totals are not known.
+  const counts: Partial<Record<ProfileTabKey, number>> = {};
+  if (statsQ.data) {
+    counts.posts = statsQ.data.posts;
+    counts.reels = statsQ.data.reels;
+  }
+  if (classesOpen && classesQ.data) counts.classes = classesQ.data.length;
+  if (listings.status === "ready" && !listings.error) counts.listings = listings.tiles.length;
+
   /** A visitor's way into Classes, Saved or Liked: the access is still loading, failed to load, or says no. */
   function gateOf(section: ProfileSection): [Gate, string] {
     if (own) return ["open", ""];
@@ -1038,7 +1073,7 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   }
 
   function renderPage(key: ProfileTabKey, index: number): ReactNode {
-    const frame: PageFrame = { index, link, active: index === active, header, pageWidth: body.width, tabsHeight, tuck, minHeight: body.height + tuck, bottomPad, refreshing: refreshingPage === index };
+    const frame: PageFrame = { index, link, active: index === active, header, pageWidth: body.width, tabsHeight, tuck, minHeight: body.height + tuck, bottomPad, topInset, refreshing: refreshingPage === index };
     if (key === "classes") {
       const [gate, gateMessage] = gateOf("classes");
       return (
@@ -1082,7 +1117,6 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
 
   return (
     <View style={styles.screen}>
-      {bar}
       <View
         style={styles.body}
         onLayout={(e) => {
@@ -1132,12 +1166,13 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
             </View>
           </Animated.ScrollView>
         ) : null}
-        {/* The tabs row stays over the pages: right under the header, then at the top once the header has gone, and down with a pull. */}
+        {/* The tabs row stays over the pages: right under the header, then under the floating bar once the header has gone, and down with a pull. */}
         <Animated.View pointerEvents="box-none" style={[styles.tabs, { top: 0, transform: [{ translateY: tabsShift }] }, !shown && styles.hidden]}>
           <ProfileTabs
             active={tab}
             onSelect={selectTab}
             locks={locks}
+            counts={counts}
             scrollX={scrollX}
             pageWidth={body.width}
             onLayout={(e) => {
@@ -1147,6 +1182,8 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
           />
         </Animated.View>
       </View>
+      {/* Over the pages and the tabs row: the round buttons sit on the cover, and the bar fills in as the cover scrolls away. */}
+      <ProfileFloatingBar topInset={topInset} name={name} left={leftAction} right={rightActions} opacity={barOpacity} />
       <ShareProfileSheet visible={sharing} onClose={() => setSharing(false)} profileId={userId} name={name} username={handle} avatarUrl={profile.avatar_url} own={own} />
     </View>
   );
@@ -1186,8 +1223,8 @@ function TabEmpty({ tab, own }: { tab: GridTab; own: boolean }) {
 }
 
 const useStyles = makeStyles((colors) => ({
-  // The profile is a screen: white in light, pure black in dark, and so are its bars (the Profile tab's top bar, a stacked
-  // profile's navigation header), which use colors.bar.
+  // The profile is a screen: white in light, pure black in dark, and so is the floating bar once the cover has scrolled
+  // away (colors.bar).
   screen: { flex: 1, backgroundColor: colors.bg },
   // The pages and the tabs row over them.
   body: { flex: 1, overflow: "hidden", backgroundColor: colors.bg },
@@ -1200,8 +1237,9 @@ const useStyles = makeStyles((colors) => ({
   tabs: { position: "absolute", left: 0, right: 0 },
   // For the frame or two before the header is measured.
   hidden: { opacity: 0 },
-  gridRow: { gap: GAP },
-  follow: { flex: 1, minHeight: PROFILE_BUTTON_HEIGHT, height: PROFILE_BUTTON_HEIGHT, borderRadius: radius.sm },
+  gridRow: { gap: GAP, paddingHorizontal: GRID_INSET },
+  // The Follow pill beside the photo, the same height as the grey pills; it gives way before the row overflows.
+  follow: { flexShrink: 1, minHeight: PROFILE_BUTTON_HEIGHT, height: PROFILE_BUTTON_HEIGHT, borderRadius: radius.pill, paddingHorizontal: 18, gap: 6 },
   spinner: { paddingVertical: space.xl },
   errorLine: { padding: space.lg },
   empty: { alignItems: "center", gap: space.md, paddingHorizontal: space.xl, paddingVertical: 40 },

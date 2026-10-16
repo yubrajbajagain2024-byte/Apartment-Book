@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { deleteMyAccount, isProfileVisibility, listUniversities, normalizeUsername, PROFILE_VISIBILITY_COLUMNS, updateProfile, USERNAME_RULES, usernameProblem, type ProfileSection, type ProfileVisibility, type ProfileWithUniversity } from "@apartment-book/shared";
+import { useFocusEffect, useRouter } from "expo-router";
+import { deleteMyAccount, isProfileVisibility, listUniversities, normalizeUsername, PROFILE_VISIBILITY_COLUMNS, setShowActiveStatus, updateProfile, USERNAME_RULES, usernameProblem, type ProfileSection, type ProfileVisibility, type ProfileWithUniversity } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { VisibilityPicker } from "@/components/profile/visibility-row";
 import { Button, Card, Chip, Field } from "@/components/ui";
@@ -66,6 +66,12 @@ export default function SettingsScreen() {
   useEffect(() => {
     if (!sessionLoading && !user) router.replace("/(auth)/login");
   }, [sessionLoading, user, router]);
+  // The profile as it is now, not as it was when the app opened: a choice made since on the website shows here.
+  useFocusEffect(
+    useCallback(() => {
+      void refreshProfile();
+    }, [refreshProfile]),
+  );
 
   async function save() {
     if (!user || !profile) return;
@@ -87,12 +93,13 @@ export default function SettingsScreen() {
         universityId,
         graduationYear: profile.graduation_year ?? null,
         notifyNearbyListings: notify,
-        showActiveStatus: active,
         username: handleChanged ? handle : undefined,
         classesVisibility: changed("classes"),
         savedVisibility: changed("saved"),
         likedVisibility: changed("liked"),
       });
+      // Only when the switch was flipped, and through the one call that may show it again (migration 22).
+      if (active !== profile.show_active_status) await setShowActiveStatus(supabase, active);
       await refreshProfile();
       setMessage("Saved.");
     } catch (e) {
@@ -178,7 +185,12 @@ export default function SettingsScreen() {
       </Card>
       <Card>
         <ToggleRow label="Notify me about new places within 2 miles of campus" value={notify} onChange={setNotify} />
-        <ToggleRow label="Show when I'm active (green dot and “Active now” in chats)" value={active} onChange={setActive} />
+        <ToggleRow
+          label="Show your activity status"
+          hint="Others see when you're active, and people you've messaged see when you were last active. Turn it off and you won't see theirs, and messages to you show Seen but not Delivered."
+          value={active}
+          onChange={setActive}
+        />
       </Card>
       {message ? <Text style={{ color: message === "Saved." ? colors.successText : colors.red }}>{message}</Text> : null}
       <Button title="Save changes" onPress={() => void save()} loading={busy} />
@@ -228,12 +240,17 @@ function ThemeCard() {
   );
 }
 
-function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+/** A setting that is on or off, with an optional line under it saying what it does. */
+function ToggleRow({ label, hint, value, onChange }: { label: string; hint?: string; value: boolean; onChange: (v: boolean) => void }) {
+  const styles = useStyles();
   const colors = useColors();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-      <Text style={{ flex: 1, color: colors.text }}>{label}</Text>
-      <Switch value={value} onValueChange={onChange} trackColor={{ true: colors.brand }} accessibilityLabel={label} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ color: colors.text }}>{label}</Text>
+        {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+      </View>
+      <Switch value={value} onValueChange={onChange} trackColor={{ true: colors.brand }} accessibilityLabel={label} accessibilityHint={hint} />
     </View>
   );
 }

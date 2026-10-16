@@ -32,6 +32,7 @@ import { createClient, ensureRealtimeAuth, uniqueChannelName } from "@/lib/supab
 import { cn, errorMessage, formatMessageTime } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
+import { noteIncomingMessage } from "@/components/presence/use-activity-line";
 import { MessageAttachments } from "./message-attachments";
 
 type ChatMessage = MessageWithSender & { pending?: boolean; failed?: boolean };
@@ -168,7 +169,11 @@ export function ChatWindow({
               const withoutTemp = row.sender_id === currentUserId ? prev.filter((m) => !isOptimisticCopy(m, row)) : prev;
               return [...withoutTemp, { ...row, sender }];
             });
-            if (row.sender_id !== currentUserId) markConversationRead(supabase, conversation.id).catch(() => {});
+            if (row.sender_id !== currentUserId) {
+              markConversationRead(supabase, conversation.id).catch(() => {});
+              // They are active right now: the activity line under their name asks again.
+              noteIncomingMessage(conversation.id, row.sender_id);
+            }
           },
         )
         // Other members' read/delivered times, for the receipts under my messages.
@@ -177,10 +182,7 @@ export function ChatWindow({
           { event: "UPDATE", schema: "public", table: "conversation_members", filter: `conversation_id=eq.${conversation.id}` },
           (payload) => {
             const row = payload.new as ConversationMember;
-            setMemberStatus((prev) => ({
-              ...prev,
-              [row.user_id]: { lastReadAt: row.last_read_at, lastDeliveredAt: row.last_delivered_at, lastSeenAt: prev[row.user_id]?.lastSeenAt ?? null },
-            }));
+            setMemberStatus((prev) => ({ ...prev, [row.user_id]: { lastReadAt: row.last_read_at, lastDeliveredAt: row.last_delivered_at } }));
           },
         )
         .subscribe((status) => {

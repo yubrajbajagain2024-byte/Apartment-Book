@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AppState } from "react-native";
 import type { Session, User } from "@supabase/supabase-js";
-import { getProfile, markDeliveredAll, touchPresence, type ProfileWithUniversity } from "@apartment-book/shared";
+import { getProfile, markDeliveredAll, type ProfileWithUniversity } from "@apartment-book/shared";
+import { stopPresence } from "./presence-store";
 import { supabase } from "./supabase";
 import { registerForPush } from "./push";
 
@@ -41,19 +42,28 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setProfile(null);
       return;
     }
-    setProfile(await getProfile(supabase, userId).catch(() => null));
+    const fresh = await getProfile(supabase, userId).then(
+      (p) => ({ p }),
+      () => null,
+    );
+    setProfile((prev) => {
+      // A failed read (offline, say) keeps what was known about this user; a first read failing leaves it empty, as before.
+      if (!fresh) return prev?.id === userId ? prev : null;
+      // The same profile again keeps the same object, so screens that copy it into a form (Settings) are not reset.
+      return prev && fresh.p && JSON.stringify(prev) === JSON.stringify(fresh.p) ? prev : fresh.p;
+    });
   }, [userId]);
 
   useEffect(() => {
     void refreshProfile();
   }, [refreshProfile]);
 
-  // While signed in and in the foreground: receipts ("Delivered"), presence heartbeat, push token.
+  // While signed in and in the foreground: receipts ("Delivered") and the push token. The last-active time is stamped by
+  // the presence store (lib/presence.tsx), and only for someone who shows their active status.
   useEffect(() => {
     if (!userId) return;
     const wake = () => {
       markDeliveredAll(supabase).catch(() => {});
-      touchPresence(supabase).catch(() => {});
     };
     wake();
     registerForPush(userId).catch(() => {});
@@ -64,6 +74,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   const signOut = useCallback(async () => {
+    // Stop appearing online at once, while the session can still stamp the time.
+    stopPresence();
     await supabase.auth.signOut();
     setProfile(null);
   }, []);

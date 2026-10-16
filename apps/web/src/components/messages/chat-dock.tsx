@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Maximize2, Minus, X } from "lucide-react";
@@ -8,6 +8,7 @@ import { getConversation, listMessages, type ConversationSummary, type MessageWi
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
+import { useActivityLine } from "@/components/presence/use-activity-line";
 import { ChatWindow } from "./chat-window";
 import { ConversationAvatar } from "./conversation-list";
 
@@ -115,6 +116,9 @@ function DockWindow({ state, userId, onClose, onToggle }: { state: DockWindowSta
   }, [state.id, userId]);
 
   const title = conversation?.title ?? "Chat";
+  // A direct chat: the other person's activity status under their name, as at the top of the full chat.
+  const { line, waiting } = useActivityLine(conversation?.type === "direct" ? (conversation.otherMembers[0]?.id ?? null) : null, state.id);
+  const statusId = useId();
 
   return (
     <section
@@ -122,9 +126,26 @@ function DockWindow({ state, userId, onClose, onToggle }: { state: DockWindowSta
       aria-label={`Chat with ${title}`}
     >
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-gray-200 px-2">
-        <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-gray-100" aria-label={state.minimized ? `Expand chat with ${title}` : `Minimize chat with ${title}`}>
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-gray-100"
+          aria-label={state.minimized ? `Expand chat with ${title}` : `Minimize chat with ${title}`}
+          aria-describedby={line ? statusId : undefined}
+        >
           {conversation ? <ConversationAvatar conversation={conversation} size="sm" /> : <span className="h-8 w-8 rounded-full bg-gray-200" />}
-          <span className="truncate text-sm font-semibold text-gray-900">{title}</span>
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate text-sm font-semibold text-gray-900">{title}</span>
+            {line ? (
+              <span id={statusId} className={cn("flex items-center gap-1 text-[11px] leading-[14px]", line.online ? "text-green-700" : "text-gray-500")} data-testid="dock-activity">
+                {line.online ? <span aria-hidden="true" data-testid="dock-activity-dot" className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" /> : null}
+                <span className="truncate">{line.label}</span>
+              </span>
+            ) : waiting ? (
+              // Nothing yet, but probably in a moment: the line keeps its place, so the name does not jump.
+              <span aria-hidden="true" className="text-[11px] leading-[14px]">{"\u00a0"}</span>
+            ) : null}
+          </span>
         </button>
         <Link href={`/messages/${state.id}`} className="flex h-8 w-8 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100" aria-label="Open in Messages">
           <Maximize2 className="h-4 w-4" />

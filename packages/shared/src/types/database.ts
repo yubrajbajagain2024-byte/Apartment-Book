@@ -94,6 +94,7 @@ export type Database = {
           graduation_year: number | null;
           bio: string | null;
           notify_nearby_listings: boolean;
+          /** Retired by migration 22: always null (installed old builds still select it). See activity_status. */
           last_seen_at: string | null;
           show_active_status: boolean;
           username: string;
@@ -1246,9 +1247,34 @@ export type Database = {
         Args: { p_post_id?: string | null; p_comment_id?: string | null };
         Returns: undefined;
       };
+      /** Installed old builds' heartbeat; since migration 22 the same as touch_activity. */
       touch_presence: {
         Args: Record<string, never>;
         Returns: undefined;
+      };
+      /** Stamps my last-active time while I show my active status; true when I do. */
+      touch_activity: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      /**
+       * Last-active times (to the minute) of the people among the first 100 ids whom I may see, and whether each is
+       * recent (within about two minutes); the time is null for someone who shares a chat with me but has not written to
+       * me (answered only while recent). Signed in only.
+       */
+      activity_status: {
+        Args: { p_user_ids: string[] };
+        Returns: { user_id: string; last_active_at: string | null; recent: boolean }[];
+      };
+      /** Show or hide my activity status (the only way to show it again: a plain profile update cannot). */
+      set_show_active_status: {
+        Args: { p_show: boolean };
+        Returns: undefined;
+      };
+      /** Ids of everyone blocked either way with me (both directions); signed in only. */
+      blocked_either_way_ids: {
+        Args: Record<string, never>;
+        Returns: string[];
       };
       mark_delivered_all: {
         Args: Record<string, never>;

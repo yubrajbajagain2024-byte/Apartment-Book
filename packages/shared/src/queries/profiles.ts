@@ -23,7 +23,6 @@ export async function updateProfile(
     bio?: string | null;
     avatarUrl?: string | null;
     notifyNearbyListings?: boolean;
-    showActiveStatus?: boolean;
     /** The @handle. The database tidies it and explains a refusal ("That username is taken."). */
     username?: string;
     classesVisibility?: ProfileVisibility;
@@ -41,7 +40,6 @@ export async function updateProfile(
       bio: input.bio ?? null,
       avatar_url: input.avatarUrl ?? null,
       ...(input.notifyNearbyListings === undefined ? {} : { notify_nearby_listings: input.notifyNearbyListings }),
-      ...(input.showActiveStatus === undefined ? {} : { show_active_status: input.showActiveStatus }),
       ...(input.username === undefined ? {} : { username: input.username }),
       ...(input.classesVisibility === undefined ? {} : { classes_visibility: input.classesVisibility }),
       ...(input.savedVisibility === undefined ? {} : { saved_visibility: input.savedVisibility }),
@@ -52,6 +50,15 @@ export async function updateProfile(
     .single();
   if (error) throw error;
   return data;
+}
+
+/**
+ * Show or hide my activity status: the Settings switch, sent only when it is flipped. Since migration 22 this is the
+ * only way to show it again (a profile update cannot), so a stale save from an installed old build cannot undo a hide.
+ */
+export async function setShowActiveStatus(supabase: Client, show: boolean): Promise<void> {
+  const { error } = await supabase.rpc("set_show_active_status", { p_show: show });
+  if (error) throw error;
 }
 
 /**

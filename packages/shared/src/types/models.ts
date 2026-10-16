@@ -213,11 +213,13 @@ export type MessageWithSender = Message & {
   sender: ProfileSummary | null;
 };
 
-/** What a conversation member has received and read, plus when they were last active. */
+/**
+ * What a conversation member has received and read. When they were last active is private (migration 22): ask
+ * getActivityStatusMany().
+ */
 export type MemberStatus = {
   lastReadAt: string;
   lastDeliveredAt: string;
-  lastSeenAt: string | null;
 };
 
 /** Someone currently connected, as broadcast over the presence channel. */
@@ -237,7 +239,7 @@ export type ConversationSummary = {
   members: ProfileSummary[];
   /** Everyone except the current user. */
   otherMembers: ProfileSummary[];
-  /** Read/delivered/active times per member id, for receipts and "Active 5m ago". */
+  /** Read/delivered times per member id, for receipts. */
   memberStatus: Record<string, MemberStatus>;
   unreadCount: number;
   /** Group name, or the other person's name for direct chats. */
