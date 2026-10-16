@@ -1,18 +1,19 @@
-import { useState } from "react";
-import { FlatList, RefreshControl, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { budgetLabel, formatDate, formatDistance, isVerifiedPoster, listRoommatePosts, listingMedia, type RoommatePostWithAuthor } from "@apartment-book/shared";
 import { FeedHeader } from "@/components/feed-header";
 import { OnlineStrip } from "@/components/online-strip";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
 import { Badge, Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useColors } from "@/lib/theme-provider";
 import { useEngagement } from "@/lib/use-engagement";
 
-/** The Roommates half of the Housing tab: search, filters, who is online and the posts feed. The Housing screen owns the "+" button. */
-export function RoommatesSection() {
+/** The Roommates half of the Housing tab: search, filters, who is online and the posts feed, starting `topInset` under the floating tabs row and reporting its scroll through `onScroll`. The Housing screen owns the "+" button. */
+export function RoommatesSection({ topInset, onScroll }: { topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
   const colors = useColors();
   const { user, profile } = useSession();
   const [q, setQ] = useState("");
@@ -21,13 +22,17 @@ export function RoommatesSection() {
   const universityId = allCampuses ? undefined : (profile?.university_id ?? undefined);
   const feed = useFeed<RoommatePostWithAuthor>((page) => listRoommatePosts(supabase, { q: q || undefined, universityId, postType: type, page }), [q, universityId, type]);
   const { savedIds, engagement } = useEngagement("roommate", feed.items, user?.id ?? null);
+  const inset = useMemo(() => listInset(topInset), [topInset]);
 
   return (
     <View style={{ flex: 1 }}>
-      <FlatList
+      <AnimatedFlatList
         data={feed.items}
         keyExtractor={(p) => p.id}
-        contentContainerStyle={{ paddingBottom: 90 }}
+        {...inset.list}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={{ paddingBottom: 90, paddingTop: inset.paddingTop }}
         ListHeaderComponent={
           <View style={{ gap: 12, paddingHorizontal: FEED_HEADER_PADDING, paddingTop: FEED_HEADER_PADDING, paddingBottom: 4 }}>
             <FeedHeader placeholder="Search roommate posts" value={q} onChange={setQ}>
@@ -67,7 +72,7 @@ export function RoommatesSection() {
         ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon="people-outline" title="No roommate posts yet" body="Be the first to post for your campus." />}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
-        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} />}
+        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} progressViewOffset={inset.progressViewOffset} />}
       />
     </View>
   );

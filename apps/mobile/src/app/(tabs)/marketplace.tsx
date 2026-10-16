@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, BackHandler, FlatList, Keyboard, Platform, RefreshControl, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Animated, BackHandler, FlatList, Keyboard, Platform, RefreshControl, View, useWindowDimensions } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { campusShortName, ITEM_CATEGORIES, labelFor, listItems, type ItemCategoryValue, type ItemWithSeller } from "@apartment-book/shared";
 import type { CampusChoice, CampusMenuRow } from "@/components/marketplace/campus-menu";
-import { CategoryChips } from "@/components/marketplace/category-chips";
+import { CategoryChips, CHIPS_ROW_HEIGHT } from "@/components/marketplace/category-chips";
 import { categoryIcon, MarketItemCard } from "@/components/marketplace/item-card";
 import { MarketHeader } from "@/components/marketplace/market-header";
 import { useItemLikes } from "@/components/marketplace/use-item-likes";
 import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { AnimatedFlatList, listInset, useCollapsingHeader } from "@/lib/collapsing-header";
 import { hapticSelect } from "@/lib/haptics";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -37,7 +38,8 @@ function useSettled(text: string, ms: number): string {
 
 /**
  * The Marketplace tab: its own top bar ("+" to sell, "<campus> marketplace" with the campus menu, the magnifier that
- * searches items), the category pills, then a two-column grid of photo cards with a heart on each. The campus menu
+ * searches items), the category pills, then a two-column grid of photo cards with a heart on each. The bar stays put; the
+ * pills float over the grid and slide up under it as the grid scrolls down, back as soon as it scrolls up (useCollapsingHeader). The campus menu
  * switches between the person's university and every university; the pills and the search narrow the grid down
  * (listItems with q, universityId and category), a page at a time as it scrolls.
  */
@@ -67,12 +69,15 @@ export default function MarketplaceScreen() {
   // Another category, campus or search empties the grid at once (its spinner shows) instead of keeping the old cards.
   const feed = useFeed<ItemWithSeller>((page) => listItems(supabase, { q: q || undefined, universityId, category: category ?? undefined, page, pageSize: PAGE_SIZE }), [q, universityId, category], { clearOnChange: true });
   const { liked, toggle: toggleLike, refresh: refreshLikes } = useItemLikes(feed.items, userId);
+  const { translateY: chipsShift, onScroll: onGridScroll } = useCollapsingHeader(1, CHIPS_ROW_HEIGHT);
+  // The grid starts under the floating pills and scrolls beneath them as they slide away.
+  const inset = useMemo(() => listInset(CHIPS_ROW_HEIGHT), []);
 
   // Another campus, category or search starts the grid from the top.
   const list = useRef<FlatList<ItemWithSeller>>(null);
   useEffect(() => {
-    list.current?.scrollToOffset({ offset: 0, animated: false });
-  }, [q, universityId, category]);
+    list.current?.scrollToOffset({ offset: inset.topOffset, animated: false });
+  }, [q, universityId, category, inset.topOffset]);
 
   // Coming back (from an item, say, where it may have been liked or unliked): read the hearts again. Not on the first visit.
   const visited = useRef(false);
@@ -199,8 +204,11 @@ export default function MarketplaceScreen() {
         onCancelSearch={cancelSearch}
         searchBusy={typed !== q || (feed.loading && q.length > 0)}
       />
-      <CategoryChips value={category} onChange={setCategory} />
-      <FlatList
+      <View style={styles.body}>
+      <Animated.View style={[styles.chipsBar, { transform: [{ translateY: chipsShift }] }]}>
+        <CategoryChips value={category} onChange={setCategory} />
+      </Animated.View>
+      <AnimatedFlatList
         ref={list}
         key={`grid-${columns}`}
         data={feed.items}
@@ -208,22 +216,29 @@ export default function MarketplaceScreen() {
         keyExtractor={(i) => i.id}
         numColumns={columns}
         columnWrapperStyle={styles.gridRow}
-        contentContainerStyle={[styles.grid, feed.items.length === 0 && styles.gridEmpty]}
+        {...inset.list}
+        onScroll={onGridScroll(0)}
+        scrollEventThrottle={16}
+        contentContainerStyle={[styles.grid, { paddingTop: 2 + inset.paddingTop }, feed.items.length === 0 && styles.gridEmpty]}
         renderItem={renderItem}
         ListEmptyComponent={empty()}
         ListFooterComponent={footer()}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
-        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={onRefresh} progressViewOffset={inset.progressViewOffset} />}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
       />
+      </View>
     </View>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
+  // Clipped, so the pills slid up out of the way never show over the bar.
+  body: { flex: 1, overflow: "hidden" },
+  chipsBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 2 },
   grid: { paddingHorizontal: SIDE, paddingTop: 2, paddingBottom: 24, gap: GAP },
   gridRow: { gap: GAP },
   // An empty grid fills the screen, so its message sits in the middle.

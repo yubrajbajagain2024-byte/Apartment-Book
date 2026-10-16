@@ -25,7 +25,11 @@ appId: host.exp.Exponent
       - tapOn: "Cancel"
 - assertVisible: "Edit profile"
 - tapOn: "Home.*"
-# Reels
+# Reels. The Home bar may have slid away with an earlier scroll (Instagram style): a scroll up brings it back.
+- scrollUntilVisible:
+    element: "Reels"
+    direction: UP
+    timeout: 15000
 - tapOn: "Reels"
 - extendedWaitUntil:
     visible: "Turn sound on|Turn sound off"

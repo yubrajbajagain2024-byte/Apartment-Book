@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, RefreshControl, Text, View, type ViewToken } from "react-native";
+import { FlatList, RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
 import { useRouter } from "expo-router";
 import { listFeedPosts, type FeedPostWithAuthor } from "@apartment-book/shared";
 import { CaughtUp } from "@/components/home/caught-up";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
 import { useFeed } from "@/lib/hooks";
 import { emitPostRemoved, onPostRemoved, takePostsStale } from "@/lib/posts-events";
@@ -16,7 +17,7 @@ import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { InstaPost } from "./insta-post";
 
 /** Home → Posts: photo-first posts from students, newest first. The campus and "Following" (only the people you follow) are chosen from the menu under your photo in the top bar; new posts are made with the floating "+ New post" pill. */
-export function PostsSection({ active, topInset }: { active: boolean; topInset: number }) {
+export function PostsSection({ active, topInset, onScroll }: { active: boolean; topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
   const { user, profile } = useSession();
   const router = useRouter();
   const colors = useColors();
@@ -39,6 +40,8 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
   const [visible, setVisible] = useState<Set<string>>(new Set());
   const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => setVisible(new Set(viewableItems.map((v) => String(v.key))))).current;
   const viewability = useRef({ itemVisiblePercentThreshold: 60 }).current;
+  // The list starts under the floating bar and scrolls beneath it as the bar slides away.
+  const inset = useMemo(() => listInset(topInset), [topInset]);
 
   // Coming back to Posts keeps the list and the scroll position. It only reloads when this person has just published a post.
   const listRef = useRef<FlatList<FeedPostWithAuthor>>(null);
@@ -50,11 +53,11 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
   }, []);
   useEffect(() => {
     if (active && !wasActive.current && takePostsStale()) {
-      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+      listRef.current?.scrollToOffset({ offset: inset.topOffset, animated: false });
       refresh();
     }
     wasActive.current = active;
-  }, [active, refresh]);
+  }, [active, refresh, inset.topOffset]);
   // A post deleted on its own screen disappears here without a reload.
   useEffect(() => onPostRemoved((id) => setItems((prev) => prev.filter((p) => p.id !== id))), [setItems]);
 
@@ -65,13 +68,16 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
   }
 
   return (
-    <View style={{ flex: 1, paddingTop: topInset, backgroundColor: colors.bg }}>
-      <FlatList
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <AnimatedFlatList
         ref={listRef}
         data={feed.items}
         keyExtractor={(p) => p.id}
+        {...inset.list}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         // Room under the last post for the floating "New post" pill.
-        contentContainerStyle={{ paddingBottom: 96 }}
+        contentContainerStyle={{ paddingBottom: 96, paddingTop: inset.paddingTop }}
         renderItem={({ item: p }) => (
           <InstaPost
             post={p}
@@ -103,7 +109,7 @@ export function PostsSection({ active, topInset }: { active: boolean; topInset: 
         onEndReachedThreshold={0.6}
         onViewableItemsChanged={onViewable}
         viewabilityConfig={viewability}
-        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} />}
+        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} progressViewOffset={inset.progressViewOffset} />}
       />
       <CommentsSheet target={target} onClose={closeComments} onCountChange={(d) => commenting && setCommentDelta((prev) => ({ ...prev, [commenting.id]: (prev[commenting.id] ?? 0) + d }))} />
     </View>

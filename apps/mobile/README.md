@@ -31,7 +31,13 @@ under the row, and a soft haptic each time the section changes, by tap or swipe;
 "+ New post" pill floating over the bottom-right of the feed (`src/components/home/new-post-button.tsx`, the same
 Post / Reel / Buzz sheet as before); it fades out towards Reels, where the bar's left slot holds a white "+" instead. The
 menu chooses your university, All universities or, signed in, Following (only the posts of people you follow;
-it switches to Posts). The choice lives in
+it switches to Posts).
+The bar scrolls like Instagram's (`src/lib/collapsing-header.ts`): it slides up out of the way as the page on screen
+scrolls down, by as much as the page moved, and slides back the moment the page scrolls up, however far down it is; a
+swipe or a tap between pages brings it back too, and Reels never moves it. The same goes for the Apartments | Roommates
+row on Housing (the native header with its title and Search stays put) and for the category pills on Marketplace (its
+own bar stays put): each slides up under the fixed bar as the list under it scrolls down, and back as soon as it
+scrolls up. The bottom bar never moves. The choice lives in
 `src/lib/home-scope.ts` and drives For you, Buzz and Posts alike: the pages have no filter chips of their own.
 Housing works the same way with two pages,
 **Apartments | Roommates**: it opens on Apartments, a swipe or a tap on the label above the pager

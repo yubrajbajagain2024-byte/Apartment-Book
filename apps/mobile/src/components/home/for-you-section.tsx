@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View, type ViewToken } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { forYouKey, listForYou, type BuzzPost, type FeedPostWithAuthor, type ForYouItem } from "@apartment-book/shared";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
 import { errorText } from "@/lib/hooks";
 import { emitPostRemoved, onPostRemoved, takeForYouStale } from "@/lib/posts-events";
@@ -32,7 +33,7 @@ function drop(items: ForYouItem[], type: ForYouItem["type"], id: string): ForYou
  * Home → For you, the landing page: posts, reels and anonymous Buzz threads blended into one list (listForYou).
  * Rows reuse the Instagram-style post and the Reddit-style Buzz row, so nothing here looks different from its own tab.
  */
-export function ForYouSection({ active, topInset }: { active: boolean; topInset: number }) {
+export function ForYouSection({ active, topInset, onScroll }: { active: boolean; topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
   const { user, profile } = useSession();
   const router = useRouter();
   const colors = useColors();
@@ -123,6 +124,8 @@ export function ForYouSection({ active, topInset }: { active: boolean; topInset:
   const [visible, setVisible] = useState<Set<string>>(new Set());
   const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => setVisible(new Set(viewableItems.map((v) => String(v.key))))).current;
   const viewability = useRef({ itemVisiblePercentThreshold: 60 }).current;
+  // The list starts under the floating bar and scrolls beneath it as the bar slides away.
+  const inset = useMemo(() => listInset(topInset), [topInset]);
 
   // Coming back to For you keeps the list and the scroll position. It reloads only when something new was published
   // while another page was showing: a post or a reel by this person, or a Buzz thread (its "reload" event).
@@ -136,11 +139,11 @@ export function ForYouSection({ active, topInset }: { active: boolean; topInset:
   useEffect(() => {
     if (active && !wasActive.current && (takeForYouStale() || reloadLater.current)) {
       reloadLater.current = false;
-      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+      listRef.current?.scrollToOffset({ offset: inset.topOffset, animated: false });
       refresh();
     }
     wasActive.current = active;
-  }, [active, refresh]);
+  }, [active, refresh, inset.topOffset]);
   // A post deleted on its own screen disappears here without a reload.
   useEffect(() => onPostRemoved((id) => setItems((prev) => drop(prev, "post", id))), []);
   // Things that happened to a thread on its own screen or on the create screen.
@@ -163,13 +166,16 @@ export function ForYouSection({ active, topInset }: { active: boolean; topInset:
   }
 
   return (
-    <View style={{ flex: 1, paddingTop: topInset, backgroundColor: colors.bg }}>
-      <FlatList
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <AnimatedFlatList
         ref={listRef}
         data={items}
         keyExtractor={forYouKey}
+        {...inset.list}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         // Room under the last post for the floating "New post" pill.
-        contentContainerStyle={{ paddingBottom: 96 }}
+        contentContainerStyle={{ paddingBottom: 96, paddingTop: inset.paddingTop }}
         ListHeaderComponent={
           error && items.length > 0 ? (
             <View style={styles.banner}>
@@ -232,7 +238,7 @@ export function ForYouSection({ active, topInset }: { active: boolean; topInset:
         onEndReachedThreshold={0.6}
         onViewableItemsChanged={onViewable}
         viewabilityConfig={viewability}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} progressViewOffset={inset.progressViewOffset} />}
       />
       <CommentsSheet target={target} onClose={closeComments} onCountChange={(d) => commenting && setCommentDelta((prev) => ({ ...prev, [commenting.id]: (prev[commenting.id] ?? 0) + d }))} />
     </View>

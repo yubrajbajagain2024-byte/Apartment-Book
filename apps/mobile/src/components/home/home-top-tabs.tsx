@@ -78,9 +78,11 @@ const SOLID = HOME_SECTIONS.map((s) => (s.value === "reels" ? 0 : 1));
  * crossfade (see SlidingTabs) and the bar's solid background (colors.bar and its hairline) fades out towards Reels with
  * the finger, all on the native driver. `overVideo` says when the text and icons turn white for the video: Home flips it
  * halfway between Posts and Reels. `section` is the section committed once the pager settles: the menu and what screen
- * readers hear as selected follow it. Memoized: Home mounting a page ahead of time leaves it alone.
+ * readers hear as selected follow it. `translateY` slides the whole bar up out of the way as the page on screen scrolls
+ * down and back as soon as it scrolls up, Instagram style (see useCollapsingHeader). Memoized: Home mounting a page
+ * ahead of time leaves it alone.
  */
-export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVideo: overVideoStore, onPosts: onPostsStore, onLayout, scrollX, pageWidth }: { section: HomeSection; onSelect: (s: HomeSection) => void; overVideo: OverVideoStore; onPosts: OverVideoStore; onLayout?: (e: LayoutChangeEvent) => void; scrollX: Animated.Value; pageWidth: number }) {
+export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVideo: overVideoStore, onPosts: onPostsStore, onLayout, scrollX, pageWidth, translateY }: { section: HomeSection; onSelect: (s: HomeSection) => void; overVideo: OverVideoStore; onPosts: OverVideoStore; onLayout?: (e: LayoutChangeEvent) => void; scrollX: Animated.Value; pageWidth: number; translateY: Animated.AnimatedInterpolation<number> }) {
   const insets = useSafeAreaInsets();
   const { user, profile } = useSession();
   const [scope, setScope] = useHomeScope();
@@ -131,7 +133,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
   }
 
   return (
-    <View onLayout={onLayout} pointerEvents={overVideo ? "box-none" : "auto"} style={[styles.bar, { paddingTop: insets.top }]}>
+    <Animated.View onLayout={onLayout} pointerEvents={overVideo ? "box-none" : "auto"} style={[styles.bar, { paddingTop: insets.top, transform: [{ translateY }] }]}>
       <Animated.View pointerEvents="none" style={[styles.solid, { opacity: solid ?? (overVideo ? 0 : 1) }]} />
       <View style={styles.row}>
         {overVideo ? (
@@ -171,7 +173,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
           </View>
         </View>
       </Modal>
-    </View>
+    </Animated.View>
   );
 });
 

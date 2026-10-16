@@ -10,6 +10,7 @@ import { createOverVideoStore, HOME_TOP_BAR_HEIGHT, HomeTopTabs, useOverVideo, t
 import { NewPostButton } from "@/components/home/new-post-button";
 import { PostsSection } from "@/components/home/posts-section";
 import { ReelsSection } from "@/components/home/reels-section";
+import { useCollapsingHeader } from "@/lib/collapsing-header";
 import { hapticSwipe } from "@/lib/haptics";
 import { onHomeSectionRequest, takeHomeSection } from "@/lib/home-section";
 import { useAppTheme } from "@/lib/theme-provider";
@@ -19,6 +20,8 @@ const START = Math.max(0, ORDER.indexOf(DEFAULT_HOME_SECTION));
 const LAST = ORDER.length - 1;
 const REELS = ORDER.indexOf("reels");
 const POSTS = ORDER.indexOf("posts");
+const FOR_YOU = ORDER.indexOf("foryou");
+const BUZZ = ORDER.indexOf("buzz");
 /** How visible the floating "New post" pill is on each page: fully on For you, Buzz and Posts, gone on Reels. */
 const PILL = ORDER.map((s) => (s === "reels" ? 0 : 1));
 /** Closer to a page than this share of a page, the pager counts as resting on it. */
@@ -108,6 +111,8 @@ export default function HomeScreen() {
   /** Whether the page under the finger is Posts, flipped halfway like overVideo: the bar's "Following" title reads it. */
   const [onPosts] = useState(() => createOverVideoStore(START === POSTS));
   const [barHeight, setBarHeight] = useState(insets.top + HOME_TOP_BAR_HEIGHT);
+  /** The bar slides away as the page on screen scrolls down and back as soon as it scrolls up (Instagram): For you, Buzz and Posts each feed it their scroll; Reels (full-screen video) never moves it. */
+  const { translateY: barShift, select: followPage, reveal: revealBar, onScroll: onPageScroll } = useCollapsingHeader(ORDER.length, barHeight, START === REELS ? -1 : START);
   const [pageHeight, setPageHeight] = useState(0);
 
   const section: HomeSection = ORDER[index] ?? DEFAULT_HOME_SECTION;
@@ -150,6 +155,7 @@ export default function HomeScreen() {
       under.current = i;
       overVideo.set(i === REELS);
       onPosts.set(i === POSTS);
+      followPage(i === REELS ? -1 : i);
       // A page uncovered before it was mounted (a very fast double swipe) mounts now, in the same commit.
       mount([i]);
       if (i === indexRef.current) return;
@@ -157,7 +163,7 @@ export default function HomeScreen() {
       indexRef.current = i;
       setIndex(i);
     },
-    [mount, overVideo, onPosts],
+    [mount, overVideo, onPosts, followPage],
   );
 
   const stopSettleTimer = useCallback(() => {
@@ -218,10 +224,11 @@ export default function HomeScreen() {
     target.current = null;
     moving.current = false;
     stopSettleTimer();
+    revealBar();
     commit(i);
     lastX.current = i * width;
     pager.current?.scrollTo({ x: i * width, animated: false });
-  }, [commit, stopSettleTimer, width]);
+  }, [commit, revealBar, stopSettleTimer, width]);
   useEffect(() => {
     if (!focused) return;
     jump();
@@ -234,6 +241,7 @@ export default function HomeScreen() {
       const i = ORDER.indexOf(s);
       if (i < 0 || i === (target.current ?? under.current)) return;
       hapticSwipe();
+      revealBar();
       if (width <= 0) return commit(i);
       target.current = i;
       tappedAt.current = Date.now();
@@ -243,7 +251,7 @@ export default function HomeScreen() {
       // iOS ends the scroll with onMomentumScrollEnd; elsewhere the timer settles it once the pager rests on the page.
       armSettleTimer();
     },
-    [armSettleTimer, commit, stopPrefetch, width],
+    [armSettleTimer, commit, revealBar, stopPrefetch, width],
   );
   const onBarLayout = useCallback((e: LayoutChangeEvent) => setBarHeight(Math.round(e.nativeEvent.layout.height)), []);
 
@@ -280,12 +288,14 @@ export default function HomeScreen() {
     moving.current = true;
     stopSettleTimer();
     stopPrefetch();
+    // The labels come back for the swipe, wherever the page had scrolled them.
+    revealBar();
     if (target.current !== null && width > 0) {
       // The finger caught a label tap's scroll: from here on it is a swipe, counted from the page under the finger now.
       target.current = null;
       under.current = toPage(lastX.current / width);
     }
-  }, [stopPrefetch, stopSettleTimer, width]);
+  }, [revealBar, stopPrefetch, stopSettleTimer, width]);
 
   const onEndDrag = useCallback(() => {
     dragging.current = false;
@@ -314,9 +324,9 @@ export default function HomeScreen() {
   const reelsPreload = Math.abs(index - REELS) === 1;
   // Each page keeps its element while its own props stay the same, so a settle re-renders the section that was left and
   // the one that was reached, not all four lists.
-  const forYou = useMemo(() => <ForYouSection active={forYouOn} topInset={barHeight} />, [forYouOn, barHeight]);
-  const buzz = useMemo(() => <BuzzSection active={buzzOn} topInset={barHeight} />, [buzzOn, barHeight]);
-  const posts = useMemo(() => <PostsSection active={postsOn} topInset={barHeight} />, [postsOn, barHeight]);
+  const forYou = useMemo(() => <ForYouSection active={forYouOn} topInset={barHeight} onScroll={onPageScroll(FOR_YOU)} />, [forYouOn, barHeight, onPageScroll]);
+  const buzz = useMemo(() => <BuzzSection active={buzzOn} topInset={barHeight} onScroll={onPageScroll(BUZZ)} />, [buzzOn, barHeight, onPageScroll]);
+  const posts = useMemo(() => <PostsSection active={postsOn} topInset={barHeight} onScroll={onPageScroll(POSTS)} />, [postsOn, barHeight, onPageScroll]);
   const reels = useMemo(() => (pageHeight > 0 ? <ReelsSection active={reelsOn} preload={reelsPreload} topInset={barHeight} height={pageHeight} /> : null), [reelsOn, reelsPreload, barHeight, pageHeight]);
   const content: Record<HomeSection, ReactNode> = { foryou: forYou, buzz, posts, reels };
 
@@ -350,7 +360,7 @@ export default function HomeScreen() {
         </Animated.ScrollView>
       </View>
       <NewPostButton opacity={pillOpacity} overVideo={overVideo} />
-      <HomeTopTabs section={section} onSelect={select} overVideo={overVideo} onPosts={onPosts} scrollX={scrollX} pageWidth={width} onLayout={onBarLayout} />
+      <HomeTopTabs section={section} onSelect={select} overVideo={overVideo} onPosts={onPosts} scrollX={scrollX} pageWidth={width} onLayout={onBarLayout} translateY={barShift} />
     </View>
   );
 }

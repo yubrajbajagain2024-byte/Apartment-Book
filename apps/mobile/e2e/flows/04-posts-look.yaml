@@ -9,7 +9,11 @@ appId: host.exp.Exponent
     start: "88%,10%"
     end: "12%,62%"
     duration: 800
-# Home opens on For you: switch to Posts first.
+# Home opens on For you: switch to Posts first (a scroll up first, in case the bar slid away with an earlier scroll).
+- scrollUntilVisible:
+    element: "Posts"
+    direction: UP
+    timeout: 15000
 - tapOn: "Posts"
 - waitForAnimationToEnd
 # Newest first: a three-photo post liked by two other people.
