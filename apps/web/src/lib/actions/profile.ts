@@ -10,6 +10,7 @@ import {
   isProfileVisibility,
   normalizeUsername,
   profileSchema,
+  setShowActiveStatus,
   universitySchema,
   updateProfile,
   usernameProblem,
@@ -32,7 +33,11 @@ export async function updateProfileAction(_prev: FormState, formData: FormData):
   const fieldErrors: FieldErrors = parsed.success ? {} : flattenZodError(parsed.error).fieldErrors;
 
   // Username and the three privacy choices are only sent when they changed, so a profile row that does not have them
-  // yet (before migration 18) still saves everything else.
+  // yet (before migration 18) still saves everything else. Activity status likewise, compared with what the form showed
+  // when it loaded: a form left open in an old tab must not turn back on a status hidden since (or the other way round).
+  // It goes through set_show_active_status(), the only way to show it again (migration 22).
+  const shownWas = formData.get("showActiveStatusWas");
+  const activityChoice = (wanted: boolean): boolean | undefined => ((shownWas === "on" || shownWas === "off") && wanted === (shownWas === "on") ? undefined : wanted);
   const current = await getProfile(supabase, user.id).catch(() => null);
   const currentHandle = profileHandle(current) ?? "";
   const rawUsername = formData.get("username");
@@ -60,12 +65,13 @@ export async function updateProfileAction(_prev: FormState, formData: FormData):
       bio: parsed.data.bio ?? null,
       avatarUrl: parsed.data.avatarUrl ?? null,
       notifyNearbyListings: parsed.data.notifyNearbyListings,
-      showActiveStatus: parsed.data.showActiveStatus,
       username: username && username !== currentHandle ? username : undefined,
       classesVisibility: changed("classesVisibility", "classes"),
       savedVisibility: changed("savedVisibility", "saved"),
       likedVisibility: changed("likedVisibility", "liked"),
     });
+    const showActiveStatus = activityChoice(parsed.data.showActiveStatus);
+    if (showActiveStatus !== undefined) await setShowActiveStatus(supabase, showActiveStatus);
   } catch (error) {
     const message = errorMessage(error);
     // "That username is taken. Try another one." and friends belong under the field.

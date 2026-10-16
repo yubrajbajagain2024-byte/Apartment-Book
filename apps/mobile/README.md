@@ -65,6 +65,24 @@ its ••• menu) to pin it to the top of your profile, three at most. Someone
 who-can-see settings, `profile_classes`, likes readable only through functions, `profile_stats`, `post_view_counts` and
 `feed_posts.pinned_at`); without it the header still shows, with zeros, and each tab says what it could not load.
 
+A direct chat shows the other person's activity status under their name, like Instagram (`src/lib/use-activity-status.ts`,
+the wording in `packages/shared/src/activity.ts`): a small green dot and "Active now" while they are online, otherwise
+when they were last active ("Active 5 min ago", "Active 3 hours ago", "Active yesterday", "Active 2 days ago", redrawn every
+30 seconds, asked again every minute in view and whenever they send a message), or nothing when there is nothing to show
+(they hide theirs, or a block; someone who has never written to you shows "Active now" while online, never a time); group
+chats keep "N members". Presence (`src/lib/presence.tsx`) runs only while you show your own status: when the app goes to
+the background it stamps your last-active time and stops showing you online at once, while it still can (a phone runs no
+timer in the background; a glance at Notification Center is not leaving); back in front it stamps first and shows you
+again once that stamp confirms your status is still shown; it stamps the time and reads the block list every minute in
+front, leaves out people blocked either way, and stops at once when you log out. Settings → "Show your activity status"
+turns it off, and then you see nobody's either and your app stops marking messages "Delivered" (people see "Seen" once you
+read something new); Settings reads your profile again whenever it opens, and sends that switch
+(`set_show_active_status()`, the only way to turn it back on) only when you change it. It needs migration 22
+(`supabase/migrations/20261011000000_activity_status.sql`); without it no green dots show and chat headers have no
+activity line. Builds from before it meet on the old public presence channel, so once it is live they and this version no
+longer see each other online and they show no last-seen times, and their Settings can no longer turn activity status back
+on: publish this code (`npx eas-cli@latest update --channel preview`) right after applying it.
+
 The Maestro flows in `e2e/flows/` check this in Expo Go on the booted iOS Simulator and save
 screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.dev) installed in
 `~/.maestro`, `npx expo start` running, and seeded test data:

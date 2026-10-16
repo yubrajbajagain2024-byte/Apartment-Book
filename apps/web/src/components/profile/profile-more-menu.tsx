@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useTransition, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Ban, Flag, MoreHorizontal } from "lucide-react";
+import { notifyBlocksChanged } from "@apartment-book/shared";
 import { setBlockedAction } from "@/lib/actions/moderation";
 import { firstNameOf } from "@/lib/profile";
 import { cn } from "@/lib/utils";
@@ -68,6 +69,8 @@ export function ProfileMoreMenu({ profileId, name, initialBlocked }: { profileId
         return;
       }
       setBlocked(!blocked);
+      // Who is online leaves them out (or shows them again) at once.
+      notifyBlocksChanged();
       setOpen(false);
       // The menu goes, and the item that had focus with it: focus the ••• button, as Escape does (unless the reader
       // has moved on to something else meanwhile).

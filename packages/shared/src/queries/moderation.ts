@@ -24,15 +24,35 @@ export async function reportContent(supabase: Client, userId: string, input: { t
   if (error) throw error;
 }
 
+const blocksListeners = new Set<() => void>();
+
+/**
+ * Hear about blocks and unblocks made on this device (the presence store then leaves the right people out of who is
+ * online). Returns the unsubscribe.
+ */
+export function onBlocksChanged(listener: () => void): () => void {
+  blocksListeners.add(listener);
+  return () => {
+    blocksListeners.delete(listener);
+  };
+}
+
+/** Tell onBlocksChanged() listeners; blockUser() and unblockUser() do, and so should a block made on the server. */
+export function notifyBlocksChanged(): void {
+  for (const listener of [...blocksListeners]) listener();
+}
+
 /** Block someone: their posts and comments vanish for you, and neither of you can message the other. */
 export async function blockUser(supabase: Client, userId: string, blockedId: string): Promise<void> {
   const { error } = await supabase.from("blocks").upsert({ blocker_id: userId, blocked_id: blockedId }, { onConflict: "blocker_id,blocked_id", ignoreDuplicates: true });
   if (error) throw error;
+  notifyBlocksChanged();
 }
 
 export async function unblockUser(supabase: Client, userId: string, blockedId: string): Promise<void> {
   const { error } = await supabase.from("blocks").delete().match({ blocker_id: userId, blocked_id: blockedId });
   if (error) throw error;
+  notifyBlocksChanged();
 }
 
 /** Ids of the people I have blocked. */

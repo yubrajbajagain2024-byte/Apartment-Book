@@ -3,6 +3,8 @@ const { db, mk, as, asAnon } = await boot();
 await expectOk("the Home-feed migrations re-run cleanly, in order", async () => {
   for (const f of ["20260920000000_home_feed.sql", "20260921000000_buzz_storage_folder.sql", "20260922000000_buzz_reply_votes.sql"]) await db.exec(read(`migrations/${f}`));
 });
+// Migration 22 replaced migration 11's touch_presence (activity times are private now): put it back on top.
+await db.exec(read("migrations/20261011000000_activity_status.sql"));
 // Publication jitter off for most checks (it has its own test below).
 await db.exec("update public.buzz_secrets set thread_jitter_seconds = 0, reply_jitter_seconds = 0");
 const A = await mk("a@txstate.edu", "Alice"), B = await mk("b@txstate.edu", "Bob"), C = await mk("c@txstate.edu", "Carol");
@@ -254,7 +256,7 @@ await expectOk("hiding can be undone", async () => {
   await as(B, () => db.query("select public.buzz_unmute($1)", [buzz]));
   if ((await as(B, () => db.query("select 1 from public.buzz_get($1)", [buzz]))).rows.length !== 1) throw new Error("thread did not come back");
 });
-await expectOk("blocked people cannot save your listings (no 'saved your listing' pings), last-seen is coarse, has_video cannot be forged", async () => {
+await expectOk("blocked people cannot save your listings (no 'saved your listing' pings), the heartbeat leaves no public trail, has_video cannot be forged", async () => {
   const apt = (await one(db.query("select id from public.apartments where owner_id=$1 limit 1", [A]))).id;
   await as(A, () => db.query("insert into public.blocks (blocker_id, blocked_id) values ($1,$2)", [A, C]));
   let threw = false; try { await as(C, () => db.query("insert into public.saved_listings (target_type, target_id, user_id) values ('apartment',$1,$2)", [apt, C])); } catch { threw = true; }
@@ -263,9 +265,12 @@ await expectOk("blocked people cannot save your listings (no 'saved your listing
   await as(B, () => db.query("insert into public.saved_listings (target_type, target_id, user_id) values ('apartment',$1,$2)", [apt, B]));
   if ((await as(B, () => db.query("select 1 from public.saved_listings"))).rows.length !== 1) throw new Error("normal save broken");
   await as(B, () => db.query("delete from public.saved_listings where user_id=$1", [B]));
+  // Public activity times next to anonymous posts would help guess authors: the old builds' heartbeat changes nothing
+  // anyone can read (last_seen_at stays empty and updated_at stays put).
+  const before = await one(db.query("select last_seen_at, updated_at from public.profiles where id=$1", [B]));
   await as(B, () => db.query("select public.touch_presence()"));
-  const seen = (await one(db.query("select extract(epoch from last_seen_at)::bigint as e from public.profiles where id=$1", [B]))).e;
-  if (Number(seen) % 600 !== 0) throw new Error("last_seen_at is precise: " + seen);
+  const seen = await one(db.query("select last_seen_at, updated_at from public.profiles where id=$1", [B]));
+  if (seen.last_seen_at !== null || +seen.updated_at !== +before.updated_at) throw new Error("the heartbeat left a public trail: " + JSON.stringify(seen));
   const p = await as(B, () => one(db.query("insert into public.feed_posts (author_id, body, has_video) values ($1,'text only', true) returning id, has_video", [B])));
   const u = await as(B, () => one(db.query("update public.feed_posts set has_video = true where id=$1 returning has_video", [p.id])));
   if (p.has_video || u.has_video) throw new Error("has_video forged");

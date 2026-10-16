@@ -6,6 +6,7 @@ import { Bookmark, Building2, ChevronDown, Clapperboard, LogOut, MessagesSquare,
 import { signOutAction } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
+import { stopPresence } from "@/components/presence/presence-provider";
 
 function Dropdown({
   trigger,
@@ -144,7 +145,8 @@ export function UserMenu({ userId, name, avatarUrl }: { userId: string; name: st
             Settings
           </MenuLink>
           <div className="my-1 h-px bg-gray-100" />
-          <form action={signOutAction}>
+          {/* Stop appearing online before the session goes. */}
+          <form action={signOutAction} onSubmit={() => stopPresence()}>
             <button
               type="submit"
               role="menuitem"

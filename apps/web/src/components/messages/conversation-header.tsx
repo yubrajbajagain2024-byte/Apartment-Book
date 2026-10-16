@@ -9,19 +9,18 @@ import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useHydrated } from "@/lib/hooks";
-import { timeAgo } from "@/lib/utils";
-import { useIsOnline } from "@/components/presence/presence-provider";
+import { useActivityLine } from "@/components/presence/use-activity-line";
 import { ConversationAvatar } from "./conversation-list";
 import { MemberPicker } from "./member-picker";
 
 export function ConversationHeader({ conversation, currentUserId }: { conversation: ConversationSummary; currentUserId: string }) {
   const [open, setOpen] = useState(false);
   const other = conversation.otherMembers[0];
-  const otherOnline = useIsOnline(other?.id);
-  const hydrated = useHydrated();
-  const lastSeen = other ? conversation.memberStatus[other.id]?.lastSeenAt ?? null : null;
-  const activity = conversation.type === "group" ? `${conversation.members.length} members` : otherOnline ? "Active now" : lastSeen && hydrated ? `Active ${timeAgo(lastSeen)}` : other ? "Direct message" : "";
+  const isGroup = conversation.type === "group";
+  // Direct chats: "Active now" with a green dot or when they were last active; with no status to show, "Direct message"
+  // as always. While a status that was there is being checked again (back to the tab, a reconnect, they just left), the
+  // line stays blank rather than claiming there is none.
+  const { line, waiting } = useActivityLine(isGroup ? null : (other?.id ?? null), conversation.id);
 
   return (
     <div className="border-b border-gray-200">
@@ -32,8 +31,9 @@ export function ConversationHeader({ conversation, currentUserId }: { conversati
         <ConversationAvatar conversation={conversation} size="sm" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-gray-900">{conversation.title}</p>
-          <p className={cn("truncate text-xs", otherOnline ? "text-green-600" : "text-gray-500")} data-testid="activity" suppressHydrationWarning>
-            {activity}
+          <p className={cn("flex items-center gap-1 text-xs", line?.online ? "text-green-600" : "text-gray-500")} data-testid="activity">
+            {line?.online ? <span aria-hidden="true" data-testid="activity-dot" className="h-2 w-2 shrink-0 rounded-full bg-green-500" /> : null}
+            <span className="min-w-0 truncate">{isGroup ? `${conversation.members.length} members` : (line?.label ?? (waiting ? " " : other ? "Direct message" : ""))}</span>
           </p>
         </div>
         {conversation.type === "group" ? (

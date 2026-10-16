@@ -1,4 +1,4 @@
-// Live check of the Home-feed backend (posts, following, Buzz) through the real API (PostgREST + Storage) with throwaway users.
+// Live check of the Home-feed backend (posts, following, Buzz) and of activity status through the real API (PostgREST + Storage) with throwaway users.
 // Usage: SUPABASE_ACCESS_TOKEN=sbp_... node scripts/e2e-home-feed.mjs
 import { createClient } from "@supabase/supabase-js";
 const ref = "dskbzoqreandwwpxiplh"; const url = `https://${ref}.supabase.co`;
@@ -20,7 +20,7 @@ async function makeUser(name) {
 const anon = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
 // 1x1 JPEG
 const JPEG = Buffer.from("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=", "base64");
-const uploaded = [];
+const uploaded = []; const conversations = [];
 const hex = (n) => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join("");
 try {
   const A = await makeUser("Alice"), B = await makeUser("Bob");
@@ -104,14 +104,83 @@ try {
     const no = await B.client.rpc("buzz_delete", { p_id: thread }); if (!no.error) throw new Error("someone else deleted it");
     const yes = await A.client.rpc("buzz_delete", { p_id: thread }); if (yes.error) throw yes.error;
   });
-  await step("last seen is coarse (ten-minute steps)", async () => {
-    await A.client.rpc("touch_presence"); const p = await anon.from("profiles").select("last_seen_at").eq("id", A.id).single();
-    if (new Date(p.data.last_seen_at).getTime() % 600000 !== 0) throw new Error(p.data.last_seen_at);
+  await step("activity status (migration 22): user_activity is closed to the API; signed out, activity_status, blocked_either_way_ids and the heartbeats are refused; signed in, activity_status answers only between people who show their status and have not blocked each other: 'recent' for people who share a chat, the time (to the minute) once the other has written there; profiles' and notifications' system columns are closed; only set_show_active_status shows a hidden status again; hiding stops 'Delivered'; 'Seen' moves only for something new (a message sent dated ahead is dated when it was sent); members change only their receipts and a group's name; touch_presence (old builds) is still accepted and leaves no public trail", async () => {
+    for (const [who, c] of [["signed in", A.client], ["signed out", anon]]) {
+      const r = await c.from("user_activity").select("*").limit(1); if (!r.error) throw new Error(`${who} read user_activity: ` + JSON.stringify(r.data));
+      const w = await c.from("user_activity").insert({ user_id: A.id, last_active_at: new Date().toISOString() }); if (!w.error) throw new Error(`${who} wrote user_activity`);
+      for (const col of ["xmin", "xmax"]) { const x = await c.from("profiles").select(`id,${col}`).limit(1); if (!x.error) throw new Error(`${who} read profiles.${col}: ` + JSON.stringify(x.data)); }
+      const nx = await c.from("notifications").select("id,xmin").limit(1); if (!nx.error) throw new Error(`${who} read notifications.xmin: ` + JSON.stringify(nx.data));
+    }
+    const all = await anon.from("profiles").select("*").eq("id", A.id).single(); if (all.error || all.data.id !== A.id) throw new Error("select * on profiles broke: " + JSON.stringify(all.error));
+    const bell = await A.client.from("notifications").select("*, actor:profiles!notifications_actor_id_fkey(id, full_name, avatar_url)").limit(5); if (bell.error) throw new Error("select * on notifications broke: " + bell.error.message);
+    const early = await A.client.from("notifications").update({ visible_at: new Date().toISOString() }).eq("user_id", A.id); if (!early.error) throw new Error("a notification's visible_at could be moved");
+    for (const [f, args] of [["activity_status", { p_user_ids: [A.id] }], ["touch_activity", {}], ["touch_presence", {}], ["blocked_either_way_ids", {}], ["set_show_active_status", { p_show: true }]]) { const r = await anon.rpc(f, args); if (!r.error) throw new Error(`${f} answered signed out: ` + JSON.stringify(r.data)); }
+    const status = async (c, ids) => { const r = await c.rpc("activity_status", { p_user_ids: ids }); if (r.error) throw r.error; return r.data; };
+    const blockedIds = async (c) => { const r = await c.rpc("blocked_either_way_ids"); if (r.error) throw r.error; return r.data; };
+    for (const c of [A.client, B.client]) { const t = await c.rpc("touch_activity"); if (t.error || t.data !== true) throw new Error("touch_activity: " + JSON.stringify(t)); }
+    if ((await status(B.client, [A.id])).length !== 0) throw new Error("answered without a shared chat");
+    const dm = await A.client.rpc("get_or_create_direct_conversation", { p_other_user_id: B.id }); if (dm.error) throw dm.error; conversations.push(dm.data);
+    // Both just stamped, an empty chat between them: "Active now" may show (recent), but no time.
+    for (const [c, id] of [[B.client, A.id], [A.client, B.id]]) { const e = await status(c, [id]); if (e.length !== 1 || e[0].last_active_at !== null || e[0].recent !== true) throw new Error("an empty chat: " + JSON.stringify(e)); }
+    const say = async (who, text) => { const m = await who.client.from("messages").insert({ conversation_id: dm.data, sender_id: who.id, content: text }); if (m.error) throw m.error; };
+    await say(A, "hi from A");
+    const seen = await status(B.client, [A.id]); const at = seen.length === 1 ? new Date(seen[0].last_active_at).getTime() : NaN;
+    if (seen[0]?.user_id !== A.id || at % 60000 !== 0 || Math.abs(Date.now() - at) > 10 * 60000 || seen[0].recent !== true) throw new Error("B about A, who wrote to B: " + JSON.stringify(seen));
+    const notYet = await status(A.client, [B.id]); if (notYet.length !== 1 || notYet[0].last_active_at !== null) throw new Error("A got a time for B, who has not written to A: " + JSON.stringify(notYet));
+    await say(B, "hi from B");
+    const both = await status(A.client, [B.id]); if (both.length !== 1 || both[0].last_active_at === null) throw new Error("A does not see B's time after B wrote: " + JSON.stringify(both));
+    if ((await status(A.client, [A.id])).length !== 0) throw new Error("A got her own time");
+    // Members change their receipts and nothing else; a direct chat stays one.
+    const moved = await B.client.from("conversation_members").update({ joined_at: "2000-01-01T00:00:00Z" }).eq("conversation_id", dm.data).eq("user_id", B.id); if (!moved.error) throw new Error("B rewrote joined_at");
+    const grouped = await A.client.from("conversations").update({ type: "group" }).eq("id", dm.data); if (!grouped.error) throw new Error("A turned the direct chat into a group");
+    // "Seen" moves for something new, not for opening the chat again.
+    const readAt = async () => { const d = await A.client.from("conversation_members").select("last_read_at").eq("conversation_id", dm.data).eq("user_id", B.id).single(); if (d.error) throw d.error; return d.data.last_read_at; };
+    const read1 = await readAt();
+    const again = await B.client.rpc("mark_conversation_read", { p_conversation_id: dm.data }); if (again.error) throw again.error;
+    if ((await readAt()) !== read1) throw new Error("opening the chat again with nothing new moved B's last_read_at");
+    // A message sent dated ahead is dated when it was sent: it cannot stay "new" and keep moving "Seen" on every open.
+    const planted = await A.client.from("messages").insert({ conversation_id: dm.data, sender_id: A.id, content: "from the future", created_at: new Date(Date.now() + 365 * 86400000).toISOString() }).select("created_at").single();
+    if (planted.error) throw planted.error;
+    if (new Date(planted.data.created_at).getTime() > Date.now() + 60000) throw new Error("a message kept the date ahead it was sent with: " + planted.data.created_at);
+    const opened = await B.client.rpc("mark_conversation_read", { p_conversation_id: dm.data }); if (opened.error) throw opened.error;
+    const read2 = await readAt();
+    const reopened = await B.client.rpc("mark_conversation_read", { p_conversation_id: dm.data }); if (reopened.error) throw reopened.error;
+    if ((await readAt()) !== read2) throw new Error("after a message sent dated ahead, opening the chat again moved B's last_read_at");
+    let r = await A.client.from("profiles").update({ show_active_status: false }).eq("id", A.id); if (r.error) throw r.error;
+    if ((await status(B.client, [A.id])).length !== 0) throw new Error("B sees A, who hides her status");
+    if ((await status(A.client, [B.id])).length !== 0) throw new Error("A, hiding hers, sees B's");
+    const hidden = await A.client.rpc("touch_activity"); if (hidden.error || hidden.data !== false) throw new Error("touch_activity while hidden: " + JSON.stringify(hidden));
+    const deliveredOf = async () => { const d = await B.client.from("conversation_members").select("last_delivered_at").eq("conversation_id", dm.data).eq("user_id", A.id).single(); if (d.error) throw d.error; return d.data.last_delivered_at; };
+    const before0 = await deliveredOf();
+    await say(B, "are you there?");
+    r = await A.client.rpc("mark_delivered_all"); if (r.error) throw r.error;
+    if ((await deliveredOf()) !== before0) throw new Error("A's app marked a message delivered while she hides her status");
+    // A stale save (an installed old build) cannot show it again; the switch (set_show_active_status) can.
+    r = await A.client.from("profiles").update({ show_active_status: true, bio: "saved from an old build" }).eq("id", A.id).select("show_active_status, bio").single(); if (r.error) throw r.error;
+    if (r.data.show_active_status !== false || r.data.bio !== "saved from an old build") throw new Error("a stale save: " + JSON.stringify(r.data));
+    r = await A.client.rpc("set_show_active_status", { p_show: true }); if (r.error) throw r.error;
+    if ((await status(B.client, [A.id])).length !== 0) throw new Error("hiding did not delete A's time");
+    await A.client.rpc("touch_activity"); if ((await status(B.client, [A.id])).length !== 1) throw new Error("A's next heartbeat did not bring her time back");
+    r = await A.client.rpc("mark_delivered_all"); if (r.error) throw r.error;
+    if ((await deliveredOf()) === before0) throw new Error("A's app no longer marks messages delivered after showing her status again");
+    r = await B.client.from("blocks").insert({ blocker_id: B.id, blocked_id: A.id }); if (r.error) throw r.error;
+    const across = [...(await status(B.client, [A.id])), ...(await status(A.client, [B.id]))];
+    const lists = [await blockedIds(A.client), await blockedIds(B.client)];
+    r = await B.client.from("blocks").delete().eq("blocker_id", B.id).eq("blocked_id", A.id); if (r.error) throw r.error;
+    if (across.length !== 0) throw new Error("answered across a block: " + JSON.stringify(across));
+    if (JSON.stringify(lists) !== JSON.stringify([[B.id], [A.id]])) throw new Error("blocked_either_way_ids: " + JSON.stringify(lists));
+    if ((await blockedIds(A.client)).length !== 0) throw new Error("blocked_either_way_ids after the unblock");
+    if ((await status(A.client, [B.id])).length !== 1) throw new Error("A does not see B again after the unblock");
+    const before = await anon.from("profiles").select("last_seen_at, updated_at").eq("id", A.id).single(); if (before.error) throw before.error;
+    r = await A.client.rpc("touch_presence"); if (r.error) throw new Error("touch_presence refused: " + r.error.message);
+    const after = await anon.from("profiles").select("last_seen_at, updated_at").eq("id", A.id).single(); if (after.error) throw after.error;
+    if (after.data.last_seen_at !== null || after.data.updated_at !== before.data.updated_at) throw new Error("touch_presence left a public trail: " + JSON.stringify(after.data));
   });
 } catch (e) { bad("aborted", e); } finally {
   await admin.from("buzz_secrets").update({ thread_jitter_seconds: 180, reply_jitter_seconds: 45 }).eq("id", 1);
   if (uploaded.length) await admin.storage.from("uploads").remove(uploaded);
+  for (const id of conversations) await admin.from("conversations").delete().eq("id", id);
   for (const id of users) await admin.auth.admin.deleteUser(id);
-  ok(`removed ${users.length} test users; jitter restored`);
+  ok(`removed ${users.length} test users and ${conversations.length} conversation(s); jitter restored`);
   console.log(failures ? `\n${failures} LIVE CHECK(S) FAILED` : "\nALL LIVE HOME-FEED CHECKS PASSED"); process.exit(failures ? 1 : 0);
 }

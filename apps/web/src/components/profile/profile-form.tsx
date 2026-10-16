@@ -78,7 +78,14 @@ export function ProfileForm({ profile, universities, welcome }: { profile: Profi
           </Field>
           <div className="sm:col-span-2">
             <Checkbox name="notifyNearbyListings" label="Notify me when a new place is posted within 2 miles of my campus" defaultChecked={v ? v.notifyNearbyListings === "on" : profile.notify_nearby_listings} />
-            <Checkbox name="showActiveStatus" label="Show when I'm active (green dot and 'Active now' in chats)" defaultChecked={v ? v.showActiveStatus === "on" : profile.show_active_status} />
+            <div>
+              <Checkbox name="showActiveStatus" label="Show your activity status" aria-describedby="showActiveStatusHint" defaultChecked={v ? v.showActiveStatus === "on" : profile.show_active_status} />
+              {/* What the box showed when the page loaded: only a change is saved, so an old tab cannot undo a newer choice. */}
+              <input type="hidden" name="showActiveStatusWas" value={profile.show_active_status ? "on" : "off"} />
+              <p id="showActiveStatusHint" className="pl-6 text-xs text-gray-500">
+                Others see when you&apos;re active, and people you&apos;ve messaged see when you were last active. Turn it off and you won&apos;t see theirs, and messages to you show Seen but not Delivered.
+              </p>
+            </div>
           </div>
         </CardBody>
       </Card>

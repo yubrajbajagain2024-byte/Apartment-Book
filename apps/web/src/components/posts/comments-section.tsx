@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowUp, Ban, Check, ChevronDown, ChevronUp, Flag, Heart, ListFilter, MoreHorizontal, Reply as ReplyIcon, ThumbsDown, Trash2, X } from "lucide-react";
-import { COMMENT_SORTS, compactCount, getMyCommentVotes, listComments, threadComments, timeAgo, type CommentSort, type CommentVote, type PostCommentNode, type PostCommentWithAuthor, type PostTargetType } from "@apartment-book/shared";
+import { COMMENT_SORTS, compactCount, getMyCommentVotes, listComments, notifyBlocksChanged, threadComments, timeAgo, type CommentSort, type CommentVote, type PostCommentNode, type PostCommentWithAuthor, type PostTargetType } from "@apartment-book/shared";
 import { addCommentAction, deleteCommentAction, voteCommentAction } from "@/lib/actions/engagement";
 import { setBlockedAction } from "@/lib/actions/moderation";
 import { createClient } from "@/lib/supabase/client";
@@ -440,6 +440,8 @@ export function CommentsSection({
         setError(result.error);
         return;
       }
+      // Who is online leaves them out at once.
+      notifyBlocksChanged();
       drop(gone, above);
     });
   }
