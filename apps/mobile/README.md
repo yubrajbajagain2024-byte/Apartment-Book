@@ -30,8 +30,8 @@ under it. Search (find accounts by name and follow them) is the second tab, unde
 focused, `src/app/find-people.tsx`). The Notifications bell in the top-right corner of Home's floating top bar opens every
 notification the database keeps for you (`src/app/notifications.tsx`: new messages, likes, comments and replies, follows,
 saves of your listings, places near campus, newest first, the unread ones tinted); tapping one marks it read and opens what
-it is about, "Mark all read" sits in the header, and the bell's badge counts the unread live. Home opens on **For you**, a blend of posts, reels and hot anonymous Buzz threads
-(the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
+it is about, "Mark all read" sits in the header, and the bell's badge counts the unread live. Home opens on **For you**, a blend of posts and reels (anonymous Buzz threads stay on
+the Buzz page; the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
 three pages, For you | Buzz | Reels, sit side by side in a pager (Posts is a section without a tab: `HIDDEN_HOME_SECTIONS` in the shared constants keeps it out of the row and the pager while its feed, the post features and the data stay; its Following filter is reachable on the website's `/?tab=posts`): swipe left or right to move
 between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in a teal-to-violet
 ring on the left, which opens your profile, with Instagram's small "+" badge on its corner that opens the create sheet

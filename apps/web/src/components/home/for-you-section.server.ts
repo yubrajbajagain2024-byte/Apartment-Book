@@ -12,8 +12,8 @@ export async function loadForYouSection(supabase: Client, user: User | null, pro
     user ? getSavedIds(supabase, user.id, "post").catch(() => new Set<string>()) : Promise.resolve(new Set<string>()),
     listUniversities(supabase).catch(() => []),
   ]);
-  // Reels are feed posts too, so they get likes and comments here; Buzz threads carry their own score and reply count.
-  const ids = page.items.flatMap((item) => (item.type === "post" ? [item.post.id] : []));
+  // Reels are feed posts too, so every row gets its likes and comments here.
+  const ids = page.items.map((post) => post.id);
   const [engagement, previews] = await Promise.all([
     getPostEngagementMany(supabase, "post", ids).catch(() => ({}) as Record<string, PostEngagement>),
     getPostPreviewsMany(supabase, "post", ids).catch(() => ({}) as Record<string, PostPreview>),

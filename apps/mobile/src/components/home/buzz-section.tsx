@@ -190,7 +190,7 @@ export function BuzzSection({ topInset, onScroll }: { active: boolean; topInset:
           ) : (
             <BuzzCard
               post={item}
-              // For you shows the same threads: every change goes through the event bus, which this list listens to as well.
+              // The thread and create screens report through the same event bus, so every change takes one path, which this list listens to.
               onVote={(v) => emitBuzzEvent({ type: "vote", id: item.id, vote: v })}
               onRemoved={(id) => emitBuzzEvent({ type: "remove", id })}
               onMuted={() => {

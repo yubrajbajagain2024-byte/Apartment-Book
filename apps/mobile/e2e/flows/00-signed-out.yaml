@@ -38,10 +38,12 @@ appId: host.exp.Exponent
 - assertNotVisible: "Campus"
 - assertNotVisible: "Global"
 - takeScreenshot: e2e/screenshots/01-home-bar
+# For you holds posts and reels only: the seeded Buzz thread is not on this page (it waits on the Buzz page).
+- assertNotVisible: ".*Landlord wants to keep my whole deposit.*"
 # The three pages sit side by side in a pager: a flick to the left slides from For you to Buzz. The flick starts on the
-# seeded Buzz row (centred first), because a photo carousel keeps horizontal swipes for itself (04-posts-look relies on that).
+# seeded post's caption (centred first), because a photo carousel keeps horizontal swipes for itself (04-posts-look relies on that).
 - scrollUntilVisible:
-    element: ".*Landlord wants to keep my whole deposit.*"
+    element: ".*First week back on campus.*"
     direction: DOWN
     centerElement: true
 - swipe:

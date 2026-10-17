@@ -39,7 +39,7 @@ async function swipe(page, from, to, moves = 6) {
 }
 try {
   const D = await newPage({ width: 1280, height: 900 }); const M = await newPage({ width: 390, height: 844 });
-  await step("signed out: \"/\" lands on For you with For you | Buzz | Reels on top, in that order (Posts keeps /?tab=posts but has no tab); the feed blends a post, a Buzz thread and a reel", async () => {
+  await step("signed out: \"/\" lands on For you with For you | Buzz | Reels on top, in that order (Posts keeps /?tab=posts but has no tab); the feed blends posts and reels, never a Buzz thread", async () => {
     await D.goto(BASE + "/"); await D.waitForLoadState("domcontentloaded");
     const tabs = await D.locator("nav[aria-label='Home sections'] a").allInnerTexts();
     const order = tabs.map((t) => t.trim()).filter(Boolean); if (order.join("|") !== "For you|Buzz|Reels") throw new Error("tabs: " + order.join("|"));
@@ -48,7 +48,9 @@ try {
     const hrefs = await D.locator("nav[aria-label='Home sections'] a").evaluateAll((links) => links.map((a) => a.getAttribute("href"))); if (hrefs.join(" ") !== "/ /?tab=buzz /?tab=reels") throw new Error("tab links: " + hrefs.join(" "));
     const feed = D.getByTestId("for-you-feed"); await feed.waitFor();
     await feed.locator("[data-testid='insta-post']").filter({ hasText: "First week back on campus" }).first().waitFor();
-    await feed.locator("[data-testid='for-you-buzz'] [data-testid='buzz-card']").filter({ hasText: "Landlord wants to keep my whole deposit" }).first().waitFor();
+    // Buzz stays on its own tab: no thread row, no Buzz card and not the seeded thread's title anywhere in For you.
+    if (await feed.locator("[data-testid='for-you-buzz'], [data-testid='buzz-card']").count()) throw new Error("a Buzz thread is in For you");
+    if (await feed.getByText("Landlord wants to keep my whole deposit").count()) throw new Error("the seeded Buzz thread shows in For you");
     await D.screenshot({ caret: "initial", path: SHOTS + "web-00-for-you.png" });
     // A reel in For you is an insta-post with a video where the photos would be.
     const reel = feed.locator("[data-testid='insta-post']").filter({ hasText: "Quick tour of my new place near Sewell Park" }).first(); await reel.waitFor();
@@ -165,8 +167,8 @@ try {
   });
   await step("phone: swiping left on For you slides to Buzz", async () => {
     await M.goto(BASE + "/"); await M.getByTestId("for-you-feed").waitFor();
-    // Start the flick on the Buzz row: a photo carousel keeps horizontal swipes for itself, a text row hands them to the section body.
-    const row = M.locator("[data-testid='for-you-buzz']").first(); await row.waitFor(); await row.evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" }));
+    // Start the flick on a post's caption: a photo carousel keeps horizontal swipes for itself, a text row hands them to the section body.
+    const row = M.locator("[data-testid='insta-post']").filter({ hasText: "First week back on campus" }).first().locator("[data-testid='insta-caption']"); await row.waitFor(); await row.evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" }));
     const box = await row.boundingBox(); const y = box ? Math.round(box.y + box.height / 2) : 520;
     await swipe(M, { x: 300, y }, { x: 80, y });
     await M.waitForURL(/tab=buzz/); await M.getByTestId("buzz-feed").waitFor();
