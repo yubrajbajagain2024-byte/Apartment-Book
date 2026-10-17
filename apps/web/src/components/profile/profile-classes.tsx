@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { GraduationCap, Plus, X } from "lucide-react";
-import { classCodeProblem, classDetails, classSectionProblem, CLASS_LOCATION_MAX, expandMeetings, locationProblem, MAX_CLASS_MEETINGS, meetingsProblem, mergeMeetingSlots, shiftClockTime, weekdayLabel, WEEKDAYS, type ClassMeeting, type MeetingSlot, type ProfileClass, type Weekday } from "@apartment-book/shared";
+import { classCodeProblem, classDetails, classSectionProblem, classSubjectProblem, CLASS_LOCATION_MAX, courseNumberProblem, expandMeetings, joinClassCode, locationProblem, MAX_CLASS_MEETINGS, meetingsProblem, mergeMeetingSlots, shiftClockTime, weekdayLabel, WEEKDAYS, type ClassMeeting, type MeetingSlot, type ProfileClass, type Weekday } from "@apartment-book/shared";
 import { addClassAction, removeClassAction } from "@/lib/actions/profile-page";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -13,15 +13,17 @@ export type ClassGroup = { term: string; current: boolean; classes: ProfileClass
 const CLASS_TITLE_MAX = 80;
 
 /**
- * The Classes tab: classes grouped by semester, this one first. The owner adds them (code, section, the days and times
- * it meets, the room, an optional name, semester) and removes them here; the page re-renders with the list from the database after each change. The
- * section puts them in that section's course chat (the database creates it for the first classmate and adds the rest;
- * removing the class leaves it).
+ * The Classes tab: classes grouped by semester, this one first. The owner adds them (subject and course number, kept as
+ * the one code "CS 3358" the database stores, section, the days and times it meets, the room, an optional name,
+ * semester) and removes them here; the page re-renders with the list from the database after each change. Once a class
+ * is in, the form closes and a line beside "Add class" says so; the button brings it back. The section puts them in that
+ * section's course chat (the database creates it for the first classmate and adds the rest; removing the class leaves it).
  */
 export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; groups: ClassGroup[]; /** This semester first, then the next and the last one. */ terms: string[] }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
-  const [code, setCode] = useState("");
+  const [subject, setSubject] = useState("");
+  const [number, setNumber] = useState("");
   const [section, setSection] = useState("");
   const [meetings, setMeetings] = useState<ClassMeeting[]>([]);
   const [location, setLocation] = useState("");
@@ -29,11 +31,14 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
   const [term, setTerm] = useState(terms[0] ?? "");
   const [formError, setFormError] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
+  /** The word that a class went in, shown once the form has closed. */
+  const [notice, setNotice] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
   const [, startRemoving] = useTransition();
   /** Classes removed here, hidden straight away rather than when the refreshed list arrives. */
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
-  const codeRef = useRef<HTMLInputElement>(null);
+  const subjectRef = useRef<HTMLInputElement>(null);
+  const numberRef = useRef<HTMLInputElement>(null);
   const sectionRef = useRef<HTMLInputElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const visible = groups.map((g) => ({ ...g, classes: g.classes.filter((c) => !hidden.has(c.id)) })).filter((g) => g.classes.length > 0);
@@ -42,14 +47,16 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
   function openForm() {
     setAdding(true);
     setFormError(null);
+    setNotice(null);
     // The input exists after this render.
-    requestAnimationFrame(() => codeRef.current?.focus());
+    requestAnimationFrame(() => subjectRef.current?.focus());
   }
 
   function closeForm() {
     setAdding(false);
     setFormError(null);
-    setCode("");
+    setSubject("");
+    setNumber("");
     setSection("");
     setMeetings([]);
     setLocation("");
@@ -60,10 +67,24 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (saving) return;
+    const subjectProblem = classSubjectProblem(subject);
+    if (subjectProblem) {
+      setFormError(subjectProblem);
+      subjectRef.current?.focus();
+      return;
+    }
+    const numberProblem = courseNumberProblem(number);
+    if (numberProblem) {
+      setFormError(numberProblem);
+      numberRef.current?.focus();
+      return;
+    }
+    // Both halves fine on their own, the whole still has to pass as the database checks it (its length, say).
+    const code = joinClassCode(subject, number);
     const codeProblem = classCodeProblem(code);
     if (codeProblem) {
       setFormError(codeProblem);
-      codeRef.current?.focus();
+      subjectRef.current?.focus();
       return;
     }
     const sectionProblem = classSectionProblem(section);
@@ -84,22 +105,19 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
         setFormError(result.error);
         return;
       }
-      // Ready for the next one.
-      setCode("");
-      setSection("");
-      setMeetings([]);
-      setLocation("");
-      setTitle("");
-      codeRef.current?.focus();
+      // In: the form closes, the word of it shows beside Add class, and the list comes back from the database.
+      closeForm();
+      setNotice(`${code} added to ${term}.`);
       router.refresh();
     });
   }
 
   function remove(item: ProfileClass) {
     setListError(null);
+    setNotice(null);
     setHidden((h) => new Set(h).add(item.id));
     // The button pressed is about to disappear: keep the focus in the tab.
-    (addButtonRef.current ?? codeRef.current)?.focus();
+    (addButtonRef.current ?? subjectRef.current)?.focus();
     startRemoving(async () => {
       const result = await removeClassAction(item.id);
       if (result.error) {
@@ -120,22 +138,40 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
       {isOwner ? (
         adding ? (
           <form onSubmit={submit} className="flex flex-col gap-3 rounded-xl bg-gray-50 p-3.5 ring-1 ring-gray-100" aria-label="Add a class" data-testid="profile-class-form">
-            <div className="grid gap-3 sm:grid-cols-[10rem_7rem_1fr_1fr]">
+            <div className="grid gap-3 sm:grid-cols-[6rem_7rem_6rem_1fr_1fr]">
               <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
-                Class code
+                Subject
                 <input
-                  ref={codeRef}
-                  name="code"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  placeholder="CS 3358"
-                  maxLength={20}
+                  ref={subjectRef}
+                  name="subject"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="CS"
+                  maxLength={8}
                   autoCapitalize="characters"
                   autoComplete="off"
                   spellCheck={false}
                   required
+                  title="The letters of the class code, like CS or MATH"
                   aria-invalid={formError ? true : undefined}
                   className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm uppercase text-gray-900 placeholder:normal-case placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 aria-[invalid=true]:border-red-500"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
+                Course number
+                <input
+                  ref={numberRef}
+                  name="number"
+                  value={number}
+                  onChange={(e) => setNumber(e.target.value)}
+                  placeholder="3358"
+                  maxLength={8}
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  spellCheck={false}
+                  required
+                  title="The number of the class code, like 3358"
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm uppercase text-gray-900 placeholder:normal-case placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
@@ -216,6 +252,11 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
           </form>
         ) : (
           <div className={cn("flex items-center gap-3", empty && "flex-col py-6 text-center")}>
+            {notice ? (
+              <p role="status" className="text-sm text-green-700" data-testid="profile-class-added">
+                {notice}
+              </p>
+            ) : null}
             {empty ? (
               <>
                 <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-700">

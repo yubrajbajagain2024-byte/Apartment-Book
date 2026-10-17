@@ -150,7 +150,7 @@ export const REELS_PAGE_SIZE = 8;
 export const BUZZ_PAGE_SIZE = 20;
 /**
  * The sections of Home, left to right, like TikTok's top tabs: swiping the page moves between them.
- * "For you" is the landing tab and blends the other three (see blendForYou).
+ * "For you" is the landing tab and blends Posts and Reels (see blendForYou); Buzz threads show only on the Buzz tab.
  */
 export const HOME_SECTIONS = [
   { value: "foryou", label: "For you" },
@@ -161,11 +161,12 @@ export const HOME_SECTIONS = [
 export type HomeSection = (typeof HOME_SECTIONS)[number]["value"];
 export const DEFAULT_HOME_SECTION: HomeSection = "foryou";
 /**
- * Sections that stay out of the tab row (and the app's pager): Posts is still a section with its address (/?tab=posts),
- * its feed and its data, and the For you blend keeps carrying posts; it just has no tab of its own.
+ * Sections that stay out of the tab row (and the app's pager): Posts and Reels are still sections with their addresses
+ * (/?tab=posts, /?tab=reels), their feeds and their data, and the For you blend carries both posts and reels; they just
+ * have no tab of their own.
  */
-export const HIDDEN_HOME_SECTIONS: readonly HomeSection[] = ["posts"];
-/** The tabs Home shows, left to right: For you | Buzz | Reels. */
+export const HIDDEN_HOME_SECTIONS: readonly HomeSection[] = ["posts", "reels"];
+/** The tabs Home shows, left to right: For you | Buzz. */
 export const HOME_TABS = HOME_SECTIONS.filter((s) => !HIDDEN_HOME_SECTIONS.includes(s.value));
 /**
  * Where a Home section lives on the website. The landing section keeps the clean "/" address, the others
@@ -179,10 +180,10 @@ export function homeSectionHref(section: HomeSection, params: Record<string, str
   return s ? `/?${s}` : "/";
 }
 /**
- * How many rows of each kind one page of "For you" asks for: posts carry the feed, Buzz threads and reels
- * are spread between them. A full page is 11 rows.
+ * How many rows of each kind one page of "For you" asks for: posts carry the feed, reels are spread between
+ * them. A full page is 8 rows. Buzz has no share here: its threads stay on the Buzz tab.
  */
-export const FOR_YOU_PAGE = { posts: 6, buzz: 3, reels: 2 } as const;
+export const FOR_YOU_PAGE = { posts: 6, reels: 2 } as const;
 
 /**
  * The pages of the Housing (Explore) tab, left to right: the two housing halves, then the Marketplace right after

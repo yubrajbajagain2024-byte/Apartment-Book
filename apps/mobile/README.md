@@ -30,13 +30,13 @@ under it. Search (find accounts by name and follow them) is the second tab, unde
 focused, `src/app/find-people.tsx`). The Notifications bell in the top-right corner of Home's floating top bar opens every
 notification the database keeps for you (`src/app/notifications.tsx`: new messages, likes, comments and replies, follows,
 saves of your listings, places near campus, newest first, the unread ones tinted); tapping one marks it read and opens what
-it is about, "Mark all read" sits in the header, and the bell's badge counts the unread live. Home opens on **For you**, a blend of posts, reels and hot anonymous Buzz threads
-(the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
-three pages, For you | Buzz | Reels, sit side by side in a pager (Posts is a section without a tab: `HIDDEN_HOME_SECTIONS` in the shared constants keeps it out of the row and the pager while its feed, the post features and the data stay; its Following filter is reachable on the website's `/?tab=posts`): swipe left or right to move
+it is about, "Mark all read" sits in the header, and the bell's badge counts the unread live. Home opens on **For you**, a blend of posts and reels (anonymous Buzz threads stay on
+the Buzz page; the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
+two pages, For you | Buzz, sit side by side in a pager (Posts and Reels are sections without a tab: `HIDDEN_HOME_SECTIONS` in the shared constants keeps them out of the row and the pager while their feeds, the post and reel features and the data stay; reels run through For you, and the website keeps `/?tab=posts` with its Following filter and `/?tab=reels`): swipe left or right to move
 between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in a teal-to-violet
 ring on the left, which opens your profile, with Instagram's small "+" badge on its corner that opens the create sheet
 (Post / Reel / Buzz; over Reels the bar's left slot holds a white "+" instead), the CampConnect wordmark in the middle (it
-reads "Following" while that feed shows) and Search on the right; then the three labels spread across the row
+reads "Following" while that feed shows) and Search on the right; then the two labels spread across the row
 (`src/components/sliding-tabs.tsx`): the active one bold with a rounded violet underline as wide as the label, sliding
 with the finger over a hairline, and a soft haptic each time the section changes, by tap or swipe. Under the labels sits the Campus | Global
 toggle, a small segmented pill whose thumb slides to the choice: Campus is your own university, Global every university (and,
@@ -87,7 +87,7 @@ Posts | Classes | Reels | Saved | Liked | Listings as icons, TikTok style (the o
 underline and a small mark of who can see that section: a lock for Only me, two people for Friends, a globe for
 Everyone; the filled icon and the mark crossfade with the swipe on the native side, like the underline, so they never
 wait for the pager to settle), over a three-column grid with view counts (Listings: your live
-apartments, roommate posts and items for sale, each square with its kind and title). The Classes tab lists classes by semester, this one first (up to 12 each; add and remove your own there, with the section, the days and times it meets and the room). Listing a section puts you in that section's course chat, a group in Messages shared by everyone at your campus taking it this semester: the first classmate's listing creates it, removing the class leaves it, a notification tells you about both, it cannot be renamed or hand-filled, and it goes with the semester after a week's notice (migration 24).
+apartments, roommate posts and items for sale, each square with its kind and title). The Classes tab lists classes by semester, this one first (up to 12 each; add your own there with the subject and course number as two boxes, "CS" and "3358", kept as the one code "CS 3358" the database checks, the section, the days and times it meets and the room; a hold on a class card offers Edit (the same form, filled in; Save moves you between course chats when the section changes) and Delete, which asks first, and there is no other way to change or remove one; once a class is in or changed, the form closes and a line under "Add class" says so, the button bringing it back). Listing a section puts you in that section's course chat, a group in Messages shared by everyone at your campus taking it this semester: the first classmate's listing creates it, removing the class leaves it, a notification tells you about both, it cannot be renamed or hand-filled, and it goes with the semester after a week's notice (migration 24).
 Classes, Saved and Liked each have a setting (Everyone, Friends, Only me; friends are people you follow who follow you
 back), changed from the line at the top of the tab or in Settings → Privacy; by default Classes is Friends, Saved is Only
 me and Liked is Everyone, and visitors without access see a lock. Hold one of your own posts or reels in the grid (or use
@@ -104,7 +104,10 @@ friends online now sits above the chats (photo, name, the time at the right, the
 rows; no @usernames anywhere in Messages, names only, though typing a handle still finds the chat). A long press on a row (or Chat
 info) mutes that person's messages everywhere or that group, and a group also offers every group chat at once, each for 1, 8 or
 24 hours or until unmuted (`src/lib/use-mutes.ts`, migration 26: the message and the unread count still arrive, only the notice is
-withheld); a muted chat shows a small bell-slash after its name. Requests holds the direct chats that people you do not follow started with you, until you reply or follow them
+withheld); a muted chat shows a small bell-slash after its name. While Unread is chosen and lists something, a "Mark all as
+read" pill floats above the bottom bar, as in GroupMe: one tap marks every chat it lists read in one call
+(`mark_conversations_read`, migration 27), the rows and the Messages badge clearing at once (`reportMessagesRead` in
+`src/lib/use-unread.ts`) and the server catching up behind. Requests holds the direct chats that people you do not follow started with you, until you reply or follow them
 (`src/lib/use-message-requests.ts`: nothing is stored for it, it is read off the chats, the follow stats and whether you
 have written in each, so every device agrees). Searching looks only in the page on screen.
 

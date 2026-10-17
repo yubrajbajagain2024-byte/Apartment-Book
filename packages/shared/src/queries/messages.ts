@@ -303,6 +303,17 @@ export async function markConversationRead(supabase: Client, conversationId: str
   if (error) throw error;
 }
 
+/**
+ * "Mark all as read": your receipts in these chats (every chat of yours when `conversationIds` is null) move to now in
+ * one call, only where someone else wrote something new, as `markConversationRead` does for one chat (migration 27).
+ * Returns how many chats changed.
+ */
+export async function markConversationsRead(supabase: Client, conversationIds: string[] | null = null): Promise<number> {
+  const { data, error } = await supabase.rpc("mark_conversations_read", { p_conversation_ids: conversationIds });
+  if (error) throw error;
+  return Number(data ?? 0);
+}
+
 /** Fresh read/delivered times for every member of a conversation. */
 export async function getMemberStatus(supabase: Client, conversationId: string): Promise<Record<string, MemberStatus>> {
   const { data, error } = await supabase.from("conversation_members").select(MEMBER_SELECT).eq("conversation_id", conversationId);

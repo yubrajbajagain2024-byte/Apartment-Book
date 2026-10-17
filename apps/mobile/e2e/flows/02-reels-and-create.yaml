@@ -1,4 +1,4 @@
-# Reels and the create menu, signed in (run 01-signed-in.yaml first so a session is stored).
+# A reel on For you and the create menu, signed in (run 01-signed-in.yaml first so a session is stored).
 appId: host.exp.Exponent
 ---
 - extendedWaitUntil:
@@ -25,19 +25,19 @@ appId: host.exp.Exponent
       - tapOn: "Cancel"
 - assertVisible: "Edit profile"
 - tapOn: "Home.*"
-# Reels. The Home bar may have slid away with an earlier scroll (Instagram style): a scroll up brings it back.
+# Reels has no tab of its own: the seeded reel sits in For you as a post with a video, with the feed's sound button.
 - scrollUntilVisible:
-    element: "Reels"
+    element: ".*Quick tour of my new place.*"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- assertVisible: "Unmute|Mute"
+- takeScreenshot: e2e/screenshots/13-reels
+# Create menu. The Home bar may have slid away with that scroll (Instagram style): a scroll up brings it back.
+- scrollUntilVisible:
+    element: "Create"
     direction: UP
     timeout: 15000
-- tapOn: "Reels"
-- extendedWaitUntil:
-    visible: "Turn sound on|Turn sound off"
-    timeout: 30000
-- assertVisible: "Pause|Play"
-- takeScreenshot: e2e/screenshots/13-reels
-- tapOn: "Posts"
-# Create menu
 - tapOn: "Create"
 - assertVisible: "Post"
 - assertVisible: "Reel"

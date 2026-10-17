@@ -40,6 +40,30 @@ test("class codes are tidied like the database does and checked", async () => {
   assert.match(classCodeProblem("CS 3358!"), /letters and numbers/);
 });
 
+test("subject and course number: tidied, checked, and joined into the class code the database stores", async () => {
+  const { normalizeClassSubject, normalizeCourseNumber, classSubjectProblem, courseNumberProblem, joinClassCode, classCodeProblem } = await import("../src/profile.ts");
+  assert.equal(normalizeClassSubject(" cs "), "CS");
+  assert.equal(normalizeCourseNumber(" 1315l "), "1315L");
+  assert.equal(joinClassCode("cs", "3358"), "CS 3358");
+  assert.equal(joinClassCode(" Math ", " 3398 "), "MATH 3398");
+  assert.equal(classCodeProblem(joinClassCode("phys", "1315L")), null);
+  assert.equal(classSubjectProblem("CS"), null);
+  assert.equal(classSubjectProblem("M"), null);
+  assert.match(classSubjectProblem(""), /subject/);
+  assert.match(classSubjectProblem("CS3"), /letters/);
+  assert.match(classSubjectProblem("ABCDEFGHI"), /letters/);
+  assert.equal(courseNumberProblem("3358"), null);
+  assert.equal(courseNumberProblem("1315L"), null);
+  assert.match(courseNumberProblem(""), /course number/);
+  assert.match(courseNumberProblem("CS"), /digits/);
+  assert.match(courseNumberProblem("3358!"), /digits/);
+  const { splitClassCode } = await import("../src/profile.ts");
+  assert.deepEqual(splitClassCode("CS 3358"), { subject: "CS", number: "3358" });
+  assert.deepEqual(splitClassCode("phys 1315L"), { subject: "PHYS", number: "1315L" });
+  assert.deepEqual(splitClassCode("cs3358"), { subject: "CS", number: "3358" });
+  assert.deepEqual(splitClassCode(splitClassCode("MATH 3398").subject + " " + splitClassCode("MATH 3398").number), { subject: "MATH", number: "3398" });
+});
+
 test("sections and course chat names: trimmed and upper-cased, checked like the database, named like it", async () => {
   const { normalizeClassSection, classSectionProblem, courseChatName } = await import("../src/profile.ts");
   assert.equal(normalizeClassSection(" 001 "), "001");

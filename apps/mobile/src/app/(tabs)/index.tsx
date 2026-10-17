@@ -14,7 +14,7 @@ import { hapticSwipe } from "@/lib/haptics";
 import { onHomeSectionRequest, takeHomeSection } from "@/lib/home-section";
 import { useAppTheme } from "@/lib/theme-provider";
 
-/** The pages, in the order of the tabs. A hidden section (Posts) has no page: its index is -1 and nothing below reaches it. */
+/** The pages, in the order of the tabs. A hidden section (Posts, Reels) has no page: its index is -1 and nothing below reaches it. */
 const ORDER = HOME_TABS.map((s) => s.value);
 const START = Math.max(0, ORDER.indexOf(DEFAULT_HOME_SECTION));
 const LAST = ORDER.length - 1;
@@ -58,7 +58,8 @@ const HomeStatusBar = memo(function HomeStatusBar({ overVideo, isDark }: { overV
 });
 
 /**
- * Home: For you | Buzz | Posts | Reels side by side in a horizontal pager under a floating top bar. Opens on For you.
+ * Home: the tabs of HOME_TABS (For you | Buzz) side by side in a horizontal pager under a floating top bar. Opens on
+ * For you. Posts and Reels have no page here (HIDDEN_HOME_SECTIONS): For you carries both.
  *
  * Swipes feel like X's: nothing in React changes while the finger drags or the page glides. The underline, the labels and
  * the bar's background follow the finger on the native driver (`scrollX`); the scroll listener only decides, without any
@@ -212,11 +213,12 @@ export default function HomeScreen() {
     placedWidth.current = width;
   }, [width]);
 
-  // Another screen asked for a section (for example "Reels" right after posting a reel): jump there without animation or haptic.
+  // Another screen asked for a section (for example "Reels" right after posting a reel): jump there without animation or
+  // haptic. A section without a page of its own (Posts, Reels) is carried by For you, so that is where it lands.
   const jump = useCallback(() => {
     const wanted = takeHomeSection();
-    const i = wanted ? ORDER.indexOf(wanted) : -1;
-    if (i < 0) return;
+    if (!wanted) return;
+    const i = ORDER.indexOf(wanted) >= 0 ? ORDER.indexOf(wanted) : START;
     target.current = null;
     moving.current = false;
     stopSettleTimer();
@@ -317,13 +319,13 @@ export default function HomeScreen() {
   const postsOn = focused && section === "posts";
   const reelsOn = focused && section === "reels";
   // Next to the page on screen, Reels loads its first reels ahead of time (nothing plays until it is active).
-  const reelsPreload = Math.abs(index - REELS) === 1;
+  const reelsPreload = REELS >= 0 && Math.abs(index - REELS) === 1;
   // Each page keeps its element while its own props stay the same, so a settle re-renders the section that was left and
   // the one that was reached, not all four lists.
   const forYou = useMemo(() => <ForYouSection active={forYouOn} topInset={barHeight} onScroll={onPageScroll(FOR_YOU)} />, [forYouOn, barHeight, onPageScroll]);
   const buzz = useMemo(() => <BuzzSection active={buzzOn} topInset={barHeight} onScroll={onPageScroll(BUZZ)} />, [buzzOn, barHeight, onPageScroll]);
   const posts = useMemo(() => (POSTS >= 0 ? <PostsSection active={postsOn} topInset={barHeight} onScroll={onPageScroll(POSTS)} /> : null), [postsOn, barHeight, onPageScroll]);
-  const reels = useMemo(() => (pageHeight > 0 ? <ReelsSection active={reelsOn} preload={reelsPreload} topInset={barHeight} height={pageHeight} /> : null), [reelsOn, reelsPreload, barHeight, pageHeight]);
+  const reels = useMemo(() => (REELS >= 0 && pageHeight > 0 ? <ReelsSection active={reelsOn} preload={reelsPreload} topInset={barHeight} height={pageHeight} /> : null), [reelsOn, reelsPreload, barHeight, pageHeight]);
   const content: Record<HomeSection, ReactNode> = { foryou: forYou, buzz, posts, reels };
 
   return (

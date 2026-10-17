@@ -1206,6 +1206,10 @@ export type Database = {
         Args: { p_conversation_id: string };
         Returns: undefined;
       };
+      mark_conversations_read: {
+        Args: { p_conversation_ids?: string[] | null };
+        Returns: number;
+      };
       apartments_within: {
         Args: { p_university_id: string; p_radius_m: number };
         Returns: Database["public"]["Tables"]["apartments"]["Row"][];

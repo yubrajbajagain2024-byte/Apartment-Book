@@ -82,7 +82,7 @@ export default function CreateReelScreen() {
       await createReel(supabase, user.id, parsed.data);
       markReelsStale();
       markForYouStale();
-      // Back to Home, opened on Reels, so the new reel is the first thing they see.
+      // Back to Home, opened on Reels (on For you while Reels has no tab: the reel is in that blend), so they see what they shared.
       openHomeSection("reels");
       router.dismissTo("/(tabs)");
     } catch (e) {

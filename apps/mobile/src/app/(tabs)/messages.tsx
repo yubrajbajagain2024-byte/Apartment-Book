@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, BackHandler, FlatList, Keyboard, Platform, RefreshControl, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView, type TextInput } from "react-native";
+import { Animated, BackHandler, FlatList, Keyboard, Platform, Pressable, RefreshControl, StyleSheet, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView, type TextInput } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useIsFocused, useRouter } from "expo-router";
-import { listConversations, listFriends, markConversationRead, MUTE_DURATIONS, muteLabel, type ConversationSummary, type MessageWithSender, type MuteDuration, type MuteScope, type ProfileSummary } from "@apartment-book/shared";
+import { listConversations, listFriends, markConversationRead, markConversationsRead, MUTE_DURATIONS, muteLabel, type ConversationSummary, type MessageWithSender, type MuteDuration, type MuteScope, type ProfileSummary } from "@apartment-book/shared";
 import { useActionSheet, type SheetOption } from "@/components/action-sheet";
 import { INBOX_PAGES, InboxHeader, InboxSearchField } from "@/components/messages/inbox-header";
 import { InboxMessageRow, InboxNote, InboxRow, InboxSectionHeader } from "@/components/messages/inbox-row";
@@ -13,10 +14,11 @@ import { useQuery } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useTabBarInset } from "@/lib/tab-bar";
-import { space } from "@/lib/theme";
+import { radius, space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useMessageRequests } from "@/lib/use-message-requests";
 import { useMutes } from "@/lib/use-mutes";
+import { reportMessagesRead } from "@/lib/use-unread";
 
 /** One line of a list: a chat, or while searching also section titles, found messages and status lines. */
 type Item =
@@ -45,7 +47,9 @@ const NOT_SCROLLED: Record<InboxPage, boolean> = { chats: false, groups: false }
  * Above the chats, right under the pills, Messenger's row of your friends who are online now (a tap opens your chat with
  * them) scrolls away with the list. Typing searches the page on screen by name, @username or group title, and below the
  * chats the words of every message you can read there; a found message opens its chat at that message. The lists follow
- * new messages live, and the row follows who comes online or goes offline.
+ * new messages live, and the row follows who comes online or goes offline. While Unread is chosen and lists something, a
+ * "Mark all as read" pill floats above the bottom bar, as in GroupMe: one tap marks every chat it lists read in one call
+ * (migration 27), the counts and the Messages badge clearing at once; a long press on a row still marks that one chat.
  */
 export default function MessagesScreen() {
   const styles = useStyles();
@@ -180,6 +184,19 @@ export default function MessagesScreen() {
   useEffect(() => setAllChatMatches(false), [query]);
   // Groups has no Requests pill: moving there with it chosen shows every group.
   const filterOn = useCallback((p: InboxPage): InboxFilter => (p === "groups" && filter === "requests" ? "all" : filter), [filter]);
+
+  // "Mark all as read": the chats the Unread pill lists on the page on screen (requests keep their counts) read at once,
+  // the rows and the badge first and the server behind them; should the call fail, the list is read again and tells the truth.
+  const showMarkAll = !searching && filterOn(page) === "unread" && unreadChats > 0;
+  const markAllRead = useCallback(() => {
+    const chats = conversations.filter((c) => inInbox(c, page, "unread", requestIds));
+    if (chats.length === 0) return;
+    hapticTap();
+    const ids = new Set(chats.map((c) => c.id));
+    setData((prev) => prev?.map((c) => (ids.has(c.id) ? { ...c, unreadCount: 0 } : c)) ?? prev);
+    reportMessagesRead(chats.reduce((n, c) => n + c.unreadCount, 0));
+    markConversationsRead(supabase, [...ids]).catch(() => void refresh());
+  }, [conversations, page, requestIds, setData, refresh]);
 
   /** What page `p` lists right now: its chats under the pill, or the search's chats and messages among them. */
   const itemsFor = useCallback(
@@ -416,6 +433,14 @@ export default function MessagesScreen() {
           ))}
         </Animated.ScrollView>
       )}
+      {user && showMarkAll ? (
+        <View pointerEvents="box-none" style={[styles.markAllWrap, { bottom: tabBar + space.lg }]}>
+          <Pressable onPress={markAllRead} accessibilityRole="button" accessibilityLabel="Mark all as read" style={({ pressed }) => [styles.markAll, pressed && { opacity: 0.75 }]}>
+            <Ionicons name="checkmark-done-outline" size={18} color={colors.text} />
+            <Text style={styles.markAllText}>Mark all as read</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -426,4 +451,8 @@ const useStyles = makeStyles((colors) => ({
   searchContent: { paddingBottom: space.xl },
   searchEmpty: { paddingTop: space.xl },
   pad: { padding: space.lg },
+  // The pill floats over the list, centred above the bottom bar; the list keeps room under it (its bottom padding).
+  markAllWrap: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 2 },
+  markAll: { flexDirection: "row", alignItems: "center", gap: 8, height: 44, paddingHorizontal: 20, borderRadius: radius.pill, backgroundColor: colors.elevated, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: colors.shadow, shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  markAllText: { fontSize: 15, fontWeight: "600", color: colors.text },
 }));
