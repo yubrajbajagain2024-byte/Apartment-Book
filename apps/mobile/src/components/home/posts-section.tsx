@@ -17,7 +17,7 @@ import { useColors } from "@/lib/theme-provider";
 import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { InstaPost } from "./insta-post";
 
-/** Home → Posts: photo-first posts from students, newest first. The campus and "Following" (only the people you follow) are chosen from the menu under your photo in the top bar; new posts are made with the floating "+ New post" pill. */
+/** Home → Posts: photo-first posts from students, newest first. The campus and "Following" (only the people you follow) are chosen from the menu under your photo in the top bar; new posts are made with the "+" badge on your photo in the top bar. */
 export function PostsSection({ active, topInset, onScroll }: { active: boolean; topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
   const { user, profile } = useSession();
   const router = useRouter();
@@ -78,7 +78,7 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
         {...inset.list}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        // Room under the last post for the floating bottom bar and the "New post" pill above it.
+        // Room under the last post for the floating bottom bar.
         contentContainerStyle={{ paddingBottom: 96 + tabBar, paddingTop: inset.paddingTop }}
         renderItem={({ item: p }) => (
           <InstaPost

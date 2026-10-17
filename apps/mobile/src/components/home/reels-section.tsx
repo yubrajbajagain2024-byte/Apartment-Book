@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { listReels, REELS_PAGE_SIZE, type Reel } from "@apartment-book/shared";
 import { errorText } from "@/lib/hooks";
 import { emitPostRemoved } from "@/lib/posts-events";
+import { useHomeScope } from "@/lib/home-scope";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useTabBarInset } from "@/lib/tab-bar";
@@ -35,11 +36,16 @@ function mergeUnique(current: Reel[], incoming: Reel[]): Reel[] {
 export function ReelsSection({ active, preload = false, topInset, height }: { active: boolean; preload?: boolean; topInset: number; height: number }) {
   // The floating bottom bar covers the page's bottom: the caption and the rail sit above it, the video runs on beneath.
   const tabBar = useTabBarInset();
-  const { user } = useSession();
+  const { user, profile } = useSession();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const colors = useColors();
   const styles = useStyles();
+  // Your university or all of them, from the dropdown on "For you"; someone without a university sees everything.
+  const [scope] = useHomeScope();
+  const universityId = scope.campus === "all" || !profile?.university_id ? undefined : profile.university_id;
+  const universityRef = useRef(universityId);
+  universityRef.current = universityId;
   const [reels, setReels] = useState<Reel[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -66,7 +72,7 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
     if (mode === "refresh") setRefreshing(true);
     setError(null);
     try {
-      const page = await listReels(supabase, { limit: REELS_PAGE_SIZE, offset: 0 });
+      const page = await listReels(supabase, { universityId: universityRef.current, limit: REELS_PAGE_SIZE, offset: 0 });
       if (id !== seq.current) return;
       offset.current = REELS_PAGE_SIZE;
       done.current = page.length < REELS_PAGE_SIZE;
@@ -88,7 +94,7 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
     busyMore.current = true;
     setLoadingMore(true);
     try {
-      const page = await listReels(supabase, { limit: REELS_PAGE_SIZE, offset: offset.current });
+      const page = await listReels(supabase, { universityId: universityRef.current, limit: REELS_PAGE_SIZE, offset: offset.current });
       if (id !== seq.current) return;
       offset.current += REELS_PAGE_SIZE;
       if (page.length < REELS_PAGE_SIZE) done.current = true;
@@ -101,6 +107,14 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
     }
   }, []);
 
+  // Another choice in the dropdown (own campus or global) starts the feed over, once it has loaded at all.
+  const scopedFor = useRef(universityId);
+  useEffect(() => {
+    if (scopedFor.current === universityId) return;
+    scopedFor.current = universityId;
+    if (started.current) void loadFirst("refresh");
+  }, [universityId, loadFirst]);
+
   /** After signing in or out: fetch the same rows again for the new person and keep the place in the feed. */
   const resyncUser = useCallback(async () => {
     const total = count.current;
@@ -109,7 +123,7 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
     try {
       const fresh = new Map<string, Reel>();
       for (let from = 0; from < total; from += RESYNC_CHUNK) {
-        const page = await listReels(supabase, { limit: RESYNC_CHUNK, offset: from });
+        const page = await listReels(supabase, { universityId: universityRef.current, limit: RESYNC_CHUNK, offset: from });
         if (id !== seq.current) return;
         page.forEach((r) => fresh.set(reelKey(r), r));
         if (page.length < RESYNC_CHUNK) break;

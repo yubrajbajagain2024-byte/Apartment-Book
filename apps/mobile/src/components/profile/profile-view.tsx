@@ -1055,15 +1055,13 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
     if (own && value !== "public") locks[section] = ownSectionNote(section, value);
     if (!own && access && !access[section]) locks[section] = lockedSectionMessage(section, value, firstName);
   }
+  // The mark beside the open tab: who can see that section. Posts, Reels and Listings are everyone's; the rest follow the setting.
+  const badges: Partial<Record<ProfileTabKey, ProfileVisibility>> = { posts: "public", reels: "public", listings: "public" };
+  for (const section of ["classes", "saved", "liked"] as const) badges[section] = visibility(section);
 
-  // The numbers beside the tab names, where they are known: Posts and Reels from the profile's stats, Classes and Listings
-  // once they have loaded. Saved and Liked come in pages, so their totals are not known.
+  // The number a tab reads out to screen readers (none is drawn): only Listings has one, once it has loaded. Saved and
+  // Liked come in pages, so their totals are not known.
   const counts: Partial<Record<ProfileTabKey, number>> = {};
-  if (statsQ.data) {
-    counts.posts = statsQ.data.posts;
-    counts.reels = statsQ.data.reels;
-  }
-  if (classesOpen && classesQ.data) counts.classes = classesQ.data.length;
   if (listings.status === "ready" && !listings.error) counts.listings = listings.tiles.length;
 
   /** A visitor's way into Classes, Saved or Liked: the access is still loading, failed to load, or says no. */
@@ -1174,6 +1172,7 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
             active={tab}
             onSelect={selectTab}
             locks={locks}
+            badges={badges}
             counts={counts}
             scrollX={scrollX}
             pageWidth={body.width}

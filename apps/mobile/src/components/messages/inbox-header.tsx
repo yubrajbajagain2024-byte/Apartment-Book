@@ -25,7 +25,7 @@ export const INBOX_FILTERS: { value: InboxFilter; label: string }[] = [
 const TABS_ROW = 44;
 
 /**
- * The Messages tab's own top bar: the new-message pencil in the top-right corner, the big "Messages" title, then
+ * The Messages tab's own top bar: the big "Messages" title with the new-message pencil at the right of the same row, then
  * Chats | Groups above the pager with Home's sliding violet underline (`scrollX` is the pager's offset and `pageWidth`
  * the width of one page, so the underline follows the finger), `children` (the search field) and the All | Unread |
  * Requests pills that narrow the page (Requests on Chats only, each pill carrying its count). A hairline under it all
@@ -47,15 +47,15 @@ export function InboxHeader({ signedIn, page, onPage, scrollX, pageWidth, reques
   return (
     <View style={[styles.chrome, { paddingTop: insets.top }, scrolled && styles.chromeScrolled]}>
       <View style={styles.topRow}>
+        <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>
+          Messages
+        </Text>
         {signedIn ? (
           <Pressable onPress={onNewChat} hitSlop={8} accessibilityRole="button" accessibilityLabel="New message" style={({ pressed }) => [styles.compose, pressed && { opacity: 0.6 }]}>
             <Ionicons name="create-outline" size={24} color={colors.text} />
           </Pressable>
         ) : null}
       </View>
-      <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>
-        Messages
-      </Text>
       {signedIn ? (
         <View style={styles.tabs}>
           <SlidingTabs sections={INBOX_PAGES} section={page} onSelect={onPage} scrollX={scrollX} pageWidth={pageWidth} tint={colors.accent} labelColor={colors.text} dimColor={colors.muted} gap={110} fontSize={16} />
@@ -127,9 +127,10 @@ const useStyles = makeStyles((colors) => ({
   // The hairline is always there, transparent until the list scrolls, so the list never jumps by its width.
   chrome: { backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "transparent", zIndex: 1 },
   chromeScrolled: { borderBottomColor: colors.border },
-  topRow: { height: 44, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", paddingHorizontal: space.lg },
+  // The title and the pencil share one row, so the tabs and the search box sit a row higher.
+  topRow: { height: 52, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: 20, paddingRight: space.lg },
   compose: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 30, fontWeight: "800", letterSpacing: -0.5, color: colors.text, paddingHorizontal: 20, paddingBottom: 10 },
+  title: { flexShrink: 1, fontSize: 30, fontWeight: "800", letterSpacing: -0.5, color: colors.text },
   // The labels row, as tall as Home's, with the hairline the sliding underline sits on.
   tabs: { height: TABS_ROW, flexDirection: "row", marginHorizontal: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   filters: { flexDirection: "row", gap: space.sm, paddingHorizontal: 20, paddingBottom: space.sm },

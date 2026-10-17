@@ -7,7 +7,6 @@ import { DEFAULT_HOME_SECTION, HOME_SECTIONS, type HomeSection } from "@apartmen
 import { BuzzSection } from "@/components/home/buzz-section";
 import { ForYouSection } from "@/components/home/for-you-section";
 import { createOverVideoStore, HOME_TOP_BAR_HEIGHT, HomeTopTabs, useOverVideo, type OverVideoStore } from "@/components/home/home-top-tabs";
-import { NewPostButton } from "@/components/home/new-post-button";
 import { PostsSection } from "@/components/home/posts-section";
 import { ReelsSection } from "@/components/home/reels-section";
 import { useCollapsingHeader } from "@/lib/collapsing-header";
@@ -22,8 +21,6 @@ const REELS = ORDER.indexOf("reels");
 const POSTS = ORDER.indexOf("posts");
 const FOR_YOU = ORDER.indexOf("foryou");
 const BUZZ = ORDER.indexOf("buzz");
-/** How visible the floating "New post" pill is on each page: fully on For you, Buzz and Posts, gone on Reels. */
-const PILL = ORDER.map((s) => (s === "reels" ? 0 : 1));
 /** Closer to a page than this share of a page, the pager counts as resting on it. */
 const ON_PAGE = 0.01;
 /** Changes of page wait until the pager is this share of a page past the halfway point, so a finger resting on the line cannot buzz back and forth. */
@@ -116,8 +113,6 @@ export default function HomeScreen() {
   const [pageHeight, setPageHeight] = useState(0);
 
   const section: HomeSection = ORDER[index] ?? DEFAULT_HOME_SECTION;
-  // The pill fades out towards Reels with the finger, like the bar's background (only once width > 0: a strictly increasing input range).
-  const pillOpacity = useMemo(() => (width > 0 ? scrollX.interpolate({ inputRange: PILL.map((_, i) => i * width), outputRange: PILL, extrapolate: "clamp" }) : null), [scrollX, width]);
 
   /** Mounts the pages that are not mounted yet, in one commit; nothing at all when they already are. */
   const mount = useCallback((pages: number[]) => {
@@ -359,7 +354,6 @@ export default function HomeScreen() {
           ))}
         </Animated.ScrollView>
       </View>
-      <NewPostButton opacity={pillOpacity} overVideo={overVideo} />
       <HomeTopTabs section={section} onSelect={select} overVideo={overVideo} onPosts={onPosts} scrollX={scrollX} pageWidth={width} onLayout={onBarLayout} translateY={barShift} />
     </View>
   );

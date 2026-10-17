@@ -1,6 +1,7 @@
 import { memo, useMemo, useState, useSyncExternalStore } from "react";
 import { Animated, Modal, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HOME_BRAND, HOME_SECTIONS, type HomeSection } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
@@ -24,7 +25,7 @@ const RING_SIZE = PHOTO + 2 * (PHOTO_GAP + RING);
 /** The slot on each side of the wordmark (the ring on the left, Search on the right). */
 const SIDE = 44;
 const LABEL_SIZE = 16;
-/** The feed menu that drops down from your photo. */
+/** The feed menu that drops down from the "For you" label. */
 const MENU_WIDTH = 240;
 const MENU_GAP = 6;
 
@@ -67,22 +68,26 @@ export function useOverVideo(store: OverVideoStore): boolean {
 const SOLID = HOME_SECTIONS.map((s) => (s.value === "reels" ? 0 : 1));
 
 /**
- * Floating top bar of Home, X style, in two rows. Row 1: your photo in a gradient ring on the left, which drops down the
- * feed menu (your university | all universities | Following, see useHomeScope); the CampConnect wordmark in the middle
- * (it reads "Following" while that feed shows, and opens the menu too); the Search magnifier on the right. Row 2:
- * For you | Buzz | Posts | Reels spread across the row with X's sliding underline (violet, as wide as the label) over a
- * hairline. Creating lives in the "+ New post" pill floating over the feed (NewPostButton); over the Reels video, where
- * that pill is gone and the menu has nothing to choose (Reels is not scoped by campus), the left slot holds the "+"
- * instead, white like the rest of the bar. `scrollX` is the pager's offset in points and `pageWidth` the width of one
+ * Floating top bar of Home, X style, in two rows. Row 1: your photo in a gradient ring on the left, which opens your
+ * profile, with Instagram's small "+" badge on its corner that opens the create sheet (Post / Reel / Buzz); the
+ * CampConnect wordmark in the middle (it reads "Following" while that feed shows); the Search magnifier on
+ * the right. Row 2: For you | Buzz | Posts | Reels spread across the row with X's sliding underline (violet, as wide as
+ * the label) over a hairline. "For you" carries a small chevron: tapped while For you is on screen it drops down the feed
+ * menu (your university by name | All Universities | Following, see useHomeScope: it scopes For you, Buzz, Posts and
+ * Reels alike); tapped from
+ * another page it moves to For you first, like any label. `scrollX` is the pager's offset in points and `pageWidth` the width of one
  * page: the underline slides, the labels crossfade (see SlidingTabs) and the bar's solid background (colors.bar and its
  * hairline) fades out towards Reels with the finger, all on the native driver. `overVideo` says when the text and icons
- * turn white for the video: Home flips it halfway between Posts and Reels. `section` is the section committed once the
+ * turn white for the video: Home flips it halfway between Posts and Reels. Creating lives in the "+ New post" pill
+ * floating over the feed (NewPostButton); over the Reels video, where that pill is gone, the left slot holds the "+"
+ * instead, white like the rest of the bar. `section` is the section committed once the
  * pager settles: the menu and what screen readers hear as selected follow it. `translateY` slides the whole bar up out
  * of the way as the page on screen scrolls down and back as soon as it scrolls up, Instagram style (see
  * useCollapsingHeader). Memoized: Home mounting a page ahead of time leaves it alone.
  */
 export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVideo: overVideoStore, onPosts: onPostsStore, onLayout, scrollX, pageWidth, translateY }: { section: HomeSection; onSelect: (s: HomeSection) => void; overVideo: OverVideoStore; onPosts: OverVideoStore; onLayout?: (e: LayoutChangeEvent) => void; scrollX: Animated.Value; pageWidth: number; translateY: Animated.AnimatedInterpolation<number> }) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { user, profile } = useSession();
   const [scope, setScope] = useHomeScope();
   const [menu, setMenu] = useState(false);
@@ -106,9 +111,9 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
   const title = followingShown ? "Following" : HOME_BRAND;
 
   const rows: MenuRow[] = [];
+  // The person's own university, by name. Without one of their own the person sees everything whatever `campus` says (the sections pass no university).
   if (profile?.university_id) rows.push({ key: "mine", label: profile.university?.name ?? "My university", icon: "school-outline", selected: !followingShown && scope.campus === "mine", pick: () => setScope({ campus: "mine", following: false }) });
-  // Without a university of their own, the person sees every campus whatever `campus` says (the sections pass no university).
-  rows.push({ key: "all", label: "All universities", icon: "globe-outline", selected: !followingShown && (scope.campus === "all" || !profile?.university_id), pick: () => setScope({ campus: "all", following: false }) });
+  rows.push({ key: "all", label: "All Universities", icon: "globe-outline", selected: !followingShown && (scope.campus === "all" || !profile?.university_id), pick: () => setScope({ campus: "all", following: false }) });
   if (user) {
     rows.push({
       key: "following",
@@ -130,6 +135,11 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
     // One haptic per choice: a pick that switches section leaves the feedback to that switch.
     if (!row.pick()) hapticTap();
   }
+  /** A label: "For you" while already on For you drops the menu; anything else moves the pager. */
+  function pickSection(s: HomeSection) {
+    if (s === "foryou" && section === "foryou") setMenu(true);
+    else onSelect(s);
+  }
 
   return (
     <Animated.View onLayout={onLayout} pointerEvents={overVideo ? "box-none" : "auto"} style={[styles.bar, { paddingTop: insets.top, transform: [{ translateY }] }]}>
@@ -140,33 +150,37 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
             <Ionicons name="add-circle-outline" size={30} color={fg} style={styles.shadow} />
           </Pressable>
         ) : (
-          <Pressable onPress={() => setMenu(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Choose feed" accessibilityHint="Your university, all universities or people you follow" accessibilityValue={{ text: title }} accessibilityState={{ expanded: menu }} style={styles.side}>
-            <View style={styles.ring}>
+          <View style={styles.side}>
+            <Pressable onPress={() => router.push("/(tabs)/profile")} hitSlop={4} accessibilityRole="button" accessibilityLabel="Your profile" style={styles.ring}>
               <View style={styles.ringGap}>
                 {profile ? <Avatar name={profile.full_name} url={profile.avatar_url} size={PHOTO} online={false} transition={0} /> : <Ionicons name="person-circle" size={PHOTO} color={colors.faint} />}
               </View>
-            </View>
-          </Pressable>
+            </Pressable>
+            {/* The create badge, labelled "Create" like the "+" over Reels: the end-to-end flows start from it. */}
+            <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" accessibilityHint="A post, a reel or a Buzz thread" style={styles.plus}>
+              <Ionicons name="add" size={13} color={colors.onBrand} />
+            </Pressable>
+          </View>
         )}
-        {/* Two equal side slots keep the wordmark truly centred. Over the video it is just a title; elsewhere it opens the feed menu too. */}
+        {/* Two equal side slots keep the wordmark truly centred. */}
         <View style={styles.middle}>
-          <Pressable onPress={() => setMenu(true)} disabled={overVideo} hitSlop={8} accessibilityRole={overVideo ? "header" : "button"} accessibilityLabel={title} accessibilityHint={overVideo ? undefined : "Opens the feed menu"} style={styles.title}>
-            <Text style={[styles.wordmark, { color: fg }, overVideo && styles.shadow]} numberOfLines={1}>
+          <View style={styles.title}>
+            <Text style={[styles.wordmark, { color: fg }, overVideo && styles.shadow]} accessibilityRole="header" numberOfLines={1}>
               {title}
             </Text>
-          </Pressable>
+          </View>
         </View>
         <View style={styles.side}>
           <HeaderActions color={fg} iconStyle={overVideo ? styles.shadow : undefined} />
         </View>
       </View>
       <View style={styles.row}>
-        <SlidingTabs sections={HOME_SECTIONS} section={section} onSelect={onSelect} scrollX={scrollX} pageWidth={pageWidth} tint={ink} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} fontSize={LABEL_SIZE} spread />
+        <SlidingTabs sections={HOME_SECTIONS} section={section} onSelect={pickSection} scrollX={scrollX} pageWidth={pageWidth} tint={ink} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} fontSize={LABEL_SIZE} spread caret="foryou" />
       </View>
-      {/* The feed menu: a card hanging under your photo, the page still fully visible behind it. */}
+      {/* The feed menu: a card hanging under the "For you" label, the page still fully visible behind it. */}
       <Modal visible={menu} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setMenu(false)}>
         <Pressable style={styles.backdrop} onPress={() => setMenu(false)} accessibilityRole="button" accessibilityLabel="Close" />
-        <View pointerEvents="box-none" style={[styles.anchor, { top: insets.top + ROW + MENU_GAP }]}>
+        <View pointerEvents="box-none" style={[styles.anchor, { top: insets.top + ROW * 2 + MENU_GAP }]}>
           <View style={styles.menu} accessibilityRole="menu">
             {rows.map((r) => (
               <Pressable key={r.key} onPress={() => pick(r)} accessibilityRole="menuitem" accessibilityLabel={r.label} accessibilityState={{ selected: r.selected }} style={({ pressed }) => [styles.item, pressed && { backgroundColor: colors.input }]}>
@@ -192,16 +206,17 @@ const useStyles = makeStyles((colors, scheme) => ({
   row: { height: ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: 12 },
   side: { width: SIDE, height: ROW, alignItems: "center", justifyContent: "center" },
   middle: { flex: 1, alignItems: "center", justifyContent: "center" },
-  // As tall as its row, so the whole 44pt under the wordmark opens the menu.
-  title: { minHeight: ROW, justifyContent: "center", maxWidth: "100%" },
-  wordmark: { fontSize: 21, fontWeight: "800", letterSpacing: -0.5 },
+  title: { minHeight: ROW, alignItems: "center", justifyContent: "center", maxWidth: "100%" },
+  wordmark: { fontSize: 21, fontWeight: "800", letterSpacing: -0.5, flexShrink: 1 },
   // The ring: a teal-to-violet gradient (plain violet where the platform draws none) with a gap in the bar's colour around the photo.
   ring: { width: RING_SIZE, height: RING_SIZE, borderRadius: RING_SIZE / 2, alignItems: "center", justifyContent: "center", backgroundColor: colors.accent, experimental_backgroundImage: `linear-gradient(135deg, ${colors.accentTeal} 0%, ${colors.accent} 100%)` },
   ringGap: { width: PHOTO + 2 * PHOTO_GAP, height: PHOTO + 2 * PHOTO_GAP, borderRadius: PHOTO / 2 + PHOTO_GAP, backgroundColor: colors.bar, alignItems: "center", justifyContent: "center" },
+  // Instagram's "+" on the photo's bottom-right corner: a small blue disc with a ring of the bar's colour, so it reads apart from the photo.
+  plus: { position: "absolute", right: 0, bottom: 2, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.brand, borderWidth: 2, borderColor: colors.bar, alignItems: "center", justifyContent: "center" },
   shadow: { textShadowColor: colors.mediaScrim, textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
   // Transparent: the page stays fully visible behind the menu, and a tap anywhere outside it closes it.
   backdrop: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-  anchor: { position: "absolute", left: 12, alignItems: "flex-start" },
+  anchor: { position: "absolute", left: 16, alignItems: "flex-start" },
   // A shadow cannot be seen on black, so in the dark theme a hairline outline keeps the menu apart from the page.
   menu: { width: MENU_WIDTH, backgroundColor: colors.elevated, borderRadius: radius.lg, paddingVertical: 6, shadowColor: colors.shadow, shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 10, borderWidth: scheme === "dark" ? StyleSheet.hairlineWidth : 0, borderColor: colors.border },
   item: { height: 44, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16 },

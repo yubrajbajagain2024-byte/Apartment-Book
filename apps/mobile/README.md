@@ -19,7 +19,8 @@ security protects the data, so they are safe to ship.
 
 ## Home and the tabs
 
-The bottom bar has five tabs: Home, Housing, Messages, Marketplace, Profile. It floats over the content as a rounded
+The bottom bar has five tabs: Home, Housing, Messages, Marketplace, Profile (your own photo in a circle, ringed while
+the tab is on screen; the person icon signed out). It floats over the content as a rounded
 glass pill (`src/app/(tabs)/_layout.tsx`, its size in `src/lib/tab-bar.ts`): on iOS 26 real liquid glass, with what scrolls
 under it blurred through, elsewhere a translucent fill; the tab on screen sits in a lighter capsule with its icon filled, and the capsule slides to
 the tab you tap on a soft spring while the tabs make room for it, GroupMe style, with no haptic
@@ -30,14 +31,13 @@ the floating top bar. Home opens on **For you**, a blend of posts, reels and hot
 (the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
 four pages, For you | Buzz | Posts | Reels, sit side by side in a pager: swipe left or right to move
 between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in a teal-to-violet
-ring on the left, which drops down the feed menu, the CampConnect wordmark in the middle (it reads "Following" while that
-feed shows, and opens the menu too) and Search on the right; then the four labels spread across the row
+ring on the left, which opens your profile, with Instagram's small "+" badge on its corner that opens the create sheet
+(Post / Reel / Buzz; over Reels the bar's left slot holds a white "+" instead), the CampConnect wordmark in the middle (it
+reads "Following" while that feed shows) and Search on the right; then the four labels spread across the row
 (`src/components/sliding-tabs.tsx`): the active one bold with a rounded violet underline as wide as the label, sliding
-with the finger over a hairline, and a soft haptic each time the section changes, by tap or swipe. Creating is the
-"+ New post" pill floating over the bottom-right of the feed (`src/components/home/new-post-button.tsx`, the same
-Post / Reel / Buzz sheet as before); it fades out towards Reels, where the bar's left slot holds a white "+" instead. The
-menu chooses your university, All universities or, signed in, Following (only the posts of people you follow;
-it switches to Posts).
+with the finger over a hairline, and a soft haptic each time the section changes, by tap or swipe. "For you" carries a small chevron: tapped
+while For you is on screen it drops down the feed menu, which chooses your university by name, All Universities or, signed in,
+Following (only the posts of people you follow; it switches to Posts); the choice scopes For you, Buzz, Posts and Reels alike.
 The bar scrolls like Instagram's (`src/lib/collapsing-header.ts`): it slides up out of the way as the page on screen
 scrolls down, by as much as the page moved, and slides back the moment the page scrolls up, however far down it is; a
 swipe or a tap between pages brings it back too, and Reels never moves it. The same goes for the Apartments | Roommates
@@ -46,8 +46,12 @@ own bar stays put): each slides up under the fixed bar as the list under it scro
 scrolls up. The bottom bar never moves. The choice lives in
 `src/lib/home-scope.ts` and drives For you, Buzz and Posts alike: the pages have no filter chips of their own.
 Housing works the same way with two pages,
-**Apartments | Roommates**: it opens on Apartments, a swipe or a tap on the label above the pager
-moves to Roommates and back, and the floating "+" follows the visible half ("List an apartment" or
+**Apartments | Roommates**, under its own top bar laid out like the inbox's (`src/app/(tabs)/housing.tsx`): the big
+"Off Campus Housing" title with the magnifier at the right (a tap turns the row into the search box of the half on
+screen), the two labels with the sliding violet underline, and the pills that narrow the half (All on Apartments,
+All | Has a room | Looking for a room on Roommates, plus your campus or every university); the labels and
+the pills slide up under the title as the half scrolls. It opens on Apartments, a swipe or a tap on the label above the
+pager moves to Roommates and back, and the floating "+" follows the visible half ("List an apartment" or
 "Create roommate post"). The order comes from `HOUSING_SECTIONS` in `packages/shared/src/constants.ts`.
 Profiles work like Instagram too: a Follow button (it reads "Following" once you follow), follower / following
 counts that open your own two lists (on anyone else's profile, the friends you have in common, since who follows whom
@@ -68,7 +72,9 @@ The Profile tab is your profile, TikTok style (`src/components/profile/`, one `P
 Saved, the legal pages, Log out); your photo with a "+" to change it, @username (made from your name at sign-up, changed
 in Settings) with a QR icon, Following | Followers | Likes (every like on your posts, reels and listings), Edit profile /
 Share profile (a sheet with the profile's QR code and Share) / Find friends, the bio and university, then the tabs
-Posts | Classes | Reels | Saved | Liked | Listings over a three-column grid with view counts (Listings: your live
+Posts | Classes | Reels | Saved | Liked | Listings as icons, TikTok style (the open one filled, with the sliding
+underline and a small mark of who can see that section: a lock for Only me, two people for Friends, a globe for
+Everyone), over a three-column grid with view counts (Listings: your live
 apartments, roommate posts and items for sale, each square with its kind and title). The Classes tab lists classes by semester, this one first (up to 12 each; add and remove your own there).
 Classes, Saved and Liked each have a setting (Everyone, Friends, Only me; friends are people you follow who follow you
 back), changed from the line at the top of the tab or in Settings → Privacy; by default Classes is Friends, Saved is Only
@@ -112,7 +118,7 @@ screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.de
 ```bash
 cd apps/mobile
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts (the test account and Leo follow each other, so Leo is a friend to share with; Maya lists CS 3358 and MATH 3398 for this semester, visible to everyone); prints the login, writes e2e/.sim-state.json
-e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you, opens the feed menu (All universities alone, signed out), swipes to Buzz, opens Search from the top-right magnifier, Messages (bottom tab), Housing (Apartments, Roommates, swipe back), Marketplace, Profile (several flows at once is fine)
+e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you, opens the feed menu (All Universities alone, signed out), swipes to Buzz, opens Search from the top-right magnifier, Messages (bottom tab), Housing (Apartments, Roommates, swipe back), Marketplace, Profile (several flows at once is fine)
 EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # your own profile (adds CS 1428 under Classes and removes it, Saved says only you can see it), then likes, comments (write, heart, reply, delete from the hold menu), shares the top post with Leo and finds the card in your chat with him (Messages), votes, replies, Following from the feed menu (Leo's post alone, then Maya's too once she is followed), follows and unfollows Maya (her Classes tab shows CS 3358, her Listings tab her apartment), opens your own Followers (Leo) and Maya's Mutual friends (none: Leo follows her one way), as the seeded account
 node e2e/sim-seed-thread.mjs                            # nested replies and votes for 03-buzz-thread.yaml
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards

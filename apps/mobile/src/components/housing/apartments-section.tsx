@@ -1,26 +1,26 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { formatDistance, formatPrice, isVerifiedPoster, listApartments, listingMedia, type ApartmentWithOwner } from "@apartment-book/shared";
-import { FeedHeader } from "@/components/feed-header";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
-import { Badge, Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { Badge, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
-import { useTabBarInset } from "@/lib/tab-bar";
 import { supabase } from "@/lib/supabase";
+import { useTabBarInset } from "@/lib/tab-bar";
 import { useColors } from "@/lib/theme-provider";
 import { useEngagement } from "@/lib/use-engagement";
 
-/** The Apartments half of the Housing tab: search, filters and the listings feed, starting `topInset` under the floating tabs row and reporting its scroll through `onScroll`. The Housing screen owns the "+" button. */
-export function ApartmentsSection({ topInset, onScroll }: { topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
+/**
+ * The Apartments half of the Housing tab: the listings feed, starting `topInset` under the floating labels and pills and
+ * reporting its scroll through `onScroll`. The search (`q`) and the campus come from the Housing screen's own bar, which
+ * also owns the "+" button.
+ */
+export function ApartmentsSection({ topInset, onScroll, q, campus }: { topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void; q: string; campus: "mine" | "all" }) {
   const colors = useColors();
   const { user, profile } = useSession();
-  const [q, setQ] = useState("");
-  const [videoOnly, setVideoOnly] = useState(false);
-  const [allCampuses, setAllCampuses] = useState(false);
-  const universityId = allCampuses ? undefined : (profile?.university_id ?? undefined);
-  const feed = useFeed<ApartmentWithOwner>((page) => listApartments(supabase, { q: q || undefined, universityId, videoOnly, page, sort: "newest" }), [q, universityId, videoOnly]);
+  const universityId = campus === "all" ? undefined : (profile?.university_id ?? undefined);
+  const feed = useFeed<ApartmentWithOwner>((page) => listApartments(supabase, { q: q || undefined, universityId, page, sort: "newest" }), [q, universityId]);
   const { savedIds, engagement } = useEngagement("apartment", feed.items, user?.id ?? null);
   const inset = useMemo(() => listInset(topInset), [topInset]);
   const tabBar = useTabBarInset();
@@ -34,14 +34,6 @@ export function ApartmentsSection({ topInset, onScroll }: { topInset: number; on
         onScroll={onScroll}
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: 90 + tabBar, paddingTop: inset.paddingTop }}
-        ListHeaderComponent={
-          <View style={{ paddingHorizontal: FEED_HEADER_PADDING, paddingTop: FEED_HEADER_PADDING, paddingBottom: 4 }}>
-            <FeedHeader placeholder="Search apartments" value={q} onChange={setQ}>
-              <Chip label="Video tours only" icon="videocam-outline" active={videoOnly} onPress={() => setVideoOnly((v) => !v)} />
-              {profile?.university_id ? <Chip label={allCampuses ? "All universities" : (profile.university?.name ?? "My campus")} icon="school-outline" active={!allCampuses} onPress={() => setAllCampuses((v) => !v)} /> : null}
-            </FeedHeader>
-          </View>
-        }
         renderItem={({ item: a }) => (
           <PostCard
             targetType="apartment"

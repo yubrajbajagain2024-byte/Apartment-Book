@@ -31,15 +31,16 @@ appId: host.exp.Exponent
 - assertVisible: "Posts"
 - assertVisible: "Reels"
 - takeScreenshot: e2e/screenshots/01-home-foryou
-# The top bar has two rows like X's: your photo in a gradient ring ("Choose feed") drops down the feed menu, the CampConnect
-# wordmark in the middle, Search on the right; then the four labels. "+ New post" ("Create") floats over the feed. Signed out there is no university of your own and nobody you follow, so the menu offers "All universities"
+# The top bar has two rows like X's: your photo in a gradient ring ("Your profile") opens your profile, the CampConnect
+# wordmark in the middle, Search on the right; then the four labels. "For you" carries a chevron: tapped while already on
+# For you it drops down the feed menu. The "+" badge on the photo ("Create") opens the create sheet. Signed out there is no university of your own and nobody you follow, so the menu offers "All Universities"
 # alone; a tap on the see-through backdrop ("Close") puts it away.
-- tapOn: "Choose feed"
-- assertVisible: "All universities"
+- tapOn: "For you"
+- assertVisible: "All Universities"
 - assertNotVisible: "Following"
 - takeScreenshot: e2e/screenshots/01-home-feed-menu
 - tapOn: "Close"
-- assertNotVisible: "All universities"
+- assertNotVisible: "All Universities"
 # The four pages sit side by side in a pager: a flick to the left slides from For you to Buzz. The flick starts on the
 # seeded Buzz row (centred first), because a photo carousel keeps horizontal swipes for itself (04-posts-look relies on that).
 - scrollUntilVisible:
@@ -84,25 +85,26 @@ appId: host.exp.Exponent
 - extendedWaitUntil:
     visible: "Create"
     timeout: 30000
-# Housing: the bottom tab opens on Apartments; the "Roommates" label above the pager slides to the other half and a
-# flick to the right brings Apartments back. The floating "+" follows the visible half.
+# Housing: its own top bar ("Off Campus Housing", the magnifier at the right is the search of the half on screen, labelled
+# "Search apartments" or "Search roommate posts"). The bottom tab opens on Apartments; the "Roommates" label above the
+# pager slides to the other half and a flick to the right brings Apartments back. The floating "+" follows the visible half.
 - tapOn: "Housing.*"
 - extendedWaitUntil:
-    visible: "Search apartments"
+    visible: "Off Campus Housing"
     timeout: 30000
 - takeScreenshot: e2e/screenshots/04-apartments
 - tapOn: "Roommates"
 - extendedWaitUntil:
-    visible: "Search roommate posts"
+    visible: "Looking for a room"
     timeout: 30000
 - takeScreenshot: e2e/screenshots/02-roommates
-# Flick on the chip row: lower down a card's photo carousel would keep the swipe for itself.
+# Flick on the pills row: lower down a card's photo carousel would keep the swipe for itself.
 - swipe:
     start: "15%,25%"
     end: "85%,25%"
     duration: 400
 - waitForAnimationToEnd
-- assertVisible: "Search apartments"
+- assertVisible: "Off Campus Housing"
 - tapOn: "Marketplace.*"
 # The Marketplace draws its own top bar (the magnifier opens the item search) over the category pills.
 - extendedWaitUntil:

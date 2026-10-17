@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
+import { Animated, Pressable, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { compactCount } from "@apartment-book/shared";
+import type { ProfileVisibility } from "@apartment-book/shared";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 export type ProfileTabKey = "posts" | "classes" | "reels" | "saved" | "liked" | "listings";
 
 /**
  * Posts first, then the semester's classes, Reels, Saved and Liked, and last the person's Listings (apartments, roommate
- * posts and items for sale): the order the profile asks for. The icons name each tab elsewhere (empty states, menus).
+ * posts and items for sale): the order the profile asks for. The icons are the tabs themselves (outlined at rest, filled
+ * when open), the labels name them for screen readers, empty states and menus.
  */
 export const PROFILE_TABS: { key: ProfileTabKey; label: string; icon: keyof typeof Ionicons.glyphMap; activeIcon: keyof typeof Ionicons.glyphMap }[] = [
   { key: "posts", label: "Posts", icon: "grid-outline", activeIcon: "grid" },
@@ -19,17 +20,23 @@ export const PROFILE_TABS: { key: ProfileTabKey; label: string; icon: keyof type
   { key: "listings", label: "Listings", icon: "storefront-outline", activeIcon: "storefront" },
 ];
 
-/** The underline is this share of a tab's width, centred under its label. */
+/** The small mark beside the open tab's icon: who can see that section. */
+const VISIBILITY_ICON: Record<ProfileVisibility, keyof typeof Ionicons.glyphMap> = { private: "lock-closed", friends: "people", public: "globe-outline" };
+const VISIBILITY_NAME: Record<ProfileVisibility, string> = { private: "Only me", friends: "Friends", public: "Everyone" };
+
+/** The underline is this share of a tab's width, centred under its icon. */
 const UNDERLINE_SHARE = 0.58;
+const ICON_SIZE = 24;
 
 /**
- * The row of tabs above a profile's grid: each tab's name with its count beside it ("Reels 2"), the open one bold with a
- * short rounded underline, the others grey, a hairline under the row. A tab with an entry in `locks` gets a small lock: on
- * your own profile when it is not public, on someone else's when you may not open it. The entry is what VoiceOver adds
- * ("Only you can see your saved posts"). `counts` holds the numbers that are known (Posts, Reels, Classes, Listings).
+ * The row of tabs above a profile's grid, TikTok style: an icon per tab, the open one filled and in the text colour with
+ * a short rounded underline, the others outlined and grey, a hairline under the row. The open tab alone carries a small
+ * mark of who can see that section (`badges`: a lock for Only me, two people for Friends, a globe for Everyone). A tab
+ * with an entry in `locks` is explained to screen readers by it ("Only you can see your saved posts"); `counts` are
+ * read out too but not drawn.
  *
  * With `scrollX` (the horizontal pager's offset) and `pageWidth`, the underline slides with the pager on the native side,
- * page i under tab i, so it follows the finger during a swipe; the labels change once the pager settles on a tab (`active`).
+ * page i under tab i, so it follows the finger during a swipe; the icons change once the pager settles on a tab (`active`).
  * The row is opaque (the screen's colour): it stays at the top while the pages scroll under it. It has no space above it:
  * the profile's header leaves the gap, and it goes up with the header.
  */
@@ -37,6 +44,7 @@ export function ProfileTabs({
   active,
   onSelect,
   locks,
+  badges = {},
   counts = {},
   scrollX,
   pageWidth = 0,
@@ -45,6 +53,7 @@ export function ProfileTabs({
   active: ProfileTabKey;
   onSelect: (tab: ProfileTabKey) => void;
   locks: Partial<Record<ProfileTabKey, string>>;
+  badges?: Partial<Record<ProfileTabKey, ProfileVisibility>>;
   counts?: Partial<Record<ProfileTabKey, number>>;
   scrollX?: Animated.Value;
   pageWidth?: number;
@@ -76,25 +85,22 @@ export function ProfileTabs({
         const selected = t.key === active;
         const lock = locks[t.key];
         const count = counts[t.key];
+        const badge = selected ? badges[t.key] : undefined;
         return (
           <Pressable
             key={t.key}
             onPress={() => onSelect(t.key)}
             accessibilityRole="tab"
-            accessibilityLabel={t.label}
+            accessibilityLabel={badge ? `${t.label}, ${VISIBILITY_NAME[badge]}` : t.label}
             accessibilityHint={lock}
             accessibilityValue={count === undefined ? undefined : { text: String(count) }}
             accessibilityState={{ selected }}
             hitSlop={{ top: 4, bottom: 4 }}
             style={styles.tab}
           >
-            <View style={styles.labelRow}>
-              {/* Six names share the row: a long one ("Listings 12") shrinks a little rather than wrapping. */}
-              <Text style={[styles.label, selected && styles.labelOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>
-                {t.label}
-                {count === undefined ? null : <Text style={[styles.count, selected && styles.countOn]}>{` ${compactCount(count)}`}</Text>}
-              </Text>
-              {lock ? <Ionicons name="lock-closed" size={10} color={selected ? colors.text : colors.muted} style={styles.lock} /> : null}
+            <View style={styles.iconRow}>
+              <Ionicons name={selected ? t.activeIcon : t.icon} size={ICON_SIZE} color={selected ? colors.text : colors.muted} />
+              {badge ? <Ionicons name={VISIBILITY_ICON[badge]} size={12} color={colors.muted} style={styles.badge} /> : null}
             </View>
             {/* Keeps the tab's height; it is the underline itself only until the sliding one can be drawn. */}
             <View style={[styles.underline, !slide && selected && styles.underlineActive]} />
@@ -115,12 +121,9 @@ const useStyles = makeStyles((colors) => ({
   // Opaque, so the squares scrolling up under the row (once the header has gone) do not show through.
   row: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, backgroundColor: colors.bg },
   tab: { flex: 1, alignItems: "center", justifyContent: "flex-end", paddingTop: 12, gap: 10 },
-  labelRow: { flexDirection: "row", alignItems: "center", maxWidth: "100%", paddingHorizontal: 2 },
-  label: { fontSize: 14, fontWeight: "600", color: colors.muted, flexShrink: 1 },
-  labelOn: { color: colors.text, fontWeight: "800" },
-  count: { fontSize: 13, fontWeight: "500", color: colors.faint },
-  countOn: { color: colors.muted },
-  lock: { marginLeft: 3 },
+  // The mark sits just right of the icon; the icon stays centred in the tab, so the row reads evenly whichever tab is open.
+  iconRow: { alignItems: "center", justifyContent: "center" },
+  badge: { position: "absolute", right: -16, top: -2 },
   // UNDERLINE_SHARE of the tab.
   underline: { height: 3, width: "58%", borderRadius: 2, backgroundColor: "transparent" },
   underlineActive: { backgroundColor: colors.text },
