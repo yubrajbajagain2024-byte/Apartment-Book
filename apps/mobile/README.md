@@ -82,8 +82,9 @@ in Settings) with a QR icon, Following | Followers | Likes (every like on your p
 Share profile (a sheet with the profile's QR code and Share) / Find friends, the bio and university, then the tabs
 Posts | Classes | Reels | Saved | Liked | Listings as icons, TikTok style (the open one filled, with the sliding
 underline and a small mark of who can see that section: a lock for Only me, two people for Friends, a globe for
-Everyone), over a three-column grid with view counts (Listings: your live
-apartments, roommate posts and items for sale, each square with its kind and title). The Classes tab lists classes by semester, this one first (up to 12 each; add and remove your own there).
+Everyone; the filled icon and the mark crossfade with the swipe on the native side, like the underline, so they never
+wait for the pager to settle), over a three-column grid with view counts (Listings: your live
+apartments, roommate posts and items for sale, each square with its kind and title). The Classes tab lists classes by semester, this one first (up to 12 each; add and remove your own there, with the section, the days and times it meets and the room). Listing a section puts you in that section's course chat, a group in Messages shared by everyone at your campus taking it this semester: the first classmate's listing creates it, removing the class leaves it, a notification tells you about both, it cannot be renamed or hand-filled, and it goes with the semester after a week's notice (migration 24).
 Classes, Saved and Liked each have a setting (Everyone, Friends, Only me; friends are people you follow who follow you
 back), changed from the line at the top of the tab or in Settings → Privacy; by default Classes is Friends, Saved is Only
 me and Liked is Everyone, and visitors without access see a lock. Hold one of your own posts or reels in the grid (or use

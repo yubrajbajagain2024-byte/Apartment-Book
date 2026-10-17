@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { GraduationCap, Plus, X } from "lucide-react";
-import { classCodeProblem, type ProfileClass } from "@apartment-book/shared";
+import { classCodeProblem, classDetails, classSectionProblem, CLASS_LOCATION_MAX, locationProblem, MAX_CLASS_MEETINGS, meetingsProblem, sortWeekdays, WEEKDAYS, type ClassMeeting, type ProfileClass, type Weekday } from "@apartment-book/shared";
 import { addClassAction, removeClassAction } from "@/lib/actions/profile-page";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -13,13 +13,18 @@ export type ClassGroup = { term: string; current: boolean; classes: ProfileClass
 const CLASS_TITLE_MAX = 80;
 
 /**
- * The Classes tab: classes grouped by semester, this one first. The owner adds them (code, optional name, semester)
- * and removes them here; the page re-renders with the list from the database after each change.
+ * The Classes tab: classes grouped by semester, this one first. The owner adds them (code, section, the days and times
+ * it meets, the room, an optional name, semester) and removes them here; the page re-renders with the list from the database after each change. The
+ * section puts them in that section's course chat (the database creates it for the first classmate and adds the rest;
+ * removing the class leaves it).
  */
 export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; groups: ClassGroup[]; /** This semester first, then the next and the last one. */ terms: string[] }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [code, setCode] = useState("");
+  const [section, setSection] = useState("");
+  const [meetings, setMeetings] = useState<ClassMeeting[]>([]);
+  const [location, setLocation] = useState("");
   const [title, setTitle] = useState("");
   const [term, setTerm] = useState(terms[0] ?? "");
   const [formError, setFormError] = useState<string | null>(null);
@@ -29,6 +34,7 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
   /** Classes removed here, hidden straight away rather than when the refreshed list arrives. */
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
   const codeRef = useRef<HTMLInputElement>(null);
+  const sectionRef = useRef<HTMLInputElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const visible = groups.map((g) => ({ ...g, classes: g.classes.filter((c) => !hidden.has(c.id)) })).filter((g) => g.classes.length > 0);
   const empty = visible.length === 0;
@@ -44,6 +50,9 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
     setAdding(false);
     setFormError(null);
     setCode("");
+    setSection("");
+    setMeetings([]);
+    setLocation("");
     setTitle("");
     requestAnimationFrame(() => addButtonRef.current?.focus());
   }
@@ -51,21 +60,35 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (saving) return;
-    const problem = classCodeProblem(code);
-    if (problem) {
-      setFormError(problem);
+    const codeProblem = classCodeProblem(code);
+    if (codeProblem) {
+      setFormError(codeProblem);
       codeRef.current?.focus();
+      return;
+    }
+    const sectionProblem = classSectionProblem(section);
+    if (sectionProblem) {
+      setFormError(sectionProblem);
+      sectionRef.current?.focus();
+      return;
+    }
+    const otherProblem = meetingsProblem(meetings) ?? locationProblem(location);
+    if (otherProblem) {
+      setFormError(otherProblem);
       return;
     }
     setFormError(null);
     startSaving(async () => {
-      const result = await addClassAction({ term, code, title });
+      const result = await addClassAction({ term, code, title, section, meetings, location });
       if (result.error) {
         setFormError(result.error);
         return;
       }
       // Ready for the next one.
       setCode("");
+      setSection("");
+      setMeetings([]);
+      setLocation("");
       setTitle("");
       codeRef.current?.focus();
       router.refresh();
@@ -97,7 +120,7 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
       {isOwner ? (
         adding ? (
           <form onSubmit={submit} className="flex flex-col gap-3 rounded-xl bg-gray-50 p-3.5 ring-1 ring-gray-100" aria-label="Add a class" data-testid="profile-class-form">
-            <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
+            <div className="grid gap-3 sm:grid-cols-[10rem_7rem_1fr_1fr]">
               <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
                 Class code
                 <input
@@ -116,6 +139,35 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
+                Section
+                <input
+                  ref={sectionRef}
+                  name="section"
+                  value={section}
+                  onChange={(e) => setSection(e.target.value)}
+                  placeholder="001"
+                  maxLength={10}
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  spellCheck={false}
+                  required
+                  title="Classmates in the same section share a group chat"
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm uppercase text-gray-900 placeholder:normal-case placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
+                Location (optional)
+                <input
+                  name="location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Derrick Hall 240"
+                  maxLength={CLASS_LOCATION_MAX}
+                  autoComplete="off"
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
                 Class name (optional)
                 <input
                   name="title"
@@ -128,6 +180,7 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                 />
               </label>
             </div>
+            <MeetingsEditor meetings={meetings} onChange={setMeetings} />
             <fieldset className="flex flex-col gap-1.5">
               <legend className="mb-1.5 text-sm font-medium text-gray-800">Semester</legend>
               <div className="flex flex-wrap gap-2">
@@ -218,6 +271,7 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-bold text-gray-900">{item.code}</span>
                     {item.title ? <span className="block truncate text-xs text-gray-500">{item.title}</span> : null}
+                    {classDetails(item) ? <span className="block truncate text-xs text-gray-500">{classDetails(item)}</span> : null}
                   </span>
                   {isOwner ? (
                     <button
@@ -236,5 +290,70 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
         ))
       )}
     </div>
+  );
+}
+
+/** A fresh meeting time: no days yet, a morning hour. */
+const NEW_MEETING: ClassMeeting = { days: [], start: "09:00", end: "09:50" };
+
+/**
+ * When the class meets: a row per meeting time with the days of the week to toggle and a start and an end time, "Add
+ * meeting time" for another (a lecture and a lab, say, up to MAX_CLASS_MEETINGS) and a cross to drop one. A class may
+ * have none.
+ */
+function MeetingsEditor({ meetings, onChange }: { meetings: ClassMeeting[]; onChange: (next: ClassMeeting[]) => void }) {
+  function update(index: number, patch: Partial<ClassMeeting>) {
+    onChange(meetings.map((m, i) => (i === index ? { ...m, ...patch } : m)));
+  }
+  function toggleDay(index: number, day: Weekday) {
+    const m = meetings[index];
+    if (!m) return;
+    update(index, { days: sortWeekdays(m.days.includes(day) ? m.days.filter((d) => d !== day) : [...m.days, day]) });
+  }
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="mb-1.5 text-sm font-medium text-gray-800">Meeting times (optional)</legend>
+      {meetings.map((m, index) => (
+        <div key={index} className="flex flex-col gap-2 rounded-lg bg-white p-2.5 ring-1 ring-gray-200" data-testid="profile-class-meeting">
+          <div className="flex items-center gap-1.5">
+            <div className="flex flex-1 flex-wrap gap-1" role="group" aria-label={`Days of meeting time ${index + 1}`}>
+              {WEEKDAYS.map((d) => {
+                const on = m.days.includes(d.value);
+                return (
+                  <button
+                    key={d.value}
+                    type="button"
+                    onClick={() => toggleDay(index, d.value)}
+                    aria-pressed={on}
+                    aria-label={d.label}
+                    className={cn("h-8 min-w-8 rounded-full px-2 text-xs font-bold ring-1 transition-colors", on ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-gray-600 ring-gray-300 hover:bg-gray-100")}
+                  >
+                    {d.letter}
+                  </button>
+                );
+              })}
+            </div>
+            <button type="button" onClick={() => onChange(meetings.filter((_, i) => i !== index))} aria-label={`Remove meeting time ${index + 1}`} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-900">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex flex-col gap-1 text-xs font-medium text-gray-600">
+              Starts
+              <input type="time" value={m.start} onChange={(e) => update(index, { start: e.target.value })} step={300} required className="h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-medium text-gray-600">
+              Ends
+              <input type="time" value={m.end} onChange={(e) => update(index, { end: e.target.value })} step={300} required className="h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" />
+            </label>
+          </div>
+        </div>
+      ))}
+      {meetings.length < MAX_CLASS_MEETINGS ? (
+        <button type="button" onClick={() => onChange([...meetings, NEW_MEETING])} className="inline-flex h-8 items-center gap-1 self-start rounded-lg px-2 text-sm font-semibold text-brand-600 hover:bg-brand-50">
+          <Plus className="h-4 w-4" /> {meetings.length === 0 ? "Add meeting time" : "Add another meeting time"}
+        </button>
+      ) : null}
+    </fieldset>
   );
 }

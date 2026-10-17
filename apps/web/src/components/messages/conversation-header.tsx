@@ -57,6 +57,33 @@ function GroupInfo({ conversation, currentUserId }: { conversation: Conversation
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // A course chat is named after its class and fills itself from the class list: nothing to rename, nobody to add.
+  if (conversation.courseGroup) {
+    const g = conversation.courseGroup;
+    return (
+      <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50 px-4 py-4">
+        <p className="text-sm text-gray-700">
+          Course chat: everyone at your university taking <span className="font-semibold">{g.code}</span> section <span className="font-semibold">{g.section}</span> in {g.term}. Classmates join by
+          adding the class to their profile and leave by removing it; the chat is deleted when the semester ends.
+        </p>
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Members</p>
+          <ul className="flex flex-col gap-1">
+            {conversation.members.map((m) => (
+              <li key={m.id}>
+                <Link href={`/profile/${m.id}`} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-white">
+                  <Avatar name={m.full_name} src={m.avatar_url} size="sm" />
+                  {m.full_name}
+                  {m.id === currentUserId ? <span className="text-xs text-gray-500">(you)</span> : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-4 border-t border-gray-100 bg-gray-50 px-4 py-4 md:grid-cols-2">
       <div className="flex flex-col gap-3">

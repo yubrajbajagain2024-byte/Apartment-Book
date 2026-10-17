@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import {
   addProfileClass,
   classCodeProblem,
+  classSectionProblem,
+  locationProblem,
+  meetingsProblem,
+  parseClassMeetings,
+  type ClassMeeting,
   isProfileVisibility,
   PROFILE_SECTIONS,
   removeProfileClass,
@@ -24,18 +29,21 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CLASS_TITLE_MAX = 80;
 
 /** Adds a class to one of your semesters ("CS 3358" in "Fall 2026"). The database explains duplicates and the limit. */
-export async function addClassAction(input: { term: string; code: string; title?: string | null }): Promise<ProfilePageResult> {
+export async function addClassAction(input: { term: string; code: string; title?: string | null; section?: string | null; meetings?: ClassMeeting[]; location?: string | null }): Promise<ProfilePageResult> {
   const user = await getCurrentUser();
   if (!user) return { error: "Log in to add your classes." };
   const term = typeof input?.term === "string" ? input.term.trim() : "";
   const code = typeof input?.code === "string" ? input.code : "";
   const title = typeof input?.title === "string" ? input.title.trim() : "";
+  const section = typeof input?.section === "string" ? input.section : "";
+  const meetings = parseClassMeetings(input?.meetings);
+  const location = typeof input?.location === "string" ? input.location.trim() : "";
   if (!TERM.test(term)) return { error: "Pick a semester." };
-  const problem = classCodeProblem(code);
+  const problem = classCodeProblem(code) ?? classSectionProblem(section) ?? meetingsProblem(meetings) ?? locationProblem(location);
   if (problem) return { error: problem };
   if (title.length > CLASS_TITLE_MAX) return { error: `Class names are at most ${CLASS_TITLE_MAX} characters.` };
   try {
-    await addProfileClass(await createClient(), user.id, { term, code, title: title || null });
+    await addProfileClass(await createClient(), user.id, { term, code, title: title || null, section, meetings, location: location || null });
   } catch (error) {
     return { error: errorMessage(error, "Could not add the class.") };
   }

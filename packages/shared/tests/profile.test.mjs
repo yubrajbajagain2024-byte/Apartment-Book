@@ -40,6 +40,43 @@ test("class codes are tidied like the database does and checked", async () => {
   assert.match(classCodeProblem("CS 3358!"), /letters and numbers/);
 });
 
+test("sections and course chat names: trimmed and upper-cased, checked like the database, named like it", async () => {
+  const { normalizeClassSection, classSectionProblem, courseChatName } = await import("../src/profile.ts");
+  assert.equal(normalizeClassSection(" 001 "), "001");
+  assert.equal(normalizeClassSection("a"), "A");
+  assert.equal(classSectionProblem("001"), null);
+  assert.equal(classSectionProblem("A-1"), null);
+  assert.match(classSectionProblem(""), /1 to 10/);
+  assert.match(classSectionProblem("12345678901"), /1 to 10/);
+  assert.match(classSectionProblem("00 1"), /letters and numbers/);
+  assert.match(classSectionProblem("-1"), /letters and numbers/);
+  assert.equal(courseChatName("CS 3358", "001", "Fall 2026"), "CS 3358-001 · Fall 2026");
+});
+
+test("meeting times: parsed from JSON leniently, checked like the database, read as MWF 10:00–10:50 AM", async () => {
+  const { parseClassMeetings, meetingsProblem, locationProblem, formatClockTime, formatClassMeeting, formatClassMeetings, weekdayLetters, classDetails } = await import("../src/profile.ts");
+  assert.deepEqual(parseClassMeetings([{ days: ["fri", "mon", "nope", "wed"], start: "10:00", end: "10:50" }, "junk", { days: "mon" }]), [{ days: ["mon", "wed", "fri"], start: "10:00", end: "10:50" }]);
+  assert.deepEqual(parseClassMeetings(null), []);
+  assert.equal(meetingsProblem([]), null);
+  assert.equal(meetingsProblem([{ days: ["tue", "thu"], start: "11:00", end: "12:20" }]), null);
+  assert.match(meetingsProblem([{ days: [], start: "11:00", end: "12:20" }]), /at least one day/);
+  assert.match(meetingsProblem([{ days: ["mon"], start: "", end: "12:20" }]), /start and an end/);
+  assert.match(meetingsProblem([{ days: ["mon"], start: "12:20", end: "11:00" }]), /after the start/);
+  assert.match(meetingsProblem([{ days: ["mon"], start: "09:00", end: "10:00" }, { days: ["tue"], start: "10:00", end: "09:00" }]), /^Meeting time 2: /);
+  assert.match(meetingsProblem(Array.from({ length: 5 }, () => ({ days: ["mon"], start: "09:00", end: "10:00" }))), /up to 4/);
+  assert.equal(locationProblem(" Derrick Hall 240 "), null);
+  assert.match(locationProblem("x".repeat(81)), /at most 80/);
+  assert.equal(formatClockTime("00:30"), "12:30 AM");
+  assert.equal(formatClockTime("12:00"), "12:00 PM");
+  assert.equal(formatClockTime("13:05"), "1:05 PM");
+  assert.equal(weekdayLetters(["thu", "tue"]), "TTh");
+  assert.equal(formatClassMeeting({ days: ["mon", "wed", "fri"], start: "10:00", end: "10:50" }), "MWF 10:00–10:50 AM");
+  assert.equal(formatClassMeeting({ days: ["tue", "thu"], start: "11:00", end: "12:20" }), "TTh 11:00 AM–12:20 PM");
+  assert.equal(formatClassMeetings([{ days: ["mon"], start: "09:00", end: "09:50" }, { days: ["sat"], start: "14:00", end: "16:00" }]), "M 9:00–9:50 AM · Sa 2:00–4:00 PM");
+  assert.equal(classDetails({ section: "001", meetings: [{ days: ["mon", "wed", "fri"], start: "10:00", end: "10:50" }], location: "Derrick Hall 240" }), "Section 001 · MWF 10:00–10:50 AM · Derrick Hall 240");
+  assert.equal(classDetails({ section: null, meetings: [], location: null }), "");
+});
+
 test("usernames: tidied and checked by the same rules as the database", async () => {
   const { normalizeUsername, usernameProblem } = await import("../src/profile.ts");
   assert.equal(normalizeUsername(" @Crf153 "), "crf153");

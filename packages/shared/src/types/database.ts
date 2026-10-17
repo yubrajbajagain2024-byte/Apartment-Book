@@ -56,6 +56,10 @@ export type Database = {
           term: string;
           code: string;
           title: string | null;
+          section: string | null;
+          meetings: Json;
+          location: string | null;
+          course_group_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -64,6 +68,10 @@ export type Database = {
           term: string;
           code: string;
           title?: string | null;
+          section?: string | null;
+          meetings?: Json;
+          location?: string | null;
+          course_group_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -72,6 +80,10 @@ export type Database = {
           term?: string;
           code?: string;
           title?: string | null;
+          section?: string | null;
+          meetings?: Json;
+          location?: string | null;
+          course_group_id?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -80,6 +92,61 @@ export type Database = {
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "profile_classes_course_group_id_fkey";
+            columns: ["course_group_id"];
+            isOneToOne: false;
+            referencedRelation: "course_groups";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      course_groups: {
+        Row: {
+          id: string;
+          university_id: string;
+          term: string;
+          code: string;
+          section: string;
+          conversation_id: string;
+          reminded_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          university_id: string;
+          term: string;
+          code: string;
+          section: string;
+          conversation_id: string;
+          reminded_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          university_id?: string;
+          term?: string;
+          code?: string;
+          section?: string;
+          conversation_id?: string;
+          reminded_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "course_groups_university_id_fkey";
+            columns: ["university_id"];
+            isOneToOne: false;
+            referencedRelation: "universities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "course_groups_conversation_id_fkey";
+            columns: ["conversation_id"];
+            isOneToOne: true;
+            referencedRelation: "conversations";
             referencedColumns: ["id"];
           },
         ];
