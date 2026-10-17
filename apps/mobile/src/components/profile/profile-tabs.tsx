@@ -35,10 +35,13 @@ const ICON_SIZE = 24;
  * with an entry in `locks` is explained to screen readers by it ("Only you can see your saved posts"); `counts` are
  * read out too but not drawn.
  *
- * With `scrollX` (the horizontal pager's offset) and `pageWidth`, the underline slides with the pager on the native side,
- * page i under tab i, so it follows the finger during a swipe; the icons change once the pager settles on a tab (`active`).
- * The row is opaque (the screen's colour): it stays at the top while the pages scroll under it. It has no space above it:
- * the profile's header leaves the gap, and it goes up with the header.
+ * With `scrollX` (the horizontal pager's offset) and `pageWidth`, the whole row follows the pager on the native side:
+ * the underline slides page i under tab i, and each tab's filled look and its mark crossfade with the pager the way
+ * Home's labels do (the open look within a quarter page of page i, the resting look from three quarters away, the
+ * crossfade over the middle half of a swipe), so a swipe shows the next tab's mark as the finger moves, not once the
+ * pager settles. `active` is what screen readers hear as selected, and the look until the pager is measured. The row
+ * is opaque (the screen's colour): it stays at the top while the pages scroll under it. It has no space above it: the
+ * profile's header leaves the gap, and it goes up with the header.
  */
 export function ProfileTabs({
   active,
@@ -70,6 +73,18 @@ export function ProfileTabs({
     const last = PROFILE_TABS.length - 1;
     return scrollX.interpolate({ inputRange: [0, last * pageWidth], outputRange: [0, last * tabWidth], extrapolate: "clamp" });
   }, [scrollX, pageWidth, tabWidth]);
+  // Tab i's open look (and its mark) is fully drawn within a quarter page of page i and gone from three quarters away;
+  // the resting look is the reverse. Only once pageWidth > 0 (a strictly increasing input range).
+  const fades = useMemo(() => {
+    if (!scrollX || pageWidth <= 0) return null;
+    return PROFILE_TABS.map((_, i) => {
+      const inputRange = [i - 0.75, i - 0.25, i + 0.25, i + 0.75].map((p) => p * pageWidth);
+      return {
+        on: scrollX.interpolate({ inputRange, outputRange: [0, 1, 1, 0], extrapolate: "clamp" }),
+        off: scrollX.interpolate({ inputRange, outputRange: [1, 0, 0, 1], extrapolate: "clamp" }),
+      };
+    });
+  }, [scrollX, pageWidth]);
 
   return (
     <View
@@ -81,17 +96,20 @@ export function ProfileTabs({
         onLayout?.(e);
       }}
     >
-      {PROFILE_TABS.map((t) => {
+      {PROFILE_TABS.map((t, i) => {
         const selected = t.key === active;
         const lock = locks[t.key];
         const count = counts[t.key];
-        const badge = selected ? badges[t.key] : undefined;
+        const badge = badges[t.key];
+        const fade = fades?.[i];
+        // Screen readers hear the mark of the open tab only, as before.
+        const spokenBadge = selected ? badge : undefined;
         return (
           <Pressable
             key={t.key}
             onPress={() => onSelect(t.key)}
             accessibilityRole="tab"
-            accessibilityLabel={badge ? `${t.label}, ${VISIBILITY_NAME[badge]}` : t.label}
+            accessibilityLabel={spokenBadge ? `${t.label}, ${VISIBILITY_NAME[spokenBadge]}` : t.label}
             accessibilityHint={lock}
             accessibilityValue={count === undefined ? undefined : { text: String(count) }}
             accessibilityState={{ selected }}
@@ -99,8 +117,31 @@ export function ProfileTabs({
             style={styles.tab}
           >
             <View style={styles.iconRow}>
-              <Ionicons name={selected ? t.activeIcon : t.icon} size={ICON_SIZE} color={selected ? colors.text : colors.muted} />
-              {badge ? <Ionicons name={VISIBILITY_ICON[badge]} size={12} color={colors.muted} style={styles.badge} /> : null}
+              {fade ? (
+                <>
+                  {/* Both looks are drawn, one over the other, and crossfade with the pager on the UI thread: nothing re-renders while the finger moves. */}
+                  <Animated.View style={{ opacity: fade.off }}>
+                    <Ionicons name={t.icon} size={ICON_SIZE} color={colors.muted} />
+                  </Animated.View>
+                  <Animated.View style={[styles.over, { opacity: fade.on }]}>
+                    <Ionicons name={t.activeIcon} size={ICON_SIZE} color={colors.text} />
+                  </Animated.View>
+                  {badge ? (
+                    <Animated.View style={[styles.badge, { opacity: fade.on }]}>
+                      <Ionicons name={VISIBILITY_ICON[badge]} size={12} color={colors.muted} />
+                    </Animated.View>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <Ionicons name={selected ? t.activeIcon : t.icon} size={ICON_SIZE} color={selected ? colors.text : colors.muted} />
+                  {selected && badge ? (
+                    <View style={styles.badge}>
+                      <Ionicons name={VISIBILITY_ICON[badge]} size={12} color={colors.muted} />
+                    </View>
+                  ) : null}
+                </>
+              )}
             </View>
             {/* Keeps the tab's height; it is the underline itself only until the sliding one can be drawn. */}
             <View style={[styles.underline, !slide && selected && styles.underlineActive]} />
@@ -123,6 +164,8 @@ const useStyles = makeStyles((colors) => ({
   tab: { flex: 1, alignItems: "center", justifyContent: "flex-end", paddingTop: 12, gap: 10 },
   // The mark sits just right of the icon; the icon stays centred in the tab, so the row reads evenly whichever tab is open.
   iconRow: { alignItems: "center", justifyContent: "center" },
+  // The filled look, drawn over the outlined one in the same spot.
+  over: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
   badge: { position: "absolute", right: -16, top: -2 },
   // UNDERLINE_SHARE of the tab.
   underline: { height: 3, width: "58%", borderRadius: 2, backgroundColor: "transparent" },

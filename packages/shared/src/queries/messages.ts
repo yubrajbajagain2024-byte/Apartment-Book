@@ -1,5 +1,5 @@
 import { MESSAGES_PAGE_SIZE } from "../constants";
-import type { Client, ConversationSummary, ConversationType, MemberStatus, MessageWithSender, ProfileSummary, SharedPost } from "../types/models";
+import type { Client, ConversationSummary, CourseGroup, ConversationType, MemberStatus, MessageWithSender, ProfileSummary, SharedPost } from "../types/models";
 import type { Json } from "../types/database";
 import {
   MESSAGE_ATTACHMENT_LIMITS,
@@ -43,6 +43,26 @@ function summaryOf(rows: MemberRow[]): ProfileSummary[] {
   return rows.map((r) => r.profile).filter((p): p is ProfileSummary => p !== null);
 }
 
+type CourseGroupSummary = Pick<CourseGroup, "id" | "term" | "code" | "section">;
+
+/**
+ * The course group behind each of these conversations, by conversation id (none for an ordinary chat). Asked for on its
+ * own rather than embedded in the conversation query, and never fatal: a project that has not run the course-chats
+ * migration yet (no course_groups table) still gets its inbox, just with no chat marked as a course chat.
+ */
+async function courseGroupsFor(supabase: Client, conversationIds: string[]): Promise<Map<string, CourseGroupSummary>> {
+  const groups = new Map<string, CourseGroupSummary>();
+  if (conversationIds.length === 0) return groups;
+  try {
+    const { data, error } = await supabase.from("course_groups").select("id, term, code, section, conversation_id").in("conversation_id", conversationIds);
+    if (error || !data) return groups;
+    for (const g of data) groups.set(g.conversation_id, { id: g.id, term: g.term, code: g.code, section: g.section });
+  } catch {
+    // The inbox does not depend on it.
+  }
+  return groups;
+}
+
 /** All conversations the user belongs to, newest activity first, with unread counts. */
 export async function listConversations(supabase: Client, userId: string): Promise<ConversationSummary[]> {
   const { data: memberships, error } = await supabase
@@ -56,9 +76,10 @@ export async function listConversations(supabase: Client, userId: string): Promi
   const conversationIds = memberships.map((m) => m.conversation_id);
   if (conversationIds.length === 0) return [];
 
-  const [{ data: members, error: membersError }, { data: unread, error: unreadError }] = await Promise.all([
+  const [{ data: members, error: membersError }, { data: unread, error: unreadError }, courseGroups] = await Promise.all([
     supabase.from("conversation_members").select(MEMBER_SELECT).in("conversation_id", conversationIds),
     supabase.rpc("get_unread_counts"),
+    courseGroupsFor(supabase, conversationIds),
   ]);
   if (membersError) throw membersError;
   if (unreadError) throw unreadError;
@@ -90,6 +111,7 @@ export async function listConversations(supabase: Client, userId: string): Promi
       otherMembers,
       memberStatus: memberStatusOf(rows),
       unreadCount: unreadByConversation.get(c.id) ?? 0,
+      courseGroup: courseGroups.get(c.id) ?? null,
       title: conversationTitle(c.type as ConversationType, c.name, otherMembers),
     });
   }
@@ -115,7 +137,10 @@ export async function getConversation(
   if (error) throw error;
   if (!c) return null;
 
-  const { data: members, error: membersError } = await supabase.from("conversation_members").select(MEMBER_SELECT).eq("conversation_id", conversationId);
+  const [{ data: members, error: membersError }, courseGroups] = await Promise.all([
+    supabase.from("conversation_members").select(MEMBER_SELECT).eq("conversation_id", conversationId),
+    courseGroupsFor(supabase, [conversationId]),
+  ]);
   if (membersError) throw membersError;
 
   const rows = members as MemberRow[];
@@ -132,6 +157,7 @@ export async function getConversation(
     otherMembers,
     memberStatus: memberStatusOf(rows),
     unreadCount: 0,
+    courseGroup: courseGroups.get(conversationId) ?? null,
     title: conversationTitle(c.type as ConversationType, c.name, otherMembers),
   };
 }

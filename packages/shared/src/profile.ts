@@ -136,6 +136,165 @@ export function classCodeProblem(input: string): string | null {
   return null;
 }
 
+/** " 001 " or "a" becomes "001" or "A", the way the database stores a section. */
+export function normalizeClassSection(input: string): string {
+  return input.trim().toUpperCase();
+}
+
+/** Why a section would be refused, or null. Mirrors the database check. */
+export function classSectionProblem(input: string): string | null {
+  const section = normalizeClassSection(input);
+  if (section.length < 1 || section.length > 10) return "Sections are 1 to 10 characters, like 001 or A.";
+  if (!/^[A-Z0-9][A-Z0-9.-]*$/.test(section)) return "Use letters and numbers for the section, like 001.";
+  return null;
+}
+
+// -----------------------------------------------------------------------------
+// When and where a class meets
+// -----------------------------------------------------------------------------
+export const WEEKDAYS = [
+  { value: "mon", label: "Monday", short: "Mon", letter: "M" },
+  { value: "tue", label: "Tuesday", short: "Tue", letter: "T" },
+  { value: "wed", label: "Wednesday", short: "Wed", letter: "W" },
+  { value: "thu", label: "Thursday", short: "Thu", letter: "Th" },
+  { value: "fri", label: "Friday", short: "Fri", letter: "F" },
+  { value: "sat", label: "Saturday", short: "Sat", letter: "Sa" },
+  { value: "sun", label: "Sunday", short: "Sun", letter: "Su" },
+] as const;
+export type Weekday = (typeof WEEKDAYS)[number]["value"];
+const WEEKDAY_VALUES: readonly string[] = WEEKDAYS.map((d) => d.value);
+
+/** One time a class meets: on these days, from `start` to `end` ("HH:MM", 24-hour). A class can have a few (lecture and lab, say). */
+export type ClassMeeting = { days: Weekday[]; start: string; end: string };
+export const MAX_CLASS_MEETINGS = 8;
+export const CLASS_LOCATION_MAX = 80;
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export function isWeekday(value: unknown): value is Weekday {
+  return typeof value === "string" && WEEKDAY_VALUES.includes(value);
+}
+
+/** The meetings a class row carries (its `meetings` column is JSON): anything malformed is left out. */
+export function parseClassMeetings(json: unknown): ClassMeeting[] {
+  if (!Array.isArray(json)) return [];
+  const meetings: ClassMeeting[] = [];
+  for (const m of json) {
+    if (!m || typeof m !== "object" || Array.isArray(m)) continue;
+    const { days, start, end } = m as { days?: unknown; start?: unknown; end?: unknown };
+    if (!Array.isArray(days) || typeof start !== "string" || typeof end !== "string") continue;
+    meetings.push({ days: sortWeekdays(days.filter(isWeekday)), start, end });
+  }
+  return meetings;
+}
+
+/** Monday first, each day once. */
+export function sortWeekdays(days: Weekday[]): Weekday[] {
+  return WEEKDAYS.map((d) => d.value).filter((d) => days.includes(d));
+}
+
+/** One day's start and end: how the form edits a class's times, one row per day (a day may have two, a lecture and a lab). */
+export type MeetingSlot = { day: Weekday; start: string; end: string };
+
+function dayIndex(day: Weekday): number {
+  return WEEKDAY_VALUES.indexOf(day);
+}
+export function weekdayLabel(day: Weekday): string {
+  return WEEKDAYS.find((d) => d.value === day)?.label ?? day;
+}
+
+/** A class's meeting times one day at a time, Monday first and the earliest first within a day. */
+export function expandMeetings(meetings: ClassMeeting[]): MeetingSlot[] {
+  const slots: MeetingSlot[] = [];
+  for (const m of meetings) for (const day of m.days) slots.push({ day, start: m.start, end: m.end });
+  return slots.sort((a, b) => dayIndex(a.day) - dayIndex(b.day) || a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
+}
+
+/** Days that meet at the same time folded into one meeting ("MWF 10:00–10:50"), earliest day first: how a class is stored. */
+export function mergeMeetingSlots(slots: MeetingSlot[]): ClassMeeting[] {
+  const byTime = new Map<string, ClassMeeting>();
+  for (const s of [...slots].sort((a, b) => dayIndex(a.day) - dayIndex(b.day) || a.start.localeCompare(b.start))) {
+    const key = `${s.start}-${s.end}`;
+    const m = byTime.get(key);
+    if (!m) byTime.set(key, { days: [s.day], start: s.start, end: s.end });
+    else if (!m.days.includes(s.day)) m.days.push(s.day);
+  }
+  return [...byTime.values()].map((m) => ({ ...m, days: sortWeekdays(m.days) })).sort((a, b) => dayIndex(a.days[0]!) - dayIndex(b.days[0]!) || a.start.localeCompare(b.start));
+}
+
+/** "10:00" plus 50 minutes is "10:50"; never past "23:55". */
+export function shiftClockTime(hhmm: string, minutes: number): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  const total = Math.max(0, Math.min(23 * 60 + 55, (h || 0) * 60 + (m || 0) + minutes));
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Why a class's meeting times would be refused, or null. Mirrors the database check (class_meetings_ok), and also
+ * refuses two times on one day that overlap.
+ */
+export function meetingsProblem(meetings: ClassMeeting[]): string | null {
+  if (meetings.length > MAX_CLASS_MEETINGS) return `A class can have up to ${MAX_CLASS_MEETINGS} meeting times.`;
+  for (const m of meetings) {
+    if (m.days.length === 0 || m.days.some((d) => !isWeekday(d))) return "Pick at least one day for each meeting time.";
+    const when = sortWeekdays(m.days).map(weekdayLabel).join(", ");
+    if (!HHMM.test(m.start) || !HHMM.test(m.end)) return `${when}: set a start and an end time.`;
+    if (m.start >= m.end) return `${when}: the end time has to be after the start time.`;
+  }
+  const slots = expandMeetings(meetings);
+  for (let i = 1; i < slots.length; i++) {
+    const a = slots[i - 1]!;
+    const b = slots[i]!;
+    if (a.day === b.day && b.start < a.end) return `${weekdayLabel(a.day)}: two of its times overlap.`;
+  }
+  return null;
+}
+
+/** Why a classroom location would be refused, or null. */
+export function locationProblem(input: string): string | null {
+  return input.trim().length > CLASS_LOCATION_MAX ? `Locations are at most ${CLASS_LOCATION_MAX} characters, like Derrick Hall 240.` : null;
+}
+
+/** "13:05" reads "1:05 PM"; "00:30" reads "12:30 AM". */
+export function formatClockTime(hhmm: string): string {
+  const m = HHMM.exec(hhmm);
+  if (!m) return hhmm;
+  const hours = Number(hhmm.slice(0, 2));
+  const minutes = hhmm.slice(3, 5);
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  return `${hour12}:${minutes} ${hours < 12 ? "AM" : "PM"}`;
+}
+
+/** "MWF", "TTh", "Sa": the days of a meeting in their usual shorthand, Monday first. */
+export function weekdayLetters(days: Weekday[]): string {
+  return sortWeekdays(days)
+    .map((d) => WEEKDAYS.find((w) => w.value === d)?.letter ?? "")
+    .join("");
+}
+
+/** "MWF 10:00–10:50 AM", or "TTh 11:00 AM–12:20 PM" when the two times fall on different sides of noon. */
+export function formatClassMeeting(m: ClassMeeting): string {
+  const start = formatClockTime(m.start);
+  const end = formatClockTime(m.end);
+  const sameHalf = start.slice(-2) === end.slice(-2);
+  const times = sameHalf ? `${start.slice(0, -3)}–${end}` : `${start}–${end}`;
+  return `${weekdayLetters(m.days)} ${times}`.trim();
+}
+
+/** All of a class's meeting times in one line: "MWF 10:00–10:50 AM · T 2:00–3:15 PM". */
+export function formatClassMeetings(meetings: ClassMeeting[]): string {
+  return meetings.map(formatClassMeeting).join(" · ");
+}
+
+/** The line under a class on a profile: "Section 001 · MWF 10:00–10:50 AM · Derrick Hall 240", or "" with none of them. */
+export function classDetails(c: { section: string | null; meetings: unknown; location: string | null }): string {
+  return [c.section ? `Section ${c.section}` : null, formatClassMeetings(parseClassMeetings(c.meetings)) || null, c.location].filter(Boolean).join(" · ");
+}
+
+/** What a course chat is called, the way the database names it: "CS 3358-001 · Fall 2026". */
+export function courseChatName(code: string, section: string, term: string): string {
+  return `${code}-${section} · ${term}`;
+}
+
 // -----------------------------------------------------------------------------
 // Usernames
 // -----------------------------------------------------------------------------

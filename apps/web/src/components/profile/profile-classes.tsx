@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { GraduationCap, Plus, X } from "lucide-react";
-import { classCodeProblem, type ProfileClass } from "@apartment-book/shared";
+import { classCodeProblem, classDetails, classSectionProblem, CLASS_LOCATION_MAX, expandMeetings, locationProblem, MAX_CLASS_MEETINGS, meetingsProblem, mergeMeetingSlots, shiftClockTime, weekdayLabel, WEEKDAYS, type ClassMeeting, type MeetingSlot, type ProfileClass, type Weekday } from "@apartment-book/shared";
 import { addClassAction, removeClassAction } from "@/lib/actions/profile-page";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -13,13 +13,18 @@ export type ClassGroup = { term: string; current: boolean; classes: ProfileClass
 const CLASS_TITLE_MAX = 80;
 
 /**
- * The Classes tab: classes grouped by semester, this one first. The owner adds them (code, optional name, semester)
- * and removes them here; the page re-renders with the list from the database after each change.
+ * The Classes tab: classes grouped by semester, this one first. The owner adds them (code, section, the days and times
+ * it meets, the room, an optional name, semester) and removes them here; the page re-renders with the list from the database after each change. The
+ * section puts them in that section's course chat (the database creates it for the first classmate and adds the rest;
+ * removing the class leaves it).
  */
 export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; groups: ClassGroup[]; /** This semester first, then the next and the last one. */ terms: string[] }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [code, setCode] = useState("");
+  const [section, setSection] = useState("");
+  const [meetings, setMeetings] = useState<ClassMeeting[]>([]);
+  const [location, setLocation] = useState("");
   const [title, setTitle] = useState("");
   const [term, setTerm] = useState(terms[0] ?? "");
   const [formError, setFormError] = useState<string | null>(null);
@@ -29,6 +34,7 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
   /** Classes removed here, hidden straight away rather than when the refreshed list arrives. */
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
   const codeRef = useRef<HTMLInputElement>(null);
+  const sectionRef = useRef<HTMLInputElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const visible = groups.map((g) => ({ ...g, classes: g.classes.filter((c) => !hidden.has(c.id)) })).filter((g) => g.classes.length > 0);
   const empty = visible.length === 0;
@@ -44,6 +50,9 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
     setAdding(false);
     setFormError(null);
     setCode("");
+    setSection("");
+    setMeetings([]);
+    setLocation("");
     setTitle("");
     requestAnimationFrame(() => addButtonRef.current?.focus());
   }
@@ -51,21 +60,35 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (saving) return;
-    const problem = classCodeProblem(code);
-    if (problem) {
-      setFormError(problem);
+    const codeProblem = classCodeProblem(code);
+    if (codeProblem) {
+      setFormError(codeProblem);
       codeRef.current?.focus();
+      return;
+    }
+    const sectionProblem = classSectionProblem(section);
+    if (sectionProblem) {
+      setFormError(sectionProblem);
+      sectionRef.current?.focus();
+      return;
+    }
+    const otherProblem = meetingsProblem(meetings) ?? locationProblem(location);
+    if (otherProblem) {
+      setFormError(otherProblem);
       return;
     }
     setFormError(null);
     startSaving(async () => {
-      const result = await addClassAction({ term, code, title });
+      const result = await addClassAction({ term, code, title, section, meetings, location });
       if (result.error) {
         setFormError(result.error);
         return;
       }
       // Ready for the next one.
       setCode("");
+      setSection("");
+      setMeetings([]);
+      setLocation("");
       setTitle("");
       codeRef.current?.focus();
       router.refresh();
@@ -97,7 +120,7 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
       {isOwner ? (
         adding ? (
           <form onSubmit={submit} className="flex flex-col gap-3 rounded-xl bg-gray-50 p-3.5 ring-1 ring-gray-100" aria-label="Add a class" data-testid="profile-class-form">
-            <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
+            <div className="grid gap-3 sm:grid-cols-[10rem_7rem_1fr_1fr]">
               <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
                 Class code
                 <input
@@ -116,6 +139,35 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
+                Section
+                <input
+                  ref={sectionRef}
+                  name="section"
+                  value={section}
+                  onChange={(e) => setSection(e.target.value)}
+                  placeholder="001"
+                  maxLength={10}
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  spellCheck={false}
+                  required
+                  title="Classmates in the same section share a group chat"
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm uppercase text-gray-900 placeholder:normal-case placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
+                Location (optional)
+                <input
+                  name="location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Derrick Hall 240"
+                  maxLength={CLASS_LOCATION_MAX}
+                  autoComplete="off"
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
                 Class name (optional)
                 <input
                   name="title"
@@ -128,6 +180,7 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                 />
               </label>
             </div>
+            <MeetingsEditor meetings={meetings} onChange={setMeetings} />
             <fieldset className="flex flex-col gap-1.5">
               <legend className="mb-1.5 text-sm font-medium text-gray-800">Semester</legend>
               <div className="flex flex-wrap gap-2">
@@ -218,6 +271,7 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-bold text-gray-900">{item.code}</span>
                     {item.title ? <span className="block truncate text-xs text-gray-500">{item.title}</span> : null}
+                    {classDetails(item) ? <span className="block truncate text-xs text-gray-500">{classDetails(item)}</span> : null}
                   </span>
                   {isOwner ? (
                     <button
@@ -236,5 +290,88 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
         ))
       )}
     </div>
+  );
+}
+
+/**
+ * When the class meets, one day at a time: toggle the days of the week, and each day picked gets a row with its start and
+ * end (a new day starts with the time of the day before it, so MWF 10:00–10:50 takes one change). The "+" on a day's row
+ * adds a second time that day (a lecture and a lab, say) and the cross removes it. Days that share a time are stored as
+ * one meeting. A class may meet on no days at all.
+ */
+function MeetingsEditor({ meetings, onChange }: { meetings: ClassMeeting[]; onChange: (next: ClassMeeting[]) => void }) {
+  const slots = expandMeetings(meetings);
+  const chosen = new Set(slots.map((s) => s.day));
+  const commit = (next: MeetingSlot[]) => onChange(mergeMeetingSlots(next));
+  const order = (day: Weekday) => WEEKDAYS.findIndex((d) => d.value === day);
+  const shortDay = (day: Weekday) => WEEKDAYS.find((d) => d.value === day)?.short ?? day;
+
+  function toggleDay(day: Weekday) {
+    if (chosen.has(day)) return commit(slots.filter((s) => s.day !== day));
+    const before = [...slots].reverse().find((s) => order(s.day) < order(day)) ?? slots[0];
+    commit([...slots, { day, start: before?.start ?? "09:00", end: before?.end ?? "09:50" }]);
+  }
+  function update(index: number, patch: Partial<MeetingSlot>) {
+    commit(slots.map((s, i) => (i === index ? { ...s, ...patch } : s)));
+  }
+  function addTime(day: Weekday) {
+    const last = [...slots].reverse().find((s) => s.day === day);
+    const start = last ? last.end : "13:00";
+    commit([...slots, { day, start, end: shiftClockTime(start, 50) }]);
+  }
+
+  const timeClass = "h-9 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100";
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="mb-1.5 text-sm font-medium text-gray-800">Meeting days and times (optional)</legend>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Days the class meets">
+        {WEEKDAYS.map((d) => {
+          const on = chosen.has(d.value);
+          return (
+            <button
+              key={d.value}
+              type="button"
+              onClick={() => toggleDay(d.value)}
+              aria-pressed={on}
+              aria-label={d.label}
+              className={cn("h-9 min-w-9 rounded-full px-2.5 text-xs font-bold ring-1 transition-colors", on ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-gray-600 ring-gray-300 hover:bg-gray-100")}
+            >
+              {d.letter}
+            </button>
+          );
+        })}
+      </div>
+      {slots.length === 0 ? (
+        <p className="text-xs text-gray-500">Pick the days the class meets to set its times.</p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {slots.map((s, index) => {
+            const first = index === 0 || slots[index - 1]?.day !== s.day;
+            const label = weekdayLabel(s.day);
+            return (
+              <li key={`${s.day}-${index}`} className="grid grid-cols-[3rem_1fr_auto_1fr_2rem] items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 ring-1 ring-gray-200" data-testid="profile-class-meeting">
+                <span className="text-sm font-semibold text-gray-800">{first ? shortDay(s.day) : ""}</span>
+                <input type="time" aria-label={`${label} starts`} value={s.start} onChange={(e) => update(index, { start: e.target.value })} step={300} required className={timeClass} />
+                <span className="text-gray-400">–</span>
+                <input type="time" aria-label={`${label} ends`} value={s.end} onChange={(e) => update(index, { end: e.target.value })} step={300} required className={timeClass} />
+                {first ? (
+                  slots.length < MAX_CLASS_MEETINGS ? (
+                    <button type="button" onClick={() => addTime(s.day)} aria-label={`Add another time on ${label}`} className="flex h-8 w-8 items-center justify-center rounded-full text-brand-600 hover:bg-brand-50">
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <span />
+                  )
+                ) : (
+                  <button type="button" onClick={() => commit(slots.filter((_, i) => i !== index))} aria-label={`Remove this time on ${label}`} className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-900">
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </fieldset>
   );
 }

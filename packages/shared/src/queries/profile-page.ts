@@ -1,5 +1,5 @@
 import { listingMedia } from "../media";
-import { normalizeClassCode, tileFromFeedPost, tileFromListing } from "../profile";
+import { normalizeClassCode, normalizeClassSection, sortWeekdays, tileFromFeedPost, tileFromListing, type ClassMeeting } from "../profile";
 import type { Client, FeedPostWithAuthor, Paginated, ProfileClass, ProfileSection, ProfileSectionAccess, ProfileStats, ProfileTile, ProfileVisibility } from "../types/models";
 import { pageRange } from "../utils";
 import { getApartmentsByIds, listApartmentsByOwner } from "./apartments";
@@ -46,13 +46,33 @@ export async function listProfileClasses(supabase: Client, userId: string): Prom
   return data;
 }
 
-export async function addProfileClass(supabase: Client, userId: string, input: { term: string; code: string; title?: string | null }): Promise<ProfileClass> {
+/**
+ * Adds a class to one of your semesters. With a section, the database puts you in that section's course chat (creating it
+ * for the first classmate); removing the class takes you out again.
+ */
+export async function addProfileClass(
+  supabase: Client,
+  userId: string,
+  input: { term: string; code: string; title?: string | null; section?: string | null; meetings?: ClassMeeting[]; location?: string | null },
+): Promise<ProfileClass> {
   const { data, error } = await supabase
     .from("profile_classes")
-    .insert({ user_id: userId, term: input.term, code: normalizeClassCode(input.code), title: input.title?.trim() || null })
+    .insert({
+      user_id: userId,
+      term: input.term,
+      code: normalizeClassCode(input.code),
+      title: input.title?.trim() || null,
+      section: input.section ? normalizeClassSection(input.section) || null : null,
+      meetings: (input.meetings ?? []).map((m) => ({ days: sortWeekdays(m.days), start: m.start, end: m.end })),
+      location: input.location?.trim() || null,
+    })
     .select("*")
     .single();
-  if (error) throw error;
+  if (error) {
+    // PostgREST's "Could not find the ... column ... in the schema cache": the project has not run the course-chats migration.
+    if (error.code === "PGRST204") throw new Error("Classes need the latest database update (migration 24, course chats). Apply it with db:setup, then try again.");
+    throw error;
+  }
   return data;
 }
 

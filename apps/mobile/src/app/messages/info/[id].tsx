@@ -345,7 +345,15 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
       {other ? (
         <InfoPersonCard name={name} username={username} detail={profileQ.data?.university?.name ?? null} avatarUrl={other.avatar_url} userId={other.id} onPress={() => openProfile(other.id)} />
       ) : isGroup ? (
-        <InfoGroupCard name={conversation.title} memberCount={conversation.members.length} />
+        <>
+          <InfoGroupCard name={conversation.title} memberCount={conversation.members.length} />
+          {/* A course chat fills itself from the class list: classmates come and go with their class, and the chat with the semester. */}
+          {conversation.courseGroup ? (
+            <Text style={styles.courseNote}>
+              Course chat: everyone at your university taking {conversation.courseGroup.code} section {conversation.courseGroup.section} in {conversation.courseGroup.term}. Classmates join by adding the class to their profile and leave by removing it; the chat is deleted when the semester ends.
+            </Text>
+          ) : null}
+        </>
       ) : (
         <InfoPersonCard name={name} />
       )}
@@ -458,6 +466,7 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
 }
 
 const useStyles = makeStyles((colors) => ({
+  courseNote: { fontSize: 13, lineHeight: 18, color: colors.muted, textAlign: "center", paddingHorizontal: 24, paddingBottom: 12 },
   screen: { flex: 1, backgroundColor: colors.bg },
   headerButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   statusBox: { paddingHorizontal: space.lg, paddingVertical: space.xl, alignItems: "stretch", justifyContent: "center" },

@@ -174,6 +174,8 @@ export type ProfileSectionAccess = Record<ProfileSection, boolean>;
 /** What a profile's Followers and Following counts open: your own lists, the friends you share, or a log-in prompt. */
 export type FollowListView = "own" | "mutual" | "signed-out";
 export type ProfileClass = Tables<"profile_classes">;
+/** One section of one course, one semester, one campus: the class behind a course chat. */
+export type CourseGroup = Tables<"course_groups">;
 /** The numbers under the profile photo. Followers and following come from FollowStats. */
 export type ProfileStats = { posts: number; reels: number; likesReceived: number };
 export type ProfileTileType = "post" | "reel" | "apartment" | "roommate" | "item";
@@ -242,6 +244,8 @@ export type ConversationSummary = {
   /** Read/delivered times per member id, for receipts. */
   memberStatus: Record<string, MemberStatus>;
   unreadCount: number;
+  /** A course chat: the section of the course, one semester, that fills it from the class list. Null for any other chat. */
+  courseGroup: Pick<CourseGroup, "id" | "term" | "code" | "section"> | null;
   /** Group name, or the other person's name for direct chats. */
   title: string;
 };

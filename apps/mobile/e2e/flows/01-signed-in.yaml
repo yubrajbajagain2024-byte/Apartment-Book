@@ -72,7 +72,7 @@ env:
 - extendedWaitUntil:
     visible: "Edit profile"
     timeout: 15000
-# Classes: "Add class" opens the form with this semester picked; type a code, Add, and the class is listed with its remove
+# Classes: "Add class" opens the form with this semester picked; type a code and a section, Add, and the class is listed with its remove
 # button. Remove it again so the flow can run again and again (one left by a run that stopped halfway goes first). The code
 # box is found by its placeholder, because "Class code" also names the label above it. A tap on the form's title puts the
 # keyboard away, so Add is never under it. The Add class and Add buttons show an icon, which can come first in their
@@ -92,6 +92,9 @@ env:
 - tapOn: ".*Add class"
 - tapOn: "CS 3358"
 - inputText: "CS 1428"
+# The section is required (it is what puts you in the course chat); its box is found by its placeholder too.
+- tapOn: "001"
+- inputText: "001"
 - tapOn: "Add a class"
 - tapOn: ".*Add"
 - extendedWaitUntil:
