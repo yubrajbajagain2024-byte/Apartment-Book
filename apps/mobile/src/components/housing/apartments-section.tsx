@@ -7,6 +7,7 @@ import { Badge, Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
+import { useTabBarInset } from "@/lib/tab-bar";
 import { supabase } from "@/lib/supabase";
 import { useColors } from "@/lib/theme-provider";
 import { useEngagement } from "@/lib/use-engagement";
@@ -22,6 +23,7 @@ export function ApartmentsSection({ topInset, onScroll }: { topInset: number; on
   const feed = useFeed<ApartmentWithOwner>((page) => listApartments(supabase, { q: q || undefined, universityId, videoOnly, page, sort: "newest" }), [q, universityId, videoOnly]);
   const { savedIds, engagement } = useEngagement("apartment", feed.items, user?.id ?? null);
   const inset = useMemo(() => listInset(topInset), [topInset]);
+  const tabBar = useTabBarInset();
 
   return (
     <View style={{ flex: 1 }}>
@@ -31,7 +33,7 @@ export function ApartmentsSection({ topInset, onScroll }: { topInset: number; on
         {...inset.list}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={{ paddingBottom: 90, paddingTop: inset.paddingTop }}
+        contentContainerStyle={{ paddingBottom: 90 + tabBar, paddingTop: inset.paddingTop }}
         ListHeaderComponent={
           <View style={{ paddingHorizontal: FEED_HEADER_PADDING, paddingTop: FEED_HEADER_PADDING, paddingBottom: 4 }}>
             <FeedHeader placeholder="Search apartments" value={q} onChange={setQ}>

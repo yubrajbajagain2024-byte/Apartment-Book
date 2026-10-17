@@ -1,11 +1,12 @@
 import { memo } from "react";
 import { Animated, Pressable, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTabBarInset } from "@/lib/tab-bar";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useCreateMenu } from "./create-menu";
 import { useOverVideo, type OverVideoStore } from "./home-top-tabs";
 
-/** How far the pill floats from the page's bottom-right corner (the tab bar sits under the page, so nothing else is in the way). */
+/** How far the pill floats from the right edge, and above the floating bottom bar. */
 const MARGIN = 16;
 const HEIGHT = 48;
 
@@ -21,8 +22,9 @@ export const NewPostButton = memo(function NewPostButton({ opacity, overVideo: s
   const colors = useColors();
   const create = useCreateMenu();
   const overVideo = useOverVideo(store);
+  const tabBar = useTabBarInset();
   return (
-    <Animated.View pointerEvents={overVideo ? "none" : "box-none"} style={[styles.wrap, { opacity: opacity ?? (overVideo ? 0 : 1) }]}>
+    <Animated.View pointerEvents={overVideo ? "none" : "box-none"} style={[styles.wrap, { bottom: MARGIN + tabBar, opacity: opacity ?? (overVideo ? 0 : 1) }]}>
       <Pressable onPress={create} accessibilityRole="button" accessibilityLabel="Create" style={({ pressed }) => [styles.pill, pressed && styles.pressed]}>
         <Ionicons name="add" size={22} color={colors.onBrand} />
         <Text style={styles.label}>New post</Text>
@@ -32,7 +34,7 @@ export const NewPostButton = memo(function NewPostButton({ opacity, overVideo: s
 });
 
 const useStyles = makeStyles((colors) => ({
-  wrap: { position: "absolute", right: MARGIN, bottom: MARGIN },
+  wrap: { position: "absolute", right: MARGIN },
   // A real gradient where the platform draws one (iOS and Android); the plain violet underneath stands in elsewhere.
   pill: {
     height: HEIGHT,

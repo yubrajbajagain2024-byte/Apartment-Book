@@ -31,8 +31,8 @@ appId: host.exp.Exponent
 - assertVisible: "Posts"
 - assertVisible: "Reels"
 - takeScreenshot: e2e/screenshots/01-home-foryou
-# The top bar is one row: your photo in a gradient ring ("Choose feed") drops down the feed menu, the four labels sit in the
-# middle, Search on the right; "+ New post" ("Create") floats over the feed. Signed out there is no university of your own and nobody you follow, so the menu offers "All universities"
+# The top bar has two rows like X's: your photo in a gradient ring ("Choose feed") drops down the feed menu, the CampConnect
+# wordmark in the middle, Search on the right; then the four labels. "+ New post" ("Create") floats over the feed. Signed out there is no university of your own and nobody you follow, so the menu offers "All universities"
 # alone; a tap on the see-through backdrop ("Close") puts it away.
 - tapOn: "Choose feed"
 - assertVisible: "All universities"

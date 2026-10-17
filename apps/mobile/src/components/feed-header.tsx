@@ -3,6 +3,7 @@ import { Pressable, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSession } from "@/lib/session";
+import { useTabBarInset } from "@/lib/tab-bar";
 import { radius } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 
@@ -26,8 +27,9 @@ export function Fab({ href, label }: { href: string; label: string }) {
   const colors = useColors();
   const router = useRouter();
   const { user } = useSession();
+  const tabBar = useTabBarInset();
   return (
-    <Pressable onPress={() => router.push((user ? href : "/(auth)/login") as never)} style={styles.fab} accessibilityRole="button" accessibilityLabel={label}>
+    <Pressable onPress={() => router.push((user ? href : "/(auth)/login") as never)} style={[styles.fab, { bottom: 20 + tabBar }]} accessibilityRole="button" accessibilityLabel={label}>
       <Ionicons name="add" size={28} color={colors.onBrand} />
     </Pressable>
   );
@@ -37,5 +39,5 @@ const useStyles = makeStyles((colors) => ({
   // The input fill, not the card colour: the screen behind it is white in light and black in dark.
   search: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 14, height: 42 },
   input: { flex: 1, fontSize: 15, color: colors.text },
-  fab: { position: "absolute", right: 16, bottom: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", shadowColor: colors.shadow, shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 5 },
+  fab: { position: "absolute", right: 16, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", shadowColor: colors.shadow, shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 5 },
 }));

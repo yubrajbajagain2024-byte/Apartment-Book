@@ -1,94 +1,82 @@
-import { useState, type ReactNode, type Ref } from "react";
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { type ReactNode, type Ref } from "react";
+import { Animated, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SlidingTabs } from "@/components/sliding-tabs";
 import { hapticSelect } from "@/lib/haptics";
 import { radius, space } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
-import type { InboxFilter } from "./inbox-utils";
+import type { InboxFilter, InboxPage } from "./inbox-utils";
 
-/** Height of the bar with the title and the filter pill (the safe area comes on top). */
-const BAR = 48;
-const MENU_WIDTH = 220;
-
-export const INBOX_FILTERS: { value: InboxFilter; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { value: "all", label: "All", icon: "chatbubbles-outline" },
-  { value: "unread", label: "Unread", icon: "mail-unread-outline" },
-  { value: "groups", label: "Groups", icon: "people-outline" },
+/** The two pages of the inbox, left to right: the order of the pager and of the labels above it. */
+export const INBOX_PAGES: { value: InboxPage; label: string }[] = [
+  { value: "chats", label: "Chats" },
+  { value: "groups", label: "Groups" },
 ];
 
-export function inboxFilterLabel(filter: InboxFilter): string {
-  return INBOX_FILTERS.find((f) => f.value === filter)?.label ?? "All";
-}
+/** The pills under the search box; Requests is only offered on Chats (a request is a direct chat). */
+export const INBOX_FILTERS: { value: InboxFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "unread", label: "Unread" },
+  { value: "requests", label: "Requests" },
+];
+
+/** Height of the Chats | Groups row. */
+const TABS_ROW = 44;
 
 /**
- * The Messages tab's own top bar, X's Chat style: "Chat" in the middle and the outlined "All ⌄" pill on the right, whose
- * menu picks All, Unread or Groups. `children` (the search field) sits under the bar on the same surface; a hairline under
- * both appears once the list underneath has scrolled. Signed out, the bar shows only the title.
+ * The Messages tab's own top bar: the new-message pencil in the top-right corner, the big "Messages" title, then
+ * Chats | Groups above the pager with Home's sliding violet underline (`scrollX` is the pager's offset and `pageWidth`
+ * the width of one page, so the underline follows the finger), `children` (the search field) and the All | Unread |
+ * Requests pills that narrow the page (Requests on Chats only, each pill carrying its count). A hairline under it all
+ * appears once the list underneath has scrolled. Signed out, the bar shows only the title.
  */
-export function InboxHeader({ signedIn, filter, unreadChats, onFilter, scrolled, children }: { signedIn: boolean; filter: InboxFilter; unreadChats: number; onFilter: (filter: InboxFilter) => void; scrolled: boolean; children?: ReactNode }) {
+export function InboxHeader({ signedIn, page, onPage, scrollX, pageWidth, requestCount, filter, unreadChats, onFilter, scrolled, onNewChat, children }: { signedIn: boolean; page: InboxPage; onPage: (page: InboxPage) => void; scrollX: Animated.Value; pageWidth: number; requestCount: number; filter: InboxFilter; unreadChats: number; onFilter: (filter: InboxFilter) => void; scrolled: boolean; onNewChat: () => void; children?: ReactNode }) {
   const styles = useStyles();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [open, setOpen] = useState(false);
-  const label = inboxFilterLabel(filter);
 
-  function pick(next: InboxFilter) {
-    setOpen(false);
+  function pickFilter(next: InboxFilter) {
     if (next === filter) return;
     hapticSelect();
     onFilter(next);
   }
+  const pills = page === "groups" ? INBOX_FILTERS.filter((f) => f.value !== "requests") : INBOX_FILTERS;
+  const countOf = (f: InboxFilter) => (f === "unread" ? unreadChats : f === "requests" ? requestCount : 0);
 
   return (
     <View style={[styles.chrome, { paddingTop: insets.top }, scrolled && styles.chromeScrolled]}>
-      <View style={styles.bar}>
-        <View style={styles.side} />
-        <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>
-          Chat
-        </Text>
-        <View style={[styles.side, styles.sideEnd]}>
-          {signedIn ? (
-            <Pressable
-              onPress={() => setOpen(true)}
-              hitSlop={6}
-              accessibilityRole="button"
-              accessibilityLabel="Filter chats"
-              accessibilityHint="All chats, unread chats or group chats"
-              accessibilityValue={{ text: label }}
-              accessibilityState={{ expanded: open }}
-              style={({ pressed }) => [styles.pill, pressed && { backgroundColor: colors.input }]}
-            >
-              <Text style={styles.pillText} numberOfLines={1}>
-                {label}
-              </Text>
-              <Ionicons name="chevron-down" size={15} color={colors.text} />
-            </Pressable>
-          ) : null}
-        </View>
+      <View style={styles.topRow}>
+        {signedIn ? (
+          <Pressable onPress={onNewChat} hitSlop={8} accessibilityRole="button" accessibilityLabel="New message" style={({ pressed }) => [styles.compose, pressed && { opacity: 0.6 }]}>
+            <Ionicons name="create-outline" size={24} color={colors.text} />
+          </Pressable>
+        ) : null}
       </View>
-      {children}
-      {/* X's filter menu: a card dropped just under the pill, the inbox still visible behind it; a tap outside closes it. */}
-      <Modal visible={open} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)} accessibilityRole="button" accessibilityLabel="Close menu" />
-        <View pointerEvents="box-none" style={[styles.anchor, { top: insets.top + BAR - 2 }]}>
-          <View style={styles.menu} accessibilityRole="menu">
-            {INBOX_FILTERS.map((f) => {
-              const selected = f.value === filter;
-              return (
-                <Pressable key={f.value} onPress={() => pick(f.value)} accessibilityRole="menuitem" accessibilityLabel={f.value === "unread" && unreadChats > 0 ? `${f.label}, ${unreadChats}` : f.label} accessibilityState={{ selected }} style={({ pressed }) => [styles.item, pressed && { backgroundColor: colors.input }]}>
-                  <Ionicons name={f.icon} size={20} color={colors.text} />
-                  <Text style={[styles.itemText, selected && styles.itemSelected]} numberOfLines={1}>
-                    {f.label}
-                  </Text>
-                  {f.value === "unread" && unreadChats > 0 ? <Text style={styles.itemCount}>{unreadChats > 99 ? "99+" : unreadChats}</Text> : null}
-                  <View style={styles.check}>{selected ? <Ionicons name="checkmark" size={20} color={colors.brand} /> : null}</View>
-                </Pressable>
-              );
-            })}
-          </View>
+      <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>
+        Messages
+      </Text>
+      {signedIn ? (
+        <View style={styles.tabs}>
+          <SlidingTabs sections={INBOX_PAGES} section={page} onSelect={onPage} scrollX={scrollX} pageWidth={pageWidth} tint={colors.accent} labelColor={colors.text} dimColor={colors.muted} gap={110} fontSize={16} />
         </View>
-      </Modal>
+      ) : null}
+      {children}
+      {signedIn ? (
+        <View style={styles.filters} accessibilityRole="tablist">
+          {pills.map((f) => {
+            const selected = f.value === filter;
+            const n = countOf(f.value);
+            const count = n > 0 ? (n > 99 ? "99+" : String(n)) : null;
+            return (
+              <Pressable key={f.value} onPress={() => pickFilter(f.value)} accessibilityRole="tab" accessibilityLabel={count ? `${f.label}, ${count}` : f.label} accessibilityState={{ selected }} style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && !selected && { opacity: 0.7 }]}>
+                <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{f.label}</Text>
+                {count ? <Text style={[styles.chipCount, selected && styles.chipTextSelected]}>{count}</Text> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -135,29 +123,24 @@ export function InboxSearchField({ value, onChangeText, placeholder = "Search", 
   );
 }
 
-const useStyles = makeStyles((colors, scheme) => ({
+const useStyles = makeStyles((colors) => ({
   // The hairline is always there, transparent until the list scrolls, so the list never jumps by its width.
   chrome: { backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "transparent", zIndex: 1 },
   chromeScrolled: { borderBottomColor: colors.border },
-  bar: { height: BAR, flexDirection: "row", alignItems: "center", paddingHorizontal: space.lg },
-  // Two equal sides (the left one empty) keep the title truly centred whatever the pill says.
-  side: { flex: 1, flexDirection: "row", alignItems: "center" },
-  sideEnd: { justifyContent: "flex-end" },
-  title: { fontSize: 18, fontWeight: "800", color: colors.text, paddingHorizontal: space.sm },
-  pill: { flexDirection: "row", alignItems: "center", gap: 4, height: 32, paddingLeft: 14, paddingRight: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border },
-  pillText: { fontSize: 14, fontWeight: "700", color: colors.text },
-  backdrop: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-  anchor: { position: "absolute", right: space.md, alignItems: "flex-end" },
-  // A shadow cannot be seen on black, so in the dark theme a hairline outline keeps the menu apart from the page.
-  menu: { width: MENU_WIDTH, backgroundColor: colors.elevated, borderRadius: radius.lg, paddingVertical: 6, shadowColor: colors.shadow, shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 10, borderWidth: scheme === "dark" ? StyleSheet.hairlineWidth : 0, borderColor: colors.border },
-  item: { height: 44, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: space.lg },
-  itemText: { flex: 1, fontSize: 15, fontWeight: "600", color: colors.text },
-  itemSelected: { fontWeight: "800" },
-  itemCount: { fontSize: 13, fontWeight: "600", color: colors.muted },
-  check: { width: 20, alignItems: "center" },
-  searchRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingTop: 2, paddingBottom: space.sm },
+  topRow: { height: 44, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", paddingHorizontal: space.lg },
+  compose: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  title: { fontSize: 30, fontWeight: "800", letterSpacing: -0.5, color: colors.text, paddingHorizontal: 20, paddingBottom: 10 },
+  // The labels row, as tall as Home's, with the hairline the sliding underline sits on.
+  tabs: { height: TABS_ROW, flexDirection: "row", marginHorizontal: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  filters: { flexDirection: "row", gap: space.sm, paddingHorizontal: 20, paddingBottom: space.sm },
+  chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: colors.input },
+  chipSelected: { backgroundColor: colors.brandSoft },
+  chipText: { fontSize: 13, fontWeight: "600", color: colors.text },
+  chipTextSelected: { color: colors.brand },
+  chipCount: { fontSize: 12, fontWeight: "700", color: colors.muted },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: 20, paddingTop: space.md, paddingBottom: space.md },
   // The input fill, not the card colour: the screen behind it is white in light and black in dark.
-  search: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 14, height: 40 },
-  input: { flex: 1, fontSize: 15, color: colors.text, paddingVertical: 0 },
+  search: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 16, height: 46 },
+  input: { flex: 1, fontSize: 16, color: colors.text, paddingVertical: 0 },
   cancel: { fontSize: 15, fontWeight: "600", color: colors.text },
 }));

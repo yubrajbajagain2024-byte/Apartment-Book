@@ -1,14 +1,16 @@
 import { memo } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { ConversationSummary, MessageWithSender, ProfileSummary } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { highlightParts, inboxTime } from "./inbox-utils";
 
-/** Inbox rows' photo size, as in X's Chat list. */
+/** Inbox rows' photo size. */
 export const INBOX_AVATAR = 56;
+/** The rows' side gutter, the same as the title's and the search box's above them. */
+const GUTTER = 20;
 
 /**
  * A chat's photo: the other person's (with the green dot while they are online) for a direct chat; for a group, two of
@@ -43,13 +45,15 @@ export function InboxAvatar({ conversation: c, size = INBOX_AVATAR }: { conversa
 }
 
 /**
- * One chat in the inbox, X style: the photo, the name in bold with the @username after it while there is room (direct
- * chats) and the short time ("3h"), the last message in grey under it (the server writes "Sent a photo" and the like),
- * and for unread chats bolder text and the blue count. Long press (or the screen reader's action) opens `onMenu`.
+ * One chat in the inbox: the photo, then the name in bold (a small violet people mark after it for a group, the
+ * @username while there is room for a direct chat) with the short time ("3h") at the right, the last message in grey under
+ * it (the server writes "Sent a photo" and the like), and for unread chats bolder text and the blue count. A hairline
+ * runs under the words, from the photo's right edge. Long press (or the screen reader's action) opens `onMenu`.
  * The label stays "Chat with <name>": the end-to-end flows tap rows by it.
  */
 export const InboxRow = memo(function InboxRow({ conversation: c, username, now, onOpen, onMenu }: { conversation: ConversationSummary; username: string | null; now: number; onOpen: (c: ConversationSummary) => void; onMenu?: (c: ConversationSummary) => void }) {
   const styles = useStyles();
+  const colors = useColors();
   const unread = c.unreadCount > 0;
   const time = inboxTime(c.lastMessageAt, now);
   const preview = (c.lastMessagePreview ?? "").replace(/\s+/g, " ").trim() || "Say hello 👋";
@@ -71,21 +75,33 @@ export const InboxRow = memo(function InboxRow({ conversation: c, username, now,
       <InboxAvatar conversation={c} />
       <View style={styles.body}>
         <View style={styles.topLine}>
-          <Text style={styles.nameLine} numberOfLines={1}>
-            <Text style={[styles.name, unread && styles.nameUnread]}>{c.title}</Text>
-            {username ? <Text style={styles.handle}>{` @${username}`}</Text> : null}
+          <Text style={[styles.name, unread && styles.nameUnread]} numberOfLines={1}>
+            {c.title}
           </Text>
-          {time ? <Text style={styles.time}>{` · ${time}`}</Text> : null}
+          {c.type === "group" ? (
+            <View style={styles.tag} accessibilityLabel="Group chat">
+              <Ionicons name="people" size={11} color={colors.accent} />
+            </View>
+          ) : null}
+          {username ? (
+            <Text style={styles.handle} numberOfLines={1}>
+              @{username}
+            </Text>
+          ) : null}
+          <View style={{ flex: 1 }} />
+          {time ? <Text style={styles.time}>{time}</Text> : null}
         </View>
-        <Text style={[styles.preview, unread && styles.previewUnread]} numberOfLines={1}>
-          {preview}
-        </Text>
+        <View style={styles.previewLine}>
+          <Text style={[styles.preview, unread && styles.previewUnread]} numberOfLines={1}>
+            {preview}
+          </Text>
+          {unread ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{count}</Text>
+            </View>
+          ) : null}
+        </View>
       </View>
-      {unread ? (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{count}</Text>
-        </View>
-      ) : null}
     </Pressable>
   );
 });
@@ -113,10 +129,11 @@ export const InboxMessageRow = memo(function InboxMessageRow({ message: m, conve
       {c ? <InboxAvatar conversation={c} size={48} /> : <Avatar name={m.sender?.full_name ?? title} url={m.sender?.avatar_url} size={48} online={false} />}
       <View style={styles.body}>
         <View style={styles.topLine}>
-          <Text style={[styles.nameLine, styles.name]} numberOfLines={1}>
+          <Text style={styles.name} numberOfLines={1}>
             {title}
           </Text>
-          {time ? <Text style={styles.time}>{` · ${time}`}</Text> : null}
+          <View style={{ flex: 1 }} />
+          {time ? <Text style={styles.time}>{time}</Text> : null}
         </View>
         <Text style={styles.preview} numberOfLines={2}>
           {who}
@@ -136,9 +153,9 @@ export function InboxPersonRow({ person: p, username, busy = false, disabled = f
   const styles = useStyles();
   const colors = useColors();
   return (
-    <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={p.full_name} accessibilityHint="Opens a chat with them" accessibilityState={{ disabled, busy }} style={({ pressed }) => [styles.row, styles.personRow, pressed && styles.pressed]}>
+    <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={p.full_name} accessibilityHint="Opens a chat with them" accessibilityState={{ disabled, busy }} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
       <Avatar name={p.full_name} url={p.avatar_url} size={48} userId={p.id} />
-      <View style={styles.body}>
+      <View style={[styles.body, styles.personBody]}>
         <Text style={styles.name} numberOfLines={1}>
           {p.full_name}
         </Text>
@@ -148,7 +165,7 @@ export function InboxPersonRow({ person: p, username, busy = false, disabled = f
           </Text>
         ) : null}
       </View>
-      {busy ? <ActivityIndicator color={colors.muted} /> : null}
+      {busy ? <ActivityIndicator color={colors.muted} style={{ marginRight: GUTTER }} /> : null}
     </Pressable>
   );
 }
@@ -180,41 +197,31 @@ export function InboxNote({ text, action, onAction, loading = false }: { text?: 
   );
 }
 
-/** X's round blue new-chat button in the bottom-right corner: a chat bubble with a plus. */
-export function InboxNewChatButton({ onPress }: { onPress: () => void }) {
-  const styles = useStyles();
-  const colors = useColors();
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="New message" style={({ pressed }) => [styles.fab, pressed && { backgroundColor: colors.brandDark }]}>
-      <MaterialCommunityIcons name="chat-plus-outline" size={26} color={colors.onBrand} />
-    </Pressable>
-  );
-}
-
 const useStyles = makeStyles((colors) => ({
-  row: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: 10 },
-  personRow: { paddingVertical: 8 },
+  // The photo is centred against the words; the words carry the row's height, its right gutter and the hairline under it.
+  row: { flexDirection: "row", alignItems: "center", gap: 14, paddingLeft: GUTTER },
   pressed: { backgroundColor: colors.input },
-  body: { flex: 1, minWidth: 0, gap: 2 },
-  topLine: { flexDirection: "row", alignItems: "baseline" },
-  // Shrinks first, so a long name or @username ends in "…" while the time always shows.
-  nameLine: { flexShrink: 1, fontSize: 15, color: colors.text },
-  name: { fontSize: 15, fontWeight: "700", color: colors.text },
+  body: { flex: 1, minWidth: 0, gap: 3, paddingVertical: 14, paddingRight: GUTTER, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  personBody: { paddingVertical: 10 },
+  topLine: { flexDirection: "row", alignItems: "center", gap: 6 },
+  // Shrinks first, so a long name ends in "…" while the mark, the handle and the time keep their place.
+  name: { flexShrink: 1, fontSize: 16, fontWeight: "700", color: colors.text },
   nameUnread: { fontWeight: "800" },
-  handle: { fontSize: 15, fontWeight: "400", color: colors.muted },
-  time: { flexShrink: 0, fontSize: 15, color: colors.muted },
-  preview: { fontSize: 15, lineHeight: 20, color: colors.muted },
+  tag: { width: 20, height: 20, borderRadius: 6, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
+  handle: { flexShrink: 1, fontSize: 13, color: colors.muted },
+  time: { flexShrink: 0, fontSize: 13, color: colors.muted },
+  previewLine: { flexDirection: "row", alignItems: "center", gap: 10 },
+  preview: { flex: 1, fontSize: 14, lineHeight: 19, color: colors.muted },
   previewUnread: { color: colors.text, fontWeight: "600" },
   match: { fontWeight: "800", color: colors.text },
-  badge: { minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-  badgeText: { color: colors.onBrand, fontSize: 12, fontWeight: "800" },
+  badge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  badgeText: { color: colors.onBrand, fontSize: 11, fontWeight: "800" },
   // The back member sits top right; the front one bottom left with a ring of the screen colour, so the two read apart.
   groupBack: { position: "absolute", top: 0, right: 0 },
   groupFront: { position: "absolute", left: 0, bottom: 0, padding: 2, backgroundColor: colors.bg },
   groupIcon: { backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
-  section: { fontSize: 17, fontWeight: "800", color: colors.text, paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.xs },
-  note: { flexDirection: "row", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: space.sm, paddingHorizontal: space.lg, paddingVertical: space.md },
+  section: { fontSize: 17, fontWeight: "800", color: colors.text, paddingHorizontal: GUTTER, paddingTop: space.lg, paddingBottom: space.xs },
+  note: { flexDirection: "row", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: space.sm, paddingHorizontal: GUTTER, paddingVertical: space.md },
   noteText: { fontSize: 14, color: colors.muted, textAlign: "center" },
   noteAction: { fontSize: 14, fontWeight: "700", color: colors.brand },
-  fab: { position: "absolute", right: space.lg, bottom: space.lg, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", shadowColor: colors.shadow, shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 5 },
 }));

@@ -8,6 +8,7 @@ import { Badge, Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
+import { useTabBarInset } from "@/lib/tab-bar";
 import { supabase } from "@/lib/supabase";
 import { useColors } from "@/lib/theme-provider";
 import { useEngagement } from "@/lib/use-engagement";
@@ -23,6 +24,7 @@ export function RoommatesSection({ topInset, onScroll }: { topInset: number; onS
   const feed = useFeed<RoommatePostWithAuthor>((page) => listRoommatePosts(supabase, { q: q || undefined, universityId, postType: type, page }), [q, universityId, type]);
   const { savedIds, engagement } = useEngagement("roommate", feed.items, user?.id ?? null);
   const inset = useMemo(() => listInset(topInset), [topInset]);
+  const tabBar = useTabBarInset();
 
   return (
     <View style={{ flex: 1 }}>
@@ -32,7 +34,7 @@ export function RoommatesSection({ topInset, onScroll }: { topInset: number; onS
         {...inset.list}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={{ paddingBottom: 90, paddingTop: inset.paddingTop }}
+        contentContainerStyle={{ paddingBottom: 90 + tabBar, paddingTop: inset.paddingTop }}
         ListHeaderComponent={
           <View style={{ gap: 12, paddingHorizontal: FEED_HEADER_PADDING, paddingTop: FEED_HEADER_PADDING, paddingBottom: 4 }}>
             <FeedHeader placeholder="Search roommate posts" value={q} onChange={setQ}>

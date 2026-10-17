@@ -13,18 +13,16 @@ import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useCreateMenu } from "./create-menu";
 
-/** Height of the bar's one row, without the safe-area padding above it. */
-const ROW = 50;
-export const HOME_TOP_BAR_HEIGHT = ROW;
+/** Height of each of the bar's two rows: the wordmark row, then the labels row. */
+const ROW = 44;
+export const HOME_TOP_BAR_HEIGHT = ROW * 2;
 /** Your photo on the left of the bar: the picture, the gap around it and the gradient ring. */
 const PHOTO = 32;
 const PHOTO_GAP = 2;
 const RING = 2;
 const RING_SIZE = PHOTO + 2 * (PHOTO_GAP + RING);
-/** The slot on each side of the labels (the ring on the left, Search on the right). */
+/** The slot on each side of the wordmark (the ring on the left, Search on the right). */
 const SIDE = 44;
-/** The four labels sit between the two slots: 16pt with 20 between them still fits a 360pt phone. */
-const LABEL_GAP = 20;
 const LABEL_SIZE = 16;
 /** The feed menu that drops down from your photo. */
 const MENU_WIDTH = 240;
@@ -69,18 +67,19 @@ export function useOverVideo(store: OverVideoStore): boolean {
 const SOLID = HOME_SECTIONS.map((s) => (s.value === "reels" ? 0 : 1));
 
 /**
- * Floating top bar of Home, one row: your photo in a gradient ring on the left, which drops down the feed menu (your
- * university | all universities | Following, see useHomeScope); For you | Buzz | Posts | Reels in the middle with X's
- * sliding underline (violet) and a hairline under the row; the Search magnifier on the right. Creating lives in the
- * "+ New post" pill floating over the feed (NewPostButton); over the Reels video, where that pill is gone and the menu has
- * nothing to choose (Reels is not scoped by campus), the left slot holds the "+" instead, white like the rest of the bar.
- * `scrollX` is the pager's offset in points and `pageWidth` the width of one page: the underline slides, the labels
- * crossfade (see SlidingTabs) and the bar's solid background (colors.bar and its hairline) fades out towards Reels with
- * the finger, all on the native driver. `overVideo` says when the text and icons turn white for the video: Home flips it
- * halfway between Posts and Reels. `section` is the section committed once the pager settles: the menu and what screen
- * readers hear as selected follow it. `translateY` slides the whole bar up out of the way as the page on screen scrolls
- * down and back as soon as it scrolls up, Instagram style (see useCollapsingHeader). Memoized: Home mounting a page
- * ahead of time leaves it alone.
+ * Floating top bar of Home, X style, in two rows. Row 1: your photo in a gradient ring on the left, which drops down the
+ * feed menu (your university | all universities | Following, see useHomeScope); the CampConnect wordmark in the middle
+ * (it reads "Following" while that feed shows, and opens the menu too); the Search magnifier on the right. Row 2:
+ * For you | Buzz | Posts | Reels spread across the row with X's sliding underline (violet, as wide as the label) over a
+ * hairline. Creating lives in the "+ New post" pill floating over the feed (NewPostButton); over the Reels video, where
+ * that pill is gone and the menu has nothing to choose (Reels is not scoped by campus), the left slot holds the "+"
+ * instead, white like the rest of the bar. `scrollX` is the pager's offset in points and `pageWidth` the width of one
+ * page: the underline slides, the labels crossfade (see SlidingTabs) and the bar's solid background (colors.bar and its
+ * hairline) fades out towards Reels with the finger, all on the native driver. `overVideo` says when the text and icons
+ * turn white for the video: Home flips it halfway between Posts and Reels. `section` is the section committed once the
+ * pager settles: the menu and what screen readers hear as selected follow it. `translateY` slides the whole bar up out
+ * of the way as the page on screen scrolls down and back as soon as it scrolls up, Instagram style (see
+ * useCollapsingHeader). Memoized: Home mounting a page ahead of time leaves it alone.
  */
 export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVideo: overVideoStore, onPosts: onPostsStore, onLayout, scrollX, pageWidth, translateY }: { section: HomeSection; onSelect: (s: HomeSection) => void; overVideo: OverVideoStore; onPosts: OverVideoStore; onLayout?: (e: LayoutChangeEvent) => void; scrollX: Animated.Value; pageWidth: number; translateY: Animated.AnimatedInterpolation<number> }) {
   const insets = useSafeAreaInsets();
@@ -91,7 +90,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
   const styles = useStyles();
   const create = useCreateMenu();
   const overVideo = useOverVideo(overVideoStore);
-  // Whether the page under the finger is Posts: flipped halfway, like overVideo, so the menu's check follows the swipe, not the settle.
+  // Whether the page under the finger is Posts: flipped halfway, like overVideo, so the title and the menu's check follow the swipe, not the settle.
   const onPosts = useOverVideo(onPostsStore);
   // Page i (offset i * pageWidth) shows SOLID[i]; in between the background follows the finger. Only once pageWidth > 0
   // (strictly increasing input range); until then it simply matches `overVideo`.
@@ -101,9 +100,9 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
   const ink = overVideo ? colors.onMedia : colors.accent;
   // Signed out there is nobody you follow: the Posts page drops the filter too (see PostsSection).
   const following = Boolean(user) && scope.following;
-  // Only Posts can filter by follows, so on the other sections the menu checks the campus the page is really showing.
+  // Like X's "Following", the wordmark reads it while that feed is showing. Only Posts can filter by follows, so on the
+  // other sections the menu checks the campus the page is really showing.
   const followingShown = following && onPosts;
-  // What the menu button reads to screen readers: the feed it is showing.
   const title = followingShown ? "Following" : HOME_BRAND;
 
   const rows: MenuRow[] = [];
@@ -149,12 +148,20 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
             </View>
           </Pressable>
         )}
+        {/* Two equal side slots keep the wordmark truly centred. Over the video it is just a title; elsewhere it opens the feed menu too. */}
         <View style={styles.middle}>
-          <SlidingTabs sections={HOME_SECTIONS} section={section} onSelect={onSelect} scrollX={scrollX} pageWidth={pageWidth} tint={ink} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} gap={LABEL_GAP} fontSize={LABEL_SIZE} />
+          <Pressable onPress={() => setMenu(true)} disabled={overVideo} hitSlop={8} accessibilityRole={overVideo ? "header" : "button"} accessibilityLabel={title} accessibilityHint={overVideo ? undefined : "Opens the feed menu"} style={styles.title}>
+            <Text style={[styles.wordmark, { color: fg }, overVideo && styles.shadow]} numberOfLines={1}>
+              {title}
+            </Text>
+          </Pressable>
         </View>
         <View style={styles.side}>
           <HeaderActions color={fg} iconStyle={overVideo ? styles.shadow : undefined} />
         </View>
+      </View>
+      <View style={styles.row}>
+        <SlidingTabs sections={HOME_SECTIONS} section={section} onSelect={onSelect} scrollX={scrollX} pageWidth={pageWidth} tint={ink} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} fontSize={LABEL_SIZE} spread />
       </View>
       {/* The feed menu: a card hanging under your photo, the page still fully visible behind it. */}
       <Modal visible={menu} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setMenu(false)}>
@@ -180,12 +187,14 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
 const useStyles = makeStyles((colors, scheme) => ({
   // The bar itself is see-through; its transparent hairline keeps the height the same as when the solid look was drawn on it.
   bar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "transparent" },
-  // The solid look behind the row, safe area included, its hairline on the bar's bottom edge: faded by the pager (see `solid`).
+  // The solid look behind the rows, safe area included, its hairline on the bar's bottom edge: faded by the pager (see `solid`).
   solid: { position: "absolute", top: 0, left: 0, right: 0, bottom: -StyleSheet.hairlineWidth, backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   row: { height: ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: 12 },
   side: { width: SIDE, height: ROW, alignItems: "center", justifyContent: "center" },
-  // Two equal side slots keep the labels truly centred; stretched to the row so the underline sits on its bottom edge.
-  middle: { flex: 1, alignSelf: "stretch", flexDirection: "row", paddingHorizontal: 4 },
+  middle: { flex: 1, alignItems: "center", justifyContent: "center" },
+  // As tall as its row, so the whole 44pt under the wordmark opens the menu.
+  title: { minHeight: ROW, justifyContent: "center", maxWidth: "100%" },
+  wordmark: { fontSize: 21, fontWeight: "800", letterSpacing: -0.5 },
   // The ring: a teal-to-violet gradient (plain violet where the platform draws none) with a gap in the bar's colour around the photo.
   ring: { width: RING_SIZE, height: RING_SIZE, borderRadius: RING_SIZE / 2, alignItems: "center", justifyContent: "center", backgroundColor: colors.accent, experimental_backgroundImage: `linear-gradient(135deg, ${colors.accentTeal} 0%, ${colors.accent} 100%)` },
   ringGap: { width: PHOTO + 2 * PHOTO_GAP, height: PHOTO + 2 * PHOTO_GAP, borderRadius: PHOTO / 2 + PHOTO_GAP, backgroundColor: colors.bar, alignItems: "center", justifyContent: "center" },

@@ -2,14 +2,21 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { searchMyMessages, type ConversationSummary, type MessageWithSender } from "@apartment-book/shared";
 import { supabase } from "@/lib/supabase";
 
-/** The choices of the inbox's "All ⌄" pill. */
-export type InboxFilter = "all" | "unread" | "groups";
+/** The inbox's two pages, side by side: direct chats and group chats. */
+export type InboxPage = "chats" | "groups";
+/** The pills under the search box: every chat on the page, those with unread messages, or (on Chats) the message requests. */
+export type InboxFilter = "all" | "unread" | "requests";
 
-/** Whether a chat belongs under the filter: every chat, those with unread messages, or group chats. */
-export function inFilter(c: Pick<ConversationSummary, "type" | "unreadCount">, filter: InboxFilter): boolean {
-  if (filter === "unread") return c.unreadCount > 0;
-  if (filter === "groups") return c.type === "group";
-  return true;
+/**
+ * Whether a chat belongs on `page` under `filter`. Groups live on Groups, direct chats on Chats; a message request (see
+ * useMessageRequests) shows only under the Requests pill, which exists on Chats alone, and never under All or Unread.
+ */
+export function inInbox(c: Pick<ConversationSummary, "id" | "type" | "unreadCount">, page: InboxPage, filter: InboxFilter, requestIds: ReadonlySet<string>): boolean {
+  if ((c.type === "group") !== (page === "groups")) return false;
+  const request = requestIds.has(c.id);
+  if (filter === "requests") return page === "chats" && request;
+  if (request) return false;
+  return filter === "all" || c.unreadCount > 0;
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

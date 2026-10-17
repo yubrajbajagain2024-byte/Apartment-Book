@@ -399,3 +399,12 @@ export async function listConversationShared(
     next: rows.length >= limit ? rows[rows.length - 1].created_at : null,
   };
 }
+
+/** Which of these conversations `userId` has written in: the ids of the ones holding at least one message of theirs. */
+export async function conversationsWrittenIn(supabase: Client, userId: string, conversationIds: string[]): Promise<Set<string>> {
+  const ids = [...new Set(conversationIds)];
+  if (ids.length === 0) return new Set();
+  const { data, error } = await supabase.from("messages").select("conversation_id").eq("sender_id", userId).in("conversation_id", ids);
+  if (error) throw error;
+  return new Set((data ?? []).map((r) => r.conversation_id));
+}
