@@ -167,6 +167,15 @@ export function joinClassCode(subject: string, number: string): string {
   return normalizeClassCode(`${normalizeClassSubject(subject)} ${normalizeCourseNumber(number)}`);
 }
 
+/** A stored class code back in its two halves, for the edit form: "CS 3358" is CS and 3358 (so is "cs3358"). */
+export function splitClassCode(code: string): { subject: string; number: string } {
+  const whole = normalizeClassCode(code);
+  const at = whole.indexOf(" ");
+  if (at > 0) return { subject: whole.slice(0, at), number: whole.slice(at + 1).replace(/\s+/g, "") };
+  const m = /^([A-Z&]*)(.*)$/.exec(whole);
+  return { subject: m?.[1] ?? whole, number: m?.[2] ?? "" };
+}
+
 /** " 001 " or "a" becomes "001" or "A", the way the database stores a section. */
 export function normalizeClassSection(input: string): string {
   return input.trim().toUpperCase();

@@ -18,9 +18,12 @@ import {
   MAX_CLASS_MEETINGS,
   meetingsProblem,
   mergeMeetingSlots,
+  parseClassMeetings,
   pickableTerms,
   removeProfileClass,
   shiftClockTime,
+  splitClassCode,
+  updateProfileClass,
   weekdayLabel,
   WEEKDAYS,
   type ClassMeeting,
@@ -28,6 +31,7 @@ import {
   type ProfileClass,
   type Weekday,
 } from "@apartment-book/shared";
+import { useActionSheet } from "@/components/action-sheet";
 import { Button } from "@/components/ui";
 import { hapticTap } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
@@ -36,36 +40,50 @@ import { radius, space } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 
 type UpdateClasses = (fn: (classes: ProfileClass[]) => ProfileClass[]) => void;
+/** What the form is open for: a new class, or one of yours being changed. */
+type FormMode = { kind: "add" } | { kind: "edit"; initial: ProfileClass };
 
 /**
  * The Classes tab, the one place a profile shows its classes: grouped by semester, this one first ("Fall 2026 · This
  * semester"). The owner adds a class with its subject and course number ("CS" and "3358", kept as the one code "CS 3358"
- * the database checks), its section, the days and times it meets, the room and an optional name, and the semester, and
- * removes one with the cross beside it. Once a class is in, the form closes and a line under "Add class" says so (and
- * where the section's chat is); the button brings the form back. The section puts them in that section's course chat
- * (the database creates it for the first classmate and adds the rest; removing the class leaves it), which is why it is
- * asked for.
+ * the database checks), its section, the days and times it meets, the room and an optional name, and the semester. A
+ * hold on one of their class cards offers Edit (the same form, filled in) and Delete, which asks first; there is no
+ * other way to change or remove one. Once a class is in or changed, the form closes and a line under "Add class" says so
+ * (and where the section's chat is); the button brings the form back. The section puts them in that section's course
+ * chat (the database creates it for the first classmate and adds the rest; changing the section moves them over, and
+ * deleting the class leaves it), which is why it is asked for.
  */
 export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: { own: boolean; userId: string; classes: ProfileClass[]; onChange: UpdateClasses; onOpenForm?: () => void }) {
   const styles = useStyles();
   const colors = useColors();
+  const showSheet = useActionSheet();
   const groups = useMemo(() => groupClassesByTerm(classes), [classes]);
-  const [adding, setAdding] = useState(false);
-  /** The word that a class went in, under the Add class button for a while once the form has closed. */
+  const [form, setForm] = useState<FormMode | null>(null);
+  /** The word that a class went in or changed, under the Add class button for a while once the form has closed. */
   const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(null), 8000);
     return () => clearTimeout(timer);
   }, [notice]);
-  // Close, Add and Remove take away the button or form that had focus: once the list has redrawn, the screen reader moves
-  // to "Add class" (not there while the form is open).
+  // Close, Save and Delete take away the button, form or card that had focus: once the list has redrawn, the screen
+  // reader moves to "Add class" (not there while the form is open).
   const addButton = useRef<View>(null);
   const [focusAdd, setFocusAdd] = useState(0);
   useEffect(() => {
     const node = addButton.current;
     if (focusAdd > 0 && node && typeof AccessibilityInfo.sendAccessibilityEvent === "function") AccessibilityInfo.sendAccessibilityEvent(node, "focus");
   }, [focusAdd]);
+
+  function openForm(mode: FormMode) {
+    setNotice(null);
+    setForm(mode);
+    onOpenForm?.();
+  }
+  function closeForm() {
+    setForm(null);
+    setFocusAdd((n) => n + 1);
+  }
 
   async function remove(c: ProfileClass) {
     hapticTap();
@@ -76,45 +94,54 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
       await removeProfileClass(supabase, c.id);
     } catch (e) {
       onChange((list) => (list.some((x) => x.id === c.id) ? list : [...list, c]));
-      Alert.alert(`Could not remove ${c.code}`, errorText(e));
+      Alert.alert(`Could not delete ${c.code}`, errorText(e));
     }
+  }
+
+  /** A hold on one of your class cards: Edit, or Delete after a word of warning (it leaves the section's chat as well). */
+  function cardMenu(c: ProfileClass) {
+    hapticTap();
+    showSheet(
+      [
+        { label: "Edit class", icon: "create-outline", onPress: () => openForm({ kind: "edit", initial: c }) },
+        {
+          label: "Delete class",
+          icon: "trash-outline",
+          destructive: true,
+          onPress: () =>
+            Alert.alert(`Delete ${c.code}?`, c.course_group_id ? `It comes off your ${c.term} classes, and you leave its section's chat.` : `It comes off your ${c.term} classes.`, [
+              { text: "Cancel", style: "cancel" },
+              { text: "Delete", style: "destructive", onPress: () => void remove(c) },
+            ]),
+        },
+      ],
+      c.title ? `${c.code} · ${c.title}` : c.code,
+    );
   }
 
   return (
     <View style={styles.section}>
-      {own && adding ? (
+      {own && form ? (
         <AddClassForm
+          key={form.kind === "edit" ? form.initial.id : "add"}
           userId={userId}
-          onAdded={(c, note) => {
-            onChange((list) => [...list, c]);
-            setAdding(false);
+          initial={form.kind === "edit" ? form.initial : null}
+          classes={classes}
+          onSaved={(c, note) => {
+            onChange((list) => (list.some((x) => x.id === c.id) ? list.map((x) => (x.id === c.id ? c : x)) : [...list, c]));
+            setForm(null);
             setNotice(note);
             AccessibilityInfo.announceForAccessibility(note);
             setFocusAdd((n) => n + 1);
           }}
-          onClose={() => {
-            setAdding(false);
-            setFocusAdd((n) => n + 1);
-          }}
+          onClose={closeForm}
         />
       ) : null}
-      {own && !adding ? (
-        <Button
-          ref={addButton}
-          title="Add class"
-          variant="secondary"
-          icon="add"
-          onPress={() => {
-            setNotice(null);
-            setAdding(true);
-            onOpenForm?.();
-          }}
-        />
-      ) : null}
-      {own && !adding && notice ? <Text style={styles.added}>{notice}</Text> : null}
+      {own && !form ? <Button ref={addButton} title="Add class" variant="secondary" icon="add" onPress={() => openForm({ kind: "add" })} /> : null}
+      {own && !form && notice ? <Text style={styles.added}>{notice}</Text> : null}
       {groups.length === 0 ? (
         own ? (
-          adding ? null : <Text style={styles.empty}>Add the classes you're taking so classmates can find you.</Text>
+          form ? null : <Text style={styles.empty}>Add the classes you're taking so classmates can find you.</Text>
         ) : (
           <View style={styles.emptyBox}>
             <Ionicons name="school-outline" size={28} color={colors.faint} />
@@ -127,31 +154,40 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
             <Text style={styles.term} accessibilityRole="header">
               {g.current ? `${g.term} · This semester` : g.term}
             </Text>
-            {g.classes.map((c) => (
-              <View key={c.id} style={styles.classRow}>
-                <View style={styles.codeBadge}>
-                  <Ionicons name="book-outline" size={16} color={colors.brand} />
-                </View>
-                <View style={{ flex: 1, gap: 1 }}>
-                  <Text style={styles.code}>{c.code}</Text>
-                  {c.title ? (
-                    <Text style={styles.title} numberOfLines={2}>
-                      {c.title}
-                    </Text>
-                  ) : null}
-                  {classDetails(c) ? (
-                    <Text style={styles.details} numberOfLines={2}>
-                      {classDetails(c)}
-                    </Text>
-                  ) : null}
-                </View>
-                {own ? (
-                  <Pressable onPress={() => void remove(c)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Remove ${c.code}`} style={({ pressed }) => [styles.remove, pressed && { opacity: 0.6 }]}>
-                    <Ionicons name="close-circle" size={22} color={colors.faint} />
-                  </Pressable>
-                ) : null}
-              </View>
-            ))}
+            {g.classes.map((c) => {
+              const details = classDetails(c);
+              return (
+                <Pressable
+                  key={c.id}
+                  disabled={!own}
+                  onLongPress={own ? () => cardMenu(c) : undefined}
+                  delayLongPress={350}
+                  accessibilityRole={own ? "button" : undefined}
+                  accessibilityLabel={own ? [c.code, c.title, details].filter(Boolean).join(", ") : undefined}
+                  accessibilityHint={own ? "Hold for Edit and Delete" : undefined}
+                  accessibilityActions={own ? [{ name: "longpress", label: "Edit or delete" }] : undefined}
+                  onAccessibilityAction={own ? (e) => e.nativeEvent.actionName === "longpress" && cardMenu(c) : undefined}
+                  style={({ pressed }) => [styles.classRow, own && pressed && styles.classRowPressed]}
+                >
+                  <View style={styles.codeBadge}>
+                    <Ionicons name="book-outline" size={16} color={colors.brand} />
+                  </View>
+                  <View style={{ flex: 1, gap: 1 }}>
+                    <Text style={styles.code}>{c.code}</Text>
+                    {c.title ? (
+                      <Text style={styles.title} numberOfLines={2}>
+                        {c.title}
+                      </Text>
+                    ) : null}
+                    {details ? (
+                      <Text style={styles.details} numberOfLines={2}>
+                        {details}
+                      </Text>
+                    ) : null}
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
         ))
       )}
@@ -161,20 +197,26 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
 
 /**
  * Subject and course number (kept as the one class code the database stores, "CS 3358") and section, the days and times
- * it meets, the room, an optional class name and the semester (this one picked), then Add. Once the class is in, the
- * form hands the word of it to the section (`onAdded`), which closes the form; the Add class button brings it back.
+ * it meets, the room, an optional class name and the semester (this one picked), then Add; or, for a class being changed
+ * (`initial`), the same boxes filled in and Save. Once the class is in or changed, the form hands the word of it to the
+ * section (`onSaved`), which closes the form; the Add class button brings it back. `classes` are the rest of the list, so
+ * a code already on that semester is caught before the database says the same.
  */
-function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (c: ProfileClass, note: string) => void; onClose: () => void }) {
+function AddClassForm({ userId, initial, classes, onSaved, onClose }: { userId: string; initial: ProfileClass | null; classes: ProfileClass[]; onSaved: (c: ProfileClass, note: string) => void; onClose: () => void }) {
   const styles = useStyles();
   const { colors, isDark } = useAppTheme();
-  const terms = useMemo(() => pickableTerms(), []);
-  const [subject, setSubject] = useState("");
-  const [number, setNumber] = useState("");
-  const [section, setSection] = useState("");
-  const [meetings, setMeetings] = useState<ClassMeeting[]>([]);
-  const [location, setLocation] = useState("");
-  const [title, setTitle] = useState("");
-  const [term, setTerm] = useState(terms[0]);
+  // A class from a semester no longer offered keeps its own chip while it is being changed.
+  const terms = useMemo(() => {
+    const offered = pickableTerms();
+    return initial && !offered.includes(initial.term) ? [...offered, initial.term] : offered;
+  }, [initial]);
+  const [subject, setSubject] = useState(() => (initial ? splitClassCode(initial.code).subject : ""));
+  const [number, setNumber] = useState(() => (initial ? splitClassCode(initial.code).number : ""));
+  const [section, setSection] = useState(initial?.section ?? "");
+  const [meetings, setMeetings] = useState<ClassMeeting[]>(() => (initial ? parseClassMeetings(initial.meetings) : []));
+  const [location, setLocation] = useState(initial?.location ?? "");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [term, setTerm] = useState(initial?.term ?? terms[0]);
   const [subjectError, setSubjectError] = useState<string | null>(null);
   const [numberError, setNumberError] = useState<string | null>(null);
   const [sectionError, setSectionError] = useState<string | null>(null);
@@ -187,7 +229,7 @@ function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (
   const locationInput = useRef<TextInput>(null);
   const titleInput = useRef<TextInput>(null);
 
-  async function add() {
+  async function save() {
     if (busy) return;
     const code = joinClassCode(subject, number);
     const subjectProblem = classSubjectProblem(subject);
@@ -204,13 +246,28 @@ function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (
     setLocationError(roomProblem);
     setError(null);
     if (subjectProblem || numberProblem || codeProblem || sectionProblem || meetingProblem || roomProblem) return;
+    if (classes.some((x) => x.id !== initial?.id && x.term === term && x.code === code)) {
+      setError(`${code} is already on your ${term} classes.`);
+      return;
+    }
     setBusy(true);
     try {
-      const created = await addProfileClass(supabase, userId, { term, code, section, meetings, location: location.trim() || null, title: title.trim() || null });
+      const fields = { term, code, section, meetings, location: location.trim() || null, title: title.trim() || null };
+      const saved = initial ? await updateProfileClass(supabase, initial.id, fields) : await addProfileClass(supabase, userId, fields);
       hapticTap();
-      onAdded(created, created.course_group_id ? `${created.code}-${created.section} added to ${created.term}. Your section's chat is in Messages.` : `${created.code} added to ${created.term}.`);
+      const movedChat = saved.course_group_id && saved.course_group_id !== initial?.course_group_id;
+      onSaved(
+        saved,
+        initial
+          ? movedChat
+            ? `${saved.code}-${saved.section} updated. Your new section's chat is in Messages.`
+            : `${saved.code} updated.`
+          : movedChat
+            ? `${saved.code}-${saved.section} added to ${saved.term}. Your section's chat is in Messages.`
+            : `${saved.code} added to ${saved.term}.`,
+      );
     } catch (e) {
-      setError(errorText(e, "Could not add the class. Try again."));
+      setError(errorText(e, initial ? "Could not save the class. Try again." : "Could not add the class. Try again."));
     } finally {
       setBusy(false);
     }
@@ -219,7 +276,7 @@ function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (
   return (
     <View style={styles.form}>
       <View style={styles.formHead}>
-        <Text style={styles.formTitle}>Add a class</Text>
+        <Text style={styles.formTitle}>{initial ? "Edit class" : "Add a class"}</Text>
         <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close" style={styles.formClose}>
           <Ionicons name="close" size={18} color={colors.text} />
         </Pressable>
@@ -345,7 +402,7 @@ function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (
         </View>
       </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Button title="Add" icon="add" onPress={() => void add()} loading={busy} />
+      <Button title={initial ? "Save" : "Add"} icon={initial ? "checkmark" : "add"} onPress={() => void save()} loading={busy} />
     </View>
   );
 }
@@ -481,11 +538,11 @@ const useStyles = makeStyles((colors) => ({
   group: { gap: 2 },
   term: { fontSize: 14, fontWeight: "700", color: colors.muted, marginBottom: 4 },
   classRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: 8 },
+  classRowPressed: { opacity: 0.7 },
   codeBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
   code: { fontSize: 15, fontWeight: "700", color: colors.text },
   title: { fontSize: 13, color: colors.muted },
   details: { fontSize: 12, color: colors.faint },
-  remove: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   form: { gap: space.md, padding: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   formHead: { flexDirection: "row", alignItems: "center" },
   formTitle: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.text },

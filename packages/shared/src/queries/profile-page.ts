@@ -76,6 +76,32 @@ export async function addProfileClass(
   return data;
 }
 
+/**
+ * Changes one of your classes. The database moves you between course chats when its term, code or section changes
+ * (migration 25's triggers), and refuses a code already on that semester's list, as it does when adding.
+ */
+export async function updateProfileClass(
+  supabase: Client,
+  id: string,
+  input: { term: string; code: string; title?: string | null; section?: string | null; meetings?: ClassMeeting[]; location?: string | null },
+): Promise<ProfileClass> {
+  const { data, error } = await supabase
+    .from("profile_classes")
+    .update({
+      term: input.term,
+      code: normalizeClassCode(input.code),
+      title: input.title?.trim() || null,
+      section: input.section ? normalizeClassSection(input.section) || null : null,
+      meetings: (input.meetings ?? []).map((m) => ({ days: sortWeekdays(m.days), start: m.start, end: m.end })),
+      location: input.location?.trim() || null,
+    })
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function removeProfileClass(supabase: Client, id: string): Promise<void> {
   const { error } = await supabase.from("profile_classes").delete().eq("id", id);
   if (error) throw error;

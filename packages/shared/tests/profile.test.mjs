@@ -57,6 +57,11 @@ test("subject and course number: tidied, checked, and joined into the class code
   assert.match(courseNumberProblem(""), /course number/);
   assert.match(courseNumberProblem("CS"), /digits/);
   assert.match(courseNumberProblem("3358!"), /digits/);
+  const { splitClassCode } = await import("../src/profile.ts");
+  assert.deepEqual(splitClassCode("CS 3358"), { subject: "CS", number: "3358" });
+  assert.deepEqual(splitClassCode("phys 1315L"), { subject: "PHYS", number: "1315L" });
+  assert.deepEqual(splitClassCode("cs3358"), { subject: "CS", number: "3358" });
+  assert.deepEqual(splitClassCode(splitClassCode("MATH 3398").subject + " " + splitClassCode("MATH 3398").number), { subject: "MATH", number: "3398" });
 });
 
 test("sections and course chat names: trimmed and upper-cased, checked like the database, named like it", async () => {

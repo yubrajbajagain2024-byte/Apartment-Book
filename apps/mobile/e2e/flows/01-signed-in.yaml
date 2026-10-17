@@ -73,22 +73,25 @@ env:
     visible: "Edit profile"
     timeout: 15000
 # Classes: "Add class" opens the form with this semester picked; type the subject, the course number and a section, Add, and
-# the form closes with the class listed under it with its remove button. Remove it again so the flow can run again and again
-# (one left by a run that stopped halfway goes first). The subject and number boxes are found by their placeholders ("CS",
-# "3358"), because "Subject" and "Course number" also name the labels above them. A tap on the form's title puts the
-# keyboard away, so Add is never under it. The Add class and Add buttons show an icon, which can come first in their
-# accessibility names: hence the leading ".*".
+# the form closes with the class listed under it. Delete it again so the flow can run again and again (one left by a run
+# that stopped halfway goes first): a hold on the class card opens Edit / Delete, and Delete asks first. The card's name is
+# its code, then its title and details after commas ("CS 1428, Section 001"): hence the "(, .*)?". The subject and number
+# boxes are found by their placeholders ("CS", "3358"), because "Subject" and "Course number" also name the labels above
+# them. A tap on the form's title puts the keyboard away, so Add is never under it. The Add class and Add buttons show an
+# icon, which can come first in their accessibility names: hence the leading ".*".
 - tapOn: "Classes"
 - extendedWaitUntil:
     visible: ".*Add class"
     timeout: 15000
 - runFlow:
     when:
-      visible: "Remove CS 1428"
+      visible: "CS 1428(, .*)?"
     commands:
-      - tapOn: "Remove CS 1428"
+      - longPressOn: "CS 1428(, .*)?"
+      - tapOn: "Delete class"
+      - tapOn: "Delete"
       - extendedWaitUntil:
-          notVisible: "Remove CS 1428"
+          notVisible: "CS 1428(, .*)?"
           timeout: 15000
 - tapOn: ".*Add class"
 - tapOn: "CS"
@@ -101,12 +104,13 @@ env:
 - tapOn: "Add a class"
 - tapOn: ".*Add"
 - extendedWaitUntil:
-    visible: "Remove CS 1428"
+    visible: "CS 1428(, .*)?"
     timeout: 30000
-- assertVisible: "CS 1428"
-- tapOn: "Remove CS 1428"
+- longPressOn: "CS 1428(, .*)?"
+- tapOn: "Delete class"
+- tapOn: "Delete"
 - extendedWaitUntil:
-    notVisible: "Remove CS 1428"
+    notVisible: "CS 1428(, .*)?"
     timeout: 15000
 # Saved is only yours until you change it (the default), and the line at the top of the tab says so.
 - tapOn: "Saved"
