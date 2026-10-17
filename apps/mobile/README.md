@@ -104,7 +104,10 @@ friends online now sits above the chats (photo, name, the time at the right, the
 rows; no @usernames anywhere in Messages, names only, though typing a handle still finds the chat). A long press on a row (or Chat
 info) mutes that person's messages everywhere or that group, and a group also offers every group chat at once, each for 1, 8 or
 24 hours or until unmuted (`src/lib/use-mutes.ts`, migration 26: the message and the unread count still arrive, only the notice is
-withheld); a muted chat shows a small bell-slash after its name. Requests holds the direct chats that people you do not follow started with you, until you reply or follow them
+withheld); a muted chat shows a small bell-slash after its name. While Unread is chosen and lists something, a "Mark all as
+read" pill floats above the bottom bar, as in GroupMe: one tap marks every chat it lists read in one call
+(`mark_conversations_read`, migration 27), the rows and the Messages badge clearing at once (`reportMessagesRead` in
+`src/lib/use-unread.ts`) and the server catching up behind. Requests holds the direct chats that people you do not follow started with you, until you reply or follow them
 (`src/lib/use-message-requests.ts`: nothing is stored for it, it is read off the chats, the follow stats and whether you
 have written in each, so every device agrees). Searching looks only in the page on screen.
 

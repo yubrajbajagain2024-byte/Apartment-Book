@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { SquarePen, Users } from "lucide-react";
-import type { ConversationSummary } from "@apartment-book/shared";
+import { markConversationsRead, type ConversationSummary } from "@apartment-book/shared";
 import { useHydrated } from "@/lib/hooks";
 import { createClient, ensureRealtimeAuth, uniqueChannelName } from "@/lib/supabase/client";
 import { cn, timeAgo } from "@/lib/utils";
@@ -33,6 +33,22 @@ export function ConversationList({ conversations, currentUserId }: { conversatio
   const router = useRouter();
   const hydrated = useHydrated();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [marking, setMarking] = useState(false);
+  const unreadIds = conversations.filter((c) => c.unreadCount > 0).map((c) => c.id);
+
+  // "Mark all as read": one call for every unread chat (migration 27), then the list and the Messages badge re-read the server.
+  const markAllRead = async () => {
+    if (marking || unreadIds.length === 0) return;
+    setMarking(true);
+    try {
+      await markConversationsRead(createClient(), unreadIds);
+      router.refresh();
+    } catch {
+      // The counts stay as they are; the next refresh tells the truth.
+    } finally {
+      setMarking(false);
+    }
+  };
 
   // Refresh the list (previews, order, unread counts) when anything changes.
   useEffect(() => {
@@ -62,9 +78,16 @@ export function ConversationList({ conversations, currentUserId }: { conversatio
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-4 py-3">
         <h1 className="text-xl font-bold">Chats</h1>
-        <Link href="/messages/new" className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200" aria-label="New message">
-          <SquarePen className="h-5 w-5" />
-        </Link>
+        <div className="flex items-center gap-1">
+          {unreadIds.length > 0 ? (
+            <button type="button" onClick={markAllRead} disabled={marking} className="h-9 rounded-full px-3 text-sm font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-50">
+              Mark all as read
+            </button>
+          ) : null}
+          <Link href="/messages/new" className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200" aria-label="New message">
+            <SquarePen className="h-5 w-5" />
+          </Link>
+        </div>
       </div>
       <ul className="scrollbar-thin flex-1 overflow-y-auto px-2 pb-2">
         {conversations.length === 0 ? (
