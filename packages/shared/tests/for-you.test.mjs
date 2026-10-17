@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { blendForYou, forYouKey } from "../src/for-you.ts";
-import { DEFAULT_HOME_SECTION, DEFAULT_HOUSING_SECTION, FOR_YOU_PAGE, HOME_SECTIONS, HOUSING_SECTIONS, homeSectionHref, housingSectionHref } from "../src/constants.ts";
+import { DEFAULT_HOME_SECTION, DEFAULT_HOUSING_SECTION, FOR_YOU_PAGE, HOME_SECTIONS, HOME_TABS, HOUSING_SECTIONS, homeSectionHref, housingSectionHref } from "../src/constants.ts";
 
 const post = (id, kind = "post") => ({ id, kind, body: id, author: { id: "u", full_name: "U", avatar_url: null }, university: null });
 const buzz = (id) => ({ id, topic: "advice", title: id, body: "", score: 0, commentCount: 0, createdAt: "", myVote: 0, isMine: false, alias: "Student 1" });
@@ -10,6 +10,8 @@ const shape = (items) => items.map((i) => (i.type === "buzz" ? "B" : i.post.kind
 
 test("the Home tabs are For you | Buzz | Posts | Reels and land on For you", () => {
   assert.deepEqual(HOME_SECTIONS.map((s) => s.label), ["For you", "Buzz", "Posts", "Reels"]);
+  assert.deepEqual(HOME_TABS.map((s) => s.label), ["For you", "Buzz", "Reels"]);
+  assert.equal(homeSectionHref("posts"), "/?tab=posts");
   assert.equal(DEFAULT_HOME_SECTION, "foryou");
   assert.equal(HOME_SECTIONS[0].value, DEFAULT_HOME_SECTION);
 });

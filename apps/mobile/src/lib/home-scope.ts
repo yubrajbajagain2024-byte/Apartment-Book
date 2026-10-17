@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * What Home shows, chosen from the dropdown on the "For you" label (your university by name | All Universities | Following): `campus`
+ * What Home shows, chosen on the Campus | Global toggle under the Home labels (and "Following" while Posts has a tab): `campus`
  * is the person's own university or every university, `following` keeps Posts to the people they follow. One store for
  * the whole app, so For you, Buzz, Posts and Reels follow the same choice and it survives leaving the Home tab. Someone without a university (signed out, or none on the profile) sees every campus whatever `campus` says:
  * the sections pass no university in that case.

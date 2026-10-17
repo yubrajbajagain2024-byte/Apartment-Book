@@ -1,11 +1,11 @@
-# Signed-out tour: Home (For you | Buzz | Posts | Reels beside your photo and its feed menu: opens on For you, the pager swipes between them), Search (the second bottom
+# Signed-out tour: Home (For you | Buzz | Reels beside your photo, the Campus | Global toggle under them for anyone with a university: opens on For you, the pager swipes between them), Search (the second bottom
 # tab: it lists people to follow), the Notifications bell in Home's top-right corner (signed out it asks to log in), Messages (bottom tab: asks to log in),
 # Explore (Room | Roommate | Marketplace: opens on Room, same pager), and the sign-in prompt on the Profile tab.
 # The bottom bar is Home, Explore, Messages, Profile. Needs the seeded sample posts (node e2e/sim-seed.mjs).
 appId: host.exp.Exponent
 ---
 - extendedWaitUntil:
-    visible: "Continue|Posts"
+    visible: "Continue|Buzz"
     timeout: 120000
 - runFlow:
     when:
@@ -32,16 +32,13 @@ appId: host.exp.Exponent
 - assertVisible: "Reels"
 - takeScreenshot: e2e/screenshots/01-home-foryou
 # The top bar has two rows like X's: your photo in a gradient ring ("Your profile") opens your profile, the CampConnect
-# wordmark in the middle, Search on the right; then the four labels. "For you" carries a chevron: tapped while already on
-# For you it drops down the feed menu. The "+" badge on the photo ("Create") opens the create sheet. Signed out there is no university of your own and nobody you follow, so the menu offers "All Universities"
-# alone; a tap on the see-through backdrop ("Close") puts it away.
-- tapOn: "For you"
-- assertVisible: "All Universities"
-- assertNotVisible: "Following"
-- takeScreenshot: e2e/screenshots/01-home-feed-menu
-- tapOn: "Close"
-- assertNotVisible: "All Universities"
-# The four pages sit side by side in a pager: a flick to the left slides from For you to Buzz. The flick starts on the
+# wordmark in the middle, the bell on the right; then the three labels, and under them the Campus | Global toggle for
+# anyone with a university. The "+" badge on the photo ("Create") opens the create sheet. Signed out there is no campus
+# to pick, so the toggle is not drawn.
+- assertNotVisible: "Campus"
+- assertNotVisible: "Global"
+- takeScreenshot: e2e/screenshots/01-home-bar
+# The three pages sit side by side in a pager: a flick to the left slides from For you to Buzz. The flick starts on the
 # seeded Buzz row (centred first), because a photo carousel keeps horizontal swipes for itself (04-posts-look relies on that).
 - scrollUntilVisible:
     element: ".*Landlord wants to keep my whole deposit.*"
@@ -91,8 +88,8 @@ appId: host.exp.Exponent
     visible: "Search people"
     timeout: 30000
 - takeScreenshot: e2e/screenshots/07-search-people
-# Explore (housing.tsx): its own top bar ("Find", the magnifier at the right is the search of the half on screen, labelled
-# "Search apartments" or "Search roommate posts"). The bottom tab opens on Room (apartments); the "Roommate" label above the
+# Explore (housing.tsx): its own top bar ("Find", then Room | Roommate | Marketplace, then the search box of the page on
+# screen, named "Search apartments", "Search roommate posts" or "Search marketplace", then the pills). The bottom tab opens on Room (apartments); the "Roommate" label above the
 # pager slides to the other half and a flick to the right brings Room back. The floating "+" follows the visible half.
 - tapOn: "Explore.*"
 - extendedWaitUntil:

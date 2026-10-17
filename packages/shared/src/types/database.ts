@@ -1048,6 +1048,41 @@ export type Database = {
           },
         ];
       };
+      notification_mutes: {
+        Row: {
+          id: string;
+          user_id: string;
+          scope: string;
+          target_id: string | null;
+          until: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          scope: string;
+          target_id?: string | null;
+          until?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          scope?: string;
+          target_id?: string | null;
+          until?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notification_mutes_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       notifications: {
         Row: {
           id: string;

@@ -32,15 +32,16 @@ notification the database keeps for you (`src/app/notifications.tsx`: new messag
 saves of your listings, places near campus, newest first, the unread ones tinted); tapping one marks it read and opens what
 it is about, "Mark all read" sits in the header, and the bell's badge counts the unread live. Home opens on **For you**, a blend of posts, reels and hot anonymous Buzz threads
 (the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
-four pages, For you | Buzz | Posts | Reels, sit side by side in a pager: swipe left or right to move
+three pages, For you | Buzz | Reels, sit side by side in a pager (Posts is a section without a tab: `HIDDEN_HOME_SECTIONS` in the shared constants keeps it out of the row and the pager while its feed, the post features and the data stay; its Following filter is reachable on the website's `/?tab=posts`): swipe left or right to move
 between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in a teal-to-violet
 ring on the left, which opens your profile, with Instagram's small "+" badge on its corner that opens the create sheet
 (Post / Reel / Buzz; over Reels the bar's left slot holds a white "+" instead), the CampConnect wordmark in the middle (it
-reads "Following" while that feed shows) and Search on the right; then the four labels spread across the row
+reads "Following" while that feed shows) and Search on the right; then the three labels spread across the row
 (`src/components/sliding-tabs.tsx`): the active one bold with a rounded violet underline as wide as the label, sliding
-with the finger over a hairline, and a soft haptic each time the section changes, by tap or swipe. "For you" carries a small chevron: tapped
-while For you is on screen it drops down the feed menu, which chooses your university by name, All Universities or, signed in,
-Following (only the posts of people you follow; it switches to Posts); the choice scopes For you, Buzz, Posts and Reels alike.
+with the finger over a hairline, and a soft haptic each time the section changes, by tap or swipe. Under the labels sits the Campus | Global
+toggle, a small segmented pill whose thumb slides to the choice: Campus is your own university, Global every university (and,
+only while Posts has a tab, Following: the posts of people you follow, which switches to Posts); the choice scopes For you,
+Buzz, Posts and Reels alike (`src/lib/home-scope.ts`). Someone without a university has nothing to choose, so the row is not drawn.
 The bar scrolls like Instagram's (`src/lib/collapsing-header.ts`): it slides up out of the way as the page on screen
 scrolls down, by as much as the page moved, and slides back the moment the page scrolls up, however far down it is; a
 swipe or a tap between pages brings it back too, and Reels never moves it. The same goes for the Room | Roommate | Marketplace
@@ -50,8 +51,10 @@ scrolls up. The bottom bar never moves. The choice lives in
 `src/lib/home-scope.ts` and drives For you, Buzz and Posts alike: the pages have no filter chips of their own.
 Housing (the Explore tab, with a compass icon) works the same way with three pages,
 **Room | Roommate | Marketplace** (apartments, roommates, items), under its own top bar laid out like the inbox's (`src/app/(tabs)/housing.tsx`): the big
-"Find" title with the magnifier at the right
-(a tap turns the row into the search box of the page on screen), the three labels with the sliding violet underline, and the
+"Find" title, the three labels with the sliding violet underline, the inbox's search box (searching the page on screen) with a
+round filter button beside it (`src/components/housing/filter-sheet.tsx`: a sheet of the page's own filters, applied on "Show
+results", counted on the button; rooms sort, bedrooms, rent, distance from campus, furnished, pets and video tours; roommate
+posts a budget cap, who the post is open to, distance and video; items sort, condition and price), and the
 pills that narrow the page (All on Room, All | Has a room | Looking for a room on Roommate, All and the item
 categories on Marketplace); the labels and the pills slide up under the title as the page scrolls. It opens on Room, a swipe or a tap on the label above the
 pager moves to Roommate or the Marketplace and back (one clear haptic each time the page changes, by tap or swipe, like
@@ -63,7 +66,7 @@ once typing pauses, a spinner in the box meanwhile) and "Sell an item", a page a
 `/marketplace` address redirects to it.
 Profiles work like Instagram too: a Follow button (it reads "Following" once you follow), follower / following
 counts that open your own two lists (on anyone else's profile, the friends you have in common, since who follows whom
-is private; signed out, a log-in prompt), and, signed in, the Following row of the Home feed menu, which keeps only the
+is private; signed out, a log-in prompt), and, signed in, the Following segment of the Home toggle (while Posts has a tab), which keeps only the
 posts of people you follow on Posts. Builds from before private follower lists show empty lists on other people's
 profiles once migration 21 is live, so publish this code (`npx eas-cli@latest update --channel preview`) right after
 applying it. Comments open in a TikTok-style sheet: "N comments" up top with a Top / Newest sort, each comment with
@@ -98,7 +101,10 @@ The Messages tab is the inbox (`src/app/(tabs)/messages.tsx`): the new-message p
 Requests pills (each with its count; Requests on Chats only), then the two pages side by side in a pager like Home's: a
 swipe or a tap on a label moves between your direct chats and your group chats, with the same knock. On Chats the row of
 friends online now sits above the chats (photo, name, the time at the right, the last message under it, a hairline between
-rows). Requests holds the direct chats that people you do not follow started with you, until you reply or follow them
+rows; no @usernames anywhere in Messages, names only, though typing a handle still finds the chat). A long press on a row (or Chat
+info) mutes that person's messages everywhere or that group, and a group also offers every group chat at once, each for 1, 8 or
+24 hours or until unmuted (`src/lib/use-mutes.ts`, migration 26: the message and the unread count still arrive, only the notice is
+withheld); a muted chat shows a small bell-slash after its name. Requests holds the direct chats that people you do not follow started with you, until you reply or follow them
 (`src/lib/use-message-requests.ts`: nothing is stored for it, it is read off the chats, the follow stats and whether you
 have written in each, so every device agrees). Searching looks only in the page on screen.
 
@@ -127,8 +133,8 @@ screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.de
 ```bash
 cd apps/mobile
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts (the test account and Leo follow each other, so Leo is a friend to share with; Maya lists CS 3358 and MATH 3398 for this semester, visible to everyone); prints the login, writes e2e/.sim-state.json
-e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you, opens the feed menu (All Universities alone, signed out), swipes to Buzz, opens Notifications from the bell in Home's top-right corner (signed out: the log-in prompt), Search (bottom tab: the people list), Messages (bottom tab), Explore (Room, Roommate, swipe back, Marketplace), Profile (several flows at once is fine)
-EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # your own profile (adds CS 1428 under Classes and removes it, Saved says only you can see it), then likes, comments (write, heart, reply, delete from the hold menu), shares the top post with Leo and finds the card in your chat with him (Messages), votes, replies, Following from the feed menu (Leo's post alone, then Maya's too once she is followed), follows and unfollows Maya (her Classes tab shows CS 3358, her Listings tab her apartment), opens your own Followers (Leo) and Maya's Mutual friends (none: Leo follows her one way), as the seeded account
+e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you (no Campus | Global toggle signed out), swipes to Buzz, opens Notifications from the bell in Home's top-right corner (signed out: the log-in prompt), Search (bottom tab: the people list), Messages (bottom tab), Explore (Room, Roommate, swipe back, Marketplace), Profile (several flows at once is fine)
+EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # your own profile (adds CS 1428 under Classes and removes it, Saved says only you can see it), then likes, comments (write, heart, reply, delete from the hold menu), shares the top post with Leo and finds the card in your chat with him (Messages), votes, replies, the Campus | Global toggle under the labels, follows and unfollows Maya (her Classes tab shows CS 3358, her Listings tab her apartment), opens your own Followers (Leo) and Maya's Mutual friends (none: Leo follows her one way), as the seeded account
 node e2e/sim-seed-thread.mjs                            # nested replies and votes for 03-buzz-thread.yaml
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards
 ```

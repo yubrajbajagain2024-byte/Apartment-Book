@@ -45,13 +45,13 @@ export function InboxAvatar({ conversation: c, size = INBOX_AVATAR }: { conversa
 }
 
 /**
- * One chat in the inbox: the photo, then the name in bold (a small violet people mark after it for a group, the
- * @username while there is room for a direct chat) with the short time ("3h") at the right, the last message in grey under
+ * One chat in the inbox: the photo, then the name in bold (a small violet people mark after it for a group, a small
+ * bell-slash while its notices are muted) with the short time ("3h") at the right, the last message in grey under
  * it (the server writes "Sent a photo" and the like), and for unread chats bolder text and the blue count. A hairline
  * runs under the words, from the photo's right edge. Long press (or the screen reader's action) opens `onMenu`.
  * The label stays "Chat with <name>": the end-to-end flows tap rows by it.
  */
-export const InboxRow = memo(function InboxRow({ conversation: c, username, now, onOpen, onMenu }: { conversation: ConversationSummary; username: string | null; now: number; onOpen: (c: ConversationSummary) => void; onMenu?: (c: ConversationSummary) => void }) {
+export const InboxRow = memo(function InboxRow({ conversation: c, muted = false, now, onOpen, onMenu }: { conversation: ConversationSummary; muted?: boolean; now: number; onOpen: (c: ConversationSummary) => void; onMenu?: (c: ConversationSummary) => void }) {
   const styles = useStyles();
   const colors = useColors();
   const unread = c.unreadCount > 0;
@@ -65,7 +65,7 @@ export const InboxRow = memo(function InboxRow({ conversation: c, username, now,
       delayLongPress={350}
       accessibilityRole="button"
       accessibilityLabel={`Chat with ${c.title}`}
-      accessibilityHint={`${unread ? `${count} unread. ` : ""}${preview}${time ? `, ${time}` : ""}`}
+      accessibilityHint={`${muted ? "Muted. " : ""}${unread ? `${count} unread. ` : ""}${preview}${time ? `, ${time}` : ""}`}
       accessibilityActions={onMenu ? [{ name: "longpress", label: "Chat options" }] : undefined}
       onAccessibilityAction={(e) => {
         if (e.nativeEvent.actionName === "longpress") onMenu?.(c);
@@ -83,11 +83,7 @@ export const InboxRow = memo(function InboxRow({ conversation: c, username, now,
               <Ionicons name="people" size={11} color={colors.accent} />
             </View>
           ) : null}
-          {username ? (
-            <Text style={styles.handle} numberOfLines={1}>
-              @{username}
-            </Text>
-          ) : null}
+          {muted ? <Ionicons name="notifications-off-outline" size={14} color={colors.muted} accessibilityLabel="Muted" /> : null}
           <View style={{ flex: 1 }} />
           {time ? <Text style={styles.time}>{time}</Text> : null}
         </View>
@@ -148,8 +144,8 @@ export const InboxMessageRow = memo(function InboxMessageRow({ message: m, conve
   );
 });
 
-/** A person to start a chat with (the new-chat screen): photo, name, @username, and a spinner while the chat opens. */
-export function InboxPersonRow({ person: p, username, busy = false, disabled = false, onPress }: { person: ProfileSummary; username: string | null; busy?: boolean; disabled?: boolean; onPress: () => void }) {
+/** A person to start a chat with (the new-chat screen): photo and name, and a spinner while the chat opens. */
+export function InboxPersonRow({ person: p, busy = false, disabled = false, onPress }: { person: ProfileSummary; busy?: boolean; disabled?: boolean; onPress: () => void }) {
   const styles = useStyles();
   const colors = useColors();
   return (
@@ -159,11 +155,6 @@ export function InboxPersonRow({ person: p, username, busy = false, disabled = f
         <Text style={styles.name} numberOfLines={1}>
           {p.full_name}
         </Text>
-        {username ? (
-          <Text style={styles.preview} numberOfLines={1}>
-            @{username}
-          </Text>
-        ) : null}
       </View>
       {busy ? <ActivityIndicator color={colors.muted} style={{ marginRight: GUTTER }} /> : null}
     </Pressable>
@@ -204,11 +195,10 @@ const useStyles = makeStyles((colors) => ({
   body: { flex: 1, minWidth: 0, gap: 3, paddingVertical: 14, paddingRight: GUTTER, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   personBody: { paddingVertical: 10 },
   topLine: { flexDirection: "row", alignItems: "center", gap: 6 },
-  // Shrinks first, so a long name ends in "…" while the mark, the handle and the time keep their place.
+  // Shrinks first, so a long name ends in "…" while the mark, the bell and the time keep their place.
   name: { flexShrink: 1, fontSize: 16, fontWeight: "700", color: colors.text },
   nameUnread: { fontWeight: "800" },
   tag: { width: 20, height: 20, borderRadius: 6, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
-  handle: { flexShrink: 1, fontSize: 13, color: colors.muted },
   time: { flexShrink: 0, fontSize: 13, color: colors.muted },
   previewLine: { flexDirection: "row", alignItems: "center", gap: 10 },
   preview: { flex: 1, fontSize: 14, lineHeight: 19, color: colors.muted },

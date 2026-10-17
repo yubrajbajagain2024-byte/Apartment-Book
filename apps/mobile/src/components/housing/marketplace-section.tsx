@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Keyboard, RefreshControl, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { campusShortName, ITEM_CATEGORIES, labelFor, listItems, type ItemCategoryValue, type ItemWithSeller } from "@apartment-book/shared";
+import type { MarketFilters } from "@/components/housing/filter-sheet";
 import type { CampusChoice } from "@/components/marketplace/campus-menu";
 import { categoryIcon, MarketItemCard } from "@/components/marketplace/item-card";
 import { useItemLikes } from "@/components/marketplace/use-item-likes";
@@ -51,6 +52,8 @@ export function MarketplaceSection({
   category,
   onCategoryChange,
   onSearchBusy,
+  filters,
+  filtered,
 }: {
   topInset: number;
   onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
@@ -59,6 +62,9 @@ export function MarketplaceSection({
   category: ItemCategoryValue | null;
   onCategoryChange: (category: ItemCategoryValue | null) => void;
   onSearchBusy?: (busy: boolean) => void;
+  /** The filter sheet's choices for this page: sort, condition and price. */
+  filters: MarketFilters;
+  filtered: boolean;
 }) {
   const styles = useStyles();
   const colors = useColors();
@@ -77,7 +83,7 @@ export function MarketplaceSection({
   const settled = useSettled(typed, SEARCH_DELAY_MS);
 
   // Another category, campus or search empties the grid at once (its spinner shows) instead of keeping the old cards.
-  const feed = useFeed<ItemWithSeller>((page) => listItems(supabase, { q: settled || undefined, universityId, category: category ?? undefined, page, pageSize: PAGE_SIZE }), [settled, universityId, category], { clearOnChange: true });
+  const feed = useFeed<ItemWithSeller>((page) => listItems(supabase, { q: settled || undefined, universityId, category: category ?? undefined, page, pageSize: PAGE_SIZE, sort: filters.sort, condition: filters.condition, minPrice: filters.minPrice, maxPrice: filters.maxPrice }), [settled, universityId, category, filters.sort, filters.condition, filters.minPrice, filters.maxPrice], { clearOnChange: true });
   const { liked, toggle: toggleLike, refresh: refreshLikes } = useItemLikes(feed.items, userId);
   // The grid starts under the floating labels and pills and scrolls beneath them as they slide away.
   const inset = useMemo(() => listInset(topInset), [topInset]);
@@ -93,7 +99,7 @@ export function MarketplaceSection({
   const list = useRef<FlatList<ItemWithSeller>>(null);
   useEffect(() => {
     list.current?.scrollToOffset({ offset: inset.topOffset, animated: false });
-  }, [settled, universityId, category, inset.topOffset]);
+  }, [settled, universityId, category, filters, inset.topOffset]);
 
   // Coming back (from an item, say, where it may have been liked or unliked): read the hearts again. Not on the first visit.
   const visited = useRef(false);
@@ -149,6 +155,7 @@ export function MarketplaceSection({
           action={category ? <Button title="Search all categories" variant="secondary" onPress={() => onCategoryChange(null)} /> : undefined}
         />
       );
+    if (filtered) return <EmptyState icon="search-outline" title="Nothing matches" body={`Nothing${category ? ` in ${categoryLabel}` : ""}${where} fits these filters. Try fewer.`} />;
     if (category) return <EmptyState icon={categoryIcon(category)} title="Nothing here yet" body={`Nobody is selling ${categoryLabel.toLowerCase()}${where} right now.`} action={<Button title="Sell an item" onPress={sell} />} />;
     return <EmptyState icon="bag-handle-outline" title="Nothing for sale yet" body="Moving out? Sell your mattress, desk or textbooks here." action={<Button title="Sell an item" onPress={sell} />} />;
   }

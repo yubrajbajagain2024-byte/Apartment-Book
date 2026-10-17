@@ -9,6 +9,7 @@ export * from "./storage";
 export * from "./push-tokens";
 export * from "./media";
 export * from "./notifications";
+export * from "./mutes";
 export * from "./stats";
 export * from "./engagement";
 export * from "./presence";

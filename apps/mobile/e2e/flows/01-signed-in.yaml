@@ -1,4 +1,4 @@
-# Signed-in tour: your own profile first (Edit profile, Share profile, Leo in your own Followers, the Listings tab after Liked and no classes card; add CS 1428 under Classes and remove it again; Saved says only you can see it), then the new Home: like a post, comment on it (heart, reply, delete from the hold menu), share it with Leo (a friend: the seed has him and this account follow each other) and find it as a card in your chat with him, vote and reply anonymously in Buzz, watch a reel, reach the profile, see Leo's post alone under Following (the feed menu next to the wordmark), follow Maya (her Followers count opens only the friends you have in common, none, since her lists are hers alone; her Classes tab shows the classes the seed lists for her, her Listings tab her apartment) and see hers join it, unfollow.
+# Signed-in tour: your own profile first (Edit profile, Share profile, Leo in your own Followers, the Listings tab after Liked and no classes card; add CS 1428 under Classes and remove it again; Saved says only you can see it), then the new Home: like a post, comment on it (heart, reply, delete from the hold menu), share it with Leo (a friend: the seed has him and this account follow each other) and find it as a card in your chat with him, vote and reply anonymously in Buzz, watch a reel, reach the profile, flip the Campus | Global toggle under the labels, follow Maya from her post on For you (her Followers count opens only the friends you have in common, none, since her lists are hers alone; her Classes tab shows the classes the seed lists for her, her Listings tab her apartment) and see hers join it, unfollow.
 # Needs test data: SUPABASE_ACCESS_TOKEN=... node e2e/sim-seed.mjs   (then pass EMAIL and PASSWORD from its output)
 appId: host.exp.Exponent
 env:
@@ -126,10 +126,8 @@ env:
       visible: "Not Now"
     commands:
       - tapOn: "Not Now"
-# Home opens on For you; the Posts checks below need the Posts page itself.
-- tapOn: "Posts"
-- waitForAnimationToEnd
-# Posts (Instagram style): the newest post is a three-photo post liked by two other people.
+# Home opens on For you, whose first card is the newest post (the blend always starts with a post; Posts has no tab of its own).
+# The post card (Instagram style): the newest post is a three-photo post liked by two other people.
 - extendedWaitUntil:
     visible: "Post: Move-in day at the new place.*"
     timeout: 30000
@@ -249,7 +247,7 @@ env:
     notVisible: "Search friends"
     timeout: 30000
 # Leo has it in your chat with him (Messages, the third bottom tab): the post as a card, labelled "View post: …" (a tap
-# opens the post), with the words as a bubble under it. The left-edge swipe pops the chat on iOS; Home is still on Posts.
+# opens the post), with the words as a bubble under it. The left-edge swipe pops the chat on iOS; Home is still on For you.
 - tapOn: "Messages.*"
 - extendedWaitUntil:
     visible: "Chat with UI Leo"
@@ -266,7 +264,6 @@ env:
     duration: 400
 - waitForAnimationToEnd
 - tapOn: "Home.*"
-- tapOn: "Posts"
 - waitForAnimationToEnd
 # Further down: a post with comments shows "View all 2 comments" and the newest one.
 - scrollUntilVisible:
@@ -304,45 +301,20 @@ env:
 - assertVisible: "Post options"
 - takeScreenshot: e2e/screenshots/12-buzz-thread
 # Following, like Instagram. The thread is a stacked screen without the bottom tabs: Close brings Home back (the pager is
-# still on Buzz). Following is a row of the menu that drops down from the "For you" label (tapped while on For you). Before Maya
-# is followed it holds Leo's three-photo post (the seed has him and this account follow each other) and nothing of hers: the
-# scroll would bring her words-only post into view if it were there, and notVisible waits because the campus list stays on
-# screen until the Following one has loaded. Then, back on the campus, scroll to the top (Leo's three-photo post) and down to
-# the first post whose header reads "UI Maya": tapping the name opens her profile. Follow her, look at the Following feed
-# again, then unfollow again so the flow can run again and again.
+# still on Buzz). Back on For you, scroll to the top (Leo's three-photo post) and down to the first post whose header reads
+# "UI Maya": tapping the name opens her profile. Follow her, then unfollow again so the flow can run again and again. (The
+# Following feed itself lives on the website's Posts page while Posts has no tab in the app.)
 - tapOn: "Close"
 - extendedWaitUntil:
     visible: "Home.*"
     timeout: 15000
-- tapOn: "Posts"
-- waitForAnimationToEnd
 - tapOn: "For you"
-- waitForAnimationToEnd
-- tapOn: "For you"
-- tapOn: "Following"
 - waitForAnimationToEnd
 - scrollUntilVisible:
     element: "1 of 3"
     direction: UP
     timeout: 30000
 - assertVisible: "Post: Move-in day at the new place.*"
-- scroll
-- extendedWaitUntil:
-    notVisible: "Post: Does anyone know if the rec center.*"
-    timeout: 15000
-- assertNotVisible: "Post: First week back on campus.*"
-# The top bar slid away with the scroll (Instagram style): a scroll up brings it back.
-- scrollUntilVisible:
-    element: "For you"
-    direction: UP
-    timeout: 15000
-- tapOn: "For you"
-- waitForAnimationToEnd
-- tapOn: "For you"
-- tapOn: "Texas State University"
-- scrollUntilVisible:
-    element: "1 of 3"
-    direction: UP
 - scrollUntilVisible:
     element: "UI Maya"
     direction: DOWN
@@ -388,10 +360,9 @@ env:
     visible: "Following"
     timeout: 15000
 - takeScreenshot: e2e/screenshots/16-profile-following
-# The Following feed again, from the menu that drops down from the "For you" label (the Posts page has no chips of its own).
-# Back on Home (the left-edge swipe pops the profile on iOS; the pager is still on Posts), a tap on "For you" moves there and
-# a second one opens the menu: the seeded account's university, "All Universities" and "Following". Following
-# keeps Posts to the people you follow: now Maya's words-only post shows too, under Leo's three-photo post.
+# The Campus | Global toggle under the labels (the seeded account has a university, so both segments show; no "Following"
+# segment, which went with the Posts tab). Back on Home (the left-edge swipe pops the profile on iOS; the pager is still
+# on For you), Global widens the feed to every university and Campus brings it back.
 - swipe:
     start: "2%,45%"
     end: "90%,45%"
@@ -404,26 +375,14 @@ env:
     timeout: 15000
 - tapOn: "For you"
 - waitForAnimationToEnd
-- tapOn: "For you"
-- assertVisible: "All Universities"
-- takeScreenshot: e2e/screenshots/18-feed-menu
-- tapOn: "Following"
+- assertVisible: "Campus"
+- assertVisible: "Global"
+- assertNotVisible: "Following"
+- tapOn: "Global"
 - waitForAnimationToEnd
-- scrollUntilVisible:
-    element: "Post: Does anyone know if the rec center.*"
-    direction: UP
-    timeout: 30000
-- takeScreenshot: e2e/screenshots/19-posts-following
-# Back to the whole campus (the row reads the profile's university, Texas State for every ui-sim account): the choice lives
-# in memory for as long as the app runs, and the flows after this one expect the usual Posts page.
-- scrollUntilVisible:
-    element: "For you"
-    direction: UP
-    timeout: 15000
-- tapOn: "For you"
+- takeScreenshot: e2e/screenshots/18-scope-global
+- tapOn: "Campus"
 - waitForAnimationToEnd
-- tapOn: "For you"
-- tapOn: "Texas State University"
 - scrollUntilVisible:
     element: "Post: Move-in day at the new place.*"
     direction: UP

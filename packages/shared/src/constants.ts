@@ -161,6 +161,13 @@ export const HOME_SECTIONS = [
 export type HomeSection = (typeof HOME_SECTIONS)[number]["value"];
 export const DEFAULT_HOME_SECTION: HomeSection = "foryou";
 /**
+ * Sections that stay out of the tab row (and the app's pager): Posts is still a section with its address (/?tab=posts),
+ * its feed and its data, and the For you blend keeps carrying posts; it just has no tab of its own.
+ */
+export const HIDDEN_HOME_SECTIONS: readonly HomeSection[] = ["posts"];
+/** The tabs Home shows, left to right: For you | Buzz | Reels. */
+export const HOME_TABS = HOME_SECTIONS.filter((s) => !HIDDEN_HOME_SECTIONS.includes(s.value));
+/**
  * Where a Home section lives on the website. The landing section keeps the clean "/" address, the others
  * use ?tab=. Extra parameters (for example { university: "all" }) are kept; empty ones are dropped.
  */
@@ -216,3 +223,11 @@ export const BUZZ_SORTS = [
 /** Buzz photos are re-encoded on the device before upload so camera metadata (GPS, device) cannot identify the author. */
 export const BUZZ_IMAGE_MAX_DIMENSION = 2560;
 export const BUZZ_IMAGE_QUALITY = 0.9;
+
+/** How long a mute lasts; "forever" is until unmuted. */
+export const MUTE_DURATIONS = [
+  { value: "1h", label: "1 hour", hours: 1 },
+  { value: "8h", label: "8 hours", hours: 8 },
+  { value: "24h", label: "24 hours", hours: 24 },
+  { value: "forever", label: "Until unmuted", hours: null },
+] as const;
