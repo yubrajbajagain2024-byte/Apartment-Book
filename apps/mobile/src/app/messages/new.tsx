@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, FlatList, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getOrCreateDirectConversation, listFriends, searchProfiles, type ProfileSummary } from "@apartment-book/shared";
 import { InboxSearchField } from "@/components/messages/inbox-header";
 import { InboxNote, InboxPersonRow, InboxSectionHeader } from "@/components/messages/inbox-row";
-import { useUsernames } from "@/components/messages/inbox-utils";
 import { Button, EmptyState } from "@/components/ui";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -16,7 +15,7 @@ import { makeStyles } from "@/lib/theme-provider";
 const NOBODY: ProfileSummary[] = [];
 
 /**
- * New message, in the inbox's look: the rounded search box (name or @username), your friends as suggestions until you
+ * New message, in the inbox's look: the rounded search box (a name; a typed @username still finds them, but handles are never shown), your friends as suggestions until you
  * type, and a tap opens the chat with that person (an existing one, or a new one).
  */
 export default function NewMessageScreen() {
@@ -64,7 +63,6 @@ export default function NewMessageScreen() {
   // The last results stay up while the next search runs, so the list does not flash on every keystroke.
   const people = typing ? (results?.people ?? NOBODY) : (friends ?? NOBODY);
   const pending = typing ? !results || results.q !== typed : friends === null;
-  const usernameOf = useUsernames(useMemo(() => people.map((p) => p.id), [people]));
 
   async function start(person: ProfileSummary) {
     if (opening) return;
@@ -89,7 +87,7 @@ export default function NewMessageScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.top}>
-        <InboxSearchField value={text} onChangeText={setText} placeholder="Search name or @username" autoFocus accessibilityLabel="Search people" />
+        <InboxSearchField value={text} onChangeText={setText} placeholder="Search people" autoFocus accessibilityLabel="Search people" />
       </View>
       <FlatList
         data={people}
@@ -99,17 +97,17 @@ export default function NewMessageScreen() {
         automaticallyAdjustKeyboardInsets
         contentContainerStyle={{ paddingBottom: insets.bottom + space.xl }}
         ListHeaderComponent={people.length > 0 ? <InboxSectionHeader title={typing ? "People" : "Suggested"} /> : null}
-        renderItem={({ item }) => <InboxPersonRow person={item} username={usernameOf(item.id)} busy={opening === item.id} disabled={opening !== null} onPress={() => void start(item)} />}
+        renderItem={({ item }) => <InboxPersonRow person={item} busy={opening === item.id} disabled={opening !== null} onPress={() => void start(item)} />}
         ListFooterComponent={pending && people.length > 0 ? <InboxNote loading /> : null}
         ListEmptyComponent={
           pending ? (
             <InboxNote loading />
           ) : typing ? (
             <View style={styles.empty}>
-              <EmptyState icon="search-outline" title="No one found" body="Try a different spelling of their name or @username." />
+              <EmptyState icon="search-outline" title="No one found" body="Try a different spelling of their name." />
             </View>
           ) : (
-            <InboxNote text="Search for students by name or @username." />
+            <InboxNote text="Search for students by name." />
           )
         }
       />

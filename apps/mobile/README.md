@@ -101,7 +101,10 @@ The Messages tab is the inbox (`src/app/(tabs)/messages.tsx`): the new-message p
 Requests pills (each with its count; Requests on Chats only), then the two pages side by side in a pager like Home's: a
 swipe or a tap on a label moves between your direct chats and your group chats, with the same knock. On Chats the row of
 friends online now sits above the chats (photo, name, the time at the right, the last message under it, a hairline between
-rows). Requests holds the direct chats that people you do not follow started with you, until you reply or follow them
+rows; no @usernames anywhere in Messages, names only, though typing a handle still finds the chat). A long press on a row (or Chat
+info) mutes that person's messages everywhere or that group, and a group also offers every group chat at once, each for 1, 8 or
+24 hours or until unmuted (`src/lib/use-mutes.ts`, migration 26: the message and the unread count still arrive, only the notice is
+withheld); a muted chat shows a small bell-slash after its name. Requests holds the direct chats that people you do not follow started with you, until you reply or follow them
 (`src/lib/use-message-requests.ts`: nothing is stored for it, it is read off the chats, the follow stats and whether you
 have written in each, so every device agrees). Searching looks only in the page on screen.
 

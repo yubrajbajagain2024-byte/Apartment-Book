@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, BackHandler, FlatList, Keyboard, Platform, RefreshControl, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView, type TextInput } from "react-native";
 import { useFocusEffect, useIsFocused, useRouter } from "expo-router";
-import { listConversations, listFriends, markConversationRead, type ConversationSummary, type MessageWithSender, type ProfileSummary } from "@apartment-book/shared";
+import { listConversations, listFriends, markConversationRead, MUTE_DURATIONS, muteLabel, type ConversationSummary, type MessageWithSender, type MuteDuration, type MuteScope, type ProfileSummary } from "@apartment-book/shared";
 import { useActionSheet, type SheetOption } from "@/components/action-sheet";
 import { INBOX_PAGES, InboxHeader, InboxSearchField } from "@/components/messages/inbox-header";
 import { InboxMessageRow, InboxNote, InboxRow, InboxSectionHeader } from "@/components/messages/inbox-row";
@@ -16,6 +16,7 @@ import { useTabBarInset } from "@/lib/tab-bar";
 import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useMessageRequests } from "@/lib/use-message-requests";
+import { useMutes } from "@/lib/use-mutes";
 
 /** One line of a list: a chat, or while searching also section titles, found messages and status lines. */
 type Item =
@@ -55,6 +56,7 @@ export default function MessagesScreen() {
   const focused = useIsFocused();
   const { width } = useWindowDimensions();
   const { user, loading: sessionLoading } = useSession();
+  const mutes = useMutes(user?.id ?? null);
   const userId = user?.id ?? null;
   const { data, error, loading, refresh, setData } = useQuery(() => (userId ? listConversations(supabase, userId) : Promise.resolve(NO_CHATS)), [userId]);
   const { data: friends, refresh: refreshFriends } = useQuery(() => (userId ? listFriends(supabase) : Promise.resolve(NO_FRIENDS)), [userId]);
@@ -168,7 +170,7 @@ export default function MessagesScreen() {
   const searching = Boolean(userId) && query.length > 0;
   const messageSearch = useMessageSearch(text, Boolean(userId));
 
-  // Direct chats show the other person's @username; group members' handles are only needed to search by them.
+  // Handles are never shown here, only searched: a chat still turns up when its person is typed as @username.
   const handleIds = useMemo(() => conversations.flatMap((c) => (c.type !== "group" || searching ? c.otherMembers.map((m) => m.id) : [])), [conversations, searching]);
   const usernameOf = useUsernames(handleIds);
 
@@ -279,9 +281,25 @@ export default function MessagesScreen() {
       const other = c.type === "group" ? undefined : c.otherMembers[0];
       if (other) options.push({ label: "View profile", icon: "person-circle-outline", onPress: () => router.push({ pathname: "/profile/[id]", params: { id: other.id } }) });
       options.push({ label: "Chat info", icon: "information-circle-outline", onPress: () => router.push({ pathname: "/messages/info/[id]", params: { id: c.id } }) });
+      // Muting: a person's messages everywhere (a direct chat), this group, or every group chat; a second sheet asks how long.
+      const pickDuration = (scope: MuteScope, targetId: string | null, title: string) =>
+        showSheet(
+          MUTE_DURATIONS.map((d) => ({ label: d.label, icon: d.value === "forever" ? "notifications-off-outline" : "time-outline", onPress: () => void mutes.mute(scope, targetId, d.value as MuteDuration) })),
+          title,
+        );
+      const scope: MuteScope = other ? "user" : "conversation";
+      const target = other ? other.id : c.id;
+      const own = mutes.find(scope, target);
+      if (own) options.push({ label: `Unmute (${muteLabel(own)?.toLowerCase() ?? "muted"})`, icon: "notifications-outline", onPress: () => void mutes.unmute(scope, target) });
+      else options.push({ label: other ? `Mute ${other.full_name.split(" ")[0]}` : "Mute this group", icon: "notifications-off-outline", onPress: () => pickDuration(scope, target, other ? `Mute ${other.full_name} for` : `Mute ${c.title} for`) });
+      if (c.type === "group") {
+        const all = mutes.find("all_groups");
+        if (all) options.push({ label: `Unmute all group chats (${muteLabel(all)?.toLowerCase() ?? "muted"})`, icon: "notifications-outline", onPress: () => void mutes.unmute("all_groups") });
+        else options.push({ label: "Mute all group chats", icon: "notifications-off-outline", onPress: () => pickDuration("all_groups", null, "Mute all group chats for") });
+      }
       showSheet(options, c.title);
     },
-    [router, setData, refresh, showSheet],
+    [router, setData, refresh, showSheet, mutes],
   );
 
   if (!sessionLoading && !user) {
@@ -297,7 +315,7 @@ export default function MessagesScreen() {
     switch (item.type) {
       case "chat": {
         const c = item.conversation;
-        return <InboxRow conversation={c} username={c.type === "group" ? null : usernameOf(c.otherMembers[0]?.id)} now={now} onOpen={openChat} onMenu={chatMenu} />;
+        return <InboxRow conversation={c} muted={mutes.mutedFor(c)} now={now} onOpen={openChat} onMenu={chatMenu} />;
       }
       case "header":
         return <InboxSectionHeader title={item.title} />;

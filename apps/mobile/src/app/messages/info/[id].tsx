@@ -11,10 +11,14 @@ import {
   getProfile,
   isBlocked,
   leaveConversation,
+  MUTE_DURATIONS,
+  muteLabel,
   REPORT_REASONS,
   reportContent,
   unblockUser,
   type ConversationSummary,
+  type MuteDuration,
+  type MuteScope,
   type ReportReason,
   type SharedContentKind,
   type SharedItem,
@@ -24,6 +28,7 @@ import { InfoActionList, InfoButtons, InfoGroupCard, InfoMemberRow, InfoPersonCa
 import { confirmAction, notify } from "@/components/messages/info-dialogs";
 import { MediaViewer, type MediaViewerItem } from "@/components/messages/media-viewer";
 import { useSharedContent, type SharedTab } from "@/components/messages/shared-content";
+import { useMutes } from "@/lib/use-mutes";
 import { SharedFileRow } from "@/components/messages/shared-file-row";
 import { SharedLinkRow } from "@/components/messages/shared-link-row";
 import { SharedMediaRow } from "@/components/messages/shared-media-row";
@@ -59,7 +64,7 @@ const EMPTY_TEXT: Record<SharedContentKind, { icon: keyof typeof Ionicons.glyphM
 };
 
 /**
- * Chat info, opened from a chat's header. A direct chat shows the other person (photo, name, @username; the card opens
+ * Chat info, opened from a chat's header. A direct chat shows the other person (photo, name, campus and mute state; the card opens
  * their profile), round Profile, Search and Share buttons, everything the two of you sent each other under Shared (Media |
  * Files | Links, loading more as you scroll), and Block and Report. A group shows its name, its members (each opens their
  * profile), Search, Shared and Leave group; groups cannot be reported (reports are about a person or a post). Block,
@@ -95,6 +100,7 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
   const colors = useColors();
   const router = useRouter();
   const show = useActionSheet();
+  const mutes = useMutes(userId);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isGroup = conversation.type === "group";
@@ -126,7 +132,6 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
   const name = other?.full_name ?? (isGroup ? conversation.title : "Deleted user");
   const firstName = (other?.full_name ?? "").trim().split(/\s+/)[0] || "them";
   const blocked = blockedQ.data === true;
-  const username = profileQ.data?.username ?? null;
 
   // "You" for your own messages, else the member's name; someone who has since left keeps just the date.
   const names = useMemo(() => new Map(conversation.members.map((m) => [m.id, m.id === userId ? "You" : m.full_name])), [conversation.members, userId]);
@@ -208,7 +213,7 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
   async function shareProfile() {
     if (!other) return;
     const url = profileUrl(other.id);
-    const words = `${other.full_name}${username ? ` (@${username})` : ""} on ${APP_NAME}`;
+    const words = `${other.full_name} on ${APP_NAME}`;
     try {
       if (Platform.OS === "web") {
         const nav = typeof navigator !== "undefined" ? navigator : null;
@@ -285,9 +290,29 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
     }
   }
 
+  // Muting: a person's messages everywhere (a direct chat) or this group, for a while or until unmuted; a group also offers every group chat at once.
+  const muteScope: MuteScope = isGroup ? "conversation" : "user";
+  const muteTarget = isGroup ? conversation.id : (other?.id ?? null);
+  const muted = muteTarget ? mutes.find(muteScope, muteTarget) : null;
+  const pickDuration = (scope: MuteScope, targetId: string | null, title: string) =>
+    show(
+      MUTE_DURATIONS.map((d) => ({ label: d.label, icon: d.value === "forever" ? ("notifications-off-outline" as const) : ("time-outline" as const), onPress: () => void mutes.mute(scope, targetId, d.value as MuteDuration) })),
+      title,
+    );
+  const toggleMute = () => {
+    if (!muteTarget) return;
+    if (muted) void mutes.unmute(muteScope, muteTarget);
+    else pickDuration(muteScope, muteTarget, isGroup ? `Mute ${conversation.title} for` : `Mute ${other?.full_name ?? "them"} for`);
+  };
+  const allGroups = mutes.find("all_groups");
+  const groupMuteActions: InfoListAction[] = isGroup
+    ? [allGroups
+        ? { key: "unmute-all", label: `Unmute all group chats (${muteLabel(allGroups)?.toLowerCase() ?? "muted"})`, icon: "notifications-outline", tone: "brand", onPress: () => void mutes.unmute("all_groups") }
+        : { key: "mute-all", label: "Mute all group chats", icon: "notifications-off-outline", tone: "brand", onPress: () => pickDuration("all_groups", null, "Mute all group chats for") }]
+    : [];
   // The same actions at the bottom of the screen and in the ••• menu.
   const actions: InfoListAction[] = isGroup
-    ? [{ key: "leave", label: "Leave group", icon: "exit-outline", onPress: () => void leave(), busy: busy === "leave", disabled: busy !== null }]
+    ? [...groupMuteActions, { key: "leave", label: "Leave group", icon: "exit-outline", onPress: () => void leave(), busy: busy === "leave", disabled: busy !== null }]
     : other
       ? [
           blocked
@@ -306,8 +331,12 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
         { key: "profile", label: "Profile", icon: "person-outline", onPress: () => openProfile(other.id) },
         { key: "search", label: "Search", icon: "search", onPress: openSearch },
         { key: "share", label: "Share", icon: "share-outline", onPress: () => void shareProfile() },
+        { key: "mute", label: muted ? "Unmute" : "Mute", icon: muted ? "notifications-off" : "notifications-outline", onPress: toggleMute },
       ]
-    : [{ key: "search", label: "Search", icon: "search", onPress: openSearch }];
+    : [
+        { key: "search", label: "Search", icon: "search", onPress: openSearch },
+        { key: "mute", label: muted ? "Unmute" : "Mute", icon: muted ? "notifications-off" : "notifications-outline", onPress: toggleMute },
+      ];
 
   const state: SharedTab = shared.tabs[tab];
   const rows = useMemo<Row[]>(() => {
@@ -343,7 +372,7 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
   const header = (
     <View onLayout={(e) => (headerHeight.current = e.nativeEvent.layout.height)}>
       {other ? (
-        <InfoPersonCard name={name} username={username} detail={profileQ.data?.university?.name ?? null} avatarUrl={other.avatar_url} userId={other.id} onPress={() => openProfile(other.id)} />
+        <InfoPersonCard name={name} detail={[profileQ.data?.university?.name ?? null, muteLabel(mutes.find("user", other.id))].filter(Boolean).join(" · ") || null} avatarUrl={other.avatar_url} userId={other.id} onPress={() => openProfile(other.id)} />
       ) : isGroup ? (
         <>
           <InfoGroupCard name={conversation.title} memberCount={conversation.members.length} />

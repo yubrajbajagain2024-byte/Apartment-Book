@@ -42,6 +42,10 @@ export type ListingVideo = {
 export type Notification = Tables<"notifications">;
 export type NotificationType = "message" | "listing_saved" | "nearby_listing" | "system" | "like" | "comment" | "follow";
 export type NotificationWithActor = Notification & { actor: ProfileSummary | null };
+/** Something a person has muted: a person's messages anywhere, one chat, or every group chat; `until` null is until unmuted. */
+export type NotificationMute = Tables<"notification_mutes">;
+export type MuteScope = "user" | "conversation" | "all_groups";
+export type MuteDuration = "1h" | "8h" | "24h" | "forever";
 export type PushPlatform = "ios" | "android" | "web";
 
 export type ListingStatus = Enums<"listing_status">;

@@ -223,3 +223,11 @@ export const BUZZ_SORTS = [
 /** Buzz photos are re-encoded on the device before upload so camera metadata (GPS, device) cannot identify the author. */
 export const BUZZ_IMAGE_MAX_DIMENSION = 2560;
 export const BUZZ_IMAGE_QUALITY = 0.9;
+
+/** How long a mute lasts; "forever" is until unmuted. */
+export const MUTE_DURATIONS = [
+  { value: "1h", label: "1 hour", hours: 1 },
+  { value: "8h", label: "8 hours", hours: 8 },
+  { value: "24h", label: "24 hours", hours: 24 },
+  { value: "forever", label: "Until unmuted", hours: null },
+] as const;
