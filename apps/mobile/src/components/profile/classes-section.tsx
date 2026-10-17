@@ -7,10 +7,13 @@ import {
   classCodeProblem,
   classDetails,
   classSectionProblem,
+  classSubjectProblem,
   CLASS_LOCATION_MAX,
+  courseNumberProblem,
   expandMeetings,
   formatClockTime,
   groupClassesByTerm,
+  joinClassCode,
   locationProblem,
   MAX_CLASS_MEETINGS,
   meetingsProblem,
@@ -36,18 +39,27 @@ type UpdateClasses = (fn: (classes: ProfileClass[]) => ProfileClass[]) => void;
 
 /**
  * The Classes tab, the one place a profile shows its classes: grouped by semester, this one first ("Fall 2026 · This
- * semester"). The owner adds a class with a code ("CS 3358", checked as it would be by the database), its section, the
- * days and times it meets, the room and an optional name, and the semester, and removes one with the cross beside it.
- * The section puts them in that section's course chat (the database creates it for the first classmate and adds the
- * rest; removing the class leaves it), which is why it is asked for.
+ * semester"). The owner adds a class with its subject and course number ("CS" and "3358", kept as the one code "CS 3358"
+ * the database checks), its section, the days and times it meets, the room and an optional name, and the semester, and
+ * removes one with the cross beside it. Once a class is in, the form closes and a line under "Add class" says so (and
+ * where the section's chat is); the button brings the form back. The section puts them in that section's course chat
+ * (the database creates it for the first classmate and adds the rest; removing the class leaves it), which is why it is
+ * asked for.
  */
 export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: { own: boolean; userId: string; classes: ProfileClass[]; onChange: UpdateClasses; onOpenForm?: () => void }) {
   const styles = useStyles();
   const colors = useColors();
   const groups = useMemo(() => groupClassesByTerm(classes), [classes]);
   const [adding, setAdding] = useState(false);
-  // Close and Remove take away the button that had focus: once the list has redrawn, the screen reader moves to "Add class"
-  // (not there while the form is open).
+  /** The word that a class went in, under the Add class button for a while once the form has closed. */
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 8000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+  // Close, Add and Remove take away the button or form that had focus: once the list has redrawn, the screen reader moves
+  // to "Add class" (not there while the form is open).
   const addButton = useRef<View>(null);
   const [focusAdd, setFocusAdd] = useState(0);
   useEffect(() => {
@@ -57,6 +69,7 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
 
   async function remove(c: ProfileClass) {
     hapticTap();
+    setNotice(null);
     onChange((list) => list.filter((x) => x.id !== c.id));
     setFocusAdd((n) => n + 1);
     try {
@@ -72,7 +85,13 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
       {own && adding ? (
         <AddClassForm
           userId={userId}
-          onAdded={(c) => onChange((list) => [...list, c])}
+          onAdded={(c, note) => {
+            onChange((list) => [...list, c]);
+            setAdding(false);
+            setNotice(note);
+            AccessibilityInfo.announceForAccessibility(note);
+            setFocusAdd((n) => n + 1);
+          }}
           onClose={() => {
             setAdding(false);
             setFocusAdd((n) => n + 1);
@@ -86,11 +105,13 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
           variant="secondary"
           icon="add"
           onPress={() => {
+            setNotice(null);
             setAdding(true);
             onOpenForm?.();
           }}
         />
       ) : null}
+      {own && !adding && notice ? <Text style={styles.added}>{notice}</Text> : null}
       {groups.length === 0 ? (
         own ? (
           adding ? null : <Text style={styles.empty}>Add the classes you're taking so classmates can find you.</Text>
@@ -139,54 +160,55 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
 }
 
 /**
- * Class code and section, the days and times it meets, the room, an optional class name and the semester (this one
- * picked), then Add. Stays open after a class is added, for the next one.
+ * Subject and course number (kept as the one class code the database stores, "CS 3358") and section, the days and times
+ * it meets, the room, an optional class name and the semester (this one picked), then Add. Once the class is in, the
+ * form hands the word of it to the section (`onAdded`), which closes the form; the Add class button brings it back.
  */
-function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (c: ProfileClass) => void; onClose: () => void }) {
+function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (c: ProfileClass, note: string) => void; onClose: () => void }) {
   const styles = useStyles();
   const { colors, isDark } = useAppTheme();
   const terms = useMemo(() => pickableTerms(), []);
-  const [code, setCode] = useState("");
+  const [subject, setSubject] = useState("");
+  const [number, setNumber] = useState("");
   const [section, setSection] = useState("");
   const [meetings, setMeetings] = useState<ClassMeeting[]>([]);
   const [location, setLocation] = useState("");
   const [title, setTitle] = useState("");
   const [term, setTerm] = useState(terms[0]);
-  const [codeError, setCodeError] = useState<string | null>(null);
+  const [subjectError, setSubjectError] = useState<string | null>(null);
+  const [numberError, setNumberError] = useState<string | null>(null);
   const [sectionError, setSectionError] = useState<string | null>(null);
   const [meetingsError, setMeetingsError] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [added, setAdded] = useState<string | null>(null);
+  const numberInput = useRef<TextInput>(null);
   const sectionInput = useRef<TextInput>(null);
   const locationInput = useRef<TextInput>(null);
   const titleInput = useRef<TextInput>(null);
 
   async function add() {
     if (busy) return;
-    const codeProblem = classCodeProblem(code);
+    const code = joinClassCode(subject, number);
+    const subjectProblem = classSubjectProblem(subject);
+    const numberProblem = courseNumberProblem(number);
+    // Both halves fine on their own, the whole still has to pass as the database checks it (its length, say).
+    const codeProblem = subjectProblem || numberProblem ? null : classCodeProblem(code);
     const sectionProblem = classSectionProblem(section);
     const meetingProblem = meetingsProblem(meetings);
     const roomProblem = locationProblem(location);
-    setCodeError(codeProblem);
+    setSubjectError(subjectProblem ?? codeProblem);
+    setNumberError(numberProblem ?? codeProblem);
     setSectionError(sectionProblem);
     setMeetingsError(meetingProblem);
     setLocationError(roomProblem);
     setError(null);
-    setAdded(null);
-    if (codeProblem || sectionProblem || meetingProblem || roomProblem) return;
+    if (subjectProblem || numberProblem || codeProblem || sectionProblem || meetingProblem || roomProblem) return;
     setBusy(true);
     try {
       const created = await addProfileClass(supabase, userId, { term, code, section, meetings, location: location.trim() || null, title: title.trim() || null });
       hapticTap();
-      onAdded(created);
-      setCode("");
-      setSection("");
-      setMeetings([]);
-      setLocation("");
-      setTitle("");
-      setAdded(created.course_group_id ? `${created.code}-${created.section} added to ${created.term}. Your section's chat is in Messages.` : `${created.code} added to ${created.term}.`);
+      onAdded(created, created.course_group_id ? `${created.code}-${created.section} added to ${created.term}. Your section's chat is in Messages.` : `${created.code} added to ${created.term}.`);
     } catch (e) {
       setError(errorText(e, "Could not add the class. Try again."));
     } finally {
@@ -203,26 +225,51 @@ function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (
         </Pressable>
       </View>
       <View style={styles.pair}>
-        <View style={{ flex: 3, gap: 6 }}>
-          <Text style={styles.label}>Class code</Text>
+        <View style={{ flex: 2, gap: 6 }}>
+          <Text style={styles.label}>Subject</Text>
           <TextInput
-            value={code}
+            value={subject}
             onChangeText={(v) => {
-              setCode(v);
-              if (codeError) setCodeError(null);
+              setSubject(v);
+              if (subjectError) setSubjectError(null);
             }}
-            placeholder="CS 3358"
+            placeholder="CS"
             placeholderTextColor={colors.faint}
             keyboardAppearance={isDark ? "dark" : "light"}
-            accessibilityLabel="Class code"
+            accessibilityLabel="Subject"
+            accessibilityHint="The letters of the class code, like CS or MATH"
             autoFocus
             autoCapitalize="characters"
             autoCorrect={false}
-            maxLength={20}
+            maxLength={8}
+            returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => numberInput.current?.focus()}
+            style={[styles.input, subjectError ? { borderColor: colors.red } : null]}
+          />
+        </View>
+        <View style={{ flex: 3, gap: 6 }}>
+          <Text style={styles.label}>Course number</Text>
+          <TextInput
+            ref={numberInput}
+            value={number}
+            onChangeText={(v) => {
+              setNumber(v);
+              if (numberError) setNumberError(null);
+            }}
+            placeholder="3358"
+            placeholderTextColor={colors.faint}
+            keyboardAppearance={isDark ? "dark" : "light"}
+            keyboardType={Platform.OS === "ios" ? "numbers-and-punctuation" : "default"}
+            accessibilityLabel="Course number"
+            accessibilityHint="The number of the class code, like 3358"
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={8}
             returnKeyType="next"
             submitBehavior="submit"
             onSubmitEditing={() => sectionInput.current?.focus()}
-            style={[styles.input, codeError ? { borderColor: colors.red } : null]}
+            style={[styles.input, numberError ? { borderColor: colors.red } : null]}
           />
         </View>
         <View style={{ flex: 2, gap: 6 }}>
@@ -249,7 +296,7 @@ function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (
           />
         </View>
       </View>
-      {codeError || sectionError ? <Text style={styles.error}>{codeError ?? sectionError}</Text> : null}
+      {subjectError || numberError || sectionError ? <Text style={styles.error}>{subjectError ?? numberError ?? sectionError}</Text> : null}
       <MeetingsEditor
         meetings={meetings}
         onChange={(next) => {
@@ -297,7 +344,7 @@ function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (
           })}
         </View>
       </View>
-      {error ? <Text style={styles.error}>{error}</Text> : added ? <Text style={styles.added}>{added}</Text> : null}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
       <Button title="Add" icon="add" onPress={() => void add()} loading={busy} />
     </View>
   );

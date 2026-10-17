@@ -136,6 +136,37 @@ export function classCodeProblem(input: string): string | null {
   return null;
 }
 
+/** The subject half of a class code: " cs " becomes "CS". */
+export function normalizeClassSubject(input: string): string {
+  return input.trim().replace(/\s+/g, "").toUpperCase();
+}
+
+/** The course number half of a class code: " 1315l " becomes "1315L". */
+export function normalizeCourseNumber(input: string): string {
+  return input.trim().replace(/\s+/g, "").toUpperCase();
+}
+
+/** Why a subject would be refused, or null: letters (an & between them is fine), up to 8 of them. */
+export function classSubjectProblem(input: string): string | null {
+  const subject = normalizeClassSubject(input);
+  if (!subject) return "Enter the subject, like CS or MATH.";
+  if (subject.length > 8 || !/^[A-Z][A-Z&]*$/.test(subject)) return "Subjects are letters, like CS or MATH.";
+  return null;
+}
+
+/** Why a course number would be refused, or null: digits first, a letter or two after them allowed, up to 8 characters. */
+export function courseNumberProblem(input: string): string | null {
+  const number = normalizeCourseNumber(input);
+  if (!number) return "Enter the course number, like 3358.";
+  if (number.length > 8 || !/^[0-9][A-Z0-9.-]*$/.test(number)) return "Course numbers start with digits, like 3358 or 1315L.";
+  return null;
+}
+
+/** A subject and a course number as the one class code the database stores: "cs" and "3358" become "CS 3358". */
+export function joinClassCode(subject: string, number: string): string {
+  return normalizeClassCode(`${normalizeClassSubject(subject)} ${normalizeCourseNumber(number)}`);
+}
+
 /** " 001 " or "a" becomes "001" or "A", the way the database stores a section. */
 export function normalizeClassSection(input: string): string {
   return input.trim().toUpperCase();
