@@ -281,7 +281,8 @@ export default function HousingScreen() {
                 style={({ pressed }) => [styles.chip, p.selected && styles.chipSelected, pressed && !p.selected && { opacity: 0.7 }]}
               >
                 {p.icon ? <Ionicons name={p.icon} size={14} color={p.selected ? colors.brand : colors.muted} /> : null}
-                <Text style={[styles.chipText, p.selected && styles.chipTextSelected]} numberOfLines={1}>
+                {/* The pills follow the text size as far as the labels above them do, so "All" never ends in an ellipsis. */}
+                <Text style={[styles.chipText, p.selected && styles.chipTextSelected]} numberOfLines={1} maxFontSizeMultiplier={1.2}>
                   {p.label}
                 </Text>
               </Pressable>

@@ -8,6 +8,12 @@ import { Ionicons } from "@expo/vector-icons";
  */
 // Close to a typical label width, so the scaled bar keeps its rounded ends.
 const BASE_WIDTH = 48;
+/**
+ * How far the labels follow the phone's text size: enough to read, not enough for three labels (Explore's Room | Roommate |
+ * Marketplace, each centred in a third of the row) to overflow their tabs and clip, which would also leave the underline
+ * narrower than its label.
+ */
+const MAX_FONT_SCALE = 1.2;
 
 /** Where one label sits in the labels row: enough to put the underline under it, as wide as it is. */
 type LabelBox = Pick<LayoutRectangle, "x" | "width">;
@@ -133,16 +139,16 @@ export function SlidingTabs<T extends string>({
             >
               <View>
                 {/* An invisible bold copy gives every label the width of its bold form: nothing shifts when the active one changes weight, and the underline fits it exactly. */}
-                <Text style={[styles.label, { fontSize }, styles.bold, styles.ghost, textStyle]} aria-hidden>
+                <Text style={[styles.label, { fontSize }, styles.bold, styles.ghost, textStyle]} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE} aria-hidden>
                   {s.label}
                 </Text>
                 {fade ? (
                   <>
-                    <Animated.Text style={[styles.label, { fontSize }, styles.text, { color: dimColor }, textStyle, { opacity: fade.off }]}>{s.label}</Animated.Text>
-                    <Animated.Text style={[styles.label, { fontSize }, styles.text, styles.bold, { color: labelColor }, textStyle, { opacity: fade.on }]}>{s.label}</Animated.Text>
+                    <Animated.Text style={[styles.label, { fontSize }, styles.text, { color: dimColor }, textStyle, { opacity: fade.off }]} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>{s.label}</Animated.Text>
+                    <Animated.Text style={[styles.label, { fontSize }, styles.text, styles.bold, { color: labelColor }, textStyle, { opacity: fade.on }]} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>{s.label}</Animated.Text>
                   </>
                 ) : (
-                  <Text style={[styles.label, { fontSize }, styles.text, { color: active ? labelColor : dimColor }, active && styles.bold, textStyle]}>{s.label}</Text>
+                  <Text style={[styles.label, { fontSize }, styles.text, { color: active ? labelColor : dimColor }, active && styles.bold, textStyle]} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>{s.label}</Text>
                 )}
               </View>
               {(Array.isArray(caret) ? (caret as readonly T[]).includes(s.value) : caret === s.value) ? <Ionicons name="chevron-down" size={14} color={active ? labelColor : dimColor} style={[styles.caret, textStyle]} /> : null}
