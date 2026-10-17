@@ -22,9 +22,10 @@ export function hapticSelect() {
 }
 
 /**
- * A clear knock (a medium impact, noticeably firmer than the selection tick) when Home moves to another section
- * (For you | Buzz | Posts | Reels): once when the page under the finger changes halfway through a swipe, or once for a
- * tap on another label. Never for a move nobody made (opening Home on Reels after posting a reel).
+ * A clear knock (a medium impact, noticeably firmer than the selection tick) when Home (For you | Buzz | Posts | Reels)
+ * or Explore (Room | Roommate | Marketplace) moves to another section: once when the page under the finger changes
+ * halfway through a swipe, or once for a tap on another label. Never for a move nobody made (opening Home on Reels after
+ * posting a reel, a link naming an Explore page).
  */
 export function hapticSwipe() {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});

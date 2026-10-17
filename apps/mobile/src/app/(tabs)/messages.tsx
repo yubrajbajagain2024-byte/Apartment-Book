@@ -36,7 +36,7 @@ const MARGIN = 0.02;
 const NOT_SCROLLED: Record<InboxPage, boolean> = { chats: false, groups: false };
 
 /**
- * The Messages tab (between Housing and Marketplace in the bottom bar): its own top bar (the new-message pencil, the big
+ * The Messages tab (between Explore and Profile in the bottom bar): its own top bar (the new-message pencil, the big
  * "Messages" title, Chats | Groups), a search box and the All | Unread | Requests pills, then the two pages side by side
  * in a pager like Home's: your direct chats and your group chats, newest first, a swipe or a tap on a label moving
  * between them with the same knock Home gives. Requests, a pill on Chats, holds the direct chats people you do not

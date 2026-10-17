@@ -11,9 +11,9 @@ import { useUnreadCount } from "@/lib/use-unread";
 /** Each tab's icon, outlined at rest and filled while it is the tab on screen. */
 const ICONS: Record<string, { on: keyof typeof Ionicons.glyphMap; off: keyof typeof Ionicons.glyphMap }> = {
   index: { on: "home", off: "home-outline" },
-  housing: { on: "business", off: "business-outline" },
+  search: { on: "search", off: "search-outline" },
+  housing: { on: "compass", off: "compass-outline" },
   messages: { on: "chatbubble", off: "chatbubble-outline" },
-  marketplace: { on: "bag-handle", off: "bag-handle-outline" },
   profile: { on: "person-circle", off: "person-circle-outline" },
 };
 
@@ -41,7 +41,7 @@ function ProfileTabIcon({ focused, color, size }: { focused: boolean; color: Col
 }
 
 /**
- * Home | Housing (Apartments | Roommates) | Messages | Marketplace | Profile; the Search magnifier sits in the top-right
+ * Home | Search | Explore (Room | Roommate | Marketplace) | Messages | Profile; the Notifications bell sits in the top-right
  * corner of every tab, like TikTok. The bar is FloatingTabBar: a rounded glass pill floating over the tabs' content (see
  * lib/tab-bar.ts for its size and the room each tab keeps clear under it) with a capsule that slides to the tab on
  * screen. The tabs, their icons and where they go are as before.
@@ -64,12 +64,12 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: "Home", headerShown: false, tabBarIcon: icon("index") }} />
-      {/* Housing draws its own top bar ("Off Campus Housing" with the magnifier that searches the half on screen, then Apartments | Roommates and the pills). */}
-      <Tabs.Screen name="housing" options={{ title: "Housing", headerShown: false, tabBarIcon: icon("housing") }} />
+      {/* Search draws its own top bar (the "Search" title) over the people search. */}
+      <Tabs.Screen name="search" options={{ title: "Search", headerShown: false, tabBarIcon: icon("search") }} />
+      {/* Explore (housing.tsx) draws its own top bar ("Find" with the magnifier that searches the page on screen, then Room | Roommate | Marketplace and the pills). */}
+      <Tabs.Screen name="housing" options={{ title: "Explore", headerShown: false, tabBarIcon: icon("housing") }} />
       {/* Messages draws its own top bar: the new-message pencil, the "Messages" title, Chats | Requests and the search. */}
       <Tabs.Screen name="messages" options={{ title: "Messages", headerShown: false, tabBarBadge: unread > 0 ? (unread > 99 ? "99+" : unread) : undefined, tabBarIcon: icon("messages") }} />
-      {/* Marketplace draws its own top bar ("+" to sell, "<campus> marketplace" with the campus menu, and a magnifier that searches items). */}
-      <Tabs.Screen name="marketplace" options={{ title: "Marketplace", headerShown: false, tabBarIcon: icon("marketplace") }} />
       {/* Profile draws its own top bar (Find friends, your name, the menu), like TikTok. */}
       <Tabs.Screen name="profile" options={{ title: "Profile", headerShown: false, tabBarIcon: (p) => <ProfileTabIcon {...p} /> }} />
     </Tabs>

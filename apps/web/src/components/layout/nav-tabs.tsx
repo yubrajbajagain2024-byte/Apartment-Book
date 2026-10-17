@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Home, MessageCircle, ShoppingBag, UserRound, type LucideIcon } from "lucide-react";
+import { Compass, Home, MessageCircle, UserRound, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UnreadBadge } from "./unread-badge";
 
@@ -16,12 +16,11 @@ export type NavTab = {
 
 /** Home = For you, Buzz, Posts and Reels. */
 const HOME_PREFIXES = ["/posts", "/reels", "/buzz"];
-/** Housing = the Apartments and Roommates pages, which keep their own addresses and switch through the Housing sub-tabs. */
-const HOUSING_PREFIXES = ["/apartments", "/roommates"];
+/** Explore (housing) = the Apartments, Roommates and Marketplace pages, which keep their own addresses and switch through the Housing sub-tabs. */
+const HOUSING_PREFIXES = ["/apartments", "/roommates", "/marketplace"];
 
 const HOME: NavTab = { href: "/", label: "Home", icon: Home, match: (p) => p === "/" || HOME_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`)) };
-const HOUSING: NavTab = { href: "/apartments", label: "Housing", icon: Building2, match: (p) => HOUSING_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`)) };
-const MARKETPLACE: NavTab = { href: "/marketplace", label: "Marketplace", icon: ShoppingBag, match: (p) => p.startsWith("/marketplace") };
+const HOUSING: NavTab = { href: "/apartments", label: "Explore", icon: Compass, match: (p) => HOUSING_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`)) };
 const MESSAGES: NavTab = { href: "/messages", label: "Messages", icon: MessageCircle, match: (p) => p.startsWith("/messages") };
 /** Profile = your own profile (never someone else's) plus the pages the app's Profile tab lists (Saved, Settings). Signed out, /profile/me redirects to login. */
 const PROFILE: NavTab = {
@@ -32,10 +31,10 @@ const PROFILE: NavTab = {
 };
 
 /** Desktop header tabs. Search is not a tab: the header's search box is the search entry point on every screen, like TikTok's magnifier. */
-export const NAV_TABS: NavTab[] = [HOME, HOUSING, MESSAGES, MARKETPLACE];
+export const NAV_TABS: NavTab[] = [HOME, HOUSING, MESSAGES];
 
-/** Phone bottom bar, mirroring the app: Home, Housing, Messages, Marketplace, Profile. Search lives in the header (a magnifier on phones). */
-export const PHONE_TABS: NavTab[] = [HOME, HOUSING, MESSAGES, MARKETPLACE, PROFILE];
+/** Phone bottom bar, mirroring the app: Home, Explore, Messages, Profile. Search lives in the header (a magnifier on phones). */
+export const PHONE_TABS: NavTab[] = [HOME, HOUSING, MESSAGES, PROFILE];
 
 export function NavTabs({ unread, userId }: { unread: number; userId: string | null }) {
   const pathname = usePathname();

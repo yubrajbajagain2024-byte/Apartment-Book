@@ -14,7 +14,7 @@ export type { MapPin } from "./leaflet-map";
 
 export function ListingMap({ className, height = 360, ...props }: LeafletMapProps & { className?: string; height?: number }) {
   return (
-    // data-no-swipe: panning the map must not change the Housing tab.
+    // data-no-swipe: panning the map must not change the Explore tab's half.
     <div className={cn("relative z-0 isolate w-full overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200", className)} style={{ height }} data-no-swipe>
       <LeafletMap {...props} />
     </div>

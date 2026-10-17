@@ -1,5 +1,5 @@
-// Browser check of the website's navigation (desktop tabs Home | Housing | Messages | Marketplace next to the search box, phone bottom bar Home | Housing | Messages | Marketplace | Profile),
-// Home (For you | Buzz | Posts | Reels), Housing (Apartments | Roommates), following (the Follow button on a profile, the mutual friends behind someone else's Followers and Following numbers, your own follower lists, Home → Posts → Following), the TikTok-style comment thread under a post (heart, reply, the "N comments" header, delete from the comment's options menu)
+// Browser check of the website's navigation (desktop tabs Home | Explore | Messages next to the search box, phone bottom bar Home | Explore | Messages | Profile),
+// Home (For you | Buzz | Posts | Reels), Explore (Room | Roommate | Marketplace), following (the Follow button on a profile, the mutual friends behind someone else's Followers and Following numbers, your own follower lists, Home → Posts → Following), the TikTok-style comment thread under a post (heart, reply, the "N comments" header, delete from the comment's options menu)
 // and sharing a post with a friend (the Share dialog offers the people you follow who follow you back; Send leaves the post as a card in your chat with them),
 // and the TikTok-style profile page (Following · Followers · Likes, @username, the Posts | Classes | Reels | Saved | Liked | Listings tabs, the grid, the Classes and Listings tabs, a locked Saved tab, your own Saved setting),
 // signed out and signed in, on a desktop and a phone viewport.
@@ -86,19 +86,23 @@ try {
     if (!(await row.locator(`a[href='/profile/${state.other.id}']`).count())) throw new Error("the result does not link to the profile");
     await D.screenshot({ caret: "initial", path: SHOTS + "web-10-search-people.png" });
   });
-  await step("navigation: Home, Housing, Messages, Marketplace next to the header search box; Housing opens on /apartments with an Apartments | Roommates bar, Roommates leads to /roommates", async () => {
+  await step("navigation: Home, Explore, Messages next to the header search box; Explore opens on /apartments with a Room | Roommate | Marketplace bar, Roommate leads to /roommates and Marketplace to /marketplace", async () => {
     const nav = (await D.locator("header nav[aria-label='Main'] a").allInnerTexts()).map((t) => t.trim().split("\n")[0]).filter(Boolean);
-    if (nav.join("|") !== "Home|Housing|Messages|Marketplace") throw new Error("main tabs (Messages sits after Housing; Search is the header box): " + nav.join("|"));
+    if (nav.join("|") !== "Home|Explore|Messages") throw new Error("main tabs (Messages sits after Explore, the Marketplace is a section of Explore; Search is the header box): " + nav.join("|"));
     await D.goto(BASE + "/apartments?university=all"); await D.getByText("Sunny 2-bed near Sewell Park").first().waitFor();
-    // The Housing main tab links to /apartments and stays lit on both halves; the sticky bar under the navbar picks the half.
-    const housingLit = () => D.locator("header nav[aria-label='Main'] a[aria-current='page']").filter({ hasText: "Housing" }).count();
-    if (!(await housingLit())) throw new Error("Housing is not the active main tab on /apartments");
-    const sections = (await D.locator("nav[aria-label='Housing sections'] a").allInnerTexts()).map((t) => t.trim()).filter(Boolean); if (sections.join("|") !== "Apartments|Roommates") throw new Error("housing sections: " + sections.join("|"));
-    if (!(await D.locator("nav[aria-label='Housing sections'] [data-testid='housing-tab-apartments'][aria-current='page']").count())) throw new Error("Apartments is not the active half");
+    // The Explore main tab links to /apartments and stays lit on all three sections; the sticky bar under the navbar picks the half.
+    const housingLit = () => D.locator("header nav[aria-label='Main'] a[aria-current='page']").filter({ hasText: "Explore" }).count();
+    if (!(await housingLit())) throw new Error("Explore is not the active main tab on /apartments");
+    const sections = (await D.locator("nav[aria-label='Housing sections'] a").allInnerTexts()).map((t) => t.trim()).filter(Boolean); if (sections.join("|") !== "Room|Roommate|Marketplace") throw new Error("housing sections: " + sections.join("|"));
+    if (!(await D.locator("nav[aria-label='Housing sections'] [data-testid='housing-tab-apartments'][aria-current='page']").count())) throw new Error("Room is not the active half");
     await D.getByTestId("housing-tab-roommates").click(); await D.waitForURL(/\/roommates/);
     await D.locator("nav[aria-label='Housing sections'] [data-testid='housing-tab-roommates'][aria-current='page']").waitFor();
-    if (!(await housingLit())) throw new Error("Housing is not the active main tab on /roommates");
+    if (!(await housingLit())) throw new Error("Explore is not the active main tab on /roommates");
     await D.getByText("Room in a quiet 3-bed house").first().waitFor(); await D.screenshot({ caret: "initial", path: SHOTS + "web-08-housing-roommates.png" });
+    // The Marketplace is the third section: its tab leads to /marketplace, where Explore stays the lit main tab.
+    await D.getByTestId("housing-tab-marketplace").click(); await D.waitForURL(/\/marketplace/);
+    await D.locator("nav[aria-label='Housing sections'] [data-testid='housing-tab-marketplace'][aria-current='page']").waitFor();
+    if (!(await housingLit())) throw new Error("Explore is not the active main tab on /marketplace");
   });
   await step("Buzz tab: Reddit-style row (topic, age, vote / replies / share pills), no author name, no profile link, no Message button", async () => {
     await D.goto(BASE + "/?tab=buzz&sort=new"); const card = D.locator("[data-testid='buzz-card']").filter({ hasText: "Landlord wants to keep my whole deposit" }).first(); await card.waitFor();
@@ -150,10 +154,10 @@ try {
     if (said !== want) throw new Error(`the locked Saved tab says "${said}", wanted "${want}"`);
     if (await D.getByTestId("profile-grid").count()) throw new Error("a visitor sees the Saved grid");
   });
-  await step("phone: bottom bar is Home, Housing, Messages, Marketplace, Profile like the app (Profile links to /profile/me; Search is the header magnifier)", async () => {
+  await step("phone: bottom bar is Home, Explore, Messages, Profile like the app (Profile links to /profile/me; Search is the header magnifier)", async () => {
     await M.goto(BASE + "/?tab=posts"); await M.getByText("First week back on campus").first().waitFor();
     const bar = M.locator("nav[aria-label='Main'] a").filter({ visible: true }); const items = (await bar.allInnerTexts()).map((t) => t.trim().split("\n").pop()).filter(Boolean);
-    if (items.join("|") !== "Home|Housing|Messages|Marketplace|Profile") throw new Error("bottom bar: " + items.join("|"));
+    if (items.join("|") !== "Home|Explore|Messages|Profile") throw new Error("bottom bar: " + items.join("|"));
     if (!items.includes("Profile")) throw new Error("Profile is missing from the bottom bar");
     if (!(await bar.filter({ hasText: "Profile" }).and(M.locator("a[href='/profile/me']")).count())) throw new Error("the Profile tab does not link to /profile/me");
     await M.screenshot({ caret: "initial", path: SHOTS + "web-04-phone-posts.png" });
@@ -167,7 +171,7 @@ try {
     await M.waitForURL(/tab=buzz/); await M.getByTestId("buzz-feed").waitFor();
     await M.screenshot({ caret: "initial", path: SHOTS + "web-04c-phone-buzz-after-swipe.png" });
   });
-  await step("phone: swiping left on Apartments slides to Roommates", async () => {
+  await step("phone: swiping left on Room slides to Roommate", async () => {
     await M.goto(BASE + "/apartments?university=all"); await M.locator("nav[aria-label='Housing sections']").waitFor();
     // Start the flick on the heading: the photo rail, the map and a multi-photo carousel keep horizontal swipes for themselves.
     const h1 = M.locator("h1").first(); await h1.waitFor(); await h1.scrollIntoViewIfNeeded();

@@ -286,7 +286,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
       <View style={styles.empty}>
         <Ionicons name="people-outline" size={44} color={colors.faint} />
         <Text style={styles.emptyTitle}>Friends you follow back show up here.</Text>
-        <Pressable onPress={() => closeThen(() => router.push("/search"))} accessibilityRole="button" accessibilityLabel="Find people" style={styles.ghostButton}>
+        <Pressable onPress={() => closeThen(() => router.push("/find-people"))} accessibilityRole="button" accessibilityLabel="Find people" style={styles.ghostButton}>
           <Text style={styles.ghostButtonText}>Find people</Text>
         </Pressable>
       </View>

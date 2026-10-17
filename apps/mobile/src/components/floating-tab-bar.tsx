@@ -83,7 +83,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
                     </View>
                   ) : null}
                 </View>
-                {/* One line that shrinks a little rather than ending in "…" when a tab is narrow ("Marketplace" next to the lit tab on a small phone). */}
+                {/* One line that shrinks a little rather than ending in "…" when a tab is narrow ("Messages" next to the lit tab on a small phone). */}
                 <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[styles.label, { color }]}>
                   {label}
                 </Text>
@@ -98,7 +98,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
 
 /**
  * One tab's slot: one unit wide at rest, growing to `wide` as the capsule arrives and shrinking back as it leaves, on
- * the same spring as the capsule. Only ever a width, never a flex: the five widths add up to the row exactly.
+ * the same spring as the capsule. Only ever a width, never a flex: the widths add up to the row exactly.
  */
 function TabSlot({ index, progress, unit, wide, children }: { index: number; progress: SharedValue<number>; unit: number; wide: number; children: React.ReactNode }) {
   const style = useAnimatedStyle(() => {

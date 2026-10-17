@@ -52,9 +52,10 @@ test("homeSectionHref keeps the landing tab at / and carries extra parameters", 
 });
 
 test("the Housing tab is Apartments | Roommates, lands on Apartments and keeps the old addresses", () => {
-  assert.deepEqual(HOUSING_SECTIONS.map((s) => s.label), ["Apartments", "Roommates"]);
+  assert.deepEqual(HOUSING_SECTIONS.map((s) => s.label), ["Room", "Roommate", "Marketplace"]);
   assert.equal(DEFAULT_HOUSING_SECTION, HOUSING_SECTIONS[0].value);
   assert.equal(housingSectionHref("apartments"), "/apartments");
+  assert.equal(housingSectionHref("marketplace"), "/marketplace");
   assert.equal(housingSectionHref("roommates", { university: "all", q: "" }), "/roommates?university=all");
 });
 

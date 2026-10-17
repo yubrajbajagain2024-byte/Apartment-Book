@@ -70,7 +70,7 @@ export default async function RoommatesPage({
   return (
     <div className="flex flex-col gap-4">
       <HousingTabs active="roommates" all={values.university === "all"} />
-      {/* The two halves of Housing keep their own pages; a sideways swipe on a phone moves to the other one. */}
+      {/* The three sections of Explore keep their own pages; a sideways swipe on a phone moves to the neighbouring one. */}
       <HousingSwipe section="roommates" all={values.university === "all"} className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>

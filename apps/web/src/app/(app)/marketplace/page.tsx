@@ -19,6 +19,8 @@ import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ItemFeed } from "@/components/feed/item-feed";
 import { PhotoRail, type RailItem } from "@/components/feed/photo-rail";
+import { HousingSwipe } from "@/components/housing/housing-swipe";
+import { HousingTabs } from "@/components/housing/housing-tabs";
 import { ItemFilters } from "@/components/marketplace/item-filters";
 
 export const metadata: Metadata = { title: "Marketplace" };
@@ -78,46 +80,50 @@ export default async function MarketplacePage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{activeUniversity ? `Marketplace at ${activeUniversity.name}` : "Marketplace"}</h1>
-          <p className="text-sm text-gray-600">{result.count} {result.count === 1 ? "item" : "items"} · second-hand move-in essentials from students</p>
+      <HousingTabs active="marketplace" all={values.university === "all"} />
+      {/* The three sections of Explore keep their own pages; a sideways swipe on a phone moves to the neighbouring one. */}
+      <HousingSwipe section="marketplace" all={values.university === "all"} className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{activeUniversity ? `Marketplace at ${activeUniversity.name}` : "Marketplace"}</h1>
+            <p className="text-sm text-gray-600">{result.count} {result.count === 1 ? "item" : "items"} · second-hand move-in essentials from students</p>
+          </div>
+          <LinkButton href="/marketplace/new">
+            <Plus className="h-5 w-5" /> Sell something
+          </LinkButton>
         </div>
-        <LinkButton href="/marketplace/new">
-          <Plus className="h-5 w-5" /> Sell something
-        </LinkButton>
-      </div>
 
-      {showRail ? <PhotoRail title="Fresh finds" items={railItems} /> : null}
+        {showRail ? <PhotoRail title="Fresh finds" items={railItems} /> : null}
 
-      <ItemFilters universities={universities} values={{ ...values, university: universityId ?? "all" }} hasFilters={hasFilters} />
+        <ItemFilters universities={universities} values={{ ...values, university: universityId ?? "all" }} hasFilters={hasFilters} />
 
-      {result.data.length === 0 ? (
-        <EmptyState
-          icon={ShoppingBag}
-          title="Nothing for sale yet"
-          description={universityId ? "Try All universities, or list something you no longer need." : "List something you no longer need."}
-          action={
-            <div className="flex gap-2">
-              {universityId ? (
-                <LinkButton href="/marketplace?university=all" variant="secondary">
-                  Show all universities
-                </LinkButton>
-              ) : null}
-              <LinkButton href="/marketplace/new">Sell something</LinkButton>
-            </div>
-          }
-        />
-      ) : (
-        <ItemFeed
-          key={JSON.stringify({ ...filters, page: undefined })}
-          initial={result.data}
-          totalPages={result.totalPages}
-          filters={{ ...filters, page: undefined }}
-          savedIds={[...savedIds]}
-          signedIn={Boolean(user)}
-        />
-      )}
+        {result.data.length === 0 ? (
+          <EmptyState
+            icon={ShoppingBag}
+            title="Nothing for sale yet"
+            description={universityId ? "Try All universities, or list something you no longer need." : "List something you no longer need."}
+            action={
+              <div className="flex gap-2">
+                {universityId ? (
+                  <LinkButton href="/marketplace?university=all" variant="secondary">
+                    Show all universities
+                  </LinkButton>
+                ) : null}
+                <LinkButton href="/marketplace/new">Sell something</LinkButton>
+              </div>
+            }
+          />
+        ) : (
+          <ItemFeed
+            key={JSON.stringify({ ...filters, page: undefined })}
+            initial={result.data}
+            totalPages={result.totalPages}
+            filters={{ ...filters, page: undefined }}
+            savedIds={[...savedIds]}
+            signedIn={Boolean(user)}
+          />
+        )}
+      </HousingSwipe>
     </div>
   );
 }
