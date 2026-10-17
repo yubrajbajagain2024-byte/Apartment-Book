@@ -16,7 +16,7 @@
 -- -----------------------------------------------------------------------------
 -- 1. Section, meeting times and room on a class
 -- -----------------------------------------------------------------------------
--- meetings: up to 4 of {"days": ["mon", "wed", "fri"], "start": "10:00", "end": "10:50"} (24-hour times, start before
+-- meetings: up to 8 of {"days": ["mon", "wed", "fri"], "start": "10:00", "end": "10:50"} (24-hour times, start before
 -- end), the way packages/shared/src/profile.ts (ClassMeeting, meetingsProblem) checks them before sending.
 create or replace function public.class_meetings_ok(p jsonb)
 returns boolean
@@ -27,7 +27,7 @@ declare
   m jsonb;
   d jsonb;
 begin
-  if p is null or jsonb_typeof(p) <> 'array' or jsonb_array_length(p) > 4 then
+  if p is null or jsonb_typeof(p) <> 'array' or jsonb_array_length(p) > 8 then
     return false;
   end if;
   for m in select * from jsonb_array_elements(p) loop

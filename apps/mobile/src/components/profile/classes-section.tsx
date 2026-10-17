@@ -8,16 +8,20 @@ import {
   classDetails,
   classSectionProblem,
   CLASS_LOCATION_MAX,
+  expandMeetings,
   formatClockTime,
   groupClassesByTerm,
   locationProblem,
   MAX_CLASS_MEETINGS,
   meetingsProblem,
+  mergeMeetingSlots,
   pickableTerms,
   removeProfileClass,
-  sortWeekdays,
+  shiftClockTime,
+  weekdayLabel,
   WEEKDAYS,
   type ClassMeeting,
+  type MeetingSlot,
   type ProfileClass,
   type Weekday,
 } from "@apartment-book/shared";
@@ -134,13 +138,9 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
   );
 }
 
-/** A fresh meeting time: no days yet, a morning hour. */
-const NEW_MEETING: ClassMeeting = { days: [], start: "09:00", end: "09:50" };
-
 /**
- * Class code and section, the times it meets (days of the week with a start and an end each, a few of them for a lecture
- * and a lab, say), the room, an optional class name and the semester (this one picked), then Add. Stays open after a
- * class is added, for the next one.
+ * Class code and section, the days and times it meets, the room, an optional class name and the semester (this one
+ * picked), then Add. Stays open after a class is added, for the next one.
  */
 function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (c: ProfileClass) => void; onClose: () => void }) {
   const styles = useStyles();
@@ -304,104 +304,113 @@ function AddClassForm({ userId, onAdded, onClose }: { userId: string; onAdded: (
 }
 
 /**
- * When the class meets: a card per meeting time with the days of the week to tap on and a start and an end time, each
- * opening the phone's time picker (a wheel under the row on iOS, the system dialog on Android). "Add meeting time" adds
- * another, up to MAX_CLASS_MEETINGS (a lecture and a lab, say); the cross on a card removes it. A class may have none.
+ * When the class meets, one day at a time: tap the days of the week, and each day picked gets a row with its start and
+ * end (a new day starts with the time of the day before it, so MWF 10:00–10:50 takes one change). Each time opens the
+ * phone's time picker (a wheel under the row on iOS, the system dialog on Android). The "+" on a day's row adds a second
+ * time that day (a lecture and a lab, say) and the cross removes it. Days that share a time are stored as one meeting.
+ * A class may meet on no days at all.
  */
 function MeetingsEditor({ meetings, onChange, error }: { meetings: ClassMeeting[]; onChange: (next: ClassMeeting[]) => void; error: string | null }) {
   const styles = useStyles();
   const { colors, isDark } = useAppTheme();
-  /** Which time is being picked: the card and its start or end. */
+  const slots = useMemo(() => expandMeetings(meetings), [meetings]);
+  const chosenDays = useMemo(() => new Set(slots.map((s) => s.day)), [slots]);
+  /** Which time is being picked: the row and its start or end. */
   const [picking, setPicking] = useState<{ index: number; field: "start" | "end" } | null>(null);
+  const commit = (next: MeetingSlot[]) => onChange(mergeMeetingSlots(next));
+  const order = (day: Weekday) => WEEKDAYS.findIndex((d) => d.value === day);
 
-  function update(index: number, patch: Partial<ClassMeeting>) {
-    onChange(meetings.map((m, i) => (i === index ? { ...m, ...patch } : m)));
-  }
-  function toggleDay(index: number, day: Weekday) {
-    const m = meetings[index];
-    if (!m) return;
+  function toggleDay(day: Weekday) {
     hapticTap();
-    update(index, { days: sortWeekdays(m.days.includes(day) ? m.days.filter((d) => d !== day) : [...m.days, day]) });
-  }
-  function removeMeeting(index: number) {
     setPicking(null);
-    onChange(meetings.filter((_, i) => i !== index));
+    if (chosenDays.has(day)) return commit(slots.filter((s) => s.day !== day));
+    // The new day takes the time of the nearest day before it (or the first day there is), so MWF takes one change.
+    const before = [...slots].reverse().find((s) => order(s.day) < order(day)) ?? slots[0];
+    commit([...slots, { day, start: before?.start ?? "09:00", end: before?.end ?? "09:50" }]);
+  }
+  function updateSlot(index: number, patch: Partial<MeetingSlot>) {
+    commit(slots.map((s, i) => (i === index ? { ...s, ...patch } : s)));
+  }
+  function addTime(day: Weekday) {
+    setPicking(null);
+    const last = [...slots].reverse().find((s) => s.day === day);
+    const start = last ? last.end : "13:00";
+    commit([...slots, { day, start, end: shiftClockTime(start, 50) }]);
+  }
+  function removeSlot(index: number) {
+    setPicking(null);
+    commit(slots.filter((_, i) => i !== index));
   }
   function onPicked(e: DateTimePickerEvent, date?: Date) {
     // Android closes its dialog itself and reports a dismissal as well as a choice; iOS keeps its wheel up until the field is tapped again.
     if (Platform.OS === "android") setPicking(null);
     if (e.type !== "set" || !date || !picking) return;
-    update(picking.index, { [picking.field]: toClock(date) });
+    updateSlot(picking.index, { [picking.field]: toClock(date) });
   }
 
   return (
-    <View style={{ gap: 6 }}>
-      <Text style={styles.label}>Meeting times (optional)</Text>
-      {meetings.map((m, index) => (
-        <View key={index} style={styles.meeting}>
-          <View style={styles.meetingHead}>
-            <View style={styles.days} accessibilityRole="tablist" accessibilityLabel={`Days of meeting time ${index + 1}`}>
-              {WEEKDAYS.map((d) => {
-                const on = m.days.includes(d.value);
+    <View style={{ gap: 8 }}>
+      <Text style={styles.label}>Meeting days and times (optional)</Text>
+      <View style={styles.days} accessibilityRole="tablist" accessibilityLabel="Days the class meets">
+        {WEEKDAYS.map((d) => {
+          const on = chosenDays.has(d.value);
+          return (
+            <Pressable key={d.value} onPress={() => toggleDay(d.value)} accessibilityRole="checkbox" accessibilityLabel={d.label} accessibilityState={{ checked: on }} style={[styles.day, on && styles.dayOn]}>
+              <Text style={[styles.dayText, on && styles.dayTextOn]}>{d.letter}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {slots.length === 0 ? <Text style={styles.hint}>Pick the days the class meets to set its times.</Text> : null}
+      {slots.map((s, index) => {
+        const first = index === 0 || slots[index - 1]?.day !== s.day;
+        const label = weekdayLabel(s.day);
+        const short = WEEKDAYS.find((d) => d.value === s.day)?.short ?? label;
+        return (
+          <View key={`${s.day}-${index}`} style={[styles.slot, !first && styles.slotExtra]}>
+            <View style={styles.slotRow}>
+              <Text style={styles.slotDay} accessibilityLabel={first ? label : `${label}, another time`}>
+                {first ? short : ""}
+              </Text>
+              {(["start", "end"] as const).map((field, fi) => {
+                const active = picking?.index === index && picking.field === field;
                 return (
-                  <Pressable key={d.value} onPress={() => toggleDay(index, d.value)} accessibilityRole="checkbox" accessibilityLabel={d.label} accessibilityState={{ checked: on }} style={[styles.day, on && styles.dayOn]}>
-                    <Text style={[styles.dayText, on && styles.dayTextOn]}>{d.letter}</Text>
-                  </Pressable>
+                  <View key={field} style={styles.slotTimeWrap}>
+                    {fi === 1 ? <Text style={styles.slotDash}>–</Text> : null}
+                    <Pressable
+                      onPress={() => setPicking(active ? null : { index, field })}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${label} ${field === "start" ? "starts" : "ends"} ${formatClockTime(s[field])}`}
+                      accessibilityHint="Opens the time picker"
+                      accessibilityState={{ expanded: active }}
+                      style={[styles.time, active && styles.timeOn]}
+                    >
+                      <Text style={[styles.timeValue, active && { color: colors.brand }]}>{formatClockTime(s[field])}</Text>
+                    </Pressable>
+                  </View>
                 );
               })}
-            </View>
-            <Pressable onPress={() => removeMeeting(index)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Remove meeting time ${index + 1}`} style={({ pressed }) => [styles.meetingRemove, pressed && { opacity: 0.6 }]}>
-              <Ionicons name="close" size={16} color={colors.muted} />
-            </Pressable>
-          </View>
-          <View style={styles.times}>
-            {(["start", "end"] as const).map((field) => {
-              const active = picking?.index === index && picking.field === field;
-              return (
-                <Pressable
-                  key={field}
-                  onPress={() => setPicking(active ? null : { index, field })}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${field === "start" ? "Starts" : "Ends"} ${formatClockTime(m[field])}`}
-                  accessibilityHint="Opens the time picker"
-                  accessibilityState={{ expanded: active }}
-                  style={[styles.time, active && styles.timeOn]}
-                >
-                  <Text style={styles.timeLabel}>{field === "start" ? "Starts" : "Ends"}</Text>
-                  <Text style={[styles.timeValue, active && { color: colors.brand }]}>{formatClockTime(m[field])}</Text>
-                  <Ionicons name={active ? "chevron-up" : "chevron-down"} size={14} color={colors.muted} />
+              {first ? (
+                slots.length < MAX_CLASS_MEETINGS ? (
+                  <Pressable onPress={() => addTime(s.day)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Add another time on ${label}`} style={({ pressed }) => [styles.slotAction, pressed && { opacity: 0.6 }]}>
+                    <Ionicons name="add-circle-outline" size={20} color={colors.brand} />
+                  </Pressable>
+                ) : (
+                  <View style={styles.slotAction} />
+                )
+              ) : (
+                <Pressable onPress={() => removeSlot(index)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Remove this time on ${label}`} style={({ pressed }) => [styles.slotAction, pressed && { opacity: 0.6 }]}>
+                  <Ionicons name="close-circle-outline" size={20} color={colors.muted} />
                 </Pressable>
-              );
-            })}
+              )}
+            </View>
+            {picking?.index === index ? (
+              <DateTimePicker value={fromClock(s[picking.field])} mode="time" minuteInterval={5} display={Platform.OS === "ios" ? "spinner" : "default"} onChange={onPicked} themeVariant={isDark ? "dark" : "light"} style={styles.picker} />
+            ) : null}
           </View>
-          {picking?.index === index ? (
-            <DateTimePicker
-              value={fromClock(m[picking.field])}
-              mode="time"
-              minuteInterval={5}
-              display={Platform.OS === "ios" ? "spinner" : "default"}
-              onChange={onPicked}
-              themeVariant={isDark ? "dark" : "light"}
-              style={styles.picker}
-            />
-          ) : null}
-        </View>
-      ))}
+        );
+      })}
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      {meetings.length < MAX_CLASS_MEETINGS ? (
-        <Pressable
-          onPress={() => {
-            onChange([...meetings, NEW_MEETING]);
-            setPicking(null);
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={meetings.length === 0 ? "Add meeting time" : "Add another meeting time"}
-          style={({ pressed }) => [styles.addMeeting, pressed && { opacity: 0.6 }]}
-        >
-          <Ionicons name="add-circle-outline" size={18} color={colors.brand} />
-          <Text style={styles.addMeetingText}>{meetings.length === 0 ? "Add meeting time" : "Add another meeting time"}</Text>
-        </Pressable>
-      ) : null}
     </View>
   );
 }
@@ -443,21 +452,23 @@ const useStyles = makeStyles((colors) => ({
   termChip: { paddingHorizontal: 12, height: 34, justifyContent: "center", borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   termChipOn: { backgroundColor: colors.brandSoft, borderColor: colors.brand },
   termText: { fontSize: 13, fontWeight: "600", color: colors.muted },
-  // One meeting time: the days, then the two times, then the wheel while one of them is being picked.
-  meeting: { gap: 10, padding: 10, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input },
-  meetingHead: { flexDirection: "row", alignItems: "center", gap: 6 },
-  days: { flex: 1, flexDirection: "row", justifyContent: "space-between" },
-  day: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  // The days of the week to tap, then one row per day picked: its name, start – end, and + (another time) or × (drop it).
+  days: { flexDirection: "row", justifyContent: "space-between" },
+  day: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
   dayOn: { backgroundColor: colors.brand, borderColor: colors.brand },
   dayText: { fontSize: 13, fontWeight: "700", color: colors.muted },
   dayTextOn: { color: colors.onBrand },
-  meetingRemove: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  times: { flexDirection: "row", gap: space.sm },
-  time: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6, height: 42, paddingHorizontal: 12, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  hint: { fontSize: 13, color: colors.faint },
+  slot: { gap: 6, padding: 8, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input },
+  // A second time on the same day sits tight under the first, without a day name of its own.
+  slotExtra: { marginTop: -2 },
+  slotRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  slotDay: { width: 40, fontSize: 13, fontWeight: "700", color: colors.text },
+  slotTimeWrap: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
+  slotDash: { fontSize: 14, color: colors.muted },
+  time: { flex: 1, height: 38, alignItems: "center", justifyContent: "center", paddingHorizontal: 8, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   timeOn: { borderColor: colors.brand },
-  timeLabel: { fontSize: 12, fontWeight: "600", color: colors.muted },
-  timeValue: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.text, textAlign: "right" },
+  timeValue: { fontSize: 14, fontWeight: "700", color: colors.text },
+  slotAction: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
   picker: { alignSelf: "stretch", height: 180 },
-  addMeeting: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6 },
-  addMeetingText: { fontSize: 14, fontWeight: "600", color: colors.brand },
 }));

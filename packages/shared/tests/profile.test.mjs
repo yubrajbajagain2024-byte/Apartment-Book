@@ -54,7 +54,7 @@ test("sections and course chat names: trimmed and upper-cased, checked like the 
 });
 
 test("meeting times: parsed from JSON leniently, checked like the database, read as MWF 10:00–10:50 AM", async () => {
-  const { parseClassMeetings, meetingsProblem, locationProblem, formatClockTime, formatClassMeeting, formatClassMeetings, weekdayLetters, classDetails } = await import("../src/profile.ts");
+  const { parseClassMeetings, meetingsProblem, locationProblem, formatClockTime, formatClassMeeting, formatClassMeetings, weekdayLetters, classDetails, expandMeetings, mergeMeetingSlots, shiftClockTime } = await import("../src/profile.ts");
   assert.deepEqual(parseClassMeetings([{ days: ["fri", "mon", "nope", "wed"], start: "10:00", end: "10:50" }, "junk", { days: "mon" }]), [{ days: ["mon", "wed", "fri"], start: "10:00", end: "10:50" }]);
   assert.deepEqual(parseClassMeetings(null), []);
   assert.equal(meetingsProblem([]), null);
@@ -62,8 +62,22 @@ test("meeting times: parsed from JSON leniently, checked like the database, read
   assert.match(meetingsProblem([{ days: [], start: "11:00", end: "12:20" }]), /at least one day/);
   assert.match(meetingsProblem([{ days: ["mon"], start: "", end: "12:20" }]), /start and an end/);
   assert.match(meetingsProblem([{ days: ["mon"], start: "12:20", end: "11:00" }]), /after the start/);
-  assert.match(meetingsProblem([{ days: ["mon"], start: "09:00", end: "10:00" }, { days: ["tue"], start: "10:00", end: "09:00" }]), /^Meeting time 2: /);
-  assert.match(meetingsProblem(Array.from({ length: 5 }, () => ({ days: ["mon"], start: "09:00", end: "10:00" }))), /up to 4/);
+  assert.match(meetingsProblem([{ days: ["mon"], start: "09:00", end: "10:00" }, { days: ["tue", "thu"], start: "10:00", end: "09:00" }]), /^Tuesday, Thursday: /);
+  assert.match(meetingsProblem([{ days: ["mon", "wed"], start: "09:00", end: "10:00" }, { days: ["mon"], start: "09:30", end: "10:30" }]), /^Monday: two of its times overlap/);
+  assert.equal(meetingsProblem([{ days: ["mon"], start: "09:00", end: "10:00" }, { days: ["mon"], start: "10:00", end: "11:00" }]), null);
+  assert.match(meetingsProblem(Array.from({ length: 9 }, () => ({ days: ["mon"], start: "09:00", end: "10:00" }))), /up to 8/);
+  assert.equal(shiftClockTime("10:00", 50), "10:50");
+  assert.equal(shiftClockTime("23:30", 50), "23:55");
+  // The form edits one day at a time; days sharing a time are folded back together when stored.
+  assert.deepEqual(expandMeetings([{ days: ["wed", "mon"], start: "10:00", end: "10:50" }, { days: ["mon"], start: "08:00", end: "08:50" }]), [
+    { day: "mon", start: "08:00", end: "08:50" },
+    { day: "mon", start: "10:00", end: "10:50" },
+    { day: "wed", start: "10:00", end: "10:50" },
+  ]);
+  assert.deepEqual(mergeMeetingSlots([{ day: "fri", start: "10:00", end: "10:50" }, { day: "mon", start: "10:00", end: "10:50" }, { day: "tue", start: "14:00", end: "15:15" }, { day: "wed", start: "10:00", end: "10:50" }]), [
+    { days: ["mon", "wed", "fri"], start: "10:00", end: "10:50" },
+    { days: ["tue"], start: "14:00", end: "15:15" },
+  ]);
   assert.equal(locationProblem(" Derrick Hall 240 "), null);
   assert.match(locationProblem("x".repeat(81)), /at most 80/);
   assert.equal(formatClockTime("00:30"), "12:30 AM");

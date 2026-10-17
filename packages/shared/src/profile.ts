@@ -166,7 +166,7 @@ const WEEKDAY_VALUES: readonly string[] = WEEKDAYS.map((d) => d.value);
 
 /** One time a class meets: on these days, from `start` to `end` ("HH:MM", 24-hour). A class can have a few (lecture and lab, say). */
 export type ClassMeeting = { days: Weekday[]; start: string; end: string };
-export const MAX_CLASS_MEETINGS = 4;
+export const MAX_CLASS_MEETINGS = 8;
 export const CLASS_LOCATION_MAX = 80;
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -192,14 +192,59 @@ export function sortWeekdays(days: Weekday[]): Weekday[] {
   return WEEKDAYS.map((d) => d.value).filter((d) => days.includes(d));
 }
 
-/** Why a class's meeting times would be refused, or null. Mirrors the database check (class_meetings_ok). */
+/** One day's start and end: how the form edits a class's times, one row per day (a day may have two, a lecture and a lab). */
+export type MeetingSlot = { day: Weekday; start: string; end: string };
+
+function dayIndex(day: Weekday): number {
+  return WEEKDAY_VALUES.indexOf(day);
+}
+export function weekdayLabel(day: Weekday): string {
+  return WEEKDAYS.find((d) => d.value === day)?.label ?? day;
+}
+
+/** A class's meeting times one day at a time, Monday first and the earliest first within a day. */
+export function expandMeetings(meetings: ClassMeeting[]): MeetingSlot[] {
+  const slots: MeetingSlot[] = [];
+  for (const m of meetings) for (const day of m.days) slots.push({ day, start: m.start, end: m.end });
+  return slots.sort((a, b) => dayIndex(a.day) - dayIndex(b.day) || a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
+}
+
+/** Days that meet at the same time folded into one meeting ("MWF 10:00–10:50"), earliest day first: how a class is stored. */
+export function mergeMeetingSlots(slots: MeetingSlot[]): ClassMeeting[] {
+  const byTime = new Map<string, ClassMeeting>();
+  for (const s of [...slots].sort((a, b) => dayIndex(a.day) - dayIndex(b.day) || a.start.localeCompare(b.start))) {
+    const key = `${s.start}-${s.end}`;
+    const m = byTime.get(key);
+    if (!m) byTime.set(key, { days: [s.day], start: s.start, end: s.end });
+    else if (!m.days.includes(s.day)) m.days.push(s.day);
+  }
+  return [...byTime.values()].map((m) => ({ ...m, days: sortWeekdays(m.days) })).sort((a, b) => dayIndex(a.days[0]!) - dayIndex(b.days[0]!) || a.start.localeCompare(b.start));
+}
+
+/** "10:00" plus 50 minutes is "10:50"; never past "23:55". */
+export function shiftClockTime(hhmm: string, minutes: number): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  const total = Math.max(0, Math.min(23 * 60 + 55, (h || 0) * 60 + (m || 0) + minutes));
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Why a class's meeting times would be refused, or null. Mirrors the database check (class_meetings_ok), and also
+ * refuses two times on one day that overlap.
+ */
 export function meetingsProblem(meetings: ClassMeeting[]): string | null {
   if (meetings.length > MAX_CLASS_MEETINGS) return `A class can have up to ${MAX_CLASS_MEETINGS} meeting times.`;
-  for (const [i, m] of meetings.entries()) {
-    const which = meetings.length > 1 ? `Meeting time ${i + 1}: ` : "";
-    if (m.days.length === 0 || m.days.some((d) => !isWeekday(d))) return `${which}pick at least one day.`;
-    if (!HHMM.test(m.start) || !HHMM.test(m.end)) return `${which}set a start and an end time.`;
-    if (m.start >= m.end) return `${which}the end time has to be after the start time.`;
+  for (const m of meetings) {
+    if (m.days.length === 0 || m.days.some((d) => !isWeekday(d))) return "Pick at least one day for each meeting time.";
+    const when = sortWeekdays(m.days).map(weekdayLabel).join(", ");
+    if (!HHMM.test(m.start) || !HHMM.test(m.end)) return `${when}: set a start and an end time.`;
+    if (m.start >= m.end) return `${when}: the end time has to be after the start time.`;
+  }
+  const slots = expandMeetings(meetings);
+  for (let i = 1; i < slots.length; i++) {
+    const a = slots[i - 1]!;
+    const b = slots[i]!;
+    if (a.day === b.day && b.start < a.end) return `${weekdayLabel(a.day)}: two of its times overlap.`;
   }
   return null;
 }

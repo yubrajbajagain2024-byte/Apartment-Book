@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { GraduationCap, Plus, X } from "lucide-react";
-import { classCodeProblem, classDetails, classSectionProblem, CLASS_LOCATION_MAX, locationProblem, MAX_CLASS_MEETINGS, meetingsProblem, sortWeekdays, WEEKDAYS, type ClassMeeting, type ProfileClass, type Weekday } from "@apartment-book/shared";
+import { classCodeProblem, classDetails, classSectionProblem, CLASS_LOCATION_MAX, expandMeetings, locationProblem, MAX_CLASS_MEETINGS, meetingsProblem, mergeMeetingSlots, shiftClockTime, weekdayLabel, WEEKDAYS, type ClassMeeting, type MeetingSlot, type ProfileClass, type Weekday } from "@apartment-book/shared";
 import { addClassAction, removeClassAction } from "@/lib/actions/profile-page";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -293,67 +293,85 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
   );
 }
 
-/** A fresh meeting time: no days yet, a morning hour. */
-const NEW_MEETING: ClassMeeting = { days: [], start: "09:00", end: "09:50" };
-
 /**
- * When the class meets: a row per meeting time with the days of the week to toggle and a start and an end time, "Add
- * meeting time" for another (a lecture and a lab, say, up to MAX_CLASS_MEETINGS) and a cross to drop one. A class may
- * have none.
+ * When the class meets, one day at a time: toggle the days of the week, and each day picked gets a row with its start and
+ * end (a new day starts with the time of the day before it, so MWF 10:00–10:50 takes one change). The "+" on a day's row
+ * adds a second time that day (a lecture and a lab, say) and the cross removes it. Days that share a time are stored as
+ * one meeting. A class may meet on no days at all.
  */
 function MeetingsEditor({ meetings, onChange }: { meetings: ClassMeeting[]; onChange: (next: ClassMeeting[]) => void }) {
-  function update(index: number, patch: Partial<ClassMeeting>) {
-    onChange(meetings.map((m, i) => (i === index ? { ...m, ...patch } : m)));
+  const slots = expandMeetings(meetings);
+  const chosen = new Set(slots.map((s) => s.day));
+  const commit = (next: MeetingSlot[]) => onChange(mergeMeetingSlots(next));
+  const order = (day: Weekday) => WEEKDAYS.findIndex((d) => d.value === day);
+  const shortDay = (day: Weekday) => WEEKDAYS.find((d) => d.value === day)?.short ?? day;
+
+  function toggleDay(day: Weekday) {
+    if (chosen.has(day)) return commit(slots.filter((s) => s.day !== day));
+    const before = [...slots].reverse().find((s) => order(s.day) < order(day)) ?? slots[0];
+    commit([...slots, { day, start: before?.start ?? "09:00", end: before?.end ?? "09:50" }]);
   }
-  function toggleDay(index: number, day: Weekday) {
-    const m = meetings[index];
-    if (!m) return;
-    update(index, { days: sortWeekdays(m.days.includes(day) ? m.days.filter((d) => d !== day) : [...m.days, day]) });
+  function update(index: number, patch: Partial<MeetingSlot>) {
+    commit(slots.map((s, i) => (i === index ? { ...s, ...patch } : s)));
   }
+  function addTime(day: Weekday) {
+    const last = [...slots].reverse().find((s) => s.day === day);
+    const start = last ? last.end : "13:00";
+    commit([...slots, { day, start, end: shiftClockTime(start, 50) }]);
+  }
+
+  const timeClass = "h-9 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100";
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="mb-1.5 text-sm font-medium text-gray-800">Meeting times (optional)</legend>
-      {meetings.map((m, index) => (
-        <div key={index} className="flex flex-col gap-2 rounded-lg bg-white p-2.5 ring-1 ring-gray-200" data-testid="profile-class-meeting">
-          <div className="flex items-center gap-1.5">
-            <div className="flex flex-1 flex-wrap gap-1" role="group" aria-label={`Days of meeting time ${index + 1}`}>
-              {WEEKDAYS.map((d) => {
-                const on = m.days.includes(d.value);
-                return (
-                  <button
-                    key={d.value}
-                    type="button"
-                    onClick={() => toggleDay(index, d.value)}
-                    aria-pressed={on}
-                    aria-label={d.label}
-                    className={cn("h-8 min-w-8 rounded-full px-2 text-xs font-bold ring-1 transition-colors", on ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-gray-600 ring-gray-300 hover:bg-gray-100")}
-                  >
-                    {d.letter}
-                  </button>
-                );
-              })}
-            </div>
-            <button type="button" onClick={() => onChange(meetings.filter((_, i) => i !== index))} aria-label={`Remove meeting time ${index + 1}`} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-900">
-              <X className="h-4 w-4" />
+      <legend className="mb-1.5 text-sm font-medium text-gray-800">Meeting days and times (optional)</legend>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Days the class meets">
+        {WEEKDAYS.map((d) => {
+          const on = chosen.has(d.value);
+          return (
+            <button
+              key={d.value}
+              type="button"
+              onClick={() => toggleDay(d.value)}
+              aria-pressed={on}
+              aria-label={d.label}
+              className={cn("h-9 min-w-9 rounded-full px-2.5 text-xs font-bold ring-1 transition-colors", on ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-gray-600 ring-gray-300 hover:bg-gray-100")}
+            >
+              {d.letter}
             </button>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="flex flex-col gap-1 text-xs font-medium text-gray-600">
-              Starts
-              <input type="time" value={m.start} onChange={(e) => update(index, { start: e.target.value })} step={300} required className="h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" />
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-medium text-gray-600">
-              Ends
-              <input type="time" value={m.end} onChange={(e) => update(index, { end: e.target.value })} step={300} required className="h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" />
-            </label>
-          </div>
-        </div>
-      ))}
-      {meetings.length < MAX_CLASS_MEETINGS ? (
-        <button type="button" onClick={() => onChange([...meetings, NEW_MEETING])} className="inline-flex h-8 items-center gap-1 self-start rounded-lg px-2 text-sm font-semibold text-brand-600 hover:bg-brand-50">
-          <Plus className="h-4 w-4" /> {meetings.length === 0 ? "Add meeting time" : "Add another meeting time"}
-        </button>
-      ) : null}
+          );
+        })}
+      </div>
+      {slots.length === 0 ? (
+        <p className="text-xs text-gray-500">Pick the days the class meets to set its times.</p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {slots.map((s, index) => {
+            const first = index === 0 || slots[index - 1]?.day !== s.day;
+            const label = weekdayLabel(s.day);
+            return (
+              <li key={`${s.day}-${index}`} className="grid grid-cols-[3rem_1fr_auto_1fr_2rem] items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 ring-1 ring-gray-200" data-testid="profile-class-meeting">
+                <span className="text-sm font-semibold text-gray-800">{first ? shortDay(s.day) : ""}</span>
+                <input type="time" aria-label={`${label} starts`} value={s.start} onChange={(e) => update(index, { start: e.target.value })} step={300} required className={timeClass} />
+                <span className="text-gray-400">–</span>
+                <input type="time" aria-label={`${label} ends`} value={s.end} onChange={(e) => update(index, { end: e.target.value })} step={300} required className={timeClass} />
+                {first ? (
+                  slots.length < MAX_CLASS_MEETINGS ? (
+                    <button type="button" onClick={() => addTime(s.day)} aria-label={`Add another time on ${label}`} className="flex h-8 w-8 items-center justify-center rounded-full text-brand-600 hover:bg-brand-50">
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <span />
+                  )
+                ) : (
+                  <button type="button" onClick={() => commit(slots.filter((_, i) => i !== index))} aria-label={`Remove this time on ${label}`} className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-900">
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </fieldset>
   );
 }
