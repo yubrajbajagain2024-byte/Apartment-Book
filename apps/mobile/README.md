@@ -19,15 +19,21 @@ security protects the data, so they are safe to ship.
 
 ## Home and the tabs
 
-The bottom bar has five tabs: Home, Housing, Messages, Marketplace, Profile. Search (find accounts by name and follow them)
+The bottom bar has five tabs: Home, Housing, Messages, Marketplace, Profile. It floats over the content as a rounded
+glass pill (`src/app/(tabs)/_layout.tsx`, its size in `src/lib/tab-bar.ts`): on iOS 26 real liquid glass, with what scrolls
+under it blurred through, elsewhere a translucent fill; the tab on screen sits in a lighter capsule with its icon filled, and the capsule slides to
+the tab you tap on a soft spring while the tabs make room for it, GroupMe style, with no haptic
+(`src/components/floating-tab-bar.tsx`, on Reanimated); every tab's list and floating button keeps `tabBarInset` clear
+under it. Search (find accounts by name and follow them)
 is the magnifier in the top-right corner of every tab, like TikTok; on Home it sits in
 the floating top bar. Home opens on **For you**, a blend of posts, reels and hot anonymous Buzz threads
 (the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
 four pages, For you | Buzz | Posts | Reels, sit side by side in a pager: swipe left or right to move
-between them, or tap a label in the floating top bar. That bar is one row (`src/components/home/home-top-tabs.tsx`): your photo in a teal-to-violet
-ring on the left, which drops down the feed menu; the four labels in the middle, highlighted like X
-(`src/components/sliding-tabs.tsx`): the active one bold with a rounded violet underline as wide as the label, a hairline
-under the row, and a soft haptic each time the section changes, by tap or swipe; and Search on the right. Creating is the
+between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in a teal-to-violet
+ring on the left, which drops down the feed menu, the CampConnect wordmark in the middle (it reads "Following" while that
+feed shows, and opens the menu too) and Search on the right; then the four labels spread across the row
+(`src/components/sliding-tabs.tsx`): the active one bold with a rounded violet underline as wide as the label, sliding
+with the finger over a hairline, and a soft haptic each time the section changes, by tap or swipe. Creating is the
 "+ New post" pill floating over the bottom-right of the feed (`src/components/home/new-post-button.tsx`, the same
 Post / Reel / Buzz sheet as before); it fades out towards Reels, where the bar's left slot holds a white "+" instead. The
 menu chooses your university, All universities or, signed in, Following (only the posts of people you follow;
@@ -71,6 +77,15 @@ its ••• menu) to pin it to the top of your profile, three at most. Someone
 (block, report) instead. It needs migration 18 (`supabase/migrations/20260927000000_profile_page.sql`: usernames, the
 who-can-see settings, `profile_classes`, likes readable only through functions, `profile_stats`, `post_view_counts` and
 `feed_posts.pinned_at`); without it the header still shows, with zeros, and each tab says what it could not load.
+
+The Messages tab is the inbox (`src/app/(tabs)/messages.tsx`): the new-message pencil in the top-right corner, the big
+"Messages" title, Chats | Groups with Home's sliding violet underline, a rounded search box and the All | Unread |
+Requests pills (each with its count; Requests on Chats only), then the two pages side by side in a pager like Home's: a
+swipe or a tap on a label moves between your direct chats and your group chats, with the same knock. On Chats the row of
+friends online now sits above the chats (photo, name, the time at the right, the last message under it, a hairline between
+rows). Requests holds the direct chats that people you do not follow started with you, until you reply or follow them
+(`src/lib/use-message-requests.ts`: nothing is stored for it, it is read off the chats, the follow stats and whether you
+have written in each, so every device agrees). Searching looks only in the page on screen.
 
 A direct chat shows the other person's activity status under their name, like Instagram (`src/lib/use-activity-status.ts`,
 the wording in `packages/shared/src/activity.ts`): a small green dot and "Active now" while they are online, otherwise

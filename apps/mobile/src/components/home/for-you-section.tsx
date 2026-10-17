@@ -8,6 +8,7 @@ import { FEED_HEADER_PADDING } from "@/components/post-card";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
+import { useTabBarInset } from "@/lib/tab-bar";
 import { errorText } from "@/lib/hooks";
 import { emitPostRemoved, onPostRemoved, takeForYouStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
@@ -126,6 +127,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
   const viewability = useRef({ itemVisiblePercentThreshold: 60 }).current;
   // The list starts under the floating bar and scrolls beneath it as the bar slides away.
   const inset = useMemo(() => listInset(topInset), [topInset]);
+  const tabBar = useTabBarInset();
 
   // Coming back to For you keeps the list and the scroll position. It reloads only when something new was published
   // while another page was showing: a post or a reel by this person, or a Buzz thread (its "reload" event).
@@ -174,8 +176,8 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
         {...inset.list}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        // Room under the last post for the floating "New post" pill.
-        contentContainerStyle={{ paddingBottom: 96, paddingTop: inset.paddingTop }}
+        // Room under the last post for the floating bottom bar and the "New post" pill above it.
+        contentContainerStyle={{ paddingBottom: 96 + tabBar, paddingTop: inset.paddingTop }}
         ListHeaderComponent={
           error && items.length > 0 ? (
             <View style={styles.banner}>

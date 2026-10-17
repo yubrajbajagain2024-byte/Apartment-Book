@@ -60,6 +60,7 @@ import { hapticTap } from "@/lib/haptics";
 import { errorText, useQuery } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned, onPostRemoved } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
+import { tabBarInset } from "@/lib/tab-bar";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { radius, space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
@@ -1040,7 +1041,8 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
 
   const handle = profileHandle(profile);
   const tileWidth = (body.width - GRID_INSET * 2 - GAP * 2) / 3;
-  const bottomPad = (topBar ? 0 : insets.bottom) + space.xl;
+  // On the Profile tab the floating bottom bar covers the page's bottom; a pushed profile has no bar, just the safe area.
+  const bottomPad = (topBar ? tabBarInset(insets) : insets.bottom) + space.xl;
   // The pages wait for the space's size and the tabs row's (each leaves room for the row). Nothing shows until the open
   // page's copy of the header is measured too, so the row never shows out of place.
   const ready = body.height > 0 && tabsHeight > 0;

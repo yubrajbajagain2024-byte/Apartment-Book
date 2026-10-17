@@ -8,6 +8,7 @@ import { FEED_HEADER_PADDING } from "@/components/post-card";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
+import { useTabBarInset } from "@/lib/tab-bar";
 import { useFeed } from "@/lib/hooks";
 import { emitPostRemoved, onPostRemoved, takePostsStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
@@ -42,6 +43,7 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
   const viewability = useRef({ itemVisiblePercentThreshold: 60 }).current;
   // The list starts under the floating bar and scrolls beneath it as the bar slides away.
   const inset = useMemo(() => listInset(topInset), [topInset]);
+  const tabBar = useTabBarInset();
 
   // Coming back to Posts keeps the list and the scroll position. It only reloads when this person has just published a post.
   const listRef = useRef<FlatList<FeedPostWithAuthor>>(null);
@@ -76,8 +78,8 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
         {...inset.list}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        // Room under the last post for the floating "New post" pill.
-        contentContainerStyle={{ paddingBottom: 96, paddingTop: inset.paddingTop }}
+        // Room under the last post for the floating bottom bar and the "New post" pill above it.
+        contentContainerStyle={{ paddingBottom: 96 + tabBar, paddingTop: inset.paddingTop }}
         renderItem={({ item: p }) => (
           <InstaPost
             post={p}

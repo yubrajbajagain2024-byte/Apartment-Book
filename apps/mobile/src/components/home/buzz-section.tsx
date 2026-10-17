@@ -7,6 +7,7 @@ import { useActionSheet } from "@/components/action-sheet";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { AnimatedFlatList } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
+import { useTabBarInset } from "@/lib/tab-bar";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
@@ -140,6 +141,7 @@ export function BuzzSection({ topInset, onScroll }: { active: boolean; topInset:
   // iOS: an inset keeps the pull-to-refresh spinner below the floating bar. Android: padding + spinner offset.
   const ios = Platform.OS === "ios";
   const inset = useMemo(() => ({ top: topInset }), [topInset]);
+  const tabBar = useTabBarInset();
   const startOffset = useMemo(() => ({ x: 0, y: -topInset }), [topInset]);
 
   return (
@@ -150,7 +152,7 @@ export function BuzzSection({ topInset, onScroll }: { active: boolean; topInset:
         onScroll={onScroll}
         scrollEventThrottle={16}
         // Flat Reddit rows: no cards, no side padding, a hairline between rows.
-        contentContainerStyle={{ paddingBottom: 96, paddingTop: ios ? 0 : topInset }}
+        contentContainerStyle={{ paddingBottom: 96 + tabBar, paddingTop: ios ? 0 : topInset }}
         ItemSeparatorComponent={Hairline}
         contentInset={ios ? inset : undefined}
         contentOffset={ios ? startOffset : undefined}

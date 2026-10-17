@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View, type LayoutRectangle, type StyleProp, type TextStyle } from "react-native";
 
 /**
@@ -33,6 +33,7 @@ export function SlidingTabs<T extends string>({
   textStyle,
   gap = 28,
   fontSize = 15,
+  spread = false,
 }: {
   sections: readonly { value: T; label: string }[];
   section: T;
@@ -43,13 +44,23 @@ export function SlidingTabs<T extends string>({
   labelColor: string;
   dimColor: string;
   textStyle?: StyleProp<TextStyle>;
-  /** Space between the labels and their size: Home's bar, with a slot on each side, packs its four a little tighter and taller. */
+  /** Space between the labels and their size. */
   gap?: number;
   fontSize?: number;
+  /** X's layout: the labels share the row equally, each centred in its share, the underline still as wide as the label. */
+  spread?: boolean;
 }) {
   const [boxes, setBoxes] = useState<(LabelBox | undefined)[]>(() => sections.map(() => undefined));
   // Same array unless a label really moved, so the interpolation below is not rebuilt on every layout pass.
   const measure = (i: number, { x, width }: LayoutRectangle) => setBoxes((prev) => (prev[i]?.x === x && prev[i]?.width === width ? prev : prev.map((b, j) => (j === i ? { x, width } : b))));
+  // Spread, a tab is wider than its label: the label's box is its own offset inside the tab plus the tab's place in the row.
+  const tabX = useRef<number[]>([]);
+  const labelBox = useRef<(LabelBox | undefined)[]>([]);
+  const measureSpread = (i: number) => {
+    const x = tabX.current[i];
+    const b = labelBox.current[i];
+    if (x !== undefined && b) measure(i, { x: x + b.x, width: b.width, y: 0, height: 0 });
+  };
 
   // Page i (offset i * pageWidth) puts the underline under label i, scaled to its width. Only once every label is
   // measured and pageWidth > 0 (so the input range is strictly increasing); until then the static underline below stands in.
@@ -86,13 +97,35 @@ export function SlidingTabs<T extends string>({
   }, [count, pageWidth, scrollX]);
 
   return (
-    <View style={[styles.labels, { gap }]} accessibilityRole="tablist">
+    <View style={[styles.labels, { gap: spread ? 0 : gap }]} accessibilityRole="tablist">
       {sections.map((s, i) => {
         const active = s.value === section;
         const fade = fades?.[i];
         return (
-          <Pressable key={s.value} onPress={() => onSelect(s.value)} onLayout={(e) => measure(i, e.nativeEvent.layout)} hitSlop={6} accessibilityRole="tab" accessibilityLabel={s.label} accessibilityState={{ selected: active }} style={styles.tab}>
-            <View>
+          <Pressable
+            key={s.value}
+            onPress={() => onSelect(s.value)}
+            onLayout={(e) => {
+              if (!spread) return measure(i, e.nativeEvent.layout);
+              tabX.current[i] = e.nativeEvent.layout.x;
+              measureSpread(i);
+            }}
+            hitSlop={6}
+            accessibilityRole="tab"
+            accessibilityLabel={s.label}
+            accessibilityState={{ selected: active }}
+            style={[styles.tab, spread && styles.spread]}
+          >
+            <View
+              onLayout={
+                spread
+                  ? (e) => {
+                      labelBox.current[i] = { x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width };
+                      measureSpread(i);
+                    }
+                  : undefined
+              }
+            >
               {/* An invisible bold copy gives every label the width of its bold form: nothing shifts when the active one changes weight, and the underline fits it exactly. */}
               <Text style={[styles.label, { fontSize }, styles.bold, styles.ghost, textStyle]} aria-hidden>
                 {s.label}
@@ -120,6 +153,7 @@ const styles = StyleSheet.create({
   labels: { flex: 1, alignSelf: "stretch", flexDirection: "row", alignItems: "stretch", justifyContent: "center" },
   // Stretched to the row's height so the underline sits on the row's bottom edge whatever the bar's height (44pt in Home and Housing).
   tab: { alignItems: "center", justifyContent: "center" },
+  spread: { flex: 1 },
   label: { fontSize: 15, fontWeight: "600" },
   bold: { fontWeight: "800" },
   ghost: { opacity: 0 },

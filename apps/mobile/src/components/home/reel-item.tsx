@@ -53,6 +53,8 @@ type Props = {
   width: number;
   height: number;
   topInset: number;
+  /** How much of the page's bottom the floating bar covers: the caption and the rail sit above it. */
+  bottomInset: number;
   /** Within one of the visible reel: worth mounting a player so it is ready to go. */
   near: boolean;
   /** This is the visible reel and the Reels section is on screen. */
@@ -62,7 +64,7 @@ type Props = {
   onRemoved: (key: string) => void;
 };
 
-export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, near, playing, onPatch, onOpenComments, onRemoved }: Props) {
+export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, bottomInset, near, playing, onPatch, onOpenComments, onRemoved }: Props) {
   const { user } = useSession();
   const router = useRouter();
   const show = useActionSheet();
@@ -330,7 +332,7 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
         <Ionicons name={muted ? "volume-mute" : "volume-high"} size={18} color={colors.onMedia} />
       </Pressable>
 
-      <View style={styles.overlay} pointerEvents="box-none">
+      <View style={[styles.overlay, { paddingBottom: 31 + bottomInset }]} pointerEvents="box-none">
         <View style={styles.info} pointerEvents="box-none">
           <Pressable onPress={() => router.push({ pathname: "/profile/[id]", params: { id: reel.author.id } })} style={{ flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start" }} accessibilityRole="link" accessibilityLabel={`${reel.author.name}'s profile`}>
             <Text style={styles.author} numberOfLines={1}>

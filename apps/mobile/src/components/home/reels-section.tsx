@@ -7,6 +7,7 @@ import { errorText } from "@/lib/hooks";
 import { emitPostRemoved } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { useTabBarInset } from "@/lib/tab-bar";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { ReelCommentsSheet } from "./reel-comments-sheet";
 import { ReelItem, reelKey } from "./reel-item";
@@ -32,6 +33,8 @@ function mergeUnique(current: Reel[], incoming: Reel[]): Reel[] {
  * swiping over shows them at once.
  */
 export function ReelsSection({ active, preload = false, topInset, height }: { active: boolean; preload?: boolean; topInset: number; height: number }) {
+  // The floating bottom bar covers the page's bottom: the caption and the rail sit above it, the video runs on beneath.
+  const tabBar = useTabBarInset();
   const { user } = useSession();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -218,7 +221,7 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
         style={{ width, height }}
         keyExtractor={reelKey}
         renderItem={({ item, index }) => (
-          <ReelItem reel={item} width={width} height={height} topInset={topInset} near={index === visible || (active && Math.abs(index - visible) <= 1)} playing={active && index === visible} onPatch={onPatch} onOpenComments={onOpenComments} onRemoved={onRemoved} />
+          <ReelItem reel={item} width={width} height={height} topInset={topInset} bottomInset={tabBar} near={index === visible || (active && Math.abs(index - visible) <= 1)} playing={active && index === visible} onPatch={onPatch} onOpenComments={onOpenComments} onRemoved={onRemoved} />
         )}
         extraData={`${visible}:${active}:${height}:${width}`}
         pagingEnabled
@@ -245,7 +248,7 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
       {body}
       {/* Posting a reel starts from the "+" in the Home top bar, so there is no second "+" here. */}
       {loadingMore && reels && visible >= reels.length - 1 ? (
-        <View style={styles.more} pointerEvents="none">
+        <View style={[styles.more, { bottom: 6 + tabBar }]} pointerEvents="none">
           <ActivityIndicator color={colors.onMedia} />
         </View>
       ) : null}

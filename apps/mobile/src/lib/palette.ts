@@ -19,6 +19,11 @@ export type ThemeColors = {
   accentBlue: string;
   /** The teal the ring around your photo in the Home bar starts from (it ends in `accent`). */
   accentTeal: string;
+  /** The floating bottom bar where there is no liquid glass (Android, iOS before 26): a translucent fill, and the hairline around the pill everywhere. */
+  glass: string;
+  glassEdge: string;
+  /** The lighter capsule behind the bar's active tab. */
+  glassHighlight: string;
   /** Screen background. */
   bg: string;
   /** Cards and rows that sit on the screen. Bars use `bar`. */
@@ -99,6 +104,9 @@ export const lightColors: ThemeColors = {
   accent: "#6a4df0",
   accentBlue: "#3b82f6",
   accentTeal: "#14b8a6",
+  glass: "rgba(255,255,255,0.72)",
+  glassEdge: "rgba(0,0,0,0.1)",
+  glassHighlight: "rgba(0,0,0,0.08)",
   bg: "#ffffff",
   card: "#ffffff",
   bar: "#ffffff",
@@ -148,6 +156,9 @@ export const darkColors: ThemeColors = {
   accent: "#8b7cff",
   accentBlue: "#5b9bff",
   accentTeal: "#2dd4bf",
+  glass: "rgba(22,22,24,0.72)",
+  glassEdge: "rgba(255,255,255,0.14)",
+  glassHighlight: "rgba(255,255,255,0.16)",
   bg: "#000000",
   card: "#1c1c1e",
   bar: "#000000",

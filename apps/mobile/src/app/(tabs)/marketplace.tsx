@@ -12,6 +12,7 @@ import { AnimatedFlatList, listInset, useCollapsingHeader } from "@/lib/collapsi
 import { hapticSelect } from "@/lib/haptics";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
+import { useTabBarInset } from "@/lib/tab-bar";
 import { supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
@@ -72,6 +73,7 @@ export default function MarketplaceScreen() {
   const { translateY: chipsShift, onScroll: onGridScroll } = useCollapsingHeader(1, CHIPS_ROW_HEIGHT);
   // The grid starts under the floating pills and scrolls beneath them as they slide away.
   const inset = useMemo(() => listInset(CHIPS_ROW_HEIGHT), []);
+  const tabBar = useTabBarInset();
 
   // Another campus, category or search starts the grid from the top.
   const list = useRef<FlatList<ItemWithSeller>>(null);
@@ -219,7 +221,7 @@ export default function MarketplaceScreen() {
         {...inset.list}
         onScroll={onGridScroll(0)}
         scrollEventThrottle={16}
-        contentContainerStyle={[styles.grid, { paddingTop: 2 + inset.paddingTop }, feed.items.length === 0 && styles.gridEmpty]}
+        contentContainerStyle={[styles.grid, { paddingTop: 2 + inset.paddingTop, paddingBottom: 24 + tabBar }, feed.items.length === 0 && styles.gridEmpty]}
         renderItem={renderItem}
         ListEmptyComponent={empty()}
         ListFooterComponent={footer()}

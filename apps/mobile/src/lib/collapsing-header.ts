@@ -52,7 +52,10 @@ export function useCollapsingHeader(pages: number, height: number, initial = 0):
     // Page i's share: how far it has scrolled the bar away, times 1 while it is the page on screen and 0 otherwise.
     const shares = scrollYs.current.map((y, i) => {
       const scrolled = Platform.OS === "ios" ? Animated.add(y, new Animated.Value(height)) : y;
-      return Animated.multiply(Animated.diffClamp(scrolled, 0, max), selectors.current[i]!);
+      // Never below the top: a bounce past it, or a pull to refresh, must not count as a scroll down on the way back,
+      // which would leave the bar part way up with the list at rest. The clamp below then always reads 0 at the top.
+      const fromTop = scrolled.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: "clamp", extrapolateRight: "extend" });
+      return Animated.multiply(Animated.diffClamp(fromTop, 0, max), selectors.current[i]!);
     });
     const hidden = shares.reduce((sum, share) => Animated.add(sum, share));
     // -(hidden × (1 − reveal)): the bar's own distance, or none at all while it is brought back.
