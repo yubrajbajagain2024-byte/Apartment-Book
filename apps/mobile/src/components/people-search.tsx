@@ -16,11 +16,13 @@ import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 const NOBODY: PosterSummary[] = [];
 
 /**
- * Search: find accounts by name, like Instagram. With an empty box the screen lists people to follow (your university's
- * newest members, or the newest on the app) instead of being blank. Profiles are public, so signed-out people can
- * search too; their Follow taps go to login.
+ * The people search, like Instagram's: find accounts by name. With an empty box it lists people to follow (your
+ * university's newest members, or the newest on the app) instead of being blank. Profiles are public, so signed-out
+ * people can search too; their Follow taps go to login. The Search tab shows it under its own title; the share sheet's
+ * Find people and a profile's Find friends push it over their screen with the box focused at once (`autoFocus`).
+ * `bottomInset` keeps the end of the list clear of the floating bottom bar on the tab.
  */
-export default function SearchScreen() {
+export function PeopleSearch({ autoFocus = false, bottomInset = 0 }: { autoFocus?: boolean; bottomInset?: number }) {
   const { user, profile } = useSession();
   const router = useRouter();
   const styles = useStyles();
@@ -48,8 +50,7 @@ export default function SearchScreen() {
       <View style={styles.header}>
         <View style={styles.search}>
           <Ionicons name="search" size={18} color={colors.muted} />
-          {/* Opened from the magnifier in the top-right corner, so typing starts at once, like TikTok. */}
-          <TextInput autoFocus value={text} onChangeText={setText} placeholder="Search people" placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} accessibilityLabel="Search people" returnKeyType="search" autoCorrect={false} autoCapitalize="words" clearButtonMode="while-editing" style={styles.input} />
+          <TextInput autoFocus={autoFocus} value={text} onChangeText={setText} placeholder="Search people" placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} accessibilityLabel="Search people" returnKeyType="search" autoCorrect={false} autoCapitalize="words" clearButtonMode="while-editing" style={styles.input} />
         </View>
       </View>
       {error && !loading ? (
@@ -61,7 +62,7 @@ export default function SearchScreen() {
         keyExtractor={(p) => p.id}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 + bottomInset }}
         ListHeaderComponent={people.length > 0 ? <Text style={styles.section}>{section}</Text> : null}
         renderItem={({ item }) => <PersonRow person={item} stats={stats[item.id]} userId={me ?? null} onNeedLogin={needLogin} onPress={() => router.push({ pathname: "/profile/[id]", params: { id: item.id } })} />}
         ListEmptyComponent={

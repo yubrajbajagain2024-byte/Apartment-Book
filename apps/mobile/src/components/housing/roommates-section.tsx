@@ -16,7 +16,7 @@ import { useEngagement } from "@/lib/use-engagement";
 export type RoommateType = "has_room" | "needs_room";
 
 /**
- * The Roommates half of the Housing tab: who is online, then the posts feed, starting `topInset` under the floating labels
+ * The Roommates half of the Explore tab: who is online, then the posts feed, starting `topInset` under the floating labels
  * and pills and reporting its scroll through `onScroll`. The search (`q`), the campus and the kind of post come from the
  * Housing screen's own bar, which also owns the "+" button.
  */

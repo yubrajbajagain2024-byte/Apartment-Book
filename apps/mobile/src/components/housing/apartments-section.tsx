@@ -12,7 +12,7 @@ import { useColors } from "@/lib/theme-provider";
 import { useEngagement } from "@/lib/use-engagement";
 
 /**
- * The Apartments half of the Housing tab: the listings feed, starting `topInset` under the floating labels and pills and
+ * The Apartments half of the Explore tab: the listings feed, starting `topInset` under the floating labels and pills and
  * reporting its scroll through `onScroll`. The search (`q`) and the campus come from the Housing screen's own bar, which
  * also owns the "+" button.
  */
@@ -57,7 +57,7 @@ export function ApartmentsSection({ topInset, onScroll, q, campus }: { topInset:
             }
           />
         )}
-        ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon="home-outline" title="No apartments yet" body={universityId ? "Try all universities, or be the first to list a place." : "Be the first to list a place."} />}
+        ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon="home-outline" title="No apartments yet" body="Be the first to list a place." />}
         ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : null}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}

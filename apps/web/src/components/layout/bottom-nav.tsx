@@ -11,7 +11,7 @@ export function BottomNav({ unread, userId }: { unread: number; userId: string |
   // Hide the bar inside an open chat so the composer has the full screen.
   if (/^\/messages\/[^/]+$/.test(pathname) && pathname !== "/messages/new") return null;
 
-  // Home, Housing, Messages, Marketplace, Profile, like the app; Search lives in the header.
+  // Home, Explore, Messages, Profile, like the app; Search lives in the header.
   const tabs = PHONE_TABS;
 
   return (

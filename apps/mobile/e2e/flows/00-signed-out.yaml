@@ -1,7 +1,7 @@
-# Signed-out tour: Home (For you | Buzz | Posts | Reels beside your photo and its feed menu: opens on For you, the pager swipes between them), Search (the magnifier
-# in the top-right corner of every tab, like TikTok: it lists people to follow), Messages (bottom tab: asks to log in),
-# Housing (Apartments | Roommates: opens on Apartments, same pager), Marketplace, and the sign-in prompt on the Profile tab.
-# The bottom bar is Home, Housing, Messages, Marketplace, Profile. Needs the seeded sample posts (node e2e/sim-seed.mjs).
+# Signed-out tour: Home (For you | Buzz | Posts | Reels beside your photo and its feed menu: opens on For you, the pager swipes between them), Search (the second bottom
+# tab: it lists people to follow), the Notifications bell in Home's top-right corner (signed out it asks to log in), Messages (bottom tab: asks to log in),
+# Explore (Room | Roommate | Marketplace: opens on Room, same pager), and the sign-in prompt on the Profile tab.
+# The bottom bar is Home, Explore, Messages, Profile. Needs the seeded sample posts (node e2e/sim-seed.mjs).
 appId: host.exp.Exponent
 ---
 - extendedWaitUntil:
@@ -20,7 +20,7 @@ appId: host.exp.Exponent
 - extendedWaitUntil:
     visible: "Create"
     timeout: 60000
-# Expo Go's floating developer gear sits in the top-right corner, over the Search icon: drag it out of the way
+# Expo Go's floating developer gear sits in the top-right corner, over the Notifications bell: drag it out of the way
 # (not present in real builds).
 - swipe:
     start: "88%,10%"
@@ -68,15 +68,14 @@ appId: host.exp.Exponent
 - extendedWaitUntil:
     visible: "Create"
     timeout: 30000
-# Search: the magnifier in the top-right corner (on Home it sits in the floating top bar) opens the people search; signed out
-# the list still shows people to follow. "Search" is the icon's exact label; the feed boxes are named after their placeholders
-# ("Search apartments", "Search Buzz"...), so only the icon matches.
-- tapOn: "Search"
+# Notifications: the bell in the top-right corner of Home's floating top bar opens the notifications screen; signed out it
+# asks to log in. "Notifications" is the bell's exact label (signed in it reads "Notifications, N unread").
+- tapOn: "Notifications"
 - extendedWaitUntil:
-    visible: "Search people"
+    visible: "Log in to see your notifications"
     timeout: 30000
-- takeScreenshot: e2e/screenshots/07-search-people
-# Maestro's `back` only works on Android: on iOS the left-edge swipe pops the screen. 45% is above the keyboard the box opens.
+- takeScreenshot: e2e/screenshots/08-notifications-signed-out
+# Maestro's `back` only works on Android: on iOS the left-edge swipe pops the screen.
 - swipe:
     start: "2%,45%"
     end: "90%,45%"
@@ -85,15 +84,22 @@ appId: host.exp.Exponent
 - extendedWaitUntil:
     visible: "Create"
     timeout: 30000
-# Housing: its own top bar ("Off Campus Housing", the magnifier at the right is the search of the half on screen, labelled
-# "Search apartments" or "Search roommate posts"). The bottom tab opens on Apartments; the "Roommates" label above the
-# pager slides to the other half and a flick to the right brings Apartments back. The floating "+" follows the visible half.
-- tapOn: "Housing.*"
+# Search: the second bottom tab is the people search under a "Search" title; signed out the list still shows people to
+# follow. The box waits for a tap, so no keyboard is up.
+- tapOn: "Search.*"
 - extendedWaitUntil:
-    visible: "Off Campus Housing"
+    visible: "Search people"
+    timeout: 30000
+- takeScreenshot: e2e/screenshots/07-search-people
+# Explore (housing.tsx): its own top bar ("Find", the magnifier at the right is the search of the half on screen, labelled
+# "Search apartments" or "Search roommate posts"). The bottom tab opens on Room (apartments); the "Roommate" label above the
+# pager slides to the other half and a flick to the right brings Room back. The floating "+" follows the visible half.
+- tapOn: "Explore.*"
+- extendedWaitUntil:
+    visible: "Find"
     timeout: 30000
 - takeScreenshot: e2e/screenshots/04-apartments
-- tapOn: "Roommates"
+- tapOn: "Roommate"
 - extendedWaitUntil:
     visible: "Looking for a room"
     timeout: 30000
@@ -104,17 +110,17 @@ appId: host.exp.Exponent
     end: "85%,25%"
     duration: 400
 - waitForAnimationToEnd
-- assertVisible: "Off Campus Housing"
-- tapOn: "Marketplace.*"
-# The Marketplace draws its own top bar (the magnifier opens the item search) over the category pills.
+- assertVisible: "Find"
+- tapOn: "Marketplace"
+# The Marketplace is the third page of Explore: the label above the pager slides to it, its category pills in the pills row.
 - extendedWaitUntil:
     visible: "Mattress & bedding"
     timeout: 30000
 - takeScreenshot: e2e/screenshots/03-marketplace
-# Messages: the third bottom tab (after Housing); signed out it asks to log in.
+# Messages: the third bottom tab (after Explore); signed out it asks to log in.
 - tapOn: "Messages.*"
 - assertVisible: "Log in to see your messages"
-# Profile is the fifth bottom tab; signed out it shows the sign-in prompt.
+# Profile is the fourth bottom tab; signed out it shows the sign-in prompt.
 - tapOn: "Profile.*"
 - assertVisible: "Join Apartment Book"
 - takeScreenshot: e2e/screenshots/05-profile-signed-out

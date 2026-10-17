@@ -16,13 +16,21 @@ import { useCreateMenu } from "./create-menu";
 
 /** Height of each of the bar's two rows: the wordmark row, then the labels row. */
 const ROW = 44;
-export const HOME_TOP_BAR_HEIGHT = ROW * 2;
+/**
+ * Breathing room between the status bar (the safe area's top inset) and the first row, so the photo ring and the bell sit
+ * clearly under the clock on every phone: with the row starting right at the inset the 40pt ring came within 2pt of
+ * it, and on a phone whose inset is only the status bar (no notch, Android) it touched the clock.
+ */
+const TOP_GAP = 8;
+/** The side margin of both rows: the ring and the bell keep this clear of the screen's edges. */
+const SIDE_PAD = 16;
+export const HOME_TOP_BAR_HEIGHT = TOP_GAP + ROW * 2;
 /** Your photo on the left of the bar: the picture, the gap around it and the gradient ring. */
 const PHOTO = 32;
 const PHOTO_GAP = 2;
 const RING = 2;
 const RING_SIZE = PHOTO + 2 * (PHOTO_GAP + RING);
-/** The slot on each side of the wordmark (the ring on the left, Search on the right). */
+/** The slot on each side of the wordmark (the ring on the left, the Notifications bell on the right). */
 const SIDE = 44;
 const LABEL_SIZE = 16;
 /** The feed menu that drops down from the "For you" label. */
@@ -70,8 +78,8 @@ const SOLID = HOME_SECTIONS.map((s) => (s.value === "reels" ? 0 : 1));
 /**
  * Floating top bar of Home, X style, in two rows. Row 1: your photo in a gradient ring on the left, which opens your
  * profile, with Instagram's small "+" badge on its corner that opens the create sheet (Post / Reel / Buzz); the
- * CampConnect wordmark in the middle (it reads "Following" while that feed shows); the Search magnifier on
- * the right. Row 2: For you | Buzz | Posts | Reels spread across the row with X's sliding underline (violet, as wide as
+ * CampConnect wordmark in the middle (it reads "Following" while that feed shows); the Notifications bell on
+ * the right (it opens the notifications screen; its badge counts the unread). Row 2: For you | Buzz | Posts | Reels spread across the row with X's sliding underline (violet, as wide as
  * the label) over a hairline. "For you" carries a small chevron: tapped while For you is on screen it drops down the feed
  * menu (your university by name | All Universities | Following, see useHomeScope: it scopes For you, Buzz, Posts and
  * Reels alike); tapped from
@@ -142,7 +150,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
   }
 
   return (
-    <Animated.View onLayout={onLayout} pointerEvents={overVideo ? "box-none" : "auto"} style={[styles.bar, { paddingTop: insets.top, transform: [{ translateY }] }]}>
+    <Animated.View onLayout={onLayout} pointerEvents={overVideo ? "box-none" : "auto"} style={[styles.bar, { paddingTop: insets.top + TOP_GAP, transform: [{ translateY }] }]}>
       <Animated.View pointerEvents="none" style={[styles.solid, { opacity: solid ?? (overVideo ? 0 : 1) }]} />
       <View style={styles.row}>
         {overVideo ? (
@@ -180,7 +188,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
       {/* The feed menu: a card hanging under the "For you" label, the page still fully visible behind it. */}
       <Modal visible={menu} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setMenu(false)}>
         <Pressable style={styles.backdrop} onPress={() => setMenu(false)} accessibilityRole="button" accessibilityLabel="Close" />
-        <View pointerEvents="box-none" style={[styles.anchor, { top: insets.top + ROW * 2 + MENU_GAP }]}>
+        <View pointerEvents="box-none" style={[styles.anchor, { top: insets.top + TOP_GAP + ROW * 2 + MENU_GAP }]}>
           <View style={styles.menu} accessibilityRole="menu">
             {rows.map((r) => (
               <Pressable key={r.key} onPress={() => pick(r)} accessibilityRole="menuitem" accessibilityLabel={r.label} accessibilityState={{ selected: r.selected }} style={({ pressed }) => [styles.item, pressed && { backgroundColor: colors.input }]}>
@@ -203,7 +211,7 @@ const useStyles = makeStyles((colors, scheme) => ({
   bar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "transparent" },
   // The solid look behind the rows, safe area included, its hairline on the bar's bottom edge: faded by the pager (see `solid`).
   solid: { position: "absolute", top: 0, left: 0, right: 0, bottom: -StyleSheet.hairlineWidth, backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  row: { height: ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: 12 },
+  row: { height: ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: SIDE_PAD },
   side: { width: SIDE, height: ROW, alignItems: "center", justifyContent: "center" },
   middle: { flex: 1, alignItems: "center", justifyContent: "center" },
   title: { minHeight: ROW, alignItems: "center", justifyContent: "center", maxWidth: "100%" },
@@ -216,7 +224,7 @@ const useStyles = makeStyles((colors, scheme) => ({
   shadow: { textShadowColor: colors.mediaScrim, textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
   // Transparent: the page stays fully visible behind the menu, and a tap anywhere outside it closes it.
   backdrop: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-  anchor: { position: "absolute", left: 16, alignItems: "flex-start" },
+  anchor: { position: "absolute", left: SIDE_PAD, alignItems: "flex-start" },
   // A shadow cannot be seen on black, so in the dark theme a hairline outline keeps the menu apart from the page.
   menu: { width: MENU_WIDTH, backgroundColor: colors.elevated, borderRadius: radius.lg, paddingVertical: 6, shadowColor: colors.shadow, shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 10, borderWidth: scheme === "dark" ? StyleSheet.hairlineWidth : 0, borderColor: colors.border },
   item: { height: 44, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16 },

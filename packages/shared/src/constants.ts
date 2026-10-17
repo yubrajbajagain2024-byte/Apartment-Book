@@ -178,13 +178,14 @@ export function homeSectionHref(section: HomeSection, params: Record<string, str
 export const FOR_YOU_PAGE = { posts: 6, buzz: 3, reels: 2 } as const;
 
 /**
- * The two halves of the Housing tab, left to right. Apartments is the landing half; swiping the page moves
- * between them. On the website each half keeps its own address (/apartments, /roommates), so listing links,
- * filters and saved searches are unchanged.
+ * The pages of the Housing (Explore) tab, left to right: the two housing halves, then the Marketplace right after
+ * Roommates. Apartments is the landing page; swiping the page moves between them. On the website each page keeps
+ * its own address (/apartments, /roommates, /marketplace), so listing links, filters and saved searches are unchanged.
  */
 export const HOUSING_SECTIONS = [
-  { value: "apartments", label: "Apartments" },
-  { value: "roommates", label: "Roommates" },
+  { value: "apartments", label: "Room" },
+  { value: "roommates", label: "Roommate" },
+  { value: "marketplace", label: "Marketplace" },
 ] as const;
 export type HousingSection = (typeof HOUSING_SECTIONS)[number]["value"];
 export const DEFAULT_HOUSING_SECTION: HousingSection = "apartments";

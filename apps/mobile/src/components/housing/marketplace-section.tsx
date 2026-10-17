@@ -1,19 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, BackHandler, FlatList, Keyboard, Platform, RefreshControl, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, FlatList, Keyboard, RefreshControl, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { campusShortName, ITEM_CATEGORIES, labelFor, listItems, type ItemCategoryValue, type ItemWithSeller } from "@apartment-book/shared";
-import type { CampusChoice, CampusMenuRow } from "@/components/marketplace/campus-menu";
-import { CategoryChips, CHIPS_ROW_HEIGHT } from "@/components/marketplace/category-chips";
+import type { CampusChoice } from "@/components/marketplace/campus-menu";
 import { categoryIcon, MarketItemCard } from "@/components/marketplace/item-card";
-import { MarketHeader } from "@/components/marketplace/market-header";
 import { useItemLikes } from "@/components/marketplace/use-item-likes";
 import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
-import { AnimatedFlatList, listInset, useCollapsingHeader } from "@/lib/collapsing-header";
-import { hapticSelect } from "@/lib/haptics";
+import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
-import { useTabBarInset } from "@/lib/tab-bar";
 import { supabase } from "@/lib/supabase";
+import { useTabBarInset } from "@/lib/tab-bar";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 const PAGE_SIZE = 20;
@@ -38,13 +35,31 @@ function useSettled(text: string, ms: number): string {
 }
 
 /**
- * The Marketplace tab: its own top bar ("+" to sell, "<campus> marketplace" with the campus menu, the magnifier that
- * searches items), the category pills, then a two-column grid of photo cards with a heart on each. The bar stays put; the
- * pills float over the grid and slide up under it as the grid scrolls down, back as soon as it scrolls up (useCollapsingHeader). The campus menu
- * switches between the person's university and every university; the pills and the search narrow the grid down
- * (listItems with q, universityId and category), a page at a time as it scrolls.
+ * The Marketplace page of the Explore tab (the old Marketplace tab's grid, unchanged): a two-column grid of photo cards
+ * with a heart on each, starting `topInset` under the floating labels and pills and reporting its scroll through
+ * `onScroll`, a page at a time as it scrolls (listItems with q, universityId and category). The search (`q`, applied
+ * once typing pauses), the campus and the category come from the Explore screen's own bar, which also owns the "+"
+ * (Sell an item); an empty grid hands a wider choice back through `onCategoryChange`, and
+ * `onSearchBusy` says while the grid is still catching up with the words (the bar then shows a spinner in place of the
+ * search box's magnifier).
  */
-export default function MarketplaceScreen() {
+export function MarketplaceSection({
+  topInset,
+  onScroll,
+  q,
+  campus,
+  category,
+  onCategoryChange,
+  onSearchBusy,
+}: {
+  topInset: number;
+  onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  q: string;
+  campus: CampusChoice;
+  category: ItemCategoryValue | null;
+  onCategoryChange: (category: ItemCategoryValue | null) => void;
+  onSearchBusy?: (busy: boolean) => void;
+}) {
   const styles = useStyles();
   const colors = useColors();
   const router = useRouter();
@@ -55,31 +70,30 @@ export default function MarketplaceScreen() {
   const myUniversity = profile?.university ?? null;
   const myUniversityId = profile?.university_id ?? null;
   const myCode = useMemo(() => campusShortName(myUniversity), [myUniversity]);
-  const [campusPick, setCampusPick] = useState<CampusChoice>("mine");
   // Without a university of their own (or signed out) the person sees every campus.
-  const campus: CampusChoice = myUniversityId ? campusPick : "all";
   const universityId = campus === "mine" ? (myUniversityId ?? undefined) : undefined;
-  const title = !myUniversityId ? "Marketplace" : campus === "all" ? "All campuses" : myCode ? `${myCode} marketplace` : "Marketplace";
 
-  const [category, setCategory] = useState<ItemCategoryValue | null>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [text, setText] = useState("");
-  const typed = searchOpen ? text.trim() : "";
-  const q = useSettled(typed, SEARCH_DELAY_MS);
+  const typed = q.trim();
+  const settled = useSettled(typed, SEARCH_DELAY_MS);
 
   // Another category, campus or search empties the grid at once (its spinner shows) instead of keeping the old cards.
-  const feed = useFeed<ItemWithSeller>((page) => listItems(supabase, { q: q || undefined, universityId, category: category ?? undefined, page, pageSize: PAGE_SIZE }), [q, universityId, category], { clearOnChange: true });
+  const feed = useFeed<ItemWithSeller>((page) => listItems(supabase, { q: settled || undefined, universityId, category: category ?? undefined, page, pageSize: PAGE_SIZE }), [settled, universityId, category], { clearOnChange: true });
   const { liked, toggle: toggleLike, refresh: refreshLikes } = useItemLikes(feed.items, userId);
-  const { translateY: chipsShift, onScroll: onGridScroll } = useCollapsingHeader(1, CHIPS_ROW_HEIGHT);
-  // The grid starts under the floating pills and scrolls beneath them as they slide away.
-  const inset = useMemo(() => listInset(CHIPS_ROW_HEIGHT), []);
+  // The grid starts under the floating labels and pills and scrolls beneath them as they slide away.
+  const inset = useMemo(() => listInset(topInset), [topInset]);
   const tabBar = useTabBarInset();
+
+  // The bar's magnifier becomes a spinner while the grid catches up with the words.
+  const busy = typed !== settled || (feed.loading && settled.length > 0);
+  useEffect(() => {
+    onSearchBusy?.(busy);
+  }, [busy, onSearchBusy]);
 
   // Another campus, category or search starts the grid from the top.
   const list = useRef<FlatList<ItemWithSeller>>(null);
   useEffect(() => {
     list.current?.scrollToOffset({ offset: inset.topOffset, animated: false });
-  }, [q, universityId, category, inset.topOffset]);
+  }, [settled, universityId, category, inset.topOffset]);
 
   // Coming back (from an item, say, where it may have been liked or unliked): read the hearts again. Not on the first visit.
   const visited = useRef(false);
@@ -90,28 +104,6 @@ export default function MarketplaceScreen() {
     }, [refreshLikes]),
   );
 
-  const campusRows = useMemo<CampusMenuRow[]>(() => {
-    const rows: CampusMenuRow[] = [];
-    if (myUniversityId) rows.push({ value: "mine", label: myUniversity?.name ?? "My university", icon: "school-outline", selected: campus === "mine" });
-    rows.push({ value: "all", label: "All universities", icon: "globe-outline", selected: campus === "all" });
-    return rows;
-  }, [myUniversityId, myUniversity, campus]);
-
-  const pickCampus = useCallback(
-    (next: CampusChoice) => {
-      if (next === campus) return;
-      hapticSelect();
-      setCampusPick(next);
-    },
-    [campus],
-  );
-
-  // The same selection tick as tapping the "All" pill.
-  const showAllCategories = useCallback(() => {
-    hapticSelect();
-    setCategory(null);
-  }, []);
-
   const sell = useCallback(() => router.push(user ? "/create/item" : "/(auth)/login"), [router, user]);
   const openItem = useCallback(
     (item: ItemWithSeller) => {
@@ -119,24 +111,6 @@ export default function MarketplaceScreen() {
       router.push({ pathname: "/marketplace/[id]", params: { id: item.id } });
     },
     [router],
-  );
-
-  const openSearch = useCallback(() => setSearchOpen(true), []);
-  const cancelSearch = useCallback(() => {
-    setText("");
-    setSearchOpen(false);
-    Keyboard.dismiss();
-  }, []);
-  // Android's back button leaves the search before it leaves the tab.
-  useFocusEffect(
-    useCallback(() => {
-      if (Platform.OS !== "android" || !searchOpen) return;
-      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-        cancelSearch();
-        return true;
-      });
-      return () => sub.remove();
-    }, [searchOpen, cancelSearch]),
   );
 
   const onRefresh = useCallback(() => {
@@ -166,17 +140,16 @@ export default function MarketplaceScreen() {
       );
     const categoryLabel = category ? labelFor(ITEM_CATEGORIES, category) : "";
     const where = universityId ? ` at ${myCode || "your campus"}` : "";
-    const allCampuses = universityId ? <Button title="See all campuses" variant="secondary" onPress={() => pickCampus("all")} /> : undefined;
-    if (q)
+    if (settled)
       return (
         <EmptyState
           icon="search-outline"
-          title={`No results for “${q}”`}
+          title={`No results for “${settled}”`}
           body={category ? `Nothing in ${categoryLabel}${where} matches. Try another word, or all categories.` : `Nothing for sale${where} matches. Try another word.`}
-          action={category ? <Button title="Search all categories" variant="secondary" onPress={showAllCategories} /> : allCampuses}
+          action={category ? <Button title="Search all categories" variant="secondary" onPress={() => onCategoryChange(null)} /> : undefined}
         />
       );
-    if (category) return <EmptyState icon={categoryIcon(category)} title="Nothing here yet" body={`Nobody is selling ${categoryLabel.toLowerCase()}${where} right now.`} action={allCampuses ?? <Button title="Sell an item" onPress={sell} />} />;
+    if (category) return <EmptyState icon={categoryIcon(category)} title="Nothing here yet" body={`Nobody is selling ${categoryLabel.toLowerCase()}${where} right now.`} action={<Button title="Sell an item" onPress={sell} />} />;
     return <EmptyState icon="bag-handle-outline" title="Nothing for sale yet" body="Moving out? Sell your mattress, desk or textbooks here." action={<Button title="Sell an item" onPress={sell} />} />;
   }
 
@@ -193,23 +166,7 @@ export default function MarketplaceScreen() {
   }
 
   return (
-    <View style={styles.screen}>
-      <MarketHeader
-        title={title}
-        campusRows={campusRows}
-        onPickCampus={pickCampus}
-        onSell={sell}
-        searchOpen={searchOpen}
-        query={text}
-        onQueryChange={setText}
-        onOpenSearch={openSearch}
-        onCancelSearch={cancelSearch}
-        searchBusy={typed !== q || (feed.loading && q.length > 0)}
-      />
-      <View style={styles.body}>
-      <Animated.View style={[styles.chipsBar, { transform: [{ translateY: chipsShift }] }]}>
-        <CategoryChips value={category} onChange={setCategory} />
-      </Animated.View>
+    <View style={styles.page}>
       <AnimatedFlatList
         ref={list}
         key={`grid-${columns}`}
@@ -219,7 +176,7 @@ export default function MarketplaceScreen() {
         numColumns={columns}
         columnWrapperStyle={styles.gridRow}
         {...inset.list}
-        onScroll={onGridScroll(0)}
+        onScroll={onScroll}
         scrollEventThrottle={16}
         contentContainerStyle={[styles.grid, { paddingTop: 2 + inset.paddingTop, paddingBottom: 24 + tabBar }, feed.items.length === 0 && styles.gridEmpty]}
         renderItem={renderItem}
@@ -231,16 +188,12 @@ export default function MarketplaceScreen() {
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
       />
-      </View>
     </View>
   );
 }
 
-const useStyles = makeStyles((colors) => ({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  // Clipped, so the pills slid up out of the way never show over the bar.
-  body: { flex: 1, overflow: "hidden" },
-  chipsBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 2 },
+const useStyles = makeStyles(() => ({
+  page: { flex: 1 },
   grid: { paddingHorizontal: SIDE, paddingTop: 2, paddingBottom: 24, gap: GAP },
   gridRow: { gap: GAP },
   // An empty grid fills the screen, so its message sits in the middle.

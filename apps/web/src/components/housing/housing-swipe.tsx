@@ -5,7 +5,7 @@ import { HOUSING_SECTIONS, housingSectionHref, type HousingSection } from "@apar
 import { SectionSwipe } from "@/components/layout/section-swipe";
 
 /**
- * On a touch screen, swiping the body of a Housing page sideways moves to the other half (Apartments <-> Roommates);
+ * On a touch screen, swiping the body of a Housing page sideways moves to the neighbouring section (Room <-> Roommate <-> Marketplace);
  * see SectionSwipe. A client wrapper because the list pages are Server Components and cannot hand SectionSwipe its
  * hrefFor function.
  */

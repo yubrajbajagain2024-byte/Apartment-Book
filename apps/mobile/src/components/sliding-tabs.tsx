@@ -14,7 +14,7 @@ type LabelBox = Pick<LayoutRectangle, "x" | "width">;
 
 /**
  * A row of section labels with one underline that slides between them as a horizontal pager scrolls (Home's top bar,
- * the Housing tab), X (Twitter) style: the active label is bold, the underline is as wide as that label and sits on the
+ * the Explore tab), X (Twitter) style: the active label is bold, the underline is as wide as that label and sits on the
  * row's bottom edge, where the bar draws its hairline. `scrollX` is the pager's offset in points and `pageWidth` the
  * width of one page: page i puts the underline under label i, and each label fades between its active look (bold,
  * `labelColor`) and its resting look (`dimColor`) as the page under it comes and goes, so the whole row follows the
@@ -51,8 +51,8 @@ export function SlidingTabs<T extends string>({
   fontSize?: number;
   /** X's layout: the labels share the row equally, each centred in its share, the underline still as wide as the label. */
   spread?: boolean;
-  /** The section whose label carries a small chevron: it opens a menu (Home's For you). */
-  caret?: T;
+  /** The section(s) whose label carries a small chevron: it opens a menu (Home's For you, both halves of Housing). */
+  caret?: T | readonly T[];
 }) {
   const [boxes, setBoxes] = useState<(LabelBox | undefined)[]>(() => sections.map(() => undefined));
   // Same array unless a label really moved, so the interpolation below is not rebuilt on every layout pass.
@@ -145,7 +145,7 @@ export function SlidingTabs<T extends string>({
                   <Text style={[styles.label, { fontSize }, styles.text, { color: active ? labelColor : dimColor }, active && styles.bold, textStyle]}>{s.label}</Text>
                 )}
               </View>
-              {caret === s.value ? <Ionicons name="chevron-down" size={14} color={active ? labelColor : dimColor} style={[styles.caret, textStyle]} /> : null}
+              {(Array.isArray(caret) ? (caret as readonly T[]).includes(s.value) : caret === s.value) ? <Ionicons name="chevron-down" size={14} color={active ? labelColor : dimColor} style={[styles.caret, textStyle]} /> : null}
             </View>
             {slide ? null : <View style={[styles.underline, styles.staticUnderline, { backgroundColor: active ? tint : "transparent" }]} />}
           </Pressable>

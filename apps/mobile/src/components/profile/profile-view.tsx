@@ -947,7 +947,7 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   const onShare = useStableCallback(() => setSharing(true));
   const onChangePhoto = useStableCallback(() => void changePhoto());
   const onEditProfile = useStableCallback(() => router.push("/settings"));
-  const onFindFriends = useStableCallback(() => router.push("/search"));
+  const onFindFriends = useStableCallback(() => router.push("/find-people"));
   const onMessage = useStableCallback(() => void message());
   const onMore = useStableCallback(more);
   const onFollowChange = useStableCallback(followChanged);
