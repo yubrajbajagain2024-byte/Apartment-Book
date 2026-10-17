@@ -83,7 +83,7 @@ type Segment = { key: "mine" | "all" | "following"; label: string; icon: keyof t
  * Floating top bar of Home, X style, in three rows. Row 1: your photo in a gradient ring on the left, which opens your
  * profile, with Instagram's small "+" badge on its corner that opens the create sheet (Post / Reel / Buzz); the
  * CampConnect wordmark in the middle (it reads "Following" while that feed shows); the Notifications bell on the right
- * (it opens the notifications screen; its badge counts the unread). Row 2: For you | Buzz | Reels spread across the row
+ * (it opens the notifications screen; its badge counts the unread). Row 2: the Home tabs (For you | Buzz) spread across the row
  * with X's sliding underline (violet, as wide as the label) over a hairline. Row 3: the Campus | Global toggle, a small
  * segmented pill whose thumb slides to the choice (see useHomeScope: it scopes For you, Buzz, Posts and Reels alike;
  * Campus is the person's own university, Global every university; "Following" joins it only while Posts has a tab,

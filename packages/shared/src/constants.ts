@@ -161,11 +161,12 @@ export const HOME_SECTIONS = [
 export type HomeSection = (typeof HOME_SECTIONS)[number]["value"];
 export const DEFAULT_HOME_SECTION: HomeSection = "foryou";
 /**
- * Sections that stay out of the tab row (and the app's pager): Posts is still a section with its address (/?tab=posts),
- * its feed and its data, and the For you blend keeps carrying posts; it just has no tab of its own.
+ * Sections that stay out of the tab row (and the app's pager): Posts and Reels are still sections with their addresses
+ * (/?tab=posts, /?tab=reels), their feeds and their data, and the For you blend carries both posts and reels; they just
+ * have no tab of their own.
  */
-export const HIDDEN_HOME_SECTIONS: readonly HomeSection[] = ["posts"];
-/** The tabs Home shows, left to right: For you | Buzz | Reels. */
+export const HIDDEN_HOME_SECTIONS: readonly HomeSection[] = ["posts", "reels"];
+/** The tabs Home shows, left to right: For you | Buzz. */
 export const HOME_TABS = HOME_SECTIONS.filter((s) => !HIDDEN_HOME_SECTIONS.includes(s.value));
 /**
  * Where a Home section lives on the website. The landing section keeps the clean "/" address, the others

@@ -32,11 +32,11 @@ notification the database keeps for you (`src/app/notifications.tsx`: new messag
 saves of your listings, places near campus, newest first, the unread ones tinted); tapping one marks it read and opens what
 it is about, "Mark all read" sits in the header, and the bell's badge counts the unread live. Home opens on **For you**, a blend of posts and reels (anonymous Buzz threads stay on
 the Buzz page; the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
-three pages, For you | Buzz | Reels, sit side by side in a pager (Posts is a section without a tab: `HIDDEN_HOME_SECTIONS` in the shared constants keeps it out of the row and the pager while its feed, the post features and the data stay; its Following filter is reachable on the website's `/?tab=posts`): swipe left or right to move
+two pages, For you | Buzz, sit side by side in a pager (Posts and Reels are sections without a tab: `HIDDEN_HOME_SECTIONS` in the shared constants keeps them out of the row and the pager while their feeds, the post and reel features and the data stay; reels run through For you, and the website keeps `/?tab=posts` with its Following filter and `/?tab=reels`): swipe left or right to move
 between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in a teal-to-violet
 ring on the left, which opens your profile, with Instagram's small "+" badge on its corner that opens the create sheet
 (Post / Reel / Buzz; over Reels the bar's left slot holds a white "+" instead), the CampConnect wordmark in the middle (it
-reads "Following" while that feed shows) and Search on the right; then the three labels spread across the row
+reads "Following" while that feed shows) and Search on the right; then the two labels spread across the row
 (`src/components/sliding-tabs.tsx`): the active one bold with a rounded violet underline as wide as the label, sliding
 with the finger over a hairline, and a soft haptic each time the section changes, by tap or swipe. Under the labels sits the Campus | Global
 toggle, a small segmented pill whose thumb slides to the choice: Campus is your own university, Global every university (and,

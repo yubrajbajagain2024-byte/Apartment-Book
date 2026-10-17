@@ -7,10 +7,12 @@ import { DEFAULT_HOME_SECTION, DEFAULT_HOUSING_SECTION, FOR_YOU_PAGE, HOME_SECTI
 const post = (id, kind = "post") => ({ id, kind, body: id, author: { id: "u", full_name: "U", avatar_url: null }, university: null });
 const shape = (items) => items.map((p) => (p.kind === "reel" ? "R" : "P")).join("");
 
-test("the Home tabs are For you | Buzz | Posts | Reels and land on For you", () => {
+test("Home's sections are For you | Buzz | Posts | Reels, its tabs For you | Buzz, and it lands on For you", () => {
   assert.deepEqual(HOME_SECTIONS.map((s) => s.label), ["For you", "Buzz", "Posts", "Reels"]);
-  assert.deepEqual(HOME_TABS.map((s) => s.label), ["For you", "Buzz", "Reels"]);
+  assert.deepEqual(HOME_TABS.map((s) => s.label), ["For you", "Buzz"]);
+  // Posts and Reels keep their addresses without a tab.
   assert.equal(homeSectionHref("posts"), "/?tab=posts");
+  assert.equal(homeSectionHref("reels"), "/?tab=reels");
   assert.equal(DEFAULT_HOME_SECTION, "foryou");
   assert.equal(HOME_SECTIONS[0].value, DEFAULT_HOME_SECTION);
 });
