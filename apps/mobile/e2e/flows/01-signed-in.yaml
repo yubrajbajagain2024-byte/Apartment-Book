@@ -1,4 +1,4 @@
-# Signed-in tour: your own profile first (Edit profile, Share profile, Leo in your own Followers, the Listings tab after Liked and no classes card; add CS 1428 under Classes and remove it again; Saved says only you can see it), then the new Home: like a post, comment on it (heart, reply, delete from the hold menu), share it with Leo (a friend: the seed has him and this account follow each other) and find it as a card in your chat with him, vote and reply anonymously in Buzz, watch a reel, reach the profile, open the feed menu next to the wordmark (campus rows only, now that Posts has no tab), follow Maya from her post on For you (her Followers count opens only the friends you have in common, none, since her lists are hers alone; her Classes tab shows the classes the seed lists for her, her Listings tab her apartment) and see hers join it, unfollow.
+# Signed-in tour: your own profile first (Edit profile, Share profile, Leo in your own Followers, the Listings tab after Liked and no classes card; add CS 1428 under Classes and remove it again; Saved says only you can see it), then the new Home: like a post, comment on it (heart, reply, delete from the hold menu), share it with Leo (a friend: the seed has him and this account follow each other) and find it as a card in your chat with him, vote and reply anonymously in Buzz, watch a reel, reach the profile, flip the Campus | Global toggle under the labels, follow Maya from her post on For you (her Followers count opens only the friends you have in common, none, since her lists are hers alone; her Classes tab shows the classes the seed lists for her, her Listings tab her apartment) and see hers join it, unfollow.
 # Needs test data: SUPABASE_ACCESS_TOKEN=... node e2e/sim-seed.mjs   (then pass EMAIL and PASSWORD from its output)
 appId: host.exp.Exponent
 env:
@@ -360,9 +360,9 @@ env:
     visible: "Following"
     timeout: 15000
 - takeScreenshot: e2e/screenshots/16-profile-following
-# The feed menu again, from the "For you" label. Back on Home (the left-edge swipe pops the profile on iOS; the pager is
-# still on For you), a tap on "For you" while there opens the menu: the seeded account's university and "All Universities",
-# and no "Following" row, which went with the Posts tab.
+# The Campus | Global toggle under the labels (the seeded account has a university, so both segments show; no "Following"
+# segment, which went with the Posts tab). Back on Home (the left-edge swipe pops the profile on iOS; the pager is still
+# on For you), Global widens the feed to every university and Campus brings it back.
 - swipe:
     start: "2%,45%"
     end: "90%,45%"
@@ -375,11 +375,14 @@ env:
     timeout: 15000
 - tapOn: "For you"
 - waitForAnimationToEnd
-- tapOn: "For you"
-- assertVisible: "All Universities"
-- takeScreenshot: e2e/screenshots/18-feed-menu
+- assertVisible: "Campus"
+- assertVisible: "Global"
 - assertNotVisible: "Following"
-- tapOn: "Close"
+- tapOn: "Global"
+- waitForAnimationToEnd
+- takeScreenshot: e2e/screenshots/18-scope-global
+- tapOn: "Campus"
+- waitForAnimationToEnd
 - scrollUntilVisible:
     element: "Post: Move-in day at the new place.*"
     direction: UP

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, BackHandler, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView as ScrollViewType } from "react-native";
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView as ScrollViewType } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DEFAULT_HOUSING_SECTION, HOUSING_SECTIONS, ITEM_CATEGORIES, type HousingSection, type ItemCategoryValue } from "@apartment-book/shared";
 import { Fab } from "@/components/feed-header";
@@ -22,10 +22,14 @@ function pageOf(section: string | undefined): number {
 }
 /** The title row (or the search box in its place), fixed under the safe area. */
 const TITLE_ROW = 52;
-/** The Room | Roommate | Marketplace row and the pills under it: they float over the pager and slide up under the title as the page on screen scrolls. */
+/**
+ * The Room | Roommate | Marketplace row, the search box and the pills under it: they float over the pager and slide up
+ * under the title as the page on screen scrolls. The search box is the inbox's: a 46pt pill with 12pt above and below.
+ */
 const TABS_ROW = 44;
+const SEARCH_ROW = 46 + space.md * 2;
 const PILLS_ROW = 42;
-const FLOAT = TABS_ROW + PILLS_ROW;
+const FLOAT = TABS_ROW + SEARCH_ROW + PILLS_ROW;
 
 /** Every page shows the person's own university (everyone's without a university of their own): there is no campus switch here. */
 const CAMPUS = "mine" as const;
@@ -35,15 +39,14 @@ const PEEK = 36;
 type Pill = { key: string; label: string; icon?: keyof typeof Ionicons.glyphMap; selected: boolean; onPress: () => void };
 
 /**
- * Explore, laid out like the Messages tab: the big "Find" title with the magnifier at the right of the same row (a tap turns the row into a search box for
- * the page on screen, Cancel brings the title back), then Room | Roommate | Marketplace above the pager with
- * Home's sliding violet underline (no menu under the labels: every page shows the person's own university, or every
- * university without one), and the pills that narrow the page on screen: All on Apartments, All | Has a room | Looking for a room on Roommates, All and
- * the item categories on Marketplace. The three pages sit side by side in a pager (a swipe or a tap on a label moves
- * between them, with Home's clear haptic each time the page changes, by tap or swipe); the labels and the pills float
- * over it and slide up under the title as the page on screen scrolls down, back as soon as it scrolls up
- * (useCollapsingHeader). The floating "+" follows the visible page. A link to the
- * tab can name the page to open (?section=marketplace).
+ * Explore, laid out like the Messages tab: the big "Find" title, then Room | Roommate | Marketplace above the pager with
+ * Home's sliding violet underline (each label centred in an equal third of the row), the inbox's search box under them
+ * (it searches the page on screen), and the pills that narrow that page: All on Room, All | Has a room | Looking for a
+ * room on Roommate, All and the item categories on Marketplace. The three pages sit side by side in a pager (a swipe or
+ * a tap on a label moves between them, with Home's clear haptic each time the page changes); the labels, the box and
+ * the pills float over it and slide up under the title as the page on screen scrolls down, back as soon as it scrolls up
+ * (useCollapsingHeader). The floating "+" follows the visible page. A link to the tab can name the page to open
+ * (?section=marketplace).
  */
 export default function HousingScreen() {
   const { colors, isDark } = useAppTheme();
@@ -69,7 +72,6 @@ export default function HousingScreen() {
   const { translateY: floatShift, select: followPage, reveal: revealFloat, onScroll: onPageScroll } = useCollapsingHeader(ORDER.length, FLOAT, start);
 
   // The search and the filters, shared by the pages (what does not apply to a page is simply not used there).
-  const [searchOpen, setSearchOpen] = useState(false);
   const [q, setQ] = useState("");
   const [type, setType] = useState<RoommateType | undefined>();
   const [category, setCategory] = useState<ItemCategoryValue | null>(null);
@@ -197,52 +199,14 @@ export default function HousingScreen() {
     pillsOffset.current = e.nativeEvent.contentOffset.x;
   }, []);
 
-  const closeSearch = useCallback(() => {
-    setQ("");
-    setSearchOpen(false);
-    Keyboard.dismiss();
-  }, []);
-  // Android's back button leaves the search before it leaves the tab.
-  useFocusEffect(
-    useCallback(() => {
-      if (Platform.OS !== "android" || !searchOpen) return;
-      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-        closeSearch();
-        return true;
-      });
-      return () => sub.remove();
-    }, [searchOpen, closeSearch]),
-  );
-
   return (
     <View style={styles.screen}>
       <View style={[styles.chrome, { paddingTop: insets.top }]}>
-        {searchOpen ? (
-          <View style={styles.searchRow}>
-            <View style={styles.search}>
-              {/* The same slot for the magnifier and the Marketplace's spinner, so the words never shift. */}
-              <View style={styles.searchMark}>{section === "marketplace" && busy ? <ActivityIndicator size="small" color={colors.muted} /> : <Ionicons name="search" size={18} color={colors.muted} />}</View>
-              <TextInput value={q} onChangeText={setQ} placeholder={placeholder} placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} returnKeyType="search" autoCorrect={false} autoCapitalize="none" autoFocus accessibilityLabel={placeholder} style={styles.input} />
-              {q ? (
-                <Pressable onPress={() => setQ("")} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear search">
-                  <Ionicons name="close-circle" size={18} color={colors.faint} />
-                </Pressable>
-              ) : null}
-            </View>
-            <Pressable onPress={closeSearch} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cancel search" style={({ pressed }) => pressed && { opacity: 0.6 }}>
-              <Text style={styles.cancel}>Cancel</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.titleRow}>
-            <Text style={styles.title} accessibilityRole="header" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-              Find
-            </Text>
-            <Pressable onPress={() => setSearchOpen(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel={placeholder} style={({ pressed }) => [styles.magnifier, pressed && { opacity: 0.6 }]}>
-              <Ionicons name="search-outline" size={26} color={colors.text} />
-            </Pressable>
-          </View>
-        )}
+        <View style={styles.titleRow}>
+          <Text style={styles.title} accessibilityRole="header" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+            Find
+          </Text>
+        </View>
       </View>
       {/* Clipped, so the labels and pills slid up out of the way never show over the title. */}
       <View style={styles.body}>
@@ -250,6 +214,18 @@ export default function HousingScreen() {
           <View style={styles.tabs}>
             {/* Spread like Home's four labels: three labels do not fit a phone with the inbox's gap. */}
             <SlidingTabs sections={HOUSING_SECTIONS} section={section} onSelect={select} scrollX={scrollX} pageWidth={width} tint={colors.accent} labelColor={colors.text} dimColor={colors.muted} spread fontSize={16} />
+          </View>
+          {/* The inbox's search box, searching the page on screen; the Marketplace's spinner takes the magnifier's slot while its grid catches up. */}
+          <View style={styles.searchRow}>
+            <View style={styles.search}>
+              <View style={styles.searchMark}>{section === "marketplace" && busy ? <ActivityIndicator size="small" color={colors.muted} /> : <Ionicons name="search" size={18} color={colors.muted} />}</View>
+              <TextInput value={q} onChangeText={setQ} placeholder={placeholder} placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} returnKeyType="search" autoCorrect={false} autoCapitalize="none" accessibilityLabel={placeholder} style={styles.input} />
+              {q ? (
+                <Pressable onPress={() => setQ("")} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear search">
+                  <Ionicons name="close-circle" size={18} color={colors.faint} />
+                </Pressable>
+              ) : null}
+            </View>
           </View>
           <ScrollView
             ref={pillsRow}
@@ -336,13 +312,11 @@ const useStyles = makeStyles((colors) => ({
   chrome: { backgroundColor: colors.bar, zIndex: 3 },
   titleRow: { height: TITLE_ROW, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md, paddingLeft: 20, paddingRight: space.lg },
   title: { flexShrink: 1, fontSize: 30, fontWeight: "800", letterSpacing: -0.5, color: colors.text },
-  magnifier: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  searchRow: { height: TITLE_ROW, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: 20 },
-  // The input fill, not the card colour: the screen behind it is white in light and black in dark.
-  search: { flex: 1, height: 40, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 14 },
+  searchRow: { height: SEARCH_ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: 20 },
+  // The input fill, not the card colour: the screen behind it is white in light and black in dark. The inbox's box exactly.
+  search: { flex: 1, height: 46, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 16 },
   searchMark: { width: 20, alignItems: "center" },
   input: { flex: 1, fontSize: 16, color: colors.text, paddingVertical: 0 },
-  cancel: { fontSize: 15, fontWeight: "600", color: colors.text },
   body: { flex: 1, overflow: "hidden" },
   float: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 2, backgroundColor: colors.bar },
   // The labels row, as tall as Home's, with the hairline the sliding underline sits on.

@@ -66,7 +66,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" options={{ title: "Home", headerShown: false, tabBarIcon: icon("index") }} />
       {/* Search draws its own top bar (the "Search" title) over the people search. */}
       <Tabs.Screen name="search" options={{ title: "Search", headerShown: false, tabBarIcon: icon("search") }} />
-      {/* Explore (housing.tsx) draws its own top bar ("Find" with the magnifier that searches the page on screen, then Room | Roommate | Marketplace and the pills). */}
+      {/* Explore (housing.tsx) draws its own top bar ("Find", then Room | Roommate | Marketplace, the search box for the page on screen and the pills). */}
       <Tabs.Screen name="housing" options={{ title: "Explore", headerShown: false, tabBarIcon: icon("housing") }} />
       {/* Messages draws its own top bar: the new-message pencil, the "Messages" title, Chats | Requests and the search. */}
       <Tabs.Screen name="messages" options={{ title: "Messages", headerShown: false, tabBarBadge: unread > 0 ? (unread > 99 ? "99+" : unread) : undefined, tabBarIcon: icon("messages") }} />
