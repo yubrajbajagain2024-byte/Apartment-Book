@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
-import { StyleSheet, type ColorValue } from "react-native";
+import { StyleSheet, View, type ColorValue } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Avatar } from "@/components/avatar";
 import { FloatingTabBar } from "@/components/floating-tab-bar";
 import { HeaderActions } from "@/components/header-actions";
 import { useSession } from "@/lib/session";
@@ -21,6 +22,22 @@ function icon(route: string) {
   return function TabIcon({ focused, color, size }: { focused: boolean; color: ColorValue; size: number }) {
     return <Ionicons name={focused ? names.on : names.off} size={size} color={color} />;
   };
+}
+
+/**
+ * The Profile tab's icon: your own photo in a circle, like Instagram's, with a thin ring in the tab's colour while the
+ * tab is on screen; the person icon when you are signed out.
+ */
+function ProfileTabIcon({ focused, color, size }: { focused: boolean; color: ColorValue; size: number }) {
+  const { profile } = useSession();
+  if (!profile) return <Ionicons name={focused ? ICONS.profile!.on : ICONS.profile!.off} size={size} color={color} />;
+  // The ring takes 2pt on each side, so the photo inside stays the size of the other icons' ink.
+  const photo = size - 4;
+  return (
+    <View style={[styles.photoRing, { width: size, height: size, borderRadius: size / 2, borderColor: focused ? color : "transparent" }]}>
+      <Avatar name={profile.full_name} url={profile.avatar_url} size={photo} online={false} transition={0} />
+    </View>
+  );
 }
 
 /**
@@ -47,13 +64,18 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: "Home", headerShown: false, tabBarIcon: icon("index") }} />
-      <Tabs.Screen name="housing" options={{ title: "Housing", tabBarIcon: icon("housing") }} />
+      {/* Housing draws its own top bar ("Off Campus Housing" with the magnifier that searches the half on screen, then Apartments | Roommates and the pills). */}
+      <Tabs.Screen name="housing" options={{ title: "Housing", headerShown: false, tabBarIcon: icon("housing") }} />
       {/* Messages draws its own top bar: the new-message pencil, the "Messages" title, Chats | Requests and the search. */}
       <Tabs.Screen name="messages" options={{ title: "Messages", headerShown: false, tabBarBadge: unread > 0 ? (unread > 99 ? "99+" : unread) : undefined, tabBarIcon: icon("messages") }} />
       {/* Marketplace draws its own top bar ("+" to sell, "<campus> marketplace" with the campus menu, and a magnifier that searches items). */}
       <Tabs.Screen name="marketplace" options={{ title: "Marketplace", headerShown: false, tabBarIcon: icon("marketplace") }} />
       {/* Profile draws its own top bar (Find friends, your name, the menu), like TikTok. */}
-      <Tabs.Screen name="profile" options={{ title: "Profile", headerShown: false, tabBarIcon: icon("profile") }} />
+      <Tabs.Screen name="profile" options={{ title: "Profile", headerShown: false, tabBarIcon: (p) => <ProfileTabIcon {...p} /> }} />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  photoRing: { borderWidth: 2, alignItems: "center", justifyContent: "center" },
+});

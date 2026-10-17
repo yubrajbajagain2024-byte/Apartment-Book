@@ -4,7 +4,7 @@ import { useSession } from "@/lib/session";
 
 /**
  * What every create button on Home opens: the "What would you like to share?" sheet with Post, Reel and Buzz (anonymous).
- * Signed out it goes to the login screen instead. Shared by the floating "+ New post" pill over the feed and the "+" the top
+ * Signed out it goes to the login screen instead. Shared by the "+" badge on your photo in the top bar and the "+" the
  * bar shows over the Reels video.
  */
 export function useCreateMenu(): () => void {

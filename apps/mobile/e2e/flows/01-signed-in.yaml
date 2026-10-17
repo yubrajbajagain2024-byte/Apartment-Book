@@ -301,7 +301,7 @@ env:
 - assertVisible: "Post options"
 - takeScreenshot: e2e/screenshots/12-buzz-thread
 # Following, like Instagram. The thread is a stacked screen without the bottom tabs: Close brings Home back (the pager is
-# still on Buzz). Following is a row of the menu that drops down from your photo in the top bar ("Choose feed"). Before Maya
+# still on Buzz). Following is a row of the menu that drops down from the "For you" label (tapped while on For you). Before Maya
 # is followed it holds Leo's three-photo post (the seed has him and this account follow each other) and nothing of hers: the
 # scroll would bring her words-only post into view if it were there, and notVisible waits because the campus list stays on
 # screen until the Following one has loaded. Then, back on the campus, scroll to the top (Leo's three-photo post) and down to
@@ -313,7 +313,9 @@ env:
     timeout: 15000
 - tapOn: "Posts"
 - waitForAnimationToEnd
-- tapOn: "Choose feed"
+- tapOn: "For you"
+- waitForAnimationToEnd
+- tapOn: "For you"
 - tapOn: "Following"
 - waitForAnimationToEnd
 - scrollUntilVisible:
@@ -328,10 +330,12 @@ env:
 - assertNotVisible: "Post: First week back on campus.*"
 # The top bar slid away with the scroll (Instagram style): a scroll up brings it back.
 - scrollUntilVisible:
-    element: "Choose feed"
+    element: "For you"
     direction: UP
     timeout: 15000
-- tapOn: "Choose feed"
+- tapOn: "For you"
+- waitForAnimationToEnd
+- tapOn: "For you"
 - tapOn: "Texas State University"
 - scrollUntilVisible:
     element: "1 of 3"
@@ -381,9 +385,9 @@ env:
     visible: "Following"
     timeout: 15000
 - takeScreenshot: e2e/screenshots/16-profile-following
-# The Following feed again, from the menu that drops down from your photo in the top bar (Instagram style; the Posts page has
-# no chips of its own). Back on Home (the left-edge swipe pops the profile on iOS; the pager is still on Posts), "Choose feed"
-# is the photo button and opens the menu: the seeded account's university, "All universities" and "Following". Following
+# The Following feed again, from the menu that drops down from the "For you" label (the Posts page has no chips of its own).
+# Back on Home (the left-edge swipe pops the profile on iOS; the pager is still on Posts), a tap on "For you" moves there and
+# a second one opens the menu: the seeded account's university, "All Universities" and "Following". Following
 # keeps Posts to the people you follow: now Maya's words-only post shows too, under Leo's three-photo post.
 - swipe:
     start: "2%,45%"
@@ -392,11 +396,13 @@ env:
 - waitForAnimationToEnd
 # The top bar slid away with the scroll (Instagram style): a scroll up brings it back.
 - scrollUntilVisible:
-    element: "Choose feed"
+    element: "For you"
     direction: UP
     timeout: 15000
-- tapOn: "Choose feed"
-- assertVisible: "All universities"
+- tapOn: "For you"
+- waitForAnimationToEnd
+- tapOn: "For you"
+- assertVisible: "All Universities"
 - takeScreenshot: e2e/screenshots/18-feed-menu
 - tapOn: "Following"
 - waitForAnimationToEnd
@@ -408,10 +414,12 @@ env:
 # Back to the whole campus (the row reads the profile's university, Texas State for every ui-sim account): the choice lives
 # in memory for as long as the app runs, and the flows after this one expect the usual Posts page.
 - scrollUntilVisible:
-    element: "Choose feed"
+    element: "For you"
     direction: UP
     timeout: 15000
-- tapOn: "Choose feed"
+- tapOn: "For you"
+- waitForAnimationToEnd
+- tapOn: "For you"
 - tapOn: "Texas State University"
 - scrollUntilVisible:
     element: "Post: Move-in day at the new place.*"

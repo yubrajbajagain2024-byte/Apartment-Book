@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View, type LayoutRectangle, type StyleProp, type TextStyle } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 /**
  * The sliding underline is laid out this wide and scaled to each label: the native driver animates transforms but not
@@ -34,6 +35,7 @@ export function SlidingTabs<T extends string>({
   gap = 28,
   fontSize = 15,
   spread = false,
+  caret,
 }: {
   sections: readonly { value: T; label: string }[];
   section: T;
@@ -49,6 +51,8 @@ export function SlidingTabs<T extends string>({
   fontSize?: number;
   /** X's layout: the labels share the row equally, each centred in its share, the underline still as wide as the label. */
   spread?: boolean;
+  /** The section whose label carries a small chevron: it opens a menu (Home's For you). */
+  caret?: T;
 }) {
   const [boxes, setBoxes] = useState<(LabelBox | undefined)[]>(() => sections.map(() => undefined));
   // Same array unless a label really moved, so the interpolation below is not rebuilt on every layout pass.
@@ -117,6 +121,7 @@ export function SlidingTabs<T extends string>({
             style={[styles.tab, spread && styles.spread]}
           >
             <View
+              style={styles.labelBox}
               onLayout={
                 spread
                   ? (e) => {
@@ -126,18 +131,21 @@ export function SlidingTabs<T extends string>({
                   : undefined
               }
             >
-              {/* An invisible bold copy gives every label the width of its bold form: nothing shifts when the active one changes weight, and the underline fits it exactly. */}
-              <Text style={[styles.label, { fontSize }, styles.bold, styles.ghost, textStyle]} aria-hidden>
-                {s.label}
-              </Text>
-              {fade ? (
-                <>
-                  <Animated.Text style={[styles.label, { fontSize }, styles.text, { color: dimColor }, textStyle, { opacity: fade.off }]}>{s.label}</Animated.Text>
-                  <Animated.Text style={[styles.label, { fontSize }, styles.text, styles.bold, { color: labelColor }, textStyle, { opacity: fade.on }]}>{s.label}</Animated.Text>
-                </>
-              ) : (
-                <Text style={[styles.label, { fontSize }, styles.text, { color: active ? labelColor : dimColor }, active && styles.bold, textStyle]}>{s.label}</Text>
-              )}
+              <View>
+                {/* An invisible bold copy gives every label the width of its bold form: nothing shifts when the active one changes weight, and the underline fits it exactly. */}
+                <Text style={[styles.label, { fontSize }, styles.bold, styles.ghost, textStyle]} aria-hidden>
+                  {s.label}
+                </Text>
+                {fade ? (
+                  <>
+                    <Animated.Text style={[styles.label, { fontSize }, styles.text, { color: dimColor }, textStyle, { opacity: fade.off }]}>{s.label}</Animated.Text>
+                    <Animated.Text style={[styles.label, { fontSize }, styles.text, styles.bold, { color: labelColor }, textStyle, { opacity: fade.on }]}>{s.label}</Animated.Text>
+                  </>
+                ) : (
+                  <Text style={[styles.label, { fontSize }, styles.text, { color: active ? labelColor : dimColor }, active && styles.bold, textStyle]}>{s.label}</Text>
+                )}
+              </View>
+              {caret === s.value ? <Ionicons name="chevron-down" size={14} color={active ? labelColor : dimColor} style={[styles.caret, textStyle]} /> : null}
             </View>
             {slide ? null : <View style={[styles.underline, styles.staticUnderline, { backgroundColor: active ? tint : "transparent" }]} />}
           </Pressable>
@@ -154,6 +162,9 @@ const styles = StyleSheet.create({
   // Stretched to the row's height so the underline sits on the row's bottom edge whatever the bar's height (44pt in Home and Housing).
   tab: { alignItems: "center", justifyContent: "center" },
   spread: { flex: 1 },
+  // The label and, for one section, the chevron after it: what the underline is measured against.
+  labelBox: { flexDirection: "row", alignItems: "center", gap: 1 },
+  caret: { marginTop: 1 },
   label: { fontSize: 15, fontWeight: "600" },
   bold: { fontWeight: "800" },
   ghost: { opacity: 0 },

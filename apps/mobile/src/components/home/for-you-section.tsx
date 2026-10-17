@@ -176,7 +176,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
         {...inset.list}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        // Room under the last post for the floating bottom bar and the "New post" pill above it.
+        // Room under the last post for the floating bottom bar.
         contentContainerStyle={{ paddingBottom: 96 + tabBar, paddingTop: inset.paddingTop }}
         ListHeaderComponent={
           error && items.length > 0 ? (

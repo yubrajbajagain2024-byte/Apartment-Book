@@ -54,10 +54,10 @@ export function PostFrame({ children }: { children: ReactNode }) {
 }
 
 /**
- * Heart, comment and share with their counts, then, on the right, an optional "Message" pill (listings: a chat with the
- * owner; "Inbox" on your own) and the bookmark.
+ * Heart, comment (left out when there is no `onComment`) and share with their counts, an optional chat pill (listings:
+ * a chat with the owner), either right after share (`messageBeside`) or on the right, and the bookmark at the far right.
  */
-export function PostActions({ liked, likes, comments, saved, onLike, onComment, onShare, onSave, message, tight }: { liked: boolean; likes: number; comments: number; saved: boolean; onLike: () => void; onComment: () => void; onShare: () => void; onSave: () => void; message?: { label: string; onPress: () => void }; tight?: boolean }) {
+export function PostActions({ liked, likes, comments, saved, onLike, onComment, onShare, onSave, message, messageBeside, tight }: { liked: boolean; likes: number; comments: number; saved: boolean; onLike: () => void; onComment?: () => void; onShare: () => void; onSave: () => void; message?: { label: string; onPress: () => void }; messageBeside?: boolean; tight?: boolean }) {
   const styles = useStyles();
   const colors = useColors();
   return (
@@ -66,24 +66,34 @@ export function PostActions({ liked, likes, comments, saved, onLike, onComment, 
         <Ionicons name={liked ? "heart" : "heart-outline"} size={26} color={liked ? colors.like : colors.text} />
         {likes > 0 ? <Text style={styles.count}>{compactCount(likes)}</Text> : null}
       </Pressable>
-      <Pressable onPress={onComment} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel="Comment">
-        <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
-        {comments > 0 ? <Text style={styles.count}>{compactCount(comments)}</Text> : null}
-      </Pressable>
+      {onComment ? (
+        <Pressable onPress={onComment} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel="Comment">
+          <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
+          {comments > 0 ? <Text style={styles.count}>{compactCount(comments)}</Text> : null}
+        </Pressable>
+      ) : null}
       <Pressable onPress={onShare} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel="Share">
         <Ionicons name="share-outline" size={24} color={colors.text} />
       </Pressable>
+      {message && messageBeside ? <MessagePill message={message} beside /> : null}
       <View style={{ flex: 1 }} />
-      {message ? (
-        <Pressable onPress={message.onPress} hitSlop={4} style={({ pressed }) => [styles.message, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={message.label}>
-          <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.text} />
-          <Text style={styles.messageText}>{message.label}</Text>
-        </Pressable>
-      ) : null}
+      {message && !messageBeside ? <MessagePill message={message} /> : null}
       <Pressable onPress={onSave} hitSlop={6} accessibilityRole="button" accessibilityLabel={saved ? "Unsave" : "Save"} accessibilityState={{ selected: saved }}>
         <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={24} color={saved ? colors.text : colors.muted} />
       </Pressable>
     </View>
+  );
+}
+
+/** The chat pill: a small outlined capsule with the chat icon and its label. */
+function MessagePill({ message, beside }: { message: { label: string; onPress: () => void }; beside?: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
+  return (
+    <Pressable onPress={message.onPress} hitSlop={4} style={({ pressed }) => [styles.message, beside && styles.messageBeside, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={message.label}>
+      <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.text} />
+      <Text style={styles.messageText}>{message.label}</Text>
+    </Pressable>
   );
 }
 
@@ -97,6 +107,8 @@ const useStyles = makeStyles((colors) => ({
   action: { flexDirection: "row", alignItems: "center", gap: 6 },
   count: { fontSize: 14, fontWeight: "600", color: colors.text },
   message: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, marginRight: 14 },
+  // Right after share, in the row's own spacing.
+  messageBeside: { marginRight: 0 },
   messageText: { fontSize: 13, fontWeight: "700", color: colors.text },
 }));
 

@@ -1,26 +1,29 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { budgetLabel, formatDate, formatDistance, isVerifiedPoster, listRoommatePosts, listingMedia, type RoommatePostWithAuthor } from "@apartment-book/shared";
-import { FeedHeader } from "@/components/feed-header";
 import { OnlineStrip } from "@/components/online-strip";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
-import { Badge, Chip, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { Badge, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
-import { useTabBarInset } from "@/lib/tab-bar";
 import { supabase } from "@/lib/supabase";
+import { useTabBarInset } from "@/lib/tab-bar";
 import { useColors } from "@/lib/theme-provider";
 import { useEngagement } from "@/lib/use-engagement";
 
-/** The Roommates half of the Housing tab: search, filters, who is online and the posts feed, starting `topInset` under the floating tabs row and reporting its scroll through `onScroll`. The Housing screen owns the "+" button. */
-export function RoommatesSection({ topInset, onScroll }: { topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
+/** The two kinds of roommate post the "Has a room" and "Looking for a room" pills pick between. */
+export type RoommateType = "has_room" | "needs_room";
+
+/**
+ * The Roommates half of the Housing tab: who is online, then the posts feed, starting `topInset` under the floating labels
+ * and pills and reporting its scroll through `onScroll`. The search (`q`), the campus and the kind of post come from the
+ * Housing screen's own bar, which also owns the "+" button.
+ */
+export function RoommatesSection({ topInset, onScroll, q, campus, type }: { topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void; q: string; campus: "mine" | "all"; type: RoommateType | undefined }) {
   const colors = useColors();
   const { user, profile } = useSession();
-  const [q, setQ] = useState("");
-  const [type, setType] = useState<"has_room" | "needs_room" | undefined>();
-  const [allCampuses, setAllCampuses] = useState(false);
-  const universityId = allCampuses ? undefined : (profile?.university_id ?? undefined);
+  const universityId = campus === "all" ? undefined : (profile?.university_id ?? undefined);
   const feed = useFeed<RoommatePostWithAuthor>((page) => listRoommatePosts(supabase, { q: q || undefined, universityId, postType: type, page }), [q, universityId, type]);
   const { savedIds, engagement } = useEngagement("roommate", feed.items, user?.id ?? null);
   const inset = useMemo(() => listInset(topInset), [topInset]);
@@ -36,12 +39,7 @@ export function RoommatesSection({ topInset, onScroll }: { topInset: number; onS
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: 90 + tabBar, paddingTop: inset.paddingTop }}
         ListHeaderComponent={
-          <View style={{ gap: 12, paddingHorizontal: FEED_HEADER_PADDING, paddingTop: FEED_HEADER_PADDING, paddingBottom: 4 }}>
-            <FeedHeader placeholder="Search roommate posts" value={q} onChange={setQ}>
-              <Chip label="Has a room" active={type === "has_room"} onPress={() => setType(type === "has_room" ? undefined : "has_room")} />
-              <Chip label="Looking for a room" active={type === "needs_room"} onPress={() => setType(type === "needs_room" ? undefined : "needs_room")} />
-              {profile?.university_id ? <Chip label={allCampuses ? "All universities" : "My campus"} icon="school-outline" active={!allCampuses} onPress={() => setAllCampuses((v) => !v)} /> : null}
-            </FeedHeader>
+          <View style={{ paddingTop: FEED_HEADER_PADDING }}>
             <OnlineStrip />
           </View>
         }
@@ -57,6 +55,12 @@ export function RoommatesSection({ topInset, onScroll }: { topInset: number; onS
               title={p.title}
               lead={budget ? `${budget}/mo` : undefined}
               description={p.description}
+              // The description stays behind "more…" until it is wanted: the title, the budget and the chips say enough.
+              descriptionLines={0}
+              // Heart, share, Inbox and the bookmark: no comment button here (the thread is on the post's own screen).
+              messageLabel="Inbox"
+              messageBeside
+              comments={false}
               media={listingMedia(p.images, p.image_meta, p.videos)}
               createdAt={p.created_at}
               saved={savedIds.has(p.id)}
