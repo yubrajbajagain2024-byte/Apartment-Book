@@ -51,7 +51,10 @@ scrolls up. The bottom bar never moves. The choice lives in
 `src/lib/home-scope.ts` and drives For you, Buzz and Posts alike: the pages have no filter chips of their own.
 Housing (the Explore tab, with a compass icon) works the same way with three pages,
 **Room | Roommate | Marketplace** (apartments, roommates, items), under its own top bar laid out like the inbox's (`src/app/(tabs)/housing.tsx`): the big
-"Find" title, the three labels with the sliding violet underline, the inbox's search box (searching the page on screen), and the
+"Find" title, the three labels with the sliding violet underline, the inbox's search box (searching the page on screen) with a
+round filter button beside it (`src/components/housing/filter-sheet.tsx`: a sheet of the page's own filters, applied on "Show
+results", counted on the button; rooms sort, bedrooms, rent, distance from campus, furnished, pets and video tours; roommate
+posts a budget cap, who the post is open to, distance and video; items sort, condition and price), and the
 pills that narrow the page (All on Room, All | Has a room | Looking for a room on Roommate, All and the item
 categories on Marketplace); the labels and the pills slide up under the title as the page scrolls. It opens on Room, a swipe or a tap on the label above the
 pager moves to Roommate or the Marketplace and back (one clear haptic each time the page changes, by tap or swipe, like

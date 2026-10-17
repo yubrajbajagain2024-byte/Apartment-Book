@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import { budgetLabel, formatDate, formatDistance, isVerifiedPoster, listRoommatePosts, listingMedia, type RoommatePostWithAuthor } from "@apartment-book/shared";
+import { budgetLabel, formatDate, formatDistance, isVerifiedPoster, KM_PER_MILE, listRoommatePosts, listingMedia, type RoommatePostWithAuthor } from "@apartment-book/shared";
+import type { RoommateFilters } from "@/components/housing/filter-sheet";
 import { OnlineStrip } from "@/components/online-strip";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
 import { Badge, EmptyState, ErrorBanner, Loading } from "@/components/ui";
@@ -20,11 +21,16 @@ export type RoommateType = "has_room" | "needs_room";
  * and pills and reporting its scroll through `onScroll`. The search (`q`), the campus and the kind of post come from the
  * Housing screen's own bar, which also owns the "+" button.
  */
-export function RoommatesSection({ topInset, onScroll, q, campus, type }: { topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void; q: string; campus: "mine" | "all"; type: RoommateType | undefined }) {
+export function RoommatesSection({ topInset, onScroll, q, campus, type, filters, filtered }: { topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void; q: string; campus: "mine" | "all"; type: RoommateType | undefined; filters: RoommateFilters; filtered: boolean }) {
   const colors = useColors();
   const { user, profile } = useSession();
   const universityId = campus === "all" ? undefined : (profile?.university_id ?? undefined);
-  const feed = useFeed<RoommatePostWithAuthor>((page) => listRoommatePosts(supabase, { q: q || undefined, universityId, postType: type, page }), [q, universityId, type]);
+  // The filter sheet's choices; distance needs a campus to measure from, so it is dropped on "every university".
+  const radiusKm = universityId && filters.radiusMiles ? filters.radiusMiles * KM_PER_MILE : undefined;
+  const feed = useFeed<RoommatePostWithAuthor>(
+    (page) => listRoommatePosts(supabase, { q: q || undefined, universityId, postType: type, page, maxBudget: filters.maxBudget, genderPreference: filters.genderPreference, videoOnly: filters.videoOnly, radiusKm }),
+    [q, universityId, type, filters.maxBudget, filters.genderPreference, filters.videoOnly, radiusKm],
+  );
   const { savedIds, engagement } = useEngagement("roommate", feed.items, user?.id ?? null);
   const inset = useMemo(() => listInset(topInset), [topInset]);
   const tabBar = useTabBarInset();
@@ -75,7 +81,7 @@ export function RoommatesSection({ topInset, onScroll, q, campus, type }: { topI
             />
           );
         }}
-        ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon="people-outline" title="No roommate posts yet" body="Be the first to post for your campus." />}
+        ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon={filtered || q ? "search-outline" : "people-outline"} title={filtered || q ? "No roommate posts match" : "No roommate posts yet"} body={filtered ? "Try fewer filters." : q ? "Try another word." : "Be the first to post for your campus."} />}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
         refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} progressViewOffset={inset.progressViewOffset} />}

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DEFAULT_HOUSING_SECTION, HOUSING_SECTIONS, ITEM_CATEGORIES, type HousingSection, type ItemCategoryValue } from "@apartment-book/shared";
 import { Fab } from "@/components/feed-header";
 import { ApartmentsSection } from "@/components/housing/apartments-section";
+import { activeFilterCount, DEFAULT_FILTERS, FilterSheet, type ExploreFilters } from "@/components/housing/filter-sheet";
 import { MarketplaceSection } from "@/components/housing/marketplace-section";
 import { RoommatesSection, type RoommateType } from "@/components/housing/roommates-section";
 import { SlidingTabs } from "@/components/sliding-tabs";
@@ -75,6 +76,9 @@ export default function HousingScreen() {
   const [q, setQ] = useState("");
   const [type, setType] = useState<RoommateType | undefined>();
   const [category, setCategory] = useState<ItemCategoryValue | null>(null);
+  /** The filter sheet's choices, one set per page; the button beside the search box opens the sheet for the page on screen. */
+  const [filters, setFilters] = useState<ExploreFilters>(DEFAULT_FILTERS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   /** The Marketplace grid is still catching up with the words typed: the search box shows a spinner in place of its magnifier. */
   const [busy, setBusy] = useState(false);
 
@@ -178,6 +182,7 @@ export default function HousingScreen() {
           ]
         : [{ key: "all", label: "All", selected: category === null, onPress: () => pickCategory(null) }, ...ITEM_CATEGORIES.map((c) => ({ key: c.value, label: c.label, selected: category === c.value, onPress: () => pickCategory(c.value) }))];
   const placeholder = section === "apartments" ? "Search apartments" : section === "roommates" ? "Search roommate posts" : "Search marketplace";
+  const activeFilters = activeFilterCount(section, filters);
 
   // The pills row scrolls just enough to keep the chosen pill in full view (the Marketplace has a dozen), the old category pills' way.
   const pillsRow = useRef<ScrollViewType>(null);
@@ -226,6 +231,15 @@ export default function HousingScreen() {
                 </Pressable>
               ) : null}
             </View>
+            {/* The round filter button beside the box: it opens the sheet for the page on screen and counts the choices in force. */}
+            <Pressable onPress={() => setFiltersOpen(true)} hitSlop={6} accessibilityRole="button" accessibilityLabel={activeFilters > 0 ? `Filters, ${activeFilters} on` : "Filters"} accessibilityHint="Sort and narrow the page on screen" style={({ pressed }) => [styles.filterButton, activeFilters > 0 && styles.filterButtonOn, pressed && { opacity: 0.7 }]}>
+              <Ionicons name="options-outline" size={22} color={activeFilters > 0 ? colors.brand : colors.text} />
+              {activeFilters > 0 ? (
+                <View style={styles.filterBadge}>
+                  <Text style={styles.filterBadgeText}>{activeFilters}</Text>
+                </View>
+              ) : null}
+            </Pressable>
           </View>
           <ScrollView
             ref={pillsRow}
@@ -288,11 +302,11 @@ export default function HousingScreen() {
           {ORDER.map((s, i) => (
             <View key={s} style={{ width, flex: 1 }}>
               {!mounted.has(i) ? null : s === "roommates" ? (
-                <RoommatesSection topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} type={type} />
+                <RoommatesSection topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} type={type} filters={filters.roommates} filtered={activeFilterCount("roommates", filters) > 0} />
               ) : s === "marketplace" ? (
-                <MarketplaceSection topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} category={category} onCategoryChange={pickCategory} onSearchBusy={setBusy} />
+                <MarketplaceSection topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} category={category} onCategoryChange={pickCategory} onSearchBusy={setBusy} filters={filters.marketplace} filtered={activeFilterCount("marketplace", filters) > 0} />
               ) : (
-                <ApartmentsSection topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} />
+                <ApartmentsSection topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} filters={filters.apartments} filtered={activeFilterCount("apartments", filters) > 0} />
               )}
             </View>
           ))}
@@ -303,6 +317,16 @@ export default function HousingScreen() {
           label={section === "apartments" ? "List an apartment" : section === "roommates" ? "Create roommate post" : "Sell an item"}
         />
       </View>
+      <FilterSheet
+        section={section}
+        open={filtersOpen}
+        filters={filters}
+        onApply={(next) => {
+          setFilters(next);
+          setFiltersOpen(false);
+        }}
+        onClose={() => setFiltersOpen(false)}
+      />
     </View>
   );
 }
@@ -312,7 +336,12 @@ const useStyles = makeStyles((colors) => ({
   chrome: { backgroundColor: colors.bar, zIndex: 3 },
   titleRow: { height: TITLE_ROW, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md, paddingLeft: 20, paddingRight: space.lg },
   title: { flexShrink: 1, fontSize: 30, fontWeight: "800", letterSpacing: -0.5, color: colors.text },
-  searchRow: { height: SEARCH_ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: 20 },
+  searchRow: { height: SEARCH_ROW, flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: 20 },
+  // As tall as the box, round, on the same fill; tinted while a filter is in force, with the count on its corner.
+  filterButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
+  filterButtonOn: { backgroundColor: colors.brandSoft },
+  filterBadge: { position: "absolute", top: 3, right: 3, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  filterBadgeText: { fontSize: 10, fontWeight: "800", color: colors.onBrand },
   // The input fill, not the card colour: the screen behind it is white in light and black in dark. The inbox's box exactly.
   search: { flex: 1, height: 46, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 16 },
   searchMark: { width: 20, alignItems: "center" },

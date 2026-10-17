@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import { formatDistance, formatPrice, isVerifiedPoster, listApartments, listingMedia, type ApartmentWithOwner } from "@apartment-book/shared";
+import { formatDistance, formatPrice, isVerifiedPoster, KM_PER_MILE, listApartments, listingMedia, type ApartmentWithOwner } from "@apartment-book/shared";
+import type { RoomFilters } from "@/components/housing/filter-sheet";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
 import { Badge, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
@@ -16,11 +17,16 @@ import { useEngagement } from "@/lib/use-engagement";
  * reporting its scroll through `onScroll`. The search (`q`) and the campus come from the Housing screen's own bar, which
  * also owns the "+" button.
  */
-export function ApartmentsSection({ topInset, onScroll, q, campus }: { topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void; q: string; campus: "mine" | "all" }) {
+export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filtered }: { topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void; q: string; campus: "mine" | "all"; filters: RoomFilters; filtered: boolean }) {
   const colors = useColors();
   const { user, profile } = useSession();
   const universityId = campus === "all" ? undefined : (profile?.university_id ?? undefined);
-  const feed = useFeed<ApartmentWithOwner>((page) => listApartments(supabase, { q: q || undefined, universityId, page, sort: "newest" }), [q, universityId]);
+  // The filter sheet's choices; distance needs a campus to measure from, so it is dropped on "every university".
+  const radiusKm = universityId && filters.radiusMiles ? filters.radiusMiles * KM_PER_MILE : undefined;
+  const feed = useFeed<ApartmentWithOwner>(
+    (page) => listApartments(supabase, { q: q || undefined, universityId, page, sort: filters.sort, minBedrooms: filters.minBedrooms, minPrice: filters.minPrice, maxPrice: filters.maxPrice, furnished: filters.furnished, petsAllowed: filters.petsAllowed, videoOnly: filters.videoOnly, radiusKm }),
+    [q, universityId, filters.sort, filters.minBedrooms, filters.minPrice, filters.maxPrice, filters.furnished, filters.petsAllowed, filters.videoOnly, radiusKm],
+  );
   const { savedIds, engagement } = useEngagement("apartment", feed.items, user?.id ?? null);
   const inset = useMemo(() => listInset(topInset), [topInset]);
   const tabBar = useTabBarInset();
@@ -57,7 +63,7 @@ export function ApartmentsSection({ topInset, onScroll, q, campus }: { topInset:
             }
           />
         )}
-        ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon="home-outline" title="No apartments yet" body="Be the first to list a place." />}
+        ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon={filtered || q ? "search-outline" : "home-outline"} title={filtered || q ? "No apartments match" : "No apartments yet"} body={filtered ? "Try fewer filters." : q ? "Try another word." : "Be the first to list a place."} />}
         ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : null}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
