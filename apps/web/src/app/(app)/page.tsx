@@ -28,7 +28,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   return { title: TITLES[sectionFrom(await searchParams)] };
 }
 
-/** Home: For you | Buzz | Posts | Reels. The apartment listings moved to /apartments. */
+/** Home: For you | Buzz | Reels in the tab row, plus Posts at /?tab=posts without a tab of its own. The apartment listings moved to /apartments. */
 export default async function HomePage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const section = sectionFrom(params);

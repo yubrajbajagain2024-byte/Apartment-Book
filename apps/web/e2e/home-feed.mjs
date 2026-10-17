@@ -1,5 +1,5 @@
 // Browser check of the website's navigation (desktop tabs Home | Explore | Messages next to the search box, phone bottom bar Home | Explore | Messages | Profile),
-// Home (For you | Buzz | Posts | Reels), Explore (Room | Roommate | Marketplace), following (the Follow button on a profile, the mutual friends behind someone else's Followers and Following numbers, your own follower lists, Home → Posts → Following), the TikTok-style comment thread under a post (heart, reply, the "N comments" header, delete from the comment's options menu)
+// Home (For you | Buzz | Reels, plus Posts at /?tab=posts), Explore (Room | Roommate | Marketplace), following (the Follow button on a profile, the mutual friends behind someone else's Followers and Following numbers, your own follower lists, Home → Posts → Following), the TikTok-style comment thread under a post (heart, reply, the "N comments" header, delete from the comment's options menu)
 // and sharing a post with a friend (the Share dialog offers the people you follow who follow you back; Send leaves the post as a card in your chat with them),
 // and the TikTok-style profile page (Following · Followers · Likes, @username, the Posts | Classes | Reels | Saved | Liked | Listings tabs, the grid, the Classes and Listings tabs, a locked Saved tab, your own Saved setting),
 // signed out and signed in, on a desktop and a phone viewport.
@@ -39,13 +39,13 @@ async function swipe(page, from, to, moves = 6) {
 }
 try {
   const D = await newPage({ width: 1280, height: 900 }); const M = await newPage({ width: 390, height: 844 });
-  await step("signed out: \"/\" lands on For you with For you | Buzz | Posts | Reels on top, in that order; the feed blends a post, a Buzz thread and a reel", async () => {
+  await step("signed out: \"/\" lands on For you with For you | Buzz | Reels on top, in that order (Posts keeps /?tab=posts but has no tab); the feed blends a post, a Buzz thread and a reel", async () => {
     await D.goto(BASE + "/"); await D.waitForLoadState("domcontentloaded");
     const tabs = await D.locator("nav[aria-label='Home sections'] a").allInnerTexts();
-    const order = tabs.map((t) => t.trim()).filter(Boolean); if (order.join("|") !== "For you|Buzz|Posts|Reels") throw new Error("tabs: " + order.join("|"));
+    const order = tabs.map((t) => t.trim()).filter(Boolean); if (order.join("|") !== "For you|Buzz|Reels") throw new Error("tabs: " + order.join("|"));
     if (!(await D.locator("nav[aria-label='Home sections'] [data-testid='home-tab-foryou'][aria-current='page']").count())) throw new Error("For you is not the active tab");
     // The landing tab keeps the clean address; Posts moved to ?tab=posts (homeSectionHref in the shared package).
-    const hrefs = await D.locator("nav[aria-label='Home sections'] a").evaluateAll((links) => links.map((a) => a.getAttribute("href"))); if (hrefs.join(" ") !== "/ /?tab=buzz /?tab=posts /?tab=reels") throw new Error("tab links: " + hrefs.join(" "));
+    const hrefs = await D.locator("nav[aria-label='Home sections'] a").evaluateAll((links) => links.map((a) => a.getAttribute("href"))); if (hrefs.join(" ") !== "/ /?tab=buzz /?tab=reels") throw new Error("tab links: " + hrefs.join(" "));
     const feed = D.getByTestId("for-you-feed"); await feed.waitFor();
     await feed.locator("[data-testid='insta-post']").filter({ hasText: "First week back on campus" }).first().waitFor();
     await feed.locator("[data-testid='for-you-buzz'] [data-testid='buzz-card']").filter({ hasText: "Landlord wants to keep my whole deposit" }).first().waitFor();
@@ -56,7 +56,8 @@ try {
   });
   await step("Posts tab (/?tab=posts) looks like Instagram: no composer box, carousel dots on their own row above heart / comment / share / bookmark, Liked by, caption with hashtags, newest comment, age", async () => {
     await D.goto(BASE + "/?tab=posts"); await D.waitForLoadState("domcontentloaded");
-    if (!(await D.locator("nav[aria-label='Home sections'] [data-testid='home-tab-posts'][aria-current='page']").count())) throw new Error("Posts is not the active tab");
+    // Posts has no tab of its own any more: the address still renders the feed, with no tab lit.
+    if (await D.locator("nav[aria-label='Home sections'] [data-testid='home-tab-posts']").count()) throw new Error("Posts is still in the tab row");
     await D.getByText("First week back on campus").first().waitFor(); await D.screenshot({ caret: "initial", path: SHOTS + "web-01-posts.png" });
     if (await D.locator("[data-testid='post-composer'], [data-testid='fb-post']").count()) throw new Error("the Facebook composer or card is still on the Posts tab");
     const post = D.locator("[data-testid='insta-post']").filter({ hasText: "First week back on campus" }).first(); await post.waitFor();

@@ -3,7 +3,7 @@ import { Animated, View, useWindowDimensions, type LayoutChangeEvent, type Nativ
 import { useIsFocused } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { DEFAULT_HOME_SECTION, HOME_SECTIONS, type HomeSection } from "@apartment-book/shared";
+import { DEFAULT_HOME_SECTION, HOME_TABS, type HomeSection } from "@apartment-book/shared";
 import { BuzzSection } from "@/components/home/buzz-section";
 import { ForYouSection } from "@/components/home/for-you-section";
 import { createOverVideoStore, HOME_TOP_BAR_HEIGHT, HomeTopTabs, useOverVideo, type OverVideoStore } from "@/components/home/home-top-tabs";
@@ -14,7 +14,8 @@ import { hapticSwipe } from "@/lib/haptics";
 import { onHomeSectionRequest, takeHomeSection } from "@/lib/home-section";
 import { useAppTheme } from "@/lib/theme-provider";
 
-const ORDER = HOME_SECTIONS.map((s) => s.value);
+/** The pages, in the order of the tabs. A hidden section (Posts) has no page: its index is -1 and nothing below reaches it. */
+const ORDER = HOME_TABS.map((s) => s.value);
 const START = Math.max(0, ORDER.indexOf(DEFAULT_HOME_SECTION));
 const LAST = ORDER.length - 1;
 const REELS = ORDER.indexOf("reels");
@@ -321,7 +322,7 @@ export default function HomeScreen() {
   // the one that was reached, not all four lists.
   const forYou = useMemo(() => <ForYouSection active={forYouOn} topInset={barHeight} onScroll={onPageScroll(FOR_YOU)} />, [forYouOn, barHeight, onPageScroll]);
   const buzz = useMemo(() => <BuzzSection active={buzzOn} topInset={barHeight} onScroll={onPageScroll(BUZZ)} />, [buzzOn, barHeight, onPageScroll]);
-  const posts = useMemo(() => <PostsSection active={postsOn} topInset={barHeight} onScroll={onPageScroll(POSTS)} />, [postsOn, barHeight, onPageScroll]);
+  const posts = useMemo(() => (POSTS >= 0 ? <PostsSection active={postsOn} topInset={barHeight} onScroll={onPageScroll(POSTS)} /> : null), [postsOn, barHeight, onPageScroll]);
   const reels = useMemo(() => (pageHeight > 0 ? <ReelsSection active={reelsOn} preload={reelsPreload} topInset={barHeight} height={pageHeight} /> : null), [reelsOn, reelsPreload, barHeight, pageHeight]);
   const content: Record<HomeSection, ReactNode> = { foryou: forYou, buzz, posts, reels };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { HOME_SECTIONS, homeSectionHref, type HomeSection } from "@apartment-book/shared";
+import { HOME_TABS, homeSectionHref, type HomeSection } from "@apartment-book/shared";
 import { SectionSwipe } from "@/components/layout/section-swipe";
 
 /**
@@ -10,7 +10,7 @@ import { SectionSwipe } from "@/components/layout/section-swipe";
  */
 export function HomeSwipe({ section, all, children }: { section: HomeSection; all?: boolean; children: ReactNode }) {
   return (
-    <SectionSwipe sections={HOME_SECTIONS} section={section} hrefFor={(s) => homeSectionHref(s, { university: all ? "all" : undefined })}>
+    <SectionSwipe sections={HOME_TABS} section={section} hrefFor={(s) => homeSectionHref(s, { university: all ? "all" : undefined })}>
       {children}
     </SectionSwipe>
   );

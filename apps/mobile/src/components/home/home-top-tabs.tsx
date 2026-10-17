@@ -3,7 +3,7 @@ import { Animated, Modal, Pressable, StyleSheet, Text, View, type LayoutChangeEv
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { HOME_BRAND, HOME_SECTIONS, type HomeSection } from "@apartment-book/shared";
+import { HOME_BRAND, HOME_TABS, type HomeSection } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { HeaderActions } from "@/components/header-actions";
 import { SlidingTabs } from "@/components/sliding-tabs";
@@ -73,7 +73,9 @@ export function useOverVideo(store: OverVideoStore): boolean {
 }
 
 /** How solid the bar's background is on each page: fully on For you, Buzz and Posts, gone on Reels. */
-const SOLID = HOME_SECTIONS.map((s) => (s.value === "reels" ? 0 : 1));
+const SOLID = HOME_TABS.map((s) => (s.value === "reels" ? 0 : 1));
+/** The Following row of the feed menu opens the Posts page, so it is offered only while Posts has a tab. */
+const POSTS_SHOWN = HOME_TABS.some((s) => s.value === "posts");
 
 /**
  * Floating top bar of Home, X style, in two rows. Row 1: your photo in a gradient ring on the left, which opens your
@@ -122,7 +124,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
   // The person's own university, by name. Without one of their own the person sees everything whatever `campus` says (the sections pass no university).
   if (profile?.university_id) rows.push({ key: "mine", label: profile.university?.name ?? "My university", icon: "school-outline", selected: !followingShown && scope.campus === "mine", pick: () => setScope({ campus: "mine", following: false }) });
   rows.push({ key: "all", label: "All Universities", icon: "globe-outline", selected: !followingShown && (scope.campus === "all" || !profile?.university_id), pick: () => setScope({ campus: "all", following: false }) });
-  if (user) {
+  if (user && POSTS_SHOWN) {
     rows.push({
       key: "following",
       label: "Following",
@@ -183,7 +185,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
         </View>
       </View>
       <View style={styles.row}>
-        <SlidingTabs sections={HOME_SECTIONS} section={section} onSelect={pickSection} scrollX={scrollX} pageWidth={pageWidth} tint={ink} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} fontSize={LABEL_SIZE} spread caret="foryou" />
+        <SlidingTabs sections={HOME_TABS} section={section} onSelect={pickSection} scrollX={scrollX} pageWidth={pageWidth} tint={ink} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} fontSize={LABEL_SIZE} spread caret="foryou" />
       </View>
       {/* The feed menu: a card hanging under the "For you" label, the page still fully visible behind it. */}
       <Modal visible={menu} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setMenu(false)}>
