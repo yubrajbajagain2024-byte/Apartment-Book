@@ -3,7 +3,7 @@ import { Animated, Pressable, StyleSheet, Text, TextInput, View } from "react-na
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SlidingTabs } from "@/components/sliding-tabs";
 import { hapticSelect } from "@/lib/haptics";
-import { radius, space, textStyle } from "@/lib/theme";
+import { auroraGradient, radius, space, textStyle } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import type { InboxFilter, InboxPage } from "./inbox-utils";
 import { Icon } from "@/components/icon";
@@ -58,7 +58,7 @@ export function InboxHeader({ signedIn, page, onPage, scrollX, pageWidth, reques
       </View>
       {signedIn ? (
         <View style={styles.tabs}>
-          <SlidingTabs sections={INBOX_PAGES} section={page} onSelect={onPage} scrollX={scrollX} pageWidth={pageWidth} tint={colors.accent} labelColor={colors.text} dimColor={colors.muted} gap={110} fontSize={16} />
+          <SlidingTabs sections={INBOX_PAGES} section={page} onSelect={onPage} scrollX={scrollX} pageWidth={pageWidth} tint={colors.accent} tintGradient={auroraGradient(colors.auroraGlow, 90)} labelColor={colors.text} dimColor={colors.muted} gap={110} fontSize={16} />
         </View>
       ) : null}
       {children}

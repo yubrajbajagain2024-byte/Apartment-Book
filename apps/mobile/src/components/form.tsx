@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { reduceMotionEnabled } from "@/lib/accessibility";
-import { motion, radius } from "@/lib/theme";
+import { auroraGradient, motion, radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { hapticSelect } from "@/lib/haptics";
 import { Icon } from "@/components/icon";
@@ -70,9 +70,10 @@ export function FormSection({ title, children }: { title: string; children: Reac
 const useStyles = makeStyles((colors) => ({
   segment: { flexDirection: "row", backgroundColor: colors.input, borderRadius: radius.md, borderCurve: "continuous", padding: 3 },
   segmentItem: { flex: 1, paddingVertical: 9, alignItems: "center", borderRadius: radius.sm, borderCurve: "continuous" },
-  segmentActive: { backgroundColor: colors.brand },
+  segmentActive: { backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.aurora) },
   // The selection that slides: the same brand-blue fill and corners as the active segment it replaces.
-  segmentThumb: { position: "absolute", top: SEGMENT_PAD, bottom: SEGMENT_PAD, left: SEGMENT_PAD, borderRadius: radius.sm, borderCurve: "continuous", backgroundColor: colors.brand },
+  // The selected segment wears the aurora, under white words.
+  segmentThumb: { position: "absolute", top: SEGMENT_PAD, bottom: SEGMENT_PAD, left: SEGMENT_PAD, borderRadius: radius.sm, borderCurve: "continuous", backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.aurora) },
   segmentText: { fontWeight: "700", color: colors.muted, fontSize: 13 },
   // Outlined like Card, so a section still stands apart from the screen in both themes.
   section: { backgroundColor: colors.card, borderRadius: radius.lg, borderCurve: "continuous", padding: 16, gap: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Animated, Pressable, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
 import type { ProfileVisibility } from "@apartment-book/shared";
+import { auroraGradient } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
 
@@ -170,7 +171,8 @@ const useStyles = makeStyles((colors) => ({
   badge: { position: "absolute", right: -16, top: -2 },
   // UNDERLINE_SHARE of the tab.
   underline: { height: 3, width: "58%", borderRadius: 2, backgroundColor: "transparent" },
-  underlineActive: { backgroundColor: colors.text },
+  // The open tab's underline wears the aurora, like the labels' underline in Home, Explore and Messages.
+  underlineActive: { backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.auroraGlow, 90) },
   // On the row's bottom edge, where each tab's own underline sits.
-  slider: { position: "absolute", bottom: 0, height: 3, borderRadius: 2, backgroundColor: colors.text },
+  slider: { position: "absolute", bottom: 0, height: 3, borderRadius: 2, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.auroraGlow, 90) },
 }));

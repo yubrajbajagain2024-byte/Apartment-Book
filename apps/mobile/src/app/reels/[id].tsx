@@ -15,7 +15,7 @@ import { emitPostEngagement, emitPostRemoved } from "@/lib/posts-events";
 import { dropHandedReel, peekHandedReel } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { textStyle } from "@/lib/theme";
+import { auroraGradient, textStyle } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
 import { GlassIconButton } from "@/components/glass";
@@ -350,7 +350,7 @@ const useStyles = makeStyles((colors) => ({
   centered: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 8 },
   stateTitle: { color: colors.onMedia, ...textStyle.title3, marginTop: 6, textAlign: "center" },
   stateBody: { color: colors.onMediaMuted, fontSize: 14, textAlign: "center", lineHeight: 20 },
-  stateButton: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 12, marginTop: 12 },
+  stateButton: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.aurora), borderRadius: 999, paddingHorizontal: 20, paddingVertical: 12, marginTop: 12 },
   stateButtonText: { color: colors.onBrand, fontSize: 15, fontWeight: "700" },
   top: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 },
   // The toggle is centred on the screen; Back keeps to the left edge, level with it.

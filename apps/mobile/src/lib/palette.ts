@@ -6,24 +6,29 @@
  * Dark: pure black background and bars, white text, dark grey cards and borders, the same blue accents.
  */
 export type ThemeColors = {
-  /** The CampConnect blue: buttons, links, active tabs, accents. The same in both themes. */
+  /** The CampConnect blue (the aurora's blue stop): links, icons, active chips, and fills where a gradient would be fussy. */
   brand: string;
   brandDark: string;
   /** A faint blue wash behind brand icons and selected chips. */
   brandSoft: string;
   /** Text and icons drawn on a brand-blue fill. */
   onBrand: string;
-  /** The violet accent of the Home feed: the active label's underline, the slide dots under a photo and where the "New post" button's gradient starts. */
+  /** The violet accent: the slide dots under a photo, the group mark in the inbox. */
   accent: string;
-  /** The blue the "New post" button's gradient ends in. */
-  accentBlue: string;
-  /** The teal the ring around your photo in the Home bar starts from (it ends in `accent`). */
-  accentTeal: string;
+  /**
+   * CampConnect's signature, the Aurora: cyan, sky blue, periwinkle, violet, as four gradient stops (see auroraGradient in
+   * theme.ts). Used sparingly, on what matters most: primary buttons, the send buttons, the floating "+", the active
+   * tab's underline, the selected segment and the rings around a profile photo. `aurora` fills what carries white words,
+   * deep enough that a label passes 4.5:1 across the middle where it sits (the same in both themes); `auroraGlow` draws
+   * what carries none (rings and underlines), the same as `aurora` on white and brighter on black; `auroraWash` is the
+   * glow as a faint tint, behind the active tab's icon in the floating bar.
+   */
+  aurora: readonly [string, string, string, string];
+  auroraGlow: readonly [string, string, string, string];
+  auroraWash: readonly [string, string, string, string];
   /** The floating bottom bar where there is no liquid glass (Android, iOS before 26): a translucent fill, and the hairline around the pill everywhere. */
   glass: string;
   glassEdge: string;
-  /** The lighter capsule behind the bar's active tab. */
-  glassHighlight: string;
   /** Screen background. */
   bg: string;
   /** Cards and rows that sit on the screen. Bars use `bar`. */
@@ -49,7 +54,7 @@ export type ThemeColors = {
   skeleton: string;
   /** A soft panel on the screen: the profile's stats card. Lighter than the screen in dark, a grey wash in light. */
   panel: string;
-  /** The profile's cover band: its top colour (it fades down into `bg`) and the two soft glows over it, violet and teal. */
+  /** The profile's cover band: its top colour (it fades down into `bg`) and the two soft glows over it, the aurora's violet and cyan. */
   coverTop: string;
   coverGlowA: string;
   coverGlowB: string;
@@ -110,16 +115,17 @@ export type ColorScheme = "light" | "dark";
 export type ThemePreference = "system" | "light" | "dark";
 
 export const lightColors: ThemeColors = {
-  brand: "#1877f2",
-  brandDark: "#166fe5",
+  // 4.7:1 on white: links and blue words pass AA.
+  brand: "#166fe5",
+  brandDark: "#1360c8",
   brandSoft: "#e7f0fd",
   onBrand: "#ffffff",
   accent: "#6a4df0",
-  accentBlue: "#3b82f6",
-  accentTeal: "#14b8a6",
+  aurora: ["#0a83a6", "#166fe5", "#5468ee", "#8250ea"],
+  auroraGlow: ["#0a83a6", "#166fe5", "#5468ee", "#8250ea"],
+  auroraWash: ["rgba(44,198,234,0.20)", "rgba(74,157,251,0.18)", "rgba(131,148,249,0.18)", "rgba(164,124,248,0.20)"],
   glass: "rgba(255,255,255,0.92)",
   glassEdge: "rgba(0,0,0,0.1)",
-  glassHighlight: "rgba(0,0,0,0.08)",
   bg: "#ffffff",
   card: "#ffffff",
   bar: "#ffffff",
@@ -133,7 +139,7 @@ export const lightColors: ThemeColors = {
   panel: "#f0f2f5",
   coverTop: "#e4e8f4",
   coverGlowA: "rgba(124,92,255,0.34)",
-  coverGlowB: "rgba(32,196,160,0.28)",
+  coverGlowB: "rgba(44,198,234,0.30)",
   coverButton: "rgba(0,0,0,0.07)",
   green: "#31a24c",
   red: "#e41e3f",
@@ -171,11 +177,11 @@ export const darkColors: ThemeColors = {
   brandSoft: "#0f2747",
   onBrand: "#ffffff",
   accent: "#8b7cff",
-  accentBlue: "#5b9bff",
-  accentTeal: "#2dd4bf",
+  aurora: ["#0a83a6", "#166fe5", "#5468ee", "#8250ea"],
+  auroraGlow: ["#2cc6ea", "#4a9dfb", "#8394f9", "#a47cf8"],
+  auroraWash: ["rgba(44,198,234,0.26)", "rgba(74,157,251,0.24)", "rgba(131,148,249,0.24)", "rgba(164,124,248,0.26)"],
   glass: "rgba(22,22,24,0.92)",
   glassEdge: "rgba(255,255,255,0.14)",
-  glassHighlight: "rgba(255,255,255,0.16)",
   bg: "#000000",
   card: "#1c1c1e",
   bar: "#000000",
@@ -189,7 +195,7 @@ export const darkColors: ThemeColors = {
   panel: "#1c1c1e",
   coverTop: "#18163a",
   coverGlowA: "rgba(118,84,240,0.55)",
-  coverGlowB: "rgba(36,200,160,0.34)",
+  coverGlowB: "rgba(44,198,234,0.34)",
   coverButton: "rgba(255,255,255,0.14)",
   green: "#3fbf5f",
   red: "#ff453a",

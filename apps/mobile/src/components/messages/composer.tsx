@@ -6,6 +6,7 @@ import { useActionSheet } from "@/components/action-sheet";
 import { hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { ATTACHMENT_LIMIT_TEXT, captureMedia, pickDocuments, pickLibraryMedia, type PendingAttachment, type PickResult } from "@/lib/message-attachments";
+import { auroraGradient } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { AttachmentStrip } from "./attachment-strip";
 import { Icon } from "@/components/icon";
@@ -170,7 +171,7 @@ const useStyles = makeStyles((colors) => ({
     color: colors.text,
     textAlignVertical: "center",
   },
-  send: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  send: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.aurora, 135), alignItems: "center", justifyContent: "center" },
   notice: { alignItems: "center", gap: 4, paddingHorizontal: 24, paddingTop: 14, paddingBottom: 6 },
   noticeTitle: { fontSize: 15, fontWeight: "700", color: colors.text, textAlign: "center" },
   noticeBody: { fontSize: 13, color: colors.muted, textAlign: "center" },

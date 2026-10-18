@@ -4,7 +4,7 @@ import Reanimated, { FadeIn } from "react-native-reanimated";
 import type { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { reduceMotionEnabled, useReduceMotion } from "@/lib/accessibility";
-import { motion, radius, space } from "@/lib/theme";
+import { auroraGradient, motion, radius, space } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { hapticSelect, hapticSoft } from "@/lib/haptics";
 import { Icon } from "@/components/icon";
@@ -70,7 +70,8 @@ export function useAppearingCells() {
 /**
  * The app's one button, an iOS 26 capsule in every size: `regular` (44pt, the minimum touch target) for most actions,
  * `compact` (34pt) inside list rows, `large` (50pt) for the full-width action that ends a form or a sheet. Primary is
- * the brand fill, secondary the quiet grey fill, ghost brand-coloured words, danger the red fill.
+ * the aurora (solid brand blue when compact, since those repeat down a list), secondary the quiet grey fill, ghost
+ * brand-coloured words, danger the red fill.
  */
 export function Button({
   title,
@@ -92,7 +93,7 @@ export function Button({
     <AnimatedPressable
       accessibilityRole="button"
       disabled={disabled || loading}
-      style={[styles.button, size === "compact" ? styles.buttonCompact : size === "large" ? styles.buttonLarge : null, { backgroundColor: bg, opacity: disabled ? 0.5 : press.opacity, transform: [{ scale: press.scale }] }, style]}
+      style={[styles.button, size === "compact" ? styles.buttonCompact : size === "large" ? styles.buttonLarge : null, { backgroundColor: bg, opacity: disabled ? 0.5 : press.opacity, transform: [{ scale: press.scale }] }, variant === "primary" && size !== "compact" && styles.buttonAurora, style]}
       {...props}
       onPressIn={(e) => {
         press.onPressIn();
@@ -217,6 +218,9 @@ const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   screenInner: { flex: 1 },
   button: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, minHeight: 44, paddingHorizontal: 20, borderRadius: radius.pill },
+  // A primary button wears the aurora (the brand blue under it where no gradient is drawn). Compact ones, which repeat
+  // down a list (Follow on every row), stay solid brand blue so the gradient marks one main action, not a column of them.
+  buttonAurora: { experimental_backgroundImage: auroraGradient(colors.aurora) },
   buttonCompact: { minHeight: 34, paddingHorizontal: 14, gap: 5 },
   buttonLarge: { minHeight: 50, paddingHorizontal: 24 },
   buttonText: { fontSize: 15, fontWeight: "600" },

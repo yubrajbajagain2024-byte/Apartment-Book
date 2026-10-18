@@ -35,6 +35,7 @@ export function SlidingTabs<T extends string>({
   scrollX,
   pageWidth,
   tint,
+  tintGradient,
   labelColor,
   dimColor,
   textStyle,
@@ -49,6 +50,8 @@ export function SlidingTabs<T extends string>({
   scrollX: Animated.Value;
   pageWidth: number;
   tint: string;
+  /** A gradient for the underline (the aurora), drawn over `tint`; leave it out for a plain line (white over video). */
+  tintGradient?: string;
   labelColor: string;
   dimColor: string;
   textStyle?: StyleProp<TextStyle>;
@@ -153,11 +156,11 @@ export function SlidingTabs<T extends string>({
               </View>
               {(Array.isArray(caret) ? (caret as readonly T[]).includes(s.value) : caret === s.value) ? <Icon name="chevron-down" size={14} color={active ? labelColor : dimColor} style={[styles.caret, textStyle]} /> : null}
             </View>
-            {slide ? null : <View style={[styles.underline, styles.staticUnderline, { backgroundColor: active ? tint : "transparent" }]} />}
+            {slide ? null : <View style={[styles.underline, styles.staticUnderline, active ? { backgroundColor: tint, experimental_backgroundImage: tintGradient } : { backgroundColor: "transparent" }]} />}
           </Pressable>
         );
       })}
-      {slide ? <Animated.View pointerEvents="none" style={[styles.underline, styles.slidingUnderline, { backgroundColor: tint, transform: [{ translateX: slide.translateX }, { scaleX: slide.scaleX }] }]} /> : null}
+      {slide ? <Animated.View pointerEvents="none" style={[styles.underline, styles.slidingUnderline, { backgroundColor: tint, experimental_backgroundImage: tintGradient, transform: [{ translateX: slide.translateX }, { scaleX: slide.scaleX }] }]} /> : null}
     </View>
   );
 }

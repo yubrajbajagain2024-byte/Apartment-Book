@@ -29,6 +29,17 @@ export const textStyle = {
  */
 export const continuous = { borderCurve: "continuous" } as const;
 
+/** Where the aurora's four stops sit: cyan only at the leading edge, blue and periwinkle across the middle (where a label sits), violet at the end. */
+const AURORA_AT = [0, 34, 68, 100] as const;
+
+/**
+ * The Aurora as a CSS gradient for `experimental_backgroundImage`: pass `colors.aurora` (fills under white words) or
+ * `colors.auroraGlow` (rings, underlines). `angle` follows CSS: 90 runs left to right, 135 corner to corner.
+ */
+export function auroraGradient(stops: readonly string[], angle = 110): string {
+  return `linear-gradient(${angle}deg, ${stops.map((c, i) => `${c} ${AURORA_AT[i] ?? 100}%`).join(", ")})`;
+}
+
 /** An iOS 26 sheet at a partial height: it floats inset from the screen's sides and bottom, its corners concentric with the phone's. */
 export const sheetShape = { marginHorizontal: 8, marginBottom: 8, borderRadius: 34, borderCurve: "continuous", overflow: "hidden" } as const;
 

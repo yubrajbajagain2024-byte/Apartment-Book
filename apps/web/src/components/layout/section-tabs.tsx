@@ -4,7 +4,8 @@ import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-const BAR = "h-[3px] w-6 rounded-full bg-brand-600";
+// The active tab's underline wears the aurora, like the app's.
+const BAR = "h-[3px] w-6 rounded-full bg-brand-600 bg-aurora-line";
 const BAR_WIDTH = 24;
 
 /** One tab of a section bar; the value is what hrefFor receives and the tail of the link's test id. */

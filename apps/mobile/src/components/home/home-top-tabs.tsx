@@ -10,7 +10,7 @@ import { SlidingTabs } from "@/components/sliding-tabs";
 import { hapticTap } from "@/lib/haptics";
 import { useHomeScope } from "@/lib/home-scope";
 import { useSession } from "@/lib/session";
-import { radius } from "@/lib/theme";
+import { auroraGradient, radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useCreateMenu } from "./create-menu";
 import { Icon } from "@/components/icon";
@@ -189,7 +189,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
           </View>
         </View>
         <View style={styles.row}>
-          <SlidingTabs sections={HOME_TABS} section={section} onSelect={onSelect} scrollX={scrollX} pageWidth={pageWidth} tint={ink} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} fontSize={LABEL_SIZE} spread />
+          <SlidingTabs sections={HOME_TABS} section={section} onSelect={onSelect} scrollX={scrollX} pageWidth={pageWidth} tint={ink} tintGradient={overVideo ? undefined : auroraGradient(colors.auroraGlow, 90)} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} fontSize={LABEL_SIZE} spread />
         </View>
         {segments.length > 1 ? (
           <View style={styles.toggleRow}>
@@ -250,11 +250,11 @@ const useStyles = makeStyles((colors, scheme) => ({
   middle: { flex: 1, alignItems: "center", justifyContent: "center" },
   title: { minHeight: ROW, alignItems: "center", justifyContent: "center", maxWidth: "100%" },
   wordmark: { fontSize: 21, fontWeight: "800", letterSpacing: -0.5, flexShrink: 1 },
-  // The ring: a teal-to-violet gradient (plain violet where the platform draws none) with a gap in the bar's colour around the photo.
-  ring: { width: RING_SIZE, height: RING_SIZE, borderRadius: RING_SIZE / 2, alignItems: "center", justifyContent: "center", backgroundColor: colors.accent, experimental_backgroundImage: `linear-gradient(135deg, ${colors.accentTeal} 0%, ${colors.accent} 100%)` },
+  // The ring: the aurora, corner to corner (plain brand blue where the platform draws no gradient), with a gap in the bar's colour around the photo.
+  ring: { width: RING_SIZE, height: RING_SIZE, borderRadius: RING_SIZE / 2, alignItems: "center", justifyContent: "center", backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.auroraGlow, 135) },
   ringGap: { width: PHOTO + 2 * PHOTO_GAP, height: PHOTO + 2 * PHOTO_GAP, borderRadius: PHOTO / 2 + PHOTO_GAP, backgroundColor: colors.bar, alignItems: "center", justifyContent: "center" },
   // Instagram's "+" on the photo's bottom-right corner: a small blue disc with a ring of the bar's colour, so it reads apart from the photo.
-  plus: { position: "absolute", right: 0, bottom: 2, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.brand, borderWidth: 2, borderColor: colors.bar, alignItems: "center", justifyContent: "center" },
+  plus: { position: "absolute", right: 0, bottom: 2, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.aurora, 135), borderWidth: 2, borderColor: colors.bar, alignItems: "center", justifyContent: "center" },
   // Under the white words and icons over Reels: dark and soft enough to hold them on a bright frame.
   shadow: { textShadowColor: colors.mediaTextShadow, textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 } },
   // The toggle sits centred in its row, just under the labels' hairline.

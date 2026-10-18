@@ -18,7 +18,7 @@ import { hapticSuccess, hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { radius } from "@/lib/theme";
+import { auroraGradient, radius } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { Avatar } from "./avatar";
 import { Icon } from "@/components/icon";
@@ -352,7 +352,7 @@ function SheetBody({ shared, options, onClose, closeThen }: { shared: SharedPost
                 accessibilityRole="button"
                 accessibilityLabel={sendLabel}
                 accessibilityState={{ disabled: busy || picked.size === 0 }}
-                style={({ pressed }) => [styles.send, status === "sent" && { backgroundColor: colors.successFill }, pressed && !busy && { opacity: 0.85 }]}
+                style={({ pressed }) => [styles.send, status === "sent" ? { backgroundColor: colors.successFill } : styles.sendAurora, pressed && !busy && { opacity: 0.85 }]}
               >
                 {status === "sending" ? <ActivityIndicator size="small" color={colors.onBrand} /> : status === "sent" ? <Icon name="checkmark" size={16} color={colors.onBrand} /> : null}
                 <Text style={styles.sendText}>{sendLabel}</Text>
@@ -398,6 +398,8 @@ const useStyles = makeStyles((colors) => ({
   composerRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
   note: { flex: 1, minHeight: 40, maxHeight: 96, backgroundColor: colors.input, borderRadius: 20, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 10, fontSize: 15, color: colors.text },
   send: { minWidth: 84, height: 40, borderRadius: 20, paddingHorizontal: 16, backgroundColor: colors.brand, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  // Until it has gone: then the green "Sent" replaces the aurora.
+  sendAurora: { experimental_backgroundImage: auroraGradient(colors.aurora) },
   sendText: { color: colors.onBrand, fontSize: 15, fontWeight: "700" },
   secondary: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingHorizontal: 4, borderRadius: radius.md, borderCurve: "continuous" },
   secondaryIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },

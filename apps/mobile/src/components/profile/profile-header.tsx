@@ -3,7 +3,7 @@ import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View, type St
 import type { Ionicons } from "@expo/vector-icons";
 import { compactCount, type FollowStats, type ProfileWithUniversity } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
-import { radius, space, textStyle } from "@/lib/theme";
+import { auroraGradient, radius, space, textStyle } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
 import { GlassIconButton } from "@/components/glass";
@@ -15,9 +15,14 @@ export const PROFILE_BAR_ROW_HEIGHT = 44;
 /** How much of the cover shows under the status bar. */
 const COVER_HEIGHT = 112;
 const AVATAR_SIZE = 84;
-/** The ring the photo wears, in the screen's colour, where it hangs over the cover's bottom edge. */
+/**
+ * The ring the photo wears where it hangs over the cover's bottom edge: an aurora band, then a gap in the screen's
+ * colour, then the photo. The whole stays AVATAR_OUTER across, so nothing around it moves.
+ */
 const AVATAR_RING = 3;
+const AVATAR_GAP = 2.5;
 const AVATAR_OUTER = AVATAR_SIZE + AVATAR_RING * 2;
+const AVATAR_PHOTO = AVATAR_SIZE - AVATAR_GAP * 2;
 /** How far the photo hangs over the cover's bottom edge. */
 const AVATAR_OVERLAP = 42;
 const COVER_BUTTON = 38;
@@ -131,7 +136,7 @@ export function ProfileHeader({
   const school = profile.university?.name ?? null;
   const study = [profile.program, profile.graduation_year ? `'${String(profile.graduation_year).slice(-2)}` : null].filter(Boolean).join(" · ");
   // No fade-in: every profile tab draws its own copy of this header, and a copy appearing mid-swipe must match the others at once.
-  const photo = <Avatar transition={0} name={profile.full_name} url={profile.avatar_url} size={AVATAR_SIZE} userId={own ? undefined : profile.id} online={own ? false : undefined} />;
+  const photo = <Avatar transition={0} name={profile.full_name} url={profile.avatar_url} size={AVATAR_PHOTO} userId={own ? undefined : profile.id} online={own ? false : undefined} />;
   const name = (
     <Text style={styles.name} numberOfLines={2} accessibilityRole={onAccount ? undefined : "header"}>
       {profile.full_name}
@@ -147,21 +152,23 @@ export function ProfileHeader({
 
       <View style={styles.headRow}>
         <View style={styles.avatarRing}>
-          {own && onChangePhoto ? (
-            <Pressable onPress={onChangePhoto} disabled={changingPhoto} accessibilityRole="button" accessibilityLabel="Change profile photo" accessibilityState={{ busy: Boolean(changingPhoto) }} style={({ pressed }) => pressed && { opacity: 0.85 }}>
-              {photo}
-              {changingPhoto ? (
-                <View style={styles.photoBusy}>
-                  <ActivityIndicator color={colors.onMedia} />
+          <View style={styles.avatarGap}>
+            {own && onChangePhoto ? (
+              <Pressable onPress={onChangePhoto} disabled={changingPhoto} accessibilityRole="button" accessibilityLabel="Change profile photo" accessibilityState={{ busy: Boolean(changingPhoto) }} style={({ pressed }) => pressed && { opacity: 0.85 }}>
+                {photo}
+                {changingPhoto ? (
+                  <View style={styles.photoBusy}>
+                    <ActivityIndicator color={colors.onMedia} />
+                  </View>
+                ) : null}
+                <View style={styles.plus}>
+                  <Icon name="add" size={16} color={colors.onBrand} />
                 </View>
-              ) : null}
-              <View style={styles.plus}>
-                <Icon name="add" size={16} color={colors.onBrand} />
-              </View>
-            </Pressable>
-          ) : (
-            photo
-          )}
+              </Pressable>
+            ) : (
+              photo
+            )}
+          </View>
         </View>
         <View style={styles.actions}>{actions}</View>
       </View>
@@ -250,10 +257,11 @@ const useStyles = makeStyles((colors) => ({
   coverButtonSpace: { width: COVER_BUTTON, height: COVER_BUTTON },
   // The photo hangs over the cover's bottom edge; the buttons sit beside it, level with its lower half.
   headRow: { flexDirection: "row", alignItems: "flex-end", paddingHorizontal: space.lg, marginTop: -AVATAR_OVERLAP, gap: space.md },
-  avatarRing: { width: AVATAR_OUTER, height: AVATAR_OUTER, borderRadius: AVATAR_OUTER / 2, padding: AVATAR_RING, backgroundColor: colors.bg },
-  photoBusy: { position: "absolute", top: 0, left: 0, width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
+  avatarRing: { width: AVATAR_OUTER, height: AVATAR_OUTER, borderRadius: AVATAR_OUTER / 2, padding: AVATAR_RING, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.auroraGlow, 135) },
+  avatarGap: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, padding: AVATAR_GAP, backgroundColor: colors.bg },
+  photoBusy: { position: "absolute", top: 0, left: 0, width: AVATAR_PHOTO, height: AVATAR_PHOTO, borderRadius: AVATAR_PHOTO / 2, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
   // The ring is the screen's own colour (the profile sits on bg), cutting the badge out of the photo.
-  plus: { position: "absolute", right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: colors.brand, borderWidth: 2.5, borderColor: colors.bg, alignItems: "center", justifyContent: "center" },
+  plus: { position: "absolute", right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.aurora, 135), borderWidth: 2.5, borderColor: colors.bg, alignItems: "center", justifyContent: "center" },
   actions: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: space.sm, paddingBottom: 6 },
   button: { height: PROFILE_BUTTON_HEIGHT, borderRadius: radius.pill, backgroundColor: colors.input, alignItems: "center", justifyContent: "center", paddingHorizontal: 20, flexShrink: 1 },
   buttonText: { fontSize: 15, fontWeight: "700", color: colors.text },

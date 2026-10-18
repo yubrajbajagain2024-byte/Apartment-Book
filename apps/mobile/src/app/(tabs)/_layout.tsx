@@ -5,6 +5,7 @@ import { Avatar } from "@/components/avatar";
 import { FloatingTabBar } from "@/components/floating-tab-bar";
 import { HeaderActions } from "@/components/header-actions";
 import { useSession } from "@/lib/session";
+import { auroraGradient } from "@/lib/theme";
 import { useAppTheme } from "@/lib/theme-provider";
 import { useUnreadCount } from "@/lib/use-unread";
 import { Icon, useBounceOn, type IconName } from "@/components/icon";
@@ -35,17 +36,18 @@ function icon(route: string) {
 }
 
 /**
- * The Profile tab's icon: your own photo in a circle, like Instagram's, with a thin ring in the tab's colour while the
- * tab is on screen; the person icon when you are signed out.
+ * The Profile tab's icon: your own photo in a circle, like Instagram's, with a thin aurora ring while the tab is on
+ * screen; the person icon when you are signed out.
  */
 function ProfileTabIcon({ focused, color, size }: { focused: boolean; color: ColorValue; size: number }) {
   const { profile } = useSession();
+  const { colors } = useAppTheme();
   const bounce = useBounceOn(focused);
   if (!profile) return <Icon name={focused ? ICONS.profile!.on : ICONS.profile!.off} sf={focused ? ICONS.profile!.sfOn : ICONS.profile!.sfOff} size={size} color={color} weight={focused ? "semibold" : "regular"} bounce={bounce} />;
-  // The ring takes 2pt on each side, so the photo inside stays the size of the other icons' ink.
+  // The ring takes 2pt on each side, so the photo inside stays the size of the other icons' ink; on screen it is the aurora.
   const photo = size - 4;
   return (
-    <View style={[styles.photoRing, { width: size, height: size, borderRadius: size / 2, borderColor: focused ? color : "transparent" }]}>
+    <View style={[styles.photoRing, { width: size, height: size, borderRadius: size / 2 }, focused && { backgroundColor: color, experimental_backgroundImage: auroraGradient(colors.auroraGlow, 135) }]}>
       <Avatar name={profile.full_name} url={profile.avatar_url} size={photo} online={false} transition={0} />
     </View>
   );
@@ -88,5 +90,5 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  photoRing: { borderWidth: 2, alignItems: "center", justifyContent: "center" },
+  photoRing: { padding: 2, alignItems: "center", justifyContent: "center" },
 });

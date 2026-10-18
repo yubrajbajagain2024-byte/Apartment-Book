@@ -5,10 +5,16 @@
   --color-brand-100: #dbeafe;
   --color-brand-200: #bfdbfe;
   --color-brand-500: #2b7de9;
-  --color-brand-600: #1877f2;
+  /* The aurora's blue stop: 4.7:1 on white, so blue words and links pass AA. */
+  --color-brand-600: #166fe5;
   --color-brand-700: #1565d8;
   --color-brand-800: #0f4fb0;
   --color-surface: #f0f2f5;
+  /* CampConnect's signature, the Aurora: cyan, sky blue, periwinkle, violet (the same stops as the app's palette). */
+  --color-aurora-cyan: #0a83a6;
+  --color-aurora-blue: #166fe5;
+  --color-aurora-periwinkle: #5468ee;
+  --color-aurora-violet: #8250ea;
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -37,6 +43,19 @@ body {
     outline: 2px solid var(--color-brand-500);
     outline-offset: 2px;
   }
+}
+
+/*
+ * The Aurora, used sparingly: primary buttons (not the small ones that repeat down a list), the logo mark, the active
+ * tab's underline and the ring around a profile photo. Cyan only at the leading edge, blue and periwinkle across the
+ * middle where a label sits (white words stay at 4.5:1 or more), violet at the end. Pair it with a solid bg-brand-600
+ * underneath, which shows wherever a gradient is not drawn.
+ */
+@utility bg-aurora {
+  background-image: linear-gradient(110deg, var(--color-aurora-cyan) 0%, var(--color-aurora-blue) 34%, var(--color-aurora-periwinkle) 68%, var(--color-aurora-violet) 100%);
+}
+@utility bg-aurora-line {
+  background-image: linear-gradient(90deg, var(--color-aurora-cyan) 0%, var(--color-aurora-blue) 34%, var(--color-aurora-periwinkle) 68%, var(--color-aurora-violet) 100%);
 }
 
 /* Thin scrollbars for the chat panes */

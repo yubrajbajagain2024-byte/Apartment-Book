@@ -31,7 +31,7 @@ export async function Navbar() {
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-3 sm:px-4">
           <div className="flex min-w-0 flex-1 items-center gap-3 md:flex-none md:basis-72 2xl:basis-[30rem]">
             <Link href="/" className="flex shrink-0 items-center gap-2 text-brand-600" aria-label={APP_NAME}>
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-600 text-white">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-600 bg-aurora text-white">
                 <Home className="h-6 w-6" />
               </span>
               <span className="hidden text-xl font-bold 2xl:inline">{APP_NAME}</span>

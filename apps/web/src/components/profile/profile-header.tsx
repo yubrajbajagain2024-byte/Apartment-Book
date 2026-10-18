@@ -39,13 +39,18 @@ export function ProfileHeader({ profile, handle, isMe, viewerId, blocked, follow
   return (
     <header className="flex flex-col items-center px-4 pb-5 pt-6 text-center">
       <div className="relative">
-        <Avatar name={profile.full_name} src={profile.avatar_url} size="xl" className="ring-1 ring-black/5" />
+        {/* The photo's ring: an aurora band, then a white gap, as in the app. */}
+        <div className="rounded-full bg-brand-600 bg-aurora p-[3px]">
+          <div className="rounded-full bg-white p-[2px]">
+            <Avatar name={profile.full_name} src={profile.avatar_url} size="xl" />
+          </div>
+        </div>
         {isMe ? (
           <Link
             href="/settings/profile"
             aria-label="Change profile photo"
             title="Change profile photo"
-            className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full bg-brand-500 text-white ring-[3px] ring-white hover:bg-brand-600"
+            className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 bg-aurora text-white ring-[3px] ring-white hover:brightness-95"
             data-testid="profile-photo-add"
           >
             <Plus className="h-4 w-4" strokeWidth={3} />

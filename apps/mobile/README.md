@@ -22,7 +22,7 @@ security protects the data, so they are safe to ship.
 The bottom bar has five tabs: Home, Search, Explore, Messages, Profile (your own photo in a circle, ringed while
 the tab is on screen; the person icon signed out). It floats over the content as a rounded
 glass pill (`src/app/(tabs)/_layout.tsx`, its size in `src/lib/tab-bar.ts`): on iOS 26 real liquid glass, with what scrolls
-under it blurred through, elsewhere a translucent fill; the tab on screen sits in a lighter capsule with its icon filled, and the capsule slides to
+under it blurred through, elsewhere a translucent fill; the tab on screen sits in a soft aurora capsule with its icon filled, and the capsule slides to
 the tab you tap on a soft spring while the tabs make room for it, GroupMe style, with a selection tick and the new tab's symbol bouncing once
 (`src/components/floating-tab-bar.tsx`, on Reanimated); every tab's list and floating button keeps `tabBarInset` clear
 under it. Search (find accounts by name and follow them) is the second tab, under its own "Search" title
@@ -33,11 +33,11 @@ saves of your listings, places near campus, newest first, the unread ones tinted
 it is about, "Mark all read" sits in the header, and the bell's badge counts the unread live. Home opens on **For you**, a blend of posts and reels (anonymous Buzz threads stay on
 the Buzz page; the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
 three pages, For you | Buzz | Reels, sit side by side in a pager (Posts is a section without a tab: `HIDDEN_HOME_SECTIONS` in the shared constants keeps it out of the row and the pager while its feed, the post features and the data stay; its Following filter is reachable on the website's `/?tab=posts`; reels also run through For you): swipe left or right to move
-between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in a teal-to-violet
+between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in an aurora
 ring on the left, which opens your profile, with Instagram's small "+" badge on its corner that opens the create sheet
 (Post / Reel / Buzz; over Reels the bar's left slot holds a white "+" instead), the CampConnect wordmark in the middle (it
 reads "Following" while that feed shows) and Search on the right; then the three labels spread across the row
-(`src/components/sliding-tabs.tsx`): the active one bold with a rounded violet underline as wide as the label, sliding
+(`src/components/sliding-tabs.tsx`): the active one bold with a rounded aurora underline as wide as the label, sliding
 with the finger over a hairline, and a soft haptic each time the section changes, by tap or swipe. Under the labels sits the Campus | Global
 toggle, a small segmented pill whose thumb slides to the choice: Campus is your own university, Global every university (and,
 only while Posts has a tab, Following: the posts of people you follow, which switches to Posts); the choice scopes For you,
@@ -60,7 +60,7 @@ scrolls up. The bottom bar never moves. The choice lives in
 `src/lib/home-scope.ts` and drives For you, Buzz and Posts alike: the pages have no filter chips of their own.
 Housing (the Explore tab, with a compass icon) works the same way with three pages,
 **Room | Roommate | Marketplace** (apartments, roommates, items), under its own top bar laid out like the inbox's (`src/app/(tabs)/housing.tsx`): the big
-"Find" title, the three labels with the sliding violet underline, the inbox's search box (searching the page on screen) with a
+"Find" title, the three labels with the sliding aurora underline, the inbox's search box (searching the page on screen) with a
 round filter button beside it (`src/components/housing/filter-sheet.tsx`: a sheet of the page's own filters, applied on "Show
 results", counted on the button; rooms sort, bedrooms, rent, distance from campus, furnished, pets and video tours; roommate
 posts a budget cap, who the post is open to, distance and video; items sort, condition and price), and the
@@ -106,7 +106,7 @@ who-can-see settings, `profile_classes`, likes readable only through functions, 
 `feed_posts.pinned_at`); without it the header still shows, with zeros, and each tab says what it could not load.
 
 The Messages tab is the inbox (`src/app/(tabs)/messages.tsx`): the new-message pencil in the top-right corner, the big
-"Messages" title, Chats | Groups with Home's sliding violet underline, a rounded search box and the All | Unread |
+"Messages" title, Chats | Groups with Home's sliding aurora underline, a rounded search box and the All | Unread |
 Requests pills (each with its count; Requests on Chats only), then the two pages side by side in a pager like Home's: a
 swipe or a tap on a label moves between your direct chats and your group chats, with the same knock. On Chats the row of
 friends online now sits above the chats (photo, name, the time at the right, the last message under it, a hairline between
@@ -157,8 +157,17 @@ Profile tab, which shows "Edit profile" when you are signed in); 00 and 04 only 
 
 ## Look and feel on iPhone
 
-The app keeps its own look (Facebook blue, white or black surfaces, the system font) and adds what makes an iPhone app
+The app keeps its own look (the brand blue, white or black surfaces, the system font) and adds what makes an iPhone app
 feel native:
+
+- **The Aurora.** CampConnect's signature is a gradient, cyan → sky blue → periwinkle → violet (`aurora`,
+  `auroraGlow` and `auroraWash` in `src/lib/palette.ts`, drawn with `auroraGradient` from `src/lib/theme.ts`). It is used
+  sparingly: primary buttons (the compact ones that repeat down a list stay solid blue), the send buttons, the floating
+  "+", the active tab's underline in Home, Explore, Messages and on a profile, the selected segment, the soft capsule
+  behind the active tab in the bottom bar, and the rings around your photo in the Home bar, on the Profile tab and on a
+  profile page. Under white words the stops are deep enough that a label keeps 4.5:1 across the middle where it sits;
+  rings and underlines use a brighter version on black. The solid brand blue is the aurora's blue stop (#166fe5 in
+  light, 4.7:1 on white), for links, icons and active chips.
 
 - **Icons.** On iOS every icon is the matching SF Symbol (`src/components/icon.tsx`), in Apple's weights and optical
   alignment: filled when on, outlined when off. A like, a save, a vote and a newly chosen tab bounce once. Android keeps Ionicons.

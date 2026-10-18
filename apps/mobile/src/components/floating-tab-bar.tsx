@@ -6,6 +6,7 @@ import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TAB_BAR_HEIGHT, TAB_BAR_SIDE, tabBarBottom } from "@/lib/tab-bar";
 import { useReduceTransparency } from "@/lib/accessibility";
+import { auroraGradient } from "@/lib/theme";
 import { useAppTheme } from "@/lib/theme-provider";
 import { hapticSelect } from "@/lib/haptics";
 
@@ -56,7 +57,8 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
       {GLASS && !reduceTransparency ? <GlassView style={styles.fill} glassEffectStyle="regular" isInteractive colorScheme={isDark ? "dark" : "light"} /> : null}
       {/* The row is measured empty first: a slot drawn before its width is known would keep a flex that overrides the widths later. */}
       <View style={styles.row} onLayout={(e) => setRowWidth(e.nativeEvent.layout.width)}>
-        {unit > 0 ? <Animated.View pointerEvents="none" style={[styles.pill, { width: wide, backgroundColor: colors.glassHighlight }, pillStyle]} /> : null}
+        {/* The capsule behind the tab on screen: a faint wash of the aurora (the icon and label over it stay the text colour). */}
+        {unit > 0 ? <Animated.View pointerEvents="none" style={[styles.pill, { width: wide, experimental_backgroundImage: auroraGradient(colors.auroraWash, 110) }, pillStyle]} /> : null}
         {unit <= 0 ? null : state.routes.map((route, index) => {
           const focused = state.index === index;
           const { options } = descriptors[route.key]!;

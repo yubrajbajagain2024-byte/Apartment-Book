@@ -104,7 +104,7 @@ export function ProfileTabs({
             <span className="hidden sm:inline" aria-hidden="true">
               {label}
             </span>
-            {selected ? <span aria-hidden="true" className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-gray-900 sm:inset-x-5" /> : null}
+            {selected ? <span aria-hidden="true" className="absolute inset-x-3 bottom-0 h-[3px] rounded-full bg-brand-600 bg-aurora-line sm:inset-x-5" /> : null}
           </Link>
         );
       })}

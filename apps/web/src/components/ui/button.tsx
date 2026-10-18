@@ -23,8 +23,11 @@ const sizes: Record<Size, string> = {
 
 export function buttonClasses(opts: { variant?: Variant; size?: Size; className?: string } = {}): string {
   return cn(
-    "inline-flex shrink-0 items-center justify-center rounded-lg font-semibold transition-[color,background-color,border-color,box-shadow,scale] duration-150 ease-out motion-safe:active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+    "inline-flex shrink-0 items-center justify-center rounded-lg font-semibold transition-[color,background-color,border-color,box-shadow,scale,filter] duration-150 ease-out motion-safe:active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
     variants[opts.variant ?? "primary"],
+    // A primary button wears the aurora; small ones (Follow down a list, the header's Sign up) stay solid blue, so the
+    // gradient marks the page's main action rather than every row.
+    (opts.variant ?? "primary") === "primary" && opts.size !== "sm" && opts.size !== "icon" ? "bg-aurora hover:brightness-95" : null,
     sizes[opts.size ?? "md"],
     opts.className,
   );

@@ -2,13 +2,14 @@ import { useRouter } from "expo-router";
 import { useSession } from "@/lib/session";
 import { useTabBarInset } from "@/lib/tab-bar";
 import { hapticTap } from "@/lib/haptics";
+import { auroraGradient } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
 import { AnimatedPressable, usePressScale } from "@/components/ui";
 
 /**
- * The round floating "+" of a feed (Explore's), above the bottom bar: the one prominent action, a solid brand-blue disc
- * with a soft shadow that dips under the finger with a light tap. Signed out it goes to log in.
+ * The round floating "+" of a feed (Explore's), above the bottom bar: the one prominent action, an aurora disc with a
+ * soft shadow that dips under the finger with a light tap. Signed out it goes to log in.
  */
 export function Fab({ href, label }: { href: string; label: string }) {
   const styles = useStyles();
@@ -35,5 +36,5 @@ export function Fab({ href, label }: { href: string; label: string }) {
 }
 
 const useStyles = makeStyles((colors) => ({
-  fab: { position: "absolute", right: 16, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", shadowColor: colors.shadow, shadowOpacity: 0.22, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 },
+  fab: { position: "absolute", right: 16, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.aurora, 135), alignItems: "center", justifyContent: "center", shadowColor: colors.shadow, shadowOpacity: 0.22, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 },
 }));

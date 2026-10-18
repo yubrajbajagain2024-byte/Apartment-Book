@@ -29,6 +29,7 @@ import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { auroraGradient } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { hapticTap, alertWithHaptic, refreshWithHaptic } from "@/lib/haptics";
 import { Icon } from "@/components/icon";
@@ -607,5 +608,5 @@ const useStyles = makeStyles((colors, scheme) => ({
   joinText: { flex: 1, fontSize: 15, color: colors.muted },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
   input: { flex: 1, minHeight: 44, maxHeight: 140, backgroundColor: colors.input, borderRadius: 22, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, fontSize: 15, color: colors.text },
-  send: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  send: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.aurora, 135), alignItems: "center", justifyContent: "center" },
 }));

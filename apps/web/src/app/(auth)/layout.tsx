@@ -7,7 +7,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <main className="flex flex-1 flex-col items-center justify-center px-4 py-10">
       <div className="mb-8 flex flex-col items-center gap-2 text-center">
         <Link href="/" className="flex items-center gap-2 text-2xl font-bold text-brand-600">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 bg-aurora text-white">
             <Home className="h-6 w-6" />
           </span>
           {APP_NAME}

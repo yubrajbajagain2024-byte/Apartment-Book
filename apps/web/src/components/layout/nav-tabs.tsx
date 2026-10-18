@@ -50,11 +50,13 @@ export function NavTabs({ unread, userId }: { unread: number; userId: string | n
             className={cn(
               "relative flex w-20 flex-col items-center justify-center gap-0.5 border-b-[3px] text-xs font-medium transition-colors lg:w-24 xl:w-28",
               active
-                ? "border-brand-600 text-brand-600"
+                ? "border-transparent text-brand-600"
                 : "border-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800",
             )}
             aria-current={active ? "page" : undefined}
           >
+            {/* The active tab's bar, drawn over its bottom border: the aurora, as under the section tabs. */}
+            {active ? <span aria-hidden="true" className="absolute inset-x-0 -bottom-[3px] h-[3px] bg-brand-600 bg-aurora-line" /> : null}
             <span className="relative">
               <Icon className="h-6 w-6" />
               {tab.href === "/messages" && userId ? <UnreadBadge initial={unread} userId={userId} /> : null}

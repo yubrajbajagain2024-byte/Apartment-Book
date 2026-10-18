@@ -12,7 +12,7 @@ import { RoommatesSection, type RoommateType } from "@/components/housing/roomma
 import { SlidingTabs } from "@/components/sliding-tabs";
 import { useCollapsingHeader } from "@/lib/collapsing-header";
 import { hapticSwipe } from "@/lib/haptics";
-import { radius, space, textStyle } from "@/lib/theme";
+import { auroraGradient, radius, space, textStyle } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
 
@@ -219,7 +219,7 @@ export default function HousingScreen() {
         <Animated.View style={[styles.float, { transform: [{ translateY: floatShift }] }]}>
           <View style={styles.tabs}>
             {/* Spread like Home's four labels: three labels do not fit a phone with the inbox's gap. */}
-            <SlidingTabs sections={HOUSING_SECTIONS} section={section} onSelect={select} scrollX={scrollX} pageWidth={width} tint={colors.accent} labelColor={colors.text} dimColor={colors.muted} spread fontSize={16} />
+            <SlidingTabs sections={HOUSING_SECTIONS} section={section} onSelect={select} scrollX={scrollX} pageWidth={width} tint={colors.accent} tintGradient={auroraGradient(colors.auroraGlow, 90)} labelColor={colors.text} dimColor={colors.muted} spread fontSize={16} />
           </View>
           {/* The inbox's search box, searching the page on screen; the Marketplace's spinner takes the magnifier's slot while its grid catches up. */}
           <View style={styles.searchRow}>
