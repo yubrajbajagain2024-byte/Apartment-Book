@@ -229,7 +229,7 @@ const useStyles = makeStyles((colors, scheme) => ({
   // The sheet's title in the serif of headlines; Reset is a quiet label in ink.
   title: { ...type.headline, flex: 1, color: colors.text },
   reset: { ...type.label, fontSize: 14, color: colors.brand },
-  close: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  close: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center" },
   body: { paddingHorizontal: 20, paddingBottom: space.md },
   // Each group of choices under an eyebrow, a hairline between the groups.
   group: { paddingVertical: space.lg, gap: space.md },
@@ -237,7 +237,7 @@ const useStyles = makeStyles((colors, scheme) => ({
   groupLabel: { ...type.eyebrow, color: colors.muted },
   // The design system's Chip, as in the row under the search box: a hairline capsule, an ink outline on the warm wash once chosen.
   chips: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
-  chip: { height: 32, paddingHorizontal: 13, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  chip: { height: 32, paddingHorizontal: 13, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center" },
   chipSelected: { backgroundColor: colors.brandSoft, borderColor: colors.text },
   chipText: { ...type.label, fontSize: 13, color: colors.muted },
   chipTextSelected: { color: colors.text },

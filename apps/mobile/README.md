@@ -27,8 +27,13 @@ tapped, with `eyebrow`, a tracked small-caps label, for section and stat labels)
 `sheet`, faint) and the motion (one soft spring, a 0.97 press sink). `src/lib/palette.ts` holds the two palettes, every
 colour on screen: warm ivory surfaces and near-black ink by day, near-black surfaces and warm white ink at night; `brand`
 is that ink (buttons, links, selected states), `accent` the one violet (Home's underline, slide dots, hashtags), `verified`
-a bronze, `border` the hairlines that separate instead of boxes, `input` the soft field fill, and the media tokens stay
-light over photos and video in both. `src/components/ui.tsx` holds the pieces: `Button` (ink, outline, ghost, danger; it
+a bronze, `border` the hairlines that separate instead of boxes, `borderStrong` the outline of a control you tap (chips,
+outline buttons, tags, toggles), `input` the soft field fill, and the media tokens stay light over photos and video in
+both (`mediaControl` is the dark glass of a control drawn on video, such as the Campus | Global toggle over Reels).
+Readability is a rule, not a taste: every text colour clears WCAG contrast on every surface it sits on, in both themes
+(`text` above 15:1, `muted` at least 6.5:1, `faint`, the placeholders and times, at least 4.6:1), secondary text is never
+set below 12pt, the floating bottom bar is an opaque pill under its liquid glass, and reels carry a soft gradient at the
+top and bottom so white words and icons hold on the brightest frame. `src/components/ui.tsx` holds the pieces: `Button` (ink, outline, ghost, danger; it
 sinks under the finger), `Field` (eyebrow label, soft fill, an ink hairline on focus), `Chip`, `Badge`, `Card`, `Eyebrow`,
 `SectionTitle`, `Skeleton` with `FeedSkeleton` and `RowSkeleton` (lists breathe their own shape while loading), `EmptyState`
 (a serif headline) and `ErrorBanner`; `post-bits.tsx` the pieces every post is built from. Screens never pick a hex code

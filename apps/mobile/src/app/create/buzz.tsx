@@ -212,7 +212,7 @@ const useStyles = makeStyles((colors) => ({
   hint: { ...type.footnote, lineHeight: 17, color: colors.muted },
   // The add tile and the video box share one quiet dashed edge; the photos sit on the skeleton grey until they load.
   addTile: { width: 104, height: 88, borderRadius: radius.md, borderWidth: 1, borderStyle: "dashed", borderColor: colors.faint, alignItems: "center", justifyContent: "center", gap: 2, backgroundColor: "transparent", paddingHorizontal: space.xs },
-  addText: { ...type.footnote, fontSize: 11, fontWeight: "600", color: colors.text, textAlign: "center" },
+  addText: { ...type.footnote, fontWeight: "600", color: colors.text, textAlign: "center" },
   thumb: { width: 88, height: 88, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.skeleton },
   remove: { position: "absolute", right: space.xs, top: space.xs, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.mediaPill, alignItems: "center", justifyContent: "center" },
   videoBox: { borderWidth: 1, borderColor: colors.faint, borderStyle: "dashed", borderRadius: radius.md, padding: space.md, backgroundColor: "transparent" },

@@ -355,7 +355,7 @@ const useStyles = makeStyles((colors) => ({
   tabs: { height: TABS_ROW, flexDirection: "row", marginHorizontal: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   pills: { height: PILLS_ROW, flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: 20 },
   // The design system's Chip: a hairline capsule at rest, an ink outline on the warm wash once chosen.
-  chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 13, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" },
+  chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 13, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: "transparent" },
   chipSelected: { backgroundColor: colors.brandSoft, borderColor: colors.text },
   chipText: { ...typeScale.label, fontSize: 13, color: colors.muted },
   chipTextSelected: { color: colors.text },

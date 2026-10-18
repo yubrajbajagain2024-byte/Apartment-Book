@@ -447,7 +447,7 @@ const useStyles = makeStyles((colors) => ({
   bannerText: { flex: 1, ...type.caption, fontSize: 14, color: colors.dangerText },
   bannerRetry: { ...type.label, color: colors.dangerText },
   // A secondary button: a hairline capsule, the words in ink.
-  ghostButton: { height: 36, paddingHorizontal: space.lg, justifyContent: "center", borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" },
+  ghostButton: { height: 36, paddingHorizontal: space.lg, justifyContent: "center", borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: "transparent" },
   ghostButtonText: { ...type.label, color: colors.text },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: space.md, paddingTop: space.sm, backgroundColor: colors.elevated },
   composer: { gap: 6, paddingBottom: space.sm },

@@ -45,7 +45,10 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
 
   return (
     <View style={[styles.bar, { bottom: tabBarBottom(insets), borderColor: colors.glassEdge }]}>
-      {GLASS ? <GlassView style={styles.fill} glassEffectStyle="regular" colorScheme={isDark ? "dark" : "light"} /> : <View style={[styles.fill, { backgroundColor: colors.glass }]} />}
+      {/* An all but opaque fill first: the liquid glass on top samples it, so the bar keeps its glass light and edge but the
+          feed no longer shows through and washes out the labels. Without liquid glass the fill is the bar. */}
+      <View style={[styles.fill, { backgroundColor: colors.glass }]} />
+      {GLASS ? <GlassView style={styles.fill} glassEffectStyle="regular" colorScheme={isDark ? "dark" : "light"} /> : null}
       {/* The row is measured empty first: a slot drawn before its width is known would keep a flex that overrides the widths later. */}
       <View style={styles.row} onLayout={(e) => setRowWidth(e.nativeEvent.layout.width)}>
         {unit > 0 ? <Animated.View pointerEvents="none" style={[styles.pill, { width: wide, backgroundColor: colors.glassHighlight }, pillStyle]} /> : null}
@@ -84,7 +87,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
                   ) : null}
                 </View>
                 {/* One line that shrinks a little rather than ending in "…" when a tab is narrow ("Messages" next to the lit tab on a small phone). */}
-                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[styles.label, { color }]}>
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} maxFontSizeMultiplier={1.2} style={[styles.label, focused && styles.labelOn, { color }]}>
                   {label}
                 </Text>
               </Pressable>
@@ -117,7 +120,9 @@ const styles = StyleSheet.create({
   pill: { position: "absolute", top: PILL_INSET, bottom: PILL_INSET, left: 0, borderRadius: 999 },
   slot: { height: "100%", flexGrow: 0, flexShrink: 0 },
   tab: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 2 },
-  label: { fontSize: 10, fontWeight: "600", letterSpacing: -0.2, marginTop: 2 },
+  // 11pt in the system face: small labels read crisp a step larger, tracked a hair open; the tab on screen is heavier.
+  label: { fontSize: 11, fontWeight: "600", letterSpacing: 0.1, marginTop: 2 },
+  labelOn: { fontWeight: "700" },
   badge: { position: "absolute", top: -5, right: -10, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
   badgeText: { fontSize: 10, fontWeight: "800" },
 });

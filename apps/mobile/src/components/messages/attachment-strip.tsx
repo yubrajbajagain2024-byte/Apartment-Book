@@ -86,6 +86,6 @@ const useStyles = makeStyles((colors) => ({
   fileIcon: { width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
   fileBody: { flex: 1, minWidth: 0, gap: 2 },
   fileName: { fontSize: 13, fontWeight: "600", color: colors.text },
-  fileMeta: { fontSize: 11, color: colors.muted },
+  fileMeta: { fontSize: 12, lineHeight: 16, color: colors.muted },
   remove: { position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.mediaPill, alignItems: "center", justifyContent: "center" },
 }));

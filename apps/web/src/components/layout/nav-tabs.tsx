@@ -56,7 +56,7 @@ export function NavTabs({ unread, userId }: { unread: number; userId: string | n
             aria-current={active ? "page" : undefined}
           >
             <span className="relative">
-              <Icon className="h-6 w-6" strokeWidth={active ? 2.25 : 1.75} />
+              <Icon className="h-6 w-6" strokeWidth={active ? 2.25 : 2} />
               {tab.href === "/messages" && userId ? <UnreadBadge initial={unread} userId={userId} /> : null}
             </span>
             {tab.label}

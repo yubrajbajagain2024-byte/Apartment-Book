@@ -596,7 +596,7 @@ const useStyles = makeStyles((colors) => ({
   alias: { ...type.label, fontSize: 13, color: colors.muted, flexShrink: 1, marginLeft: 2 },
   age: { ...type.caption, color: colors.muted },
   more: { backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 1 },
-  moreText: { ...type.footnote, fontSize: 11, fontWeight: "700", color: colors.muted },
+  moreText: { ...type.footnote, fontWeight: "700", color: colors.muted },
   replyBody: { ...type.bodySmall, color: colors.text },
   actions: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: space.lg, paddingTop: space.xs },
   action: { height: 28, flexDirection: "row", alignItems: "center", gap: 5 },

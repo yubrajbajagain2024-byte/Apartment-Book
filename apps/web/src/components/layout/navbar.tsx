@@ -27,7 +27,7 @@ export async function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/85 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-gray-200 bg-surface">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-3 sm:px-4">
           <div className="flex min-w-0 flex-1 items-center gap-3 md:flex-none md:basis-72 2xl:basis-[30rem]">
             {/* The mark: a serif monogram in an ink disc, and the wordmark in the same serif where there is room. */}

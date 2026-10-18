@@ -100,13 +100,13 @@ function MessagePill({ message, beside }: { message: { label: string; onPress: (
 const useStyles = makeStyles((colors) => ({
   header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: POST_GUTTER, paddingVertical: 10 },
   name: { ...type.subheading, fontSize: 15, color: colors.text, flexShrink: 1 },
-  meta: { ...type.footnote, color: colors.muted, marginTop: 2 },
+  meta: { ...type.caption, color: colors.muted, marginTop: 1 },
   dots: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   frame: { marginHorizontal: POST_GUTTER, borderRadius: POST_FRAME_RADIUS, overflow: "hidden", backgroundColor: colors.mediaBg },
   actions: { flexDirection: "row", alignItems: "center", gap: 20, paddingHorizontal: POST_GUTTER, paddingTop: 12, paddingBottom: 4 },
   action: { flexDirection: "row", alignItems: "center", gap: 6 },
   count: { fontSize: 13, fontWeight: "600", color: colors.text, letterSpacing: 0.1 },
-  message: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 13, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, marginRight: 14 },
+  message: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 13, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong, marginRight: 14 },
   // Right after share, in the row's own spacing.
   messageBeside: { marginRight: 0 },
   messageText: { ...type.label, fontSize: 13, color: colors.text },

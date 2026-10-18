@@ -53,5 +53,5 @@ const useStyles = makeStyles((colors) => ({
   price: { ...type.headline, fontSize: 17, lineHeight: 22, color: colors.text },
   title: { fontSize: 14, lineHeight: 18, fontWeight: "600", color: colors.text },
   meta: { ...type.footnote, color: colors.muted },
-  time: { ...type.footnote, fontSize: 11, color: colors.faint },
+  time: { ...type.footnote, color: colors.faint },
 }));

@@ -16,7 +16,7 @@ export function BottomNav({ unread, userId }: { unread: number; userId: string |
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-gray-200 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-gray-200 bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
       aria-label="Main"
     >
       {tabs.map((tab) => {
@@ -27,13 +27,13 @@ export function BottomNav({ unread, userId }: { unread: number; userId: string |
             key={tab.href}
             href={tab.href}
             className={cn(
-              "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold tracking-[0.02em] transition-colors",
-              active ? "text-gray-900" : "text-gray-400",
+              "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[11px] tracking-[0.01em] transition-colors",
+              active ? "font-bold text-gray-900" : "font-semibold text-gray-500",
             )}
             aria-current={active ? "page" : undefined}
           >
             <span className="relative">
-              <Icon className="h-6 w-6" strokeWidth={active ? 2.25 : 1.75} />
+              <Icon className="h-6 w-6" strokeWidth={active ? 2.25 : 2} />
               {tab.href === "/messages" && userId ? <UnreadBadge initial={unread} userId={userId} /> : null}
             </span>
             {tab.label}

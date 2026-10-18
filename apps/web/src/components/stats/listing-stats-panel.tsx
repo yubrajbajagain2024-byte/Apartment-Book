@@ -15,7 +15,7 @@ export function ListingStatsPanel({ stats, title = "Your post so far" }: { stats
         {items.map((i) => (
           <div key={i.label} className="flex flex-col items-center gap-0.5 px-2 py-2.5 text-center">
             <dd className="font-display text-xl leading-none tracking-tight tabular-nums text-gray-900">{i.value}</dd>
-            <dt className="flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-[0.1em] text-gray-500">
+            <dt className="flex items-center justify-center gap-1 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">
               <i.icon className="h-3 w-3" strokeWidth={1.75} /> {i.label}
             </dt>
           </div>

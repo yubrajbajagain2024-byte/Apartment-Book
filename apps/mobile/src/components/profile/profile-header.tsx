@@ -275,7 +275,7 @@ const useStyles = makeStyles((colors) => ({
   plus: { position: "absolute", right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: colors.brand, borderWidth: 2.5, borderColor: colors.bg, alignItems: "center", justifyContent: "center" },
   actions: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: space.sm, paddingBottom: 6 },
   // A hairline capsule, no fill: the ink Follow button beside it is the one thing that is filled.
-  button: { height: PROFILE_BUTTON_HEIGHT, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent", alignItems: "center", justifyContent: "center", paddingHorizontal: 18, flexShrink: 1 },
+  button: { height: PROFILE_BUTTON_HEIGHT, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: "transparent", alignItems: "center", justifyContent: "center", paddingHorizontal: 18, flexShrink: 1 },
   buttonText: { ...type.label, color: colors.text },
   round: { width: PROFILE_BUTTON_HEIGHT, paddingHorizontal: 0, flexShrink: 0 },
   info: { paddingHorizontal: space.lg },
@@ -286,7 +286,7 @@ const useStyles = makeStyles((colors) => ({
   handleRow: { marginTop: 2, flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%" },
   handle: { ...type.caption, fontSize: 14, color: colors.muted, flexShrink: 1 },
   chipRow: { marginTop: 10, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: space.sm },
-  chip: { flexDirection: "row", alignItems: "center", gap: 5, height: 26, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, maxWidth: "100%" },
+  chip: { flexDirection: "row", alignItems: "center", gap: 5, height: 26, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong, maxWidth: "100%" },
   chipText: { ...type.label, fontSize: 12, color: colors.muted, flexShrink: 1 },
   study: { ...type.caption, fontSize: 14, color: colors.text, flexShrink: 1 },
   bio: { marginTop: 10, ...type.bodySmall, color: colors.text },

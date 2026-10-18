@@ -211,8 +211,9 @@ export function BuzzSection({ topInset, onScroll }: { active: boolean; topInset:
               ))}
             </ScrollView>
             <View style={styles.notice}>
-              <Ionicons name="eye-off-outline" size={12} color={colors.faint} />
-              <Text style={styles.noticeText} numberOfLines={1}>Buzz is anonymous. Nobody sees who wrote a post or a reply.</Text>
+              <Ionicons name="eye-off-outline" size={13} color={colors.muted} style={styles.noticeIcon} />
+              {/* The whole sentence, on two lines where a phone is narrow: cut short, it would hide what it promises. */}
+              <Text style={styles.noticeText} numberOfLines={2}>Buzz is anonymous. Nobody sees who wrote a post or a reply.</Text>
             </View>
             {error && items.length > 0 ? <ErrorBanner message={error} onRetry={refresh} /> : null}
           </View>
@@ -275,13 +276,14 @@ const useStyles = makeStyles((colors) => ({
   search: { flex: 1, height: 40, flexDirection: "row", alignItems: "center", gap: space.sm, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 14 },
   searchInput: { flex: 1, ...type.bodySmall, color: colors.text, paddingVertical: 0 },
   plus: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
-  filter: { height: 32, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" },
+  filter: { height: 32, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: "transparent" },
   filterActive: { backgroundColor: colors.brandSoft, borderColor: colors.text },
   filterText: { ...type.label, fontSize: 13 },
   hairline: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
   skeletonRow: { paddingHorizontal: BUZZ_GUTTER, paddingVertical: space.md, gap: space.md },
-  notice: { flexDirection: "row", alignItems: "center", gap: 5 },
-  noticeText: { flex: 1, ...type.footnote, fontSize: 11, color: colors.faint },
+  notice: { flexDirection: "row", alignItems: "flex-start", gap: 5 },
+  noticeIcon: { marginTop: 2 },
+  noticeText: { flex: 1, ...type.footnote, color: colors.muted },
   retry: { ...type.label, fontSize: 13, textAlign: "center", color: colors.muted },
   // The end of the list is a quiet serif aside, like "You're all caught up." on For you.
   end: { ...type.aside, textAlign: "center", color: colors.muted, paddingTop: space.xl, paddingBottom: space.lg },

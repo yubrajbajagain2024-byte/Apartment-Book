@@ -5,6 +5,11 @@
  * Quiet luxury in both: warm ivory surfaces and near-black ink in light, near-black surfaces and warm white ink in dark.
  * Ink is the primary colour (buttons, links, selected things), one violet accent is used sparingly for what moves
  * (Home's underline, the feed dots, hashtags), and a bronze marks the verified. Hairlines separate; nothing is boxed.
+ *
+ * Every text colour clears WCAG contrast on every surface it sits on (bg, card, input, panel, elevated), in both themes:
+ * `text` above 15:1, `muted` at least 6.5:1 (AAA on the screen), `faint` at least 4.6:1 (AA, even placeholders on a
+ * field's fill). Hairlines (`border`) are about 1.3:1 so they read as a crisp line, not a smudge, and the outlines of
+ * controls you tap (`borderStrong`) about 1.6:1 or more so a chip or an outline button reads as one shape.
  */
 export type ThemeColors = {
   /** CampConnect's primary: ink. Buttons, links, selected tabs and chips; white ink in dark. */
@@ -36,12 +41,14 @@ export type ThemeColors = {
   elevated: string;
   /** Main text and icons. */
   text: string;
-  /** Secondary text: times, captions, labels. */
+  /** Secondary text: inactive tabs, captions, labels, metadata. At least 6.5:1 everywhere. */
   muted: string;
-  /** Hints, placeholders, disabled icons. */
+  /** Tertiary text: placeholders, times, hints, disabled icons. Still at least 4.6:1 everywhere, so it is never washed out. */
   faint: string;
   /** Hairlines, dividers, card outlines. */
   border: string;
+  /** The outline of a control you tap: chips, outline buttons, tags, toggles, round icon buttons. Stronger than `border`. */
+  borderStrong: string;
   /** Text fields, search boxes, pills. */
   input: string;
   /** Placeholder shapes while content loads. */
@@ -87,6 +94,10 @@ export type ThemeColors = {
   mediaTextShadow: string;
   /** The verified tick over video: lighter than `brand`, so it stays clear on dark footage. */
   verifiedOnMedia: string;
+  /** A control drawn on video (a segmented toggle): a dark glass fill, its light edge, and the brighter thumb on the chosen part. Theme-independent. */
+  mediaControl: string;
+  mediaControlEdge: string;
+  mediaControlActive: string;
   /** Behind photos and videos while they load, and the Reels page. */
   mediaBg: string;
   /** The dimmed screen behind sheets and dialogs. */
@@ -107,17 +118,18 @@ export const lightColors: ThemeColors = {
   accent: "#5B4BDB",
   accentBlue: "#4F5FD8",
   accentTeal: "#7C6EE6",
-  glass: "rgba(247,246,243,0.78)",
-  glassEdge: "rgba(18,18,20,0.08)",
-  glassHighlight: "rgba(18,18,20,0.06)",
+  glass: "rgba(247,246,243,0.96)",
+  glassEdge: "rgba(18,18,20,0.12)",
+  glassHighlight: "rgba(18,18,20,0.08)",
   bg: "#F7F6F3",
   card: "#FFFFFF",
   bar: "#F7F6F3",
   elevated: "#FFFFFF",
   text: "#121214",
-  muted: "#6B6B71",
-  faint: "#9D9DA4",
-  border: "#E6E4DE",
+  muted: "#525257",
+  faint: "#68686D",
+  border: "#DBD9D3",
+  borderStrong: "#C4C2BC",
   input: "#EDEBE6",
   skeleton: "#ECEAE4",
   panel: "#F1EFEA",
@@ -141,11 +153,14 @@ export const lightColors: ThemeColors = {
   warningSoft: "#FBF3DF",
   warningText: "#7A5614",
   onMedia: "#FFFFFF",
-  onMediaMuted: "rgba(255,255,255,0.78)",
+  onMediaMuted: "rgba(255,255,255,0.88)",
   mediaScrim: "rgba(0,0,0,0.45)",
   mediaPill: "rgba(0,0,0,0.62)",
   mediaTextShadow: "rgba(0,0,0,0.6)",
   verifiedOnMedia: "#E6CB85",
+  mediaControl: "rgba(18,18,20,0.46)",
+  mediaControlEdge: "rgba(255,255,255,0.24)",
+  mediaControlActive: "rgba(255,255,255,0.28)",
   mediaBg: "#000000",
   backdrop: "rgba(18,18,20,0.32)",
   shadow: "#121214",
@@ -160,17 +175,18 @@ export const darkColors: ThemeColors = {
   accent: "#9A8CFF",
   accentBlue: "#8F9BFF",
   accentTeal: "#B3A7FF",
-  glass: "rgba(21,21,23,0.78)",
-  glassEdge: "rgba(255,255,255,0.10)",
-  glassHighlight: "rgba(255,255,255,0.12)",
+  glass: "rgba(21,21,23,0.96)",
+  glassEdge: "rgba(255,255,255,0.14)",
+  glassHighlight: "rgba(255,255,255,0.14)",
   bg: "#0B0B0C",
   card: "#151517",
   bar: "#0B0B0C",
   elevated: "#1A1A1D",
   text: "#F3F2EE",
-  muted: "#A4A4AA",
-  faint: "#6E6E75",
-  border: "#262629",
+  muted: "#A8A8AD",
+  faint: "#8A8A8F",
+  border: "#2E2E32",
+  borderStrong: "#424246",
   input: "#1E1E21",
   skeleton: "#202023",
   panel: "#151517",
@@ -194,11 +210,14 @@ export const darkColors: ThemeColors = {
   warningSoft: "#3A2E12",
   warningText: "#F2D27A",
   onMedia: "#FFFFFF",
-  onMediaMuted: "rgba(255,255,255,0.78)",
+  onMediaMuted: "rgba(255,255,255,0.88)",
   mediaScrim: "rgba(0,0,0,0.45)",
   mediaPill: "rgba(0,0,0,0.62)",
   mediaTextShadow: "rgba(0,0,0,0.6)",
   verifiedOnMedia: "#E6CB85",
+  mediaControl: "rgba(18,18,20,0.46)",
+  mediaControlEdge: "rgba(255,255,255,0.24)",
+  mediaControlActive: "rgba(255,255,255,0.28)",
   mediaBg: "#000000",
   backdrop: "rgba(0,0,0,0.6)",
   shadow: "#000000",

@@ -121,7 +121,7 @@ const useStyles = makeStyles((colors) => ({
   track: { height: 4, borderRadius: 2, backgroundColor: colors.border, overflow: "hidden" },
   fill: { height: 4, backgroundColor: colors.brand },
   addTile: { width: 88, height: 88, borderRadius: radius.md, borderWidth: 1, borderStyle: "dashed", borderColor: colors.faint, alignItems: "center", justifyContent: "center", gap: 2, backgroundColor: "transparent" },
-  addText: { ...type.footnote, fontSize: 11, fontWeight: "600", color: colors.text },
+  addText: { ...type.footnote, fontWeight: "600", color: colors.text },
   thumb: { width: 88, height: 88, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.skeleton },
   cover: { position: "absolute", left: space.xs, bottom: space.xs, backgroundColor: colors.mediaPill, borderRadius: radius.pill, paddingHorizontal: 6, paddingVertical: 2 },
   coverText: { color: colors.onMedia, fontSize: 10, lineHeight: 14, fontWeight: "700", letterSpacing: 0.3 },

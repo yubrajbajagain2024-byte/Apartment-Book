@@ -178,6 +178,6 @@ const useStyles = makeStyles((colors) => ({
   notice: { alignItems: "center", gap: 4, paddingHorizontal: space.xl, paddingTop: 14, paddingBottom: 6 },
   noticeTitle: { ...type.subheading, color: colors.text, textAlign: "center" },
   noticeBody: { ...type.caption, color: colors.muted, textAlign: "center" },
-  noticeButton: { marginTop: space.sm, height: 34, paddingHorizontal: 18, justifyContent: "center", borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border },
+  noticeButton: { marginTop: space.sm, height: 34, paddingHorizontal: 18, justifyContent: "center", borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong },
   noticeButtonText: { ...type.label, color: colors.text },
 }));

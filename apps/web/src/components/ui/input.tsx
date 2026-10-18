@@ -1,9 +1,12 @@
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
-/** A field on a soft fill; a hairline in ink appears while it has focus, red while it carries an error. */
+/**
+ * A field on a soft fill; a hairline in ink appears while it has focus, red while it carries an error. Its text is always
+ * regular: a field wrapped in a label (the filters' tracked small caps) must not inherit the label's weight and tracking.
+ */
 export const inputClasses =
-  "block w-full rounded-[10px] border border-transparent bg-gray-100 px-3.5 py-2 text-sm text-gray-900 transition-colors placeholder:text-gray-400 focus:border-gray-900 focus:bg-white focus:outline-none focus:ring-0 disabled:opacity-60 aria-[invalid=true]:border-red-500";
+  "block w-full rounded-[10px] border border-transparent bg-gray-100 px-3.5 py-2 text-sm font-normal normal-case tracking-normal text-gray-900 transition-colors placeholder:text-gray-400 focus:border-gray-900 focus:bg-white focus:outline-none focus:ring-0 disabled:opacity-60 aria-[invalid=true]:border-red-500";
 
 export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cn(inputClasses, "h-11", className)} {...props} />;

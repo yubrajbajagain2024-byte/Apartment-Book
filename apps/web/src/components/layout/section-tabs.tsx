@@ -62,7 +62,7 @@ export function SectionTabs<V extends string>({
   }, [shown]);
 
   return (
-    <nav aria-label={label} className={cn("sticky top-14 z-30 -mx-3 border-b border-gray-200 bg-white/95 backdrop-blur sm:mx-0 sm:w-full sm:max-w-[500px] sm:self-center sm:rounded-[14px] sm:border-b-0 sm:ring-1 sm:ring-gray-200", className)}>
+    <nav aria-label={label} className={cn("sticky top-14 z-30 -mx-3 border-b border-gray-200 bg-white sm:mx-0 sm:w-full sm:max-w-[500px] sm:self-center sm:rounded-[14px] sm:border-b-0 sm:ring-1 sm:ring-gray-200", className)}>
       {/* gap-7 rather than gap-8: Home's four tabs have to sit next to each other on a 390px phone. */}
       <ul ref={listRef} className="group/tabs relative flex items-stretch justify-center gap-7">
         {sections.map((section) => {

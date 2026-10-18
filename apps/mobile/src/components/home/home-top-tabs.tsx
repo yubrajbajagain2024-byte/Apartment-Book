@@ -245,15 +245,18 @@ const useStyles = makeStyles((colors, scheme) => ({
   ringGap: { width: PHOTO + 2 * PHOTO_GAP, height: PHOTO + 2 * PHOTO_GAP, borderRadius: PHOTO / 2 + PHOTO_GAP, backgroundColor: colors.bar, alignItems: "center", justifyContent: "center" },
   // Instagram's "+" on the photo's bottom-right corner: a small blue disc with a ring of the bar's colour, so it reads apart from the photo.
   plus: { position: "absolute", right: 0, bottom: 2, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.brand, borderWidth: 2, borderColor: colors.bar, alignItems: "center", justifyContent: "center" },
-  shadow: { textShadowColor: colors.mediaScrim, textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
+  // Under the white words and icons over Reels: dark and soft enough to hold them on a bright frame.
+  shadow: { textShadowColor: colors.mediaTextShadow, textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 } },
   // The toggle sits centred in its row, just under the labels' hairline.
   toggleRow: { height: TOGGLE_ROW, alignItems: "center", justifyContent: "center" },
-  // The pill on the input fill; over video a glass fill instead. The thumb is a card with a whisper of shadow in light.
-  toggle: { flexDirection: "row", padding: TOGGLE_PAD, borderRadius: radius.pill, backgroundColor: colors.input },
-  toggleOverVideo: { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassEdge },
-  thumb: { position: "absolute", top: TOGGLE_PAD, bottom: TOGGLE_PAD, left: TOGGLE_PAD, width: SEGMENT, borderRadius: radius.pill, backgroundColor: colors.card, shadowColor: colors.shadow, shadowOpacity: scheme === "dark" ? 0 : 0.12, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: scheme === "dark" ? 0 : 2 },
-  thumbOverVideo: { backgroundColor: colors.glassHighlight, shadowOpacity: 0, elevation: 0 },
+  // The pill on the input fill inside a hairline; over video a dark glass with a light edge (the media tokens: the same in
+  // both themes, so the white words always have something dark behind them). The thumb is a card with a crisp outline
+  // and a whisper of shadow in light.
+  toggle: { flexDirection: "row", padding: TOGGLE_PAD, borderRadius: radius.pill, backgroundColor: colors.input, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  toggleOverVideo: { backgroundColor: colors.mediaControl, borderColor: colors.mediaControlEdge },
+  thumb: { position: "absolute", top: TOGGLE_PAD, bottom: TOGGLE_PAD, left: TOGGLE_PAD, width: SEGMENT, borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.borderStrong, shadowColor: colors.shadow, shadowOpacity: scheme === "dark" ? 0 : 0.1, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: scheme === "dark" ? 0 : 2 },
+  thumbOverVideo: { backgroundColor: colors.mediaControlActive, borderColor: "transparent", shadowOpacity: 0, elevation: 0 },
   segment: { width: SEGMENT, height: TOGGLE_HEIGHT - 2 * TOGGLE_PAD, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
-  segmentText: { ...type.label, fontSize: 13 },
+  segmentText: { ...type.label, fontSize: 13, letterSpacing: 0.1 },
   segmentTextOn: { fontWeight: "700" },
 }));

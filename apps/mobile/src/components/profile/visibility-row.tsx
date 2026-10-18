@@ -100,7 +100,7 @@ export function VisibilityPicker({ section, value, onChange }: { section: Profil
 const useStyles = makeStyles((colors) => ({
   row: { flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: space.lg, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   note: { flex: 1, ...type.caption, color: colors.muted },
-  change: { minWidth: 64, minHeight: 30, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  change: { minWidth: 64, minHeight: 30, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center" },
   changeText: { ...type.label, fontSize: 13, color: colors.text },
   // Drawn like an empty state: a thin ring, then the message in the serif.
   locked: { alignItems: "center", gap: space.md, paddingHorizontal: space.xl, paddingVertical: 40 },
@@ -108,7 +108,7 @@ const useStyles = makeStyles((colors) => ({
   lockedText: { ...type.headline, fontSize: 18, lineHeight: 24, color: colors.text, textAlign: "center" },
   pickerLabel: { ...type.eyebrow, color: colors.muted, marginLeft: 2 },
   segments: { flexDirection: "row", gap: space.sm },
-  segment: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, height: 36, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" },
+  segment: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, height: 36, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: "transparent" },
   segmentOn: { backgroundColor: colors.brandSoft, borderColor: colors.text },
   segmentText: { ...type.label, fontSize: 13, color: colors.muted },
   pickerHint: { ...type.footnote, color: colors.muted, marginLeft: 2 },

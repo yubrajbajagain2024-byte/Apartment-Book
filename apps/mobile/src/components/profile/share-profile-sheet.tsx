@@ -162,7 +162,7 @@ const useStyles = makeStyles((colors) => ({
   header: { alignItems: "center", paddingTop: space.sm, paddingBottom: 10, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   grabber: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: 10 },
   title: { ...type.headline, color: colors.text },
-  close: { position: "absolute", right: 12, top: 16, width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  close: { position: "absolute", right: 12, top: 16, width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center" },
   body: { alignItems: "center", paddingHorizontal: space.lg, paddingTop: space.xl, gap: space.lg },
   // The hairline outline keeps the card apart from the sheet in dark mode, where the shadow does not show.
   card: { alignItems: "center", gap: space.md, padding: space.lg, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: colors.shadow, ...shadows.card },

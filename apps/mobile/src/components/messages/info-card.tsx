@@ -179,7 +179,7 @@ const useStyles = makeStyles((colors) => ({
   buttons: { flexDirection: "row", justifyContent: "center", gap: space.lg, paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.lg },
   button: { width: 76, alignItems: "center", gap: 6 },
   // Hairline rings; the fill comes only under the finger.
-  circle: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  circle: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center" },
   buttonLabel: { ...type.footnote, fontWeight: "600", color: colors.text },
   // An eyebrow over each group of rows; the count follows it, fainter.
   section: { ...type.eyebrow, color: colors.muted, paddingHorizontal: space.lg, paddingTop: space.xl, paddingBottom: space.sm },

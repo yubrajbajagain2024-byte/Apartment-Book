@@ -506,7 +506,7 @@ const useStyles = makeStyles((colors) => ({
 
   // Hairline capsules, the height of a Chip; the vote pill fills with ink (up) or the downvote violet (down).
   pills: { flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: BUZZ_GUTTER, paddingTop: space.md },
-  pill: { height: 32, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" },
+  pill: { height: 32, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: "transparent" },
   pillText: { ...type.label, fontSize: 13, color: colors.text },
   pillDivider: { width: StyleSheet.hairlineWidth, height: 16, backgroundColor: colors.border, marginLeft: 10 },
   arrowLeft: { height: 30, paddingLeft: 10, paddingRight: 6, alignItems: "center", justifyContent: "center" },

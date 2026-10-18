@@ -851,7 +851,7 @@ const useStyles = makeStyles((colors) => ({
   headerText: { flexShrink: 1 },
   headerName: { ...type.subheading, fontSize: 16, color: colors.text },
   headerSubRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  headerSub: { flexShrink: 1, ...type.footnote, fontSize: 11, color: colors.muted },
+  headerSub: { flexShrink: 1, ...type.footnote, color: colors.muted },
   activeDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.green },
   headerButtons: { flexDirection: "row", alignItems: "center", gap: 14 },
   headerButton: { paddingHorizontal: 2 },

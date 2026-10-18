@@ -243,7 +243,7 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
           </p>
         ) : null}
 
-        <Link href={href} className="self-start text-[11px] tracking-[0.02em] text-gray-400 hover:text-gray-900 hover:underline" suppressHydrationWarning>
+        <Link href={href} className="self-start text-xs tracking-[0.01em] text-gray-500 hover:text-gray-900 hover:underline" suppressHydrationWarning>
           {timeAgo(post.created_at)}
         </Link>
       </div>

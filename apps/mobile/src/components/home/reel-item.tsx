@@ -33,10 +33,26 @@ function useReelsMuted(): boolean {
 }
 
 /**
- * No gradient library in the app, so the bottom shade is a stack of thin bands that get darker. Each band is
- * colors.mediaScrim at a growing share of its strength (the band's opacity), so the bottom one is nearly the full scrim.
+ * The shades are true gradients of colors.mediaScrim (the same token in both themes), each stop the scrim at a share of
+ * its strength along an eased ramp, so nothing bands even on a blown-out white frame. `share(t)` runs top (0) to bottom (1).
  */
-const SHADE_STEPS = [0.07, 0.13, 0.22, 0.31, 0.4, 0.51, 0.62, 0.73, 0.84, 0.93];
+function scrimGradient(scrim: string, share: (t: number) => number, stops = 10): string {
+  const m = /rgba?\(([^)]+)\)/.exec(scrim);
+  const [r = "0", g = "0", b = "0", a = "1"] = m ? m[1]!.split(",").map((x) => x.trim()) : [];
+  const list = Array.from({ length: stops + 1 }, (_, i) => {
+    const t = i / stops;
+    return `rgba(${r},${g},${b},${(Number(a) * share(t)).toFixed(3)}) ${(t * 100).toFixed(1)}%`;
+  });
+  return `linear-gradient(to bottom, ${list.join(", ")})`;
+}
+/** Bottom shade: from nothing at its top edge (no line on a white frame), already a soft tint where the rail begins, nearly the full scrim at the bottom. */
+const bottomShare = (t: number) => 0.96 * Math.pow(t, 0.85);
+/** Top shade: darkest under the status bar, gone a little below whatever is drawn over the top. */
+const topShare = (t: number) => 0.82 * Math.pow(1 - t, 1.3);
+const TOP_SHADE_MIN = 150;
+const TOP_SHADE_EXTRA = 56;
+/** Tall enough to sit under the whole rail (like, comments, share, save, "…") above the bottom bar. */
+const SHADE_HEIGHT = 480;
 
 /** How long "…" waits for your reel's pin state when the read-ahead has not answered yet. */
 const PIN_READ_WAIT_MS = 1200;
@@ -322,12 +338,10 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
         </Animated.View>
       </Pressable>
 
-      {/* Soft shade so white text stays readable over bright video. */}
-      <View pointerEvents="none" style={styles.shade}>
-        {SHADE_STEPS.map((opacity) => (
-          <View key={opacity} style={{ flex: 1, backgroundColor: colors.mediaScrim, opacity }} />
-        ))}
-      </View>
+      {/* Soft shades so white words and icons stay readable over bright video: at the top, under the bar (Home's labels
+          and toggle, the viewer's Back and toggle) and at the bottom, under the name, the caption and the rail. */}
+      <View pointerEvents="none" style={[styles.topShade, { height: Math.max(TOP_SHADE_MIN, topInset + TOP_SHADE_EXTRA) }]} />
+      <View pointerEvents="none" style={styles.shade} />
 
       <Pressable onPress={() => setReelsMuted(!muted)} hitSlop={8} style={({ pressed }) => [styles.mute, { top: topInset + 10 }, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={muted ? "Turn sound on" : "Turn sound off"}>
         <Ionicons name={muted ? "volume-mute" : "volume-high"} size={18} color={colors.onMedia} />
@@ -430,12 +444,13 @@ function ReelVideo({ playbackId, poster, playing, muted }: { playbackId: string;
 /** Everything here sits over video, so it uses the media colours (light text, dark scrims) in both themes. */
 const useStyles = makeStyles((colors) => {
   // Under the white name, caption and labels: darker than mediaScrim, so the text stays sharp on bright footage.
-  const shadow = { textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 } as const;
+  const shadow = { textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 } as const;
   return {
     center: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
     playBadge: { width: 84, height: 84, borderRadius: 42, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
     bigHeart: { shadowColor: colors.shadow, shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 3 } },
-    shade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 260 },
+    shade: { position: "absolute", left: 0, right: 0, bottom: 0, height: SHADE_HEIGHT, experimental_backgroundImage: scrimGradient(colors.mediaScrim, bottomShare) },
+    topShade: { position: "absolute", left: 0, right: 0, top: 0, experimental_backgroundImage: scrimGradient(colors.mediaScrim, topShare) },
     mute: { position: "absolute", right: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
     // Instagram's geometry on an iPhone: the "…" centre 46pt above the tab bar, then save, share, comment and like every 73pt or so; the caption line level with "…".
     overlay: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "flex-end", paddingLeft: space.lg, paddingRight: space.sm, paddingBottom: 31, gap: space.sm + space.xxs },
@@ -448,6 +463,7 @@ const useStyles = makeStyles((colors) => {
     rail: { width: 60, alignItems: "center", gap: 20 },
     railButton: { alignItems: "center", gap: 3, minWidth: 48 },
     railLabel: { ...type.footnote, fontWeight: "600", color: colors.onMedia, ...shadow },
-    iconShadow: { textShadowColor: colors.mediaScrim, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+    // A wider, darker halo than the words get: the rail's white strokes are thin, and bright footage would swallow them.
+    iconShadow: { textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6 },
   };
 });

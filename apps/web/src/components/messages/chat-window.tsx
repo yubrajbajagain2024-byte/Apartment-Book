@@ -369,7 +369,7 @@ export function ChatWindow({
                         {m.content}
                       </div>
                     ) : null}
-                    <span className="mt-0.5 px-1 text-[10px] text-gray-400">
+                    <span className="mt-0.5 px-1 text-[11px] text-gray-500">
                       {m.failed ? "Failed to send" : m.pending ? "Sending…" : hydrated ? formatMessageTime(m.created_at) : "\u00a0"}
                     </span>
                   </div>
