@@ -1,12 +1,13 @@
 import { ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { getApartmentsByIds, getFeedPostsByIds, getItemsByIds, getRoommatePostsByIds, getSavedIds, listSaved, timeAgo } from "@apartment-book/shared";
+import { getApartmentsByIds, getFeedPostsByIds, getItemsByIds, getRoommatePostsByIds, getSavedIds, listingMedia, listSaved, timeAgo, type FeedPostWithAuthor } from "@apartment-book/shared";
 import { ItemTile } from "@/components/item-tile";
 import { Card, EmptyState, Loading } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useColors } from "@/lib/theme-provider";
+import { entryForPost, openViewer, postHasMedia, viewerThumb } from "@/lib/reel-viewer";
 
 export default function SavedScreen() {
   const { user } = useSession();
@@ -21,6 +22,16 @@ export default function SavedScreen() {
     posts.sort((a, b) => postIds.indexOf(a.id) - postIds.indexOf(b.id));
     return { apartments, roommates, items, posts };
   }, [user?.id]);
+  /**
+   * A saved post with a picture opens full screen, with your other saved posts with pictures to swipe through in the
+   * order you saved them; a words-only post opens its own screen.
+   */
+  function openSavedPost(p: FeedPostWithAuthor) {
+    if (!postHasMedia(p)) return router.push({ pathname: "/posts/[id]", params: { id: p.id } } as never);
+    const list = (data?.posts ?? []).filter(postHasMedia);
+    const index = Math.max(0, list.findIndex((x) => x.id === p.id));
+    openViewer(router, { entries: list.map((x) => entryForPost(x.id, viewerThumb(listingMedia(x.images, x.image_meta, x.videos)))), index, then: "end" });
+  }
   if (loading) return <Loading />;
   if (!data || data.apartments.length + data.roommates.length + data.items.length + data.posts.length === 0) return <EmptyState icon="bookmark-outline" title="Nothing saved yet" body="Use the ••• menu on any post to save it for later." />;
   return (
@@ -29,7 +40,7 @@ export default function SavedScreen() {
         const text = p.body?.trim().replace(/\s+/g, " ") ?? "";
         return (
           <Card key={p.id} style={{ padding: 12, gap: 2 }}>
-            <Text onPress={() => router.push({ pathname: "/posts/[id]", params: { id: p.id } } as never)} numberOfLines={2} style={{ fontWeight: "700", color: colors.text }}>{text || (p.kind === "reel" ? "Reel" : p.images.length > 0 ? "Photo post" : "Video post")}</Text>
+            <Text onPress={() => openSavedPost(p)} numberOfLines={2} style={{ fontWeight: "700", color: colors.text }}>{text || (p.kind === "reel" ? "Reel" : p.images.length > 0 ? "Photo post" : "Video post")}</Text>
             <Text style={{ color: colors.muted }}>{p.author.full_name} · {timeAgo(p.created_at)}</Text>
           </Card>
         );

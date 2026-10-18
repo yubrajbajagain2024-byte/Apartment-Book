@@ -44,15 +44,22 @@ with the finger over a hairline, and a soft haptic each time the section changes
 toggle, a small segmented pill whose thumb slides to the choice: Campus is your own university, Global every university (and,
 only while Posts has a tab, Following: the posts of people you follow, which switches to Posts); the choice scopes For you,
 Buzz, Posts and Reels alike (`src/lib/home-scope.ts`). Someone without a university has nothing to choose, so the row is not drawn.
-Tapping a reel in For you opens it full screen in the Reels viewer (`src/app/reels/[id].tsx`), like Instagram: the reel
-plays edge to edge under one top row with Back at the left, the same Campus | Global toggle in the middle and its sound
-button at the right; the creator's name, the caption and the heart, comments, share, save and "…" rail sit at the bottom
-(`src/components/home/reel-item.tsx`, as on the Reels page), and under them an "Add comment…" bar on every reel opens the
-comments sheet straight into typing. A swipe up moves on to the next reel: the Reels feed runs on
-behind the one that was opened, page by page, and the other campus choice keeps the reel on screen while the reels after
-it come from the new choice. The row hands its reel over (`src/lib/reel-viewer.ts`), so the viewer opens at once with the
-row's counts, and what you like, save or comment there shows on the row when you come back (`emitPostEngagement` in
-`src/lib/posts-events.ts`); a reel deleted there leaves the feeds too.
+Tapping any reel, or the photo or video of any post (photos, videos or both), anywhere in the app opens it full screen in
+the viewer (`src/app/reels/[id].tsx`), like Instagram: the picture fills the screen edge to edge (a picture wider than the
+screen sits whole over a soft, dimmed blur of itself) under one top row with Back at the left, the Campus | Global toggle
+in the middle (for reels and For you) and a video's sound button at the right; the creator's name, the words and the heart,
+comments, share, save and "…" rail sit at the bottom (`src/components/home/reel-item.tsx`, as on the Reels page), and under
+them an "Add comment…" bar on every page opens the comments sheet straight into typing. A post with several photos or videos
+swipes sideways on its page, with dots under the top row, and opens on the one that was showing in the feed; a video plays
+while its page and slide are on screen, a tap pauses it and a double tap anywhere likes. A swipe up moves on: a reel goes on
+into the Reels feed (only reels, page by page, the other campus choice keeping the page on screen while what follows comes
+from the new choice); a post in For you goes on down For you, its next pages loading as needed; a square in a profile grid
+(Posts, Reels, Saved, Liked) goes on through that grid; a saved post through your saved posts; a post's own screen and a
+post shared in a chat go on into the Reels feed. Words-only posts and listings keep their own screens, and anonymous Buzz
+threads never open here. The source hands its pages over (`src/lib/reel-viewer.ts`), so the viewer opens at once with the
+row's counts (a grid square, which knows only the post's id, loads its post as it comes near, its picture standing in), and
+what you like, save or comment there shows on the row when you come back (`emitPostEngagement` in `src/lib/posts-events.ts`);
+a post deleted there leaves the feeds too.
 The bar scrolls like Instagram's (`src/lib/collapsing-header.ts`): it slides up out of the way as the page on screen
 scrolls down, by as much as the page moved, and slides back the moment the page scrolls up, however far down it is; a
 swipe or a tap between pages brings it back too, and Reels never moves it. The same goes for the Room | Roommate | Marketplace

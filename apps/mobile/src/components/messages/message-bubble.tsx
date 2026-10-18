@@ -14,6 +14,7 @@ import {
 } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { openChatLink, sharedPostHref, type ChatMessage, type OutgoingFiles, type UploadStatus } from "@/lib/message-attachments";
+import { entryForPost, openViewer } from "@/lib/reel-viewer";
 import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { AttachmentFileRow } from "./attachment-file-row";
@@ -250,14 +251,22 @@ function Highlight({ active, children }: { active: boolean; children: ReactNode 
   );
 }
 
-/** A shared post, reel or listing inside a chat: picture, who posted it, what it says, and "View post" to open it. */
+/**
+ * A shared post, reel or listing inside a chat: picture, who posted it, what it says, and a tap to open it. A post or
+ * reel with a picture opens full screen in the viewer (the Reels feed follows it); a words-only post opens its own
+ * screen, a listing its detail screen.
+ */
 function SharedPostCard({ shared, dimmed, onLongPress }: { shared: SharedPost; dimmed: boolean; onLongPress?: () => void }) {
   const styles = useStyles();
   const router = useRouter();
   const label = sharedPostLabel(shared);
+  const open = () => {
+    if (shared.target_type === "post" && shared.image_url) openViewer(router, { entries: [entryForPost(shared.target_id, shared.image_url)], index: 0, then: "reels" });
+    else router.push(sharedPostHref(shared));
+  };
   return (
     <Pressable
-      onPress={() => router.push(sharedPostHref(shared))}
+      onPress={open}
       onLongPress={onLongPress}
       accessibilityRole="button"
       accessibilityLabel={`${label}: ${shared.title ?? shared.caption ?? shared.author.name}`}

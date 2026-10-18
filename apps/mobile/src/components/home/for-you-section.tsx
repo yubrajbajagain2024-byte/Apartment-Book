@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
 import { useRouter } from "expo-router";
-import { listForYou, type FeedPostWithAuthor, type ForYouItem, type PostEngagement } from "@apartment-book/shared";
+import { listForYou, reelFromFeedPost, type FeedPostWithAuthor, type ForYouItem, type PostEngagement } from "@apartment-book/shared";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
 import { EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
@@ -10,6 +10,7 @@ import { useHomeScope } from "@/lib/home-scope";
 import { useTabBarInset } from "@/lib/tab-bar";
 import { errorText } from "@/lib/hooks";
 import { emitPostRemoved, onPostRemoved, takeForYouStale } from "@/lib/posts-events";
+import { entryOf, forYouAfter, openReel, openViewer, viewerItemFromPost, type ViewerEntry } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
@@ -43,6 +44,7 @@ const ForYouRow = memo(function ForYouRow({
   active,
   onOpenComments,
   onRemoved,
+  onOpenViewer,
 }: {
   item: ForYouItem;
   saved: boolean;
@@ -53,6 +55,7 @@ const ForYouRow = memo(function ForYouRow({
   active: boolean;
   onOpenComments: (item: ForYouItem) => void;
   onRemoved: (item: ForYouItem) => void;
+  onOpenViewer: (item: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number }) => void;
 }) {
   return (
     <InstaPost
@@ -65,6 +68,7 @@ const ForYouRow = memo(function ForYouRow({
       active={active}
       onComments={() => onOpenComments(item)}
       onDeleted={() => onRemoved(item)}
+      onOpen={(live) => onOpenViewer(item, live)}
     />
   );
 });
@@ -196,6 +200,46 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
     emitPostRemoved(item.id);
   }, []);
 
+  // The latest list, counts and saves, read when a row is tapped, so the handler can stay the same for the memoised rows.
+  const latest = useRef({ items, engagement, savedIds, commentsOf, hasMore });
+  latest.current = { items, engagement, savedIds, commentsOf, hasMore };
+  /**
+   * A tap on a post's photo or video: the viewer opens on it with For you's other posts with pictures around it, in feed
+   * order (a swipe up goes on down the feed, its next pages loading as needed). A reel opens on its own, followed by the
+   * Reels feed, as it always has.
+   */
+  const openInViewer = useCallback(
+    (tapped: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number }) => {
+      if (tapped.kind === "reel") {
+        const reel = reelFromFeedPost(tapped, live.engagement, live.saved);
+        if (reel) openReel(router, reel);
+        return;
+      }
+      const { items: list, engagement: counts, savedIds: saved, commentsOf: commentCount, hasMore: more } = latest.current;
+      const entries: ViewerEntry[] = [];
+      let index = -1;
+      for (const p of list) {
+        const isTapped = p.id === tapped.id;
+        const e = isTapped ? live.engagement : { likes: counts[p.id]?.likes ?? 0, comments: commentCount(p.id), likedByMe: counts[p.id]?.likedByMe ?? false };
+        const item = viewerItemFromPost(p, e, isTapped ? live.saved : saved.has(p.id));
+        if (!item) continue;
+        if (isTapped) index = entries.length;
+        entries.push(entryOf(item, isTapped ? live.slide : undefined));
+      }
+      if (index < 0) return;
+      openViewer(router, {
+        entries,
+        index,
+        then: {
+          more: forYouAfter({ universityId, userId, page: page.current, hasMore: more, seen: new Set(list.map((p) => p.id)) }),
+          // The other campus choice in the viewer: For you's feed for it, from its first page.
+          rescope: (nextUniversity, seen) => forYouAfter({ universityId: nextUniversity, userId, page: 0, hasMore: true, seen }),
+        },
+      });
+    },
+    [router, universityId, userId],
+  );
+
   function closeComments() {
     // The line under the post shows the newest comment: reload it for the post that was open.
     if (commenting) refreshPreview(commenting.id);
@@ -234,6 +278,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
             active={active && visible.has(item.id)}
             onOpenComments={openComments}
             onRemoved={removeRow}
+            onOpenViewer={openInViewer}
           />
         )}
         ListEmptyComponent={

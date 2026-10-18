@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { compactCount, type ProfileTile, type ProfileTileType } from "@apartment-book/shared";
+import { entryForPost, openViewer } from "@/lib/reel-viewer";
 import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
@@ -30,12 +31,25 @@ export function tileLabel(tile: ProfileTile): string {
   return `${TILE_TYPE_LABELS[tile.type]}: ${words}${tile.pinned ? ", pinned" : ""}${views}`;
 }
 
-/** Opens a square's own screen: a post or reel on the post screen, a listing on its detail screen. */
+/** A post or reel square with a picture: one the full-screen viewer can show (a words-only post keeps its own screen). */
+function opensFullScreen(tile: ProfileTile): boolean {
+  return (tile.type === "post" || tile.type === "reel") && (tile.imageUrl !== null || tile.isVideo);
+}
+
+/**
+ * Opens a square: a post or reel with a picture full screen in the viewer, with the grid's other posts and reels (in the
+ * grid's order) above and below it to swipe through, as Instagram opens a profile's grid; a words-only post on the post
+ * screen; a listing on its detail screen. `tiles` is the grid the square was tapped in.
+ */
 export function useOpenTile() {
   const router = useRouter();
   return useCallback(
-    (tile: ProfileTile) => {
-      if (tile.type === "post" || tile.type === "reel") router.push({ pathname: "/posts/[id]", params: { id: tile.id } });
+    (tile: ProfileTile, tiles?: readonly ProfileTile[]) => {
+      if (opensFullScreen(tile)) {
+        const list = (tiles ?? [tile]).filter(opensFullScreen);
+        const index = Math.max(0, list.findIndex((t) => t.key === tile.key));
+        openViewer(router, { entries: list.map((t) => entryForPost(t.id, t.imageUrl)), index, then: "end" });
+      } else if (tile.type === "post" || tile.type === "reel") router.push({ pathname: "/posts/[id]", params: { id: tile.id } });
       else if (tile.type === "apartment") router.push({ pathname: "/apartments/[id]", params: { id: tile.id } });
       else if (tile.type === "roommate") router.push({ pathname: "/roommates/[id]", params: { id: tile.id } });
       else router.push({ pathname: "/marketplace/[id]", params: { id: tile.id } });

@@ -498,7 +498,7 @@ type TilesPageProps = PageFrame & {
   grid: TileGrid;
   own: boolean;
   tileWidth: number;
-  onOpen: (tile: ProfileTile) => void;
+  onOpen: (tile: ProfileTile, tiles?: readonly ProfileTile[]) => void;
   /** Your own Posts and Reels: hold a square for Pin to profile. */
   onPin?: (tile: ProfileTile) => void;
   gate: Gate;
@@ -525,9 +525,14 @@ const TilesPage = memo(function TilesPage(props: TilesPageProps) {
   // Tapping Profile again while this tab of your profile is on screen: back to the top (the others follow, linked).
   useTabReselect(() => scrollTo(0, true), active);
 
+  // A square opens with the rest of this grid around it (the viewer swipes through the grid's posts and reels). The
+  // grid is read when a square is tapped, so the squares do not all draw again each time a page of them arrives.
+  const tiles = useRef(grid.tiles);
+  tiles.current = grid.tiles;
+  const openInGrid = useCallback((tile: ProfileTile) => onOpen(tile, tiles.current), [onOpen]);
   const renderTile = useCallback<ListRenderItem<ProfileTile>>(
-    ({ item }) => (tab === "listings" ? <ListingGridTile tile={item} width={tileWidth} onOpen={onOpen} /> : <ProfileGridTile tile={item} width={tileWidth} aspect={tab === "reels" ? REEL_ASPECT : TILE_ASPECT} onOpen={onOpen} onLongPress={onPin} />),
-    [tab, tileWidth, onOpen, onPin],
+    ({ item }) => (tab === "listings" ? <ListingGridTile tile={item} width={tileWidth} onOpen={onOpen} /> : <ProfileGridTile tile={item} width={tileWidth} aspect={tab === "reels" ? REEL_ASPECT : TILE_ASPECT} onOpen={openInGrid} onLongPress={onPin} />),
+    [tab, tileWidth, onOpen, openInGrid, onPin],
   );
 
   const section = tab === "saved" || tab === "liked" ? tab : null;
