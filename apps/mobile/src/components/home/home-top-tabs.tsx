@@ -77,7 +77,21 @@ const SOLID = HOME_TABS.map((s) => (s.value === "reels" ? 0 : 1));
 /** The Following choice opens the Posts page, so it is offered only while Posts has a tab. */
 const POSTS_SHOWN = HOME_TABS.some((s) => s.value === "posts");
 
-type Segment = { key: "mine" | "all" | "following"; label: string; icon: keyof typeof Ionicons.glyphMap; hint: string };
+/** One choice of the Campus | Global toggle (and Following, while Posts has a tab). */
+export type ScopeSegment = { key: "mine" | "all" | "following"; label: string; icon: keyof typeof Ionicons.glyphMap; hint: string };
+type Segment = ScopeSegment;
+
+/**
+ * The choices every feed offers: the person's own campus (named after the university for screen readers), when they have
+ * one, and every campus. Home's bar adds Following to these while Posts has a tab; the Reels viewer shows just these.
+ * One choice alone (no university) is nothing to choose: callers draw no toggle then.
+ */
+export function campusSegments(profile: { university_id: string | null; university?: { name: string } | null } | null | undefined): ScopeSegment[] {
+  const segments: ScopeSegment[] = [];
+  if (profile?.university_id) segments.push({ key: "mine", label: "Campus", icon: "school-outline", hint: profile.university?.name ?? "Your university" });
+  segments.push({ key: "all", label: "Global", icon: "globe-outline", hint: "Every university" });
+  return segments;
+}
 
 /**
  * Floating top bar of Home, X style, in three rows. Row 1: your photo in a gradient ring on the left, which opens your
@@ -122,9 +136,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
   const title = followingShown ? "Following" : HOME_BRAND;
 
   // The person's own campus (by its name for screen readers), every campus, and the people they follow while Posts has a tab.
-  const segments: Segment[] = [];
-  if (profile?.university_id) segments.push({ key: "mine", label: "Campus", icon: "school-outline", hint: profile.university?.name ?? "Your university" });
-  segments.push({ key: "all", label: "Global", icon: "globe-outline", hint: "Every university" });
+  const segments: Segment[] = campusSegments(profile);
   if (user && POSTS_SHOWN) segments.push({ key: "following", label: "Following", icon: "people-outline", hint: "Posts by the people you follow" });
   const chosen: Segment["key"] = followingShown ? "following" : profile?.university_id && scope.campus === "mine" ? "mine" : "all";
 
@@ -187,10 +199,10 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
 
 /**
  * The segmented pill: a thumb that slides on a soft spring to the chosen segment, each segment an icon and a word. Over
- * the Reels video it goes white and glassy like the rest of the bar. Screen readers hear it as a group of radio buttons,
- * the campus one named after the university.
+ * the Reels video (Home's bar over Reels, the Reels viewer) it goes white and glassy like the rest of the bar. Screen
+ * readers hear it as a group of radio buttons, the campus one named after the university.
  */
-function ScopeToggle({ segments, value, onChange, overVideo, shadow }: { segments: Segment[]; value: Segment["key"]; onChange: (key: Segment["key"]) => void; overVideo: boolean; shadow: StyleProp<TextStyle> }) {
+export function ScopeToggle({ segments, value, onChange, overVideo, shadow }: { segments: Segment[]; value: Segment["key"]; onChange: (key: Segment["key"]) => void; overVideo: boolean; shadow: StyleProp<TextStyle> }) {
   const styles = useStyles();
   const colors = useColors();
   const index = Math.max(0, segments.findIndex((s) => s.key === value));

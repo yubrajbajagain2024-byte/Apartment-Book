@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { getPostEngagement, likePost, toggleSaved, unlikePost, type PostEngagement, type PostTargetType } from "@apartment-book/shared";
 import { hapticLike, hapticSelect } from "@/lib/haptics";
+import { onPostEngagement } from "@/lib/posts-events";
 import { supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
@@ -17,6 +18,15 @@ export function useLike(targetType: PostTargetType, targetId: string, initial: P
   useEffect(() => {
     if (has && !busy.current) setState({ liked: initialLiked, likes: initialLikes });
   }, [has, initialLiked, initialLikes]);
+  // Liked or unliked somewhere else while this card is mounted (the Reels viewer opened from it): the heart follows.
+  useEffect(
+    () =>
+      onPostEngagement((type, id, patch) => {
+        if (type !== targetType || id !== targetId || busy.current) return;
+        if (patch.likedByMe !== undefined || patch.likes !== undefined) setState((s) => ({ liked: patch.likedByMe ?? s.liked, likes: patch.likes ?? s.likes }));
+      }),
+    [targetType, targetId],
+  );
   const toggle = useCallback(async () => {
     if (!userId) return onNeedLogin();
     if (pending) return;
@@ -47,6 +57,14 @@ export function useSave(targetType: PostTargetType, targetId: string, initial: b
   useEffect(() => {
     if (!busy.current) setSaved(initial);
   }, [initial]);
+  // Saved or unsaved somewhere else while this card is mounted (the Reels viewer opened from it): the bookmark follows.
+  useEffect(
+    () =>
+      onPostEngagement((type, id, patch) => {
+        if (type === targetType && id === targetId && patch.saved !== undefined && !busy.current) setSaved(patch.saved);
+      }),
+    [targetType, targetId],
+  );
   const toggle = useCallback(async () => {
     if (!userId) return onNeedLogin();
     if (busy.current) return;
