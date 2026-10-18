@@ -1,3 +1,5 @@
+import type { PostTargetType } from "@apartment-book/shared";
+
 /**
  * Lets the create and detail screens tell Home → Posts and Home → For you (and the profile grids) what changed, so a feed
  * only reloads when there is something new (and keeps its scroll position the rest of the time).
@@ -54,5 +56,26 @@ export function onPostPinned(listener: (id: string, pinned: boolean) => void): (
   pinListeners.add(listener);
   return () => {
     pinListeners.delete(listener);
+  };
+}
+
+/** What changed on a post, reel or listing: its counts, and whether the person looking likes or has saved it. */
+export type PostEngagementPatch = { likes?: number; comments?: number; likedByMe?: boolean; saved?: boolean };
+const engagementListeners = new Set<(type: PostTargetType, id: string, patch: PostEngagementPatch) => void>();
+
+/**
+ * A post or reel was liked, saved or commented on away from its feed row (in the Reels viewer, say): the row and its
+ * engagement state adopt the new numbers without reloading. Fields left undefined are not part of the change.
+ */
+export function emitPostEngagement(type: PostTargetType, id: string, patch: PostEngagementPatch) {
+  const change = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)) as PostEngagementPatch;
+  if (Object.keys(change).length === 0) return;
+  engagementListeners.forEach((l) => l(type, id, change));
+}
+
+export function onPostEngagement(listener: (type: PostTargetType, id: string, patch: PostEngagementPatch) => void): () => void {
+  engagementListeners.add(listener);
+  return () => {
+    engagementListeners.delete(listener);
   };
 }

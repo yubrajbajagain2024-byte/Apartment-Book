@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getPostEngagementMany, getPostPreviewsMany, getSavedIds, type PostEngagement, type PostPreview, type PostTargetType } from "@apartment-book/shared";
+import { onPostEngagement } from "./posts-events";
 import { supabase } from "./supabase";
 
 /** Saved ids and like/comment counts for the posts currently in a feed. */
@@ -24,6 +25,24 @@ export function useEngagement(type: PostTargetType, items: { id: string }[], use
     }
     getSavedIds(supabase, userId, type).then(setSavedIds).catch(() => {});
   }, [userId, type]);
+  // Liked, saved or commented on away from this feed (in the Reels viewer a row opened): the numbers here follow, so the
+  // row shows them when the person comes back, without a reload.
+  useEffect(
+    () =>
+      onPostEngagement((changedType, id, { saved, ...counts }) => {
+        if (changedType !== type) return;
+        if (Object.keys(counts).length > 0) setEngagement((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], ...counts } } : prev));
+        if (saved !== undefined)
+          setSavedIds((prev) => {
+            if (prev.has(id) === saved) return prev;
+            const next = new Set(prev);
+            if (saved) next.add(id);
+            else next.delete(id);
+            return next;
+          });
+      }),
+    [type],
+  );
   return { savedIds, engagement };
 }
 

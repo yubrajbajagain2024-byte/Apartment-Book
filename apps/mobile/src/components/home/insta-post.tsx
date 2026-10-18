@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromFeedPost, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
+import { captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reelFromFeedPost, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromFeedPost, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
 import { hapticTap } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
+import { openReel } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { shortDate } from "@/lib/short-date";
 import { SITE_URL, supabase } from "@/lib/supabase";
@@ -91,6 +92,16 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
       Animated.delay(350),
       Animated.timing(heart, { toValue: 0, duration: 180, useNativeDriver: true }),
     ]).start();
+  }
+
+  /**
+   * A tap on a reel in the feed opens it full screen in the Reels viewer, like Instagram, handing over the row's own
+   * counts (which may be ahead of the feed's after a tap here) so it shows at once; from there a swipe up moves on to
+   * other reels. On the reel's own screen there is nothing to open.
+   */
+  function openViewer() {
+    const asReel = reelFromFeedPost(post, { likes: like.likes, comments, likedByMe: like.liked }, save.saved);
+    if (asReel) openReel(router, asReel);
   }
 
   /** A words-only post has no photo to double tap, so the text takes the gesture (its heart is the one in the row below). */
@@ -203,7 +214,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
 
       {media.length > 0 ? (
         <PostFrame>
-          <PhotoCarousel media={media} aspect={frameAspect(media, reel)} active={active} videoLabel={null} dots={false} onIndexChange={setSlide} onDoubleTap={doubleTap} />
+          <PhotoCarousel media={media} aspect={frameAspect(media, reel)} active={active} videoLabel={null} dots={false} onIndexChange={setSlide} onPress={reel && !detail ? openViewer : undefined} onDoubleTap={doubleTap} />
           <Animated.View pointerEvents="none" style={[styles.heart, { opacity: heart, transform: [{ scale: heart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
             <Ionicons name="heart" size={96} color={colors.onMedia} />
           </Animated.View>

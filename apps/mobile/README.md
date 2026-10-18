@@ -42,6 +42,15 @@ with the finger over a hairline, and a soft haptic each time the section changes
 toggle, a small segmented pill whose thumb slides to the choice: Campus is your own university, Global every university (and,
 only while Posts has a tab, Following: the posts of people you follow, which switches to Posts); the choice scopes For you,
 Buzz, Posts and Reels alike (`src/lib/home-scope.ts`). Someone without a university has nothing to choose, so the row is not drawn.
+Tapping a reel in For you opens it full screen in the Reels viewer (`src/app/reels/[id].tsx`), like Instagram: the reel
+plays edge to edge under one top row with Back at the left, the same Campus | Global toggle in the middle and its sound
+button at the right; the creator's name, the caption and the heart, comments, share, save and "…" rail sit at the bottom
+(`src/components/home/reel-item.tsx`, as on the Reels page), and under them an "Add comment…" bar on every reel opens the
+comments sheet straight into typing. A swipe up moves on to the next reel: the Reels feed runs on
+behind the one that was opened, page by page, and the other campus choice keeps the reel on screen while the reels after
+it come from the new choice. The row hands its reel over (`src/lib/reel-viewer.ts`), so the viewer opens at once with the
+row's counts, and what you like, save or comment there shows on the row when you come back (`emitPostEngagement` in
+`src/lib/posts-events.ts`); a reel deleted there leaves the feeds too.
 The bar scrolls like Instagram's (`src/lib/collapsing-header.ts`): it slides up out of the way as the page on screen
 scrolls down, by as much as the page moved, and slides back the moment the page scrolls up, however far down it is; a
 swipe or a tap between pages brings it back too, and Reels never moves it. The same goes for the Room | Roommate | Marketplace

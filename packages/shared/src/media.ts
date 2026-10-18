@@ -1,5 +1,5 @@
 import { MUX_IMAGE_BASE, MUX_STREAM_BASE } from "./constants";
-import type { FeedMedia, ListingVideo, PosterSummary } from "./types/models";
+import type { FeedMedia, FeedPostWithAuthor, ListingVideo, PostEngagement, PosterSummary, Reel } from "./types/models";
 import { photosFor } from "./utils";
 
 export function muxPlaybackUrl(playbackId: string): string {
@@ -43,4 +43,28 @@ export function isVerifiedPoster(poster: PosterSummary | null | undefined): bool
 /** "0.4 mi from campus · San Marcos" style subtitle for post headers. */
 export function posterSubtitle(parts: (string | null | undefined)[]): string {
   return parts.filter((p): p is string => Boolean(p)).join(" · ");
+}
+
+/**
+ * A posted reel as the vertical Reels viewer shows it, built from its row in a feed (For you, Posts) and the counts that
+ * row already has, so tapping the reel opens it at once with nothing to wait for. The same shape reels_feed returns for
+ * it (see listReels). Null for a plain post, or a reel whose video is not ready yet.
+ */
+export function reelFromFeedPost(post: FeedPostWithAuthor, engagement: PostEngagement, savedByMe: boolean): Reel | null {
+  if (post.kind !== "reel") return null;
+  const video = videosFor(post.videos)[0];
+  if (!video) return null;
+  return {
+    sourceType: "post",
+    sourceId: post.id,
+    author: { id: post.author.id, name: post.author.full_name, avatarUrl: post.author.avatar_url, verified: isVerifiedPoster(post.author) },
+    title: null,
+    caption: post.body,
+    video,
+    createdAt: post.created_at,
+    likes: engagement.likes,
+    comments: engagement.comments,
+    likedByMe: engagement.likedByMe,
+    savedByMe,
+  };
 }

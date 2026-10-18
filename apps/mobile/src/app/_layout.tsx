@@ -48,6 +48,8 @@ function ThemedStack() {
         <Stack.Screen name="roommates/[id]" options={{ title: "Roommate post" }} />
         <Stack.Screen name="marketplace/[id]" options={{ title: "Item" }} />
         <Stack.Screen name="posts/[id]" options={{ title: "Post" }} />
+        {/* The Reels viewer is video edge to edge, black behind it in both themes, with its own Back over the video. */}
+        <Stack.Screen name="reels/[id]" options={{ headerShown: false, contentStyle: { backgroundColor: colors.mediaBg } }} />
         <Stack.Screen name="buzz/[id]" options={{ headerShown: false, contentStyle: content }} />
         <Stack.Screen name="messages/[id]" options={{ title: "Chat" }} />
         <Stack.Screen name="messages/new" options={{ title: "New message" }} />
