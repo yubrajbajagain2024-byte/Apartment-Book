@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView as ScrollViewType } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DEFAULT_HOUSING_SECTION, HOUSING_SECTIONS, ITEM_CATEGORIES, type HousingSection, type ItemCategoryValue } from "@apartment-book/shared";
@@ -15,6 +15,7 @@ import { hapticSwipe } from "@/lib/haptics";
 // Aliased: the screen keeps a `type` state (the roommate post kind) of its own.
 import { radius, space, type as typeScale } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 const ORDER = HOUSING_SECTIONS.map((s) => s.value);
 const START = Math.max(0, ORDER.indexOf(DEFAULT_HOUSING_SECTION));
@@ -224,17 +225,17 @@ export default function HousingScreen() {
           {/* The inbox's search box, searching the page on screen; the Marketplace's spinner takes the magnifier's slot while its grid catches up. */}
           <View style={styles.searchRow}>
             <View style={styles.search}>
-              <View style={styles.searchMark}>{section === "marketplace" && busy ? <ActivityIndicator size="small" color={colors.muted} /> : <Ionicons name="search" size={18} color={colors.muted} />}</View>
+              <View style={styles.searchMark}>{section === "marketplace" && busy ? <ActivityIndicator size="small" color={colors.muted} /> : <Icon name="search" size={18} color={colors.muted} />}</View>
               <TextInput value={q} onChangeText={setQ} placeholder={placeholder} placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} returnKeyType="search" autoCorrect={false} autoCapitalize="none" accessibilityLabel={placeholder} style={styles.input} />
               {q ? (
                 <Pressable onPress={() => setQ("")} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear search">
-                  <Ionicons name="close-circle" size={18} color={colors.faint} />
+                  <Icon name="close-circle" size={18} color={colors.faint} />
                 </Pressable>
               ) : null}
             </View>
             {/* The round filter button beside the box: it opens the sheet for the page on screen and counts the choices in force. */}
             <Pressable onPress={() => setFiltersOpen(true)} hitSlop={6} accessibilityRole="button" accessibilityLabel={activeFilters > 0 ? `Filters, ${activeFilters} on` : "Filters"} accessibilityHint="Sort and narrow the page on screen" style={({ pressed }) => [styles.filterButton, activeFilters > 0 && styles.filterButtonOn, pressed && { opacity: 0.7 }]}>
-              <Ionicons name="options-outline" size={22} color={activeFilters > 0 ? colors.brand : colors.text} />
+              <Icon name="options-outline" size={22} color={activeFilters > 0 ? colors.brand : colors.text} />
               {activeFilters > 0 ? (
                 <View style={styles.filterBadge}>
                   <Text style={styles.filterBadgeText}>{activeFilters}</Text>
@@ -271,7 +272,7 @@ export default function HousingScreen() {
                 accessibilityState={{ selected: p.selected }}
                 style={({ pressed }) => [styles.chip, p.selected && styles.chipSelected, pressed && !p.selected && { opacity: 0.7 }]}
               >
-                {p.icon ? <Ionicons name={p.icon} size={14} color={p.selected ? colors.text : colors.muted} /> : null}
+                {p.icon ? <Icon name={p.icon} size={14} color={p.selected ? colors.text : colors.muted} /> : null}
                 {/* The pills follow the text size as far as the labels above them do, so "All" never ends in an ellipsis. */}
                 <Text style={[styles.chipText, p.selected && styles.chipTextSelected]} numberOfLines={1} maxFontSizeMultiplier={1.2}>
                   {p.label}
@@ -303,11 +304,11 @@ export default function HousingScreen() {
           {ORDER.map((s, i) => (
             <View key={s} style={{ width, flex: 1 }}>
               {!mounted.has(i) ? null : s === "roommates" ? (
-                <RoommatesSection topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} type={type} filters={filters.roommates} filtered={activeFilterCount("roommates", filters) > 0} />
+                <RoommatesSection active={section === "roommates"} topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} type={type} filters={filters.roommates} filtered={activeFilterCount("roommates", filters) > 0} />
               ) : s === "marketplace" ? (
-                <MarketplaceSection topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} category={category} onCategoryChange={pickCategory} onSearchBusy={setBusy} filters={filters.marketplace} filtered={activeFilterCount("marketplace", filters) > 0} />
+                <MarketplaceSection active={section === "marketplace"} topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} category={category} onCategoryChange={pickCategory} onSearchBusy={setBusy} filters={filters.marketplace} filtered={activeFilterCount("marketplace", filters) > 0} />
               ) : (
-                <ApartmentsSection topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} filters={filters.apartments} filtered={activeFilterCount("apartments", filters) > 0} />
+                <ApartmentsSection active={section === "apartments"} topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} filters={filters.apartments} filtered={activeFilterCount("apartments", filters) > 0} />
               )}
             </View>
           ))}

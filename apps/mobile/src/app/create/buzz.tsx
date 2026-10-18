@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { BUZZ_TOPICS, buzzPostSchema, createBuzz, deleteImageByUrl, MAX_IMAGES_PER_BUZZ, type BuzzTopic, type ListingVideo, type PhotoMeta } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
@@ -15,6 +14,8 @@ import { supabase } from "@/lib/supabase";
 import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { pickVideo, uploadVideo } from "@/lib/video";
+import { Icon } from "@/components/icon";
+import { alertWithHaptic, hapticSuccess } from "@/lib/haptics";
 
 /** Start an anonymous Buzz thread. Photos only ever leave the phone through buzz-photos.ts (re-encoded, no metadata, no user id in the link). */
 export default function CreateBuzzScreen() {
@@ -113,9 +114,10 @@ export default function CreateBuzzScreen() {
     try {
       const id = await createBuzz(supabase, userId, parsed.data);
       emitBuzzEvent({ type: "reload" });
+      hapticSuccess();
       router.replace({ pathname: "/buzz/[id]", params: { id } });
     } catch (e) {
-      Alert.alert("Could not post", errorText(e, "Please try again."));
+      alertWithHaptic("error", "Could not post", errorText(e, "Please try again."));
     } finally {
       setBusy(false);
     }
@@ -126,7 +128,7 @@ export default function CreateBuzzScreen() {
       <Stack.Screen options={{ title: "New Buzz post" }} />
 
       <View style={styles.notice} accessibilityRole="summary">
-        <Ionicons name="eye-off-outline" size={20} color={colors.text} style={{ marginTop: 1 }} />
+        <Icon name="eye-off-outline" size={20} color={colors.text} style={{ marginTop: 1 }} />
         <View style={{ flex: 1, gap: space.xs }}>
           <Text style={styles.noticeTitle}>This post is anonymous</Text>
           <Text style={styles.noticeText}>Your name and photo are never shown. People see a random name like "Student 48213".</Text>
@@ -151,14 +153,14 @@ export default function CreateBuzzScreen() {
       <FormSection title="Photos and video (optional)">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
           <Pressable onPress={pickPhotoSource} disabled={room <= 0} style={({ pressed }) => [styles.addTile, room <= 0 && { opacity: 0.4 }, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Add photos">
-            <Ionicons name="add" size={22} color={colors.text} />
+            <Icon name="add" size={22} color={colors.text} />
             <Text style={styles.addText}>{uploading > 0 ? `Uploading ${uploading}…` : `Add photos (${photos.length}/${MAX_IMAGES_PER_BUZZ})`}</Text>
           </Pressable>
           {photos.map((p) => (
             <View key={p.url} style={styles.thumb}>
               <Image source={{ uri: p.url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
               <Pressable onPress={() => removePhoto(p.url)} style={styles.remove} hitSlop={6} accessibilityRole="button" accessibilityLabel="Remove photo">
-                <Ionicons name="close" size={14} color={colors.onMedia} />
+                <Icon name="close" size={14} color={colors.onMedia} />
               </Pressable>
             </View>
           ))}
@@ -171,7 +173,7 @@ export default function CreateBuzzScreen() {
               {video.poster_url ? <Image source={{ uri: video.poster_url }} style={styles.videoPoster} contentFit="cover" transition={150} /> : null}
               <Text style={styles.videoTitle}>Video ready</Text>
               <Pressable onPress={() => setVideo(null)} hitSlop={8} style={({ pressed }) => pressed && { opacity: 0.7 }} accessibilityRole="button" accessibilityLabel="Remove video">
-                <Ionicons name="close-circle" size={22} color={colors.muted} />
+                <Icon name="close-circle" size={22} color={colors.muted} />
               </Pressable>
             </View>
           ) : videoState ? (
@@ -184,7 +186,7 @@ export default function CreateBuzzScreen() {
           ) : (
             <Pressable onPress={pickVideoSource} style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: space.sm + space.xxs }, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Add a video">
               <View style={styles.iconCircle}>
-                <Ionicons name="videocam" size={20} color={colors.onBrand} />
+                <Icon name="videocam" size={20} color={colors.onBrand} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.videoTitle}>Add one video</Text>
@@ -205,18 +207,18 @@ export default function CreateBuzzScreen() {
 
 const useStyles = makeStyles((colors) => ({
   // The anonymity notice is a quiet outlined card, not a tinted box: the words carry it.
-  notice: { flexDirection: "row", gap: space.sm + space.xxs, backgroundColor: colors.card, borderRadius: radius.lg, padding: space.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  notice: { flexDirection: "row", gap: space.sm + space.xxs, backgroundColor: colors.card, borderRadius: radius.lg, borderCurve: "continuous", padding: space.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   noticeTitle: { ...type.subheading, color: colors.text },
   noticeText: { ...type.caption, color: colors.muted },
   error: { ...type.footnote, color: colors.red },
   hint: { ...type.footnote, lineHeight: 17, color: colors.muted },
   // The add tile and the video box share one quiet dashed edge; the photos sit on the skeleton grey until they load.
-  addTile: { width: 104, height: 88, borderRadius: radius.md, borderWidth: 1, borderStyle: "dashed", borderColor: colors.faint, alignItems: "center", justifyContent: "center", gap: 2, backgroundColor: "transparent", paddingHorizontal: space.xs },
+  addTile: { width: 104, height: 88, borderRadius: radius.md, borderCurve: "continuous", borderWidth: 1, borderStyle: "dashed", borderColor: colors.faint, alignItems: "center", justifyContent: "center", gap: 2, backgroundColor: "transparent", paddingHorizontal: space.xs },
   addText: { ...type.footnote, fontWeight: "600", color: colors.text, textAlign: "center" },
-  thumb: { width: 88, height: 88, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.skeleton },
+  thumb: { width: 88, height: 88, borderRadius: radius.md, borderCurve: "continuous", overflow: "hidden", backgroundColor: colors.skeleton },
   remove: { position: "absolute", right: space.xs, top: space.xs, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.mediaPill, alignItems: "center", justifyContent: "center" },
-  videoBox: { borderWidth: 1, borderColor: colors.faint, borderStyle: "dashed", borderRadius: radius.md, padding: space.md, backgroundColor: "transparent" },
-  videoPoster: { width: 64, height: 80, borderRadius: radius.sm, backgroundColor: colors.skeleton },
+  videoBox: { borderWidth: 1, borderColor: colors.faint, borderStyle: "dashed", borderRadius: radius.md, borderCurve: "continuous", padding: space.md, backgroundColor: "transparent" },
+  videoPoster: { width: 64, height: 80, borderRadius: radius.sm, borderCurve: "continuous", backgroundColor: colors.skeleton },
   videoTitle: { flex: 1, ...type.subheading, color: colors.text },
   videoSub: { ...type.footnote, color: colors.muted, marginTop: 1 },
   iconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },

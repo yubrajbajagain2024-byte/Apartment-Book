@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, Pressable, StyleSheet, Text, TextInput, View, type TextInput as TextInputType } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { addComment, blockUser, COMMENT_SORTS, compactCount, deleteComment, getMyCommentVotes, listComments, reportContent, REPORT_REASONS, shortAge, threadComments, voteComment, type CommentSort, type PostCommentNode, type PostCommentWithAuthor, type PostTargetType, type ReportReason } from "@apartment-book/shared";
 import { useActionSheet, type SheetOption } from "@/components/action-sheet";
 import { repliesLabel, useVote, type Vote } from "@/components/home/buzz-card";
-import { hapticLike, hapticSuccess, hapticTap } from "@/lib/haptics";
+import { hapticLike, hapticSuccess, hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
@@ -13,6 +12,7 @@ import { motion, radius, space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { Avatar } from "./avatar";
 import { Skeleton } from "./ui";
+import { Icon } from "@/components/icon";
 
 /*
  * The thread looks like TikTok's comment sheet: no bubbles, a round avatar, the name in small grey, the comment in
@@ -227,7 +227,7 @@ export function useCommentThread({ targetType, targetId, ownerId, onCountChange,
       await reportContent(supabase, reporter, { targetType: "comment", targetId: node.id, reason });
       Alert.alert("Thanks", "Our team will review it.");
     } catch (e) {
-      Alert.alert("Could not send the report", errorText(e));
+      alertWithHaptic("error", "Could not send the report", errorText(e));
     }
   }
 
@@ -241,14 +241,14 @@ export function useCommentThread({ targetType, targetId, ownerId, onCountChange,
   }
 
   function confirmBlock(node: PostCommentNode) {
-    Alert.alert(`Block ${node.author.full_name}?`, "You won't see each other's posts, comments or messages.", [
+    alertWithHaptic("warning", `Block ${node.author.full_name}?`, "You won't see each other's posts, comments or messages.", [
       { text: "Cancel", style: "cancel" },
       { text: "Block", style: "destructive", onPress: () => void block(node) },
     ]);
   }
 
   function confirmRemove(node: PostCommentNode) {
-    Alert.alert("Delete this comment?", "This cannot be undone.", [
+    alertWithHaptic("warning", "Delete this comment?", "This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: () => void remove(node) },
     ]);
@@ -327,7 +327,7 @@ export function CommentsHeading({ count, onSort, align = "center" }: { count: nu
         accessibilityRole="button"
         accessibilityLabel="Sort comments"
       >
-        <Ionicons name="swap-vertical-outline" size={16} color={colors.muted} />
+        <Icon name="swap-vertical-outline" size={16} color={colors.muted} />
       </Pressable>
     </View>
   );
@@ -364,7 +364,7 @@ export function CommentComposer({ thread }: { thread: CommentThread }) {
             Replying to {replyTo.author.full_name}
           </Text>
           <Pressable onPress={cancelReply} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cancel reply">
-            <Ionicons name="close" size={15} color={colors.muted} />
+            <Icon name="close" size={15} color={colors.muted} />
           </Pressable>
         </View>
       ) : null}
@@ -386,7 +386,7 @@ export function CommentComposer({ thread }: { thread: CommentThread }) {
             onBlur={() => Animated.timing(focus, { toValue: 0, duration: motion.fast, useNativeDriver: false }).start()}
           />
           <Pressable onPress={() => void submit()} disabled={!canSend} hitSlop={4} style={({ pressed }) => [styles.send, busy && { opacity: 0.5 }, pressed && canSend && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Post comment" accessibilityState={{ disabled: !canSend }}>
-            <Ionicons name={hasText ? "arrow-up-circle" : "arrow-up-circle-outline"} size={28} color={hasText ? colors.brand : colors.faint} />
+            <Icon name={hasText ? "arrow-up-circle" : "arrow-up-circle-outline"} size={28} color={hasText ? colors.brand : colors.faint} />
           </Pressable>
         </Animated.View>
       </View>
@@ -527,7 +527,7 @@ function CommentRow({ node: c, vote: override, isAuthor, onVoted, onReply, onHol
           <View style={{ flex: 1 }} />
           <View style={styles.likes}>
             <Pressable onPress={heart} hitSlop={{ top: 4, bottom: 4, left: 6 }} style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Like comment" accessibilityState={{ selected: up }}>
-              <Ionicons name={up ? "heart" : "heart-outline"} size={18} color={up ? colors.like : colors.muted} />
+              <Icon name={up ? "heart" : "heart-outline"} size={18} color={up ? colors.like : colors.muted} />
             </Pressable>
             {likes > 0 ? (
               <Text style={styles.count} accessibilityLabel={likes === 1 ? "1 like" : `${likes} likes`}>
@@ -536,7 +536,7 @@ function CommentRow({ node: c, vote: override, isAuthor, onVoted, onReply, onHol
             ) : null}
           </View>
           <Pressable onPress={dislike} hitSlop={{ top: 4, bottom: 4, right: 6 }} style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Dislike comment" accessibilityState={{ selected: down }}>
-            <Ionicons name={down ? "thumbs-down" : "thumbs-down-outline"} size={16} color={down ? colors.text : colors.muted} />
+            <Icon name={down ? "thumbs-down" : "thumbs-down-outline"} size={16} color={down ? colors.text : colors.muted} />
           </Pressable>
         </View>
       </View>
@@ -553,7 +553,7 @@ function RepliesToggle({ count, open, onPress }: { count: number; open: boolean;
     <Pressable onPress={onPress} hitSlop={6} style={({ pressed }) => [styles.toggle, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ expanded: open }}>
       <View style={styles.toggleDash} />
       <Text style={styles.toggleText}>{label}</Text>
-      <Ionicons name={open ? "chevron-up" : "chevron-down"} size={12} color={colors.muted} />
+      <Icon name={open ? "chevron-up" : "chevron-down"} size={12} color={colors.muted} />
     </Pressable>
   );
 }

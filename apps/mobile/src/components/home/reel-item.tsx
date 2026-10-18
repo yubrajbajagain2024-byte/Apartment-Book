@@ -1,11 +1,11 @@
 import { memo, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Alert, Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { APP_NAME, deleteFeedPost, getFeedPost, getOrCreateDirectConversation, likePost, muxPlaybackUrl, muxPosterUrl, reelPath, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromReel, toggleSaved, unlikePost, type Reel, type ReportReason } from "@apartment-book/shared";
-import { hapticLike, hapticSelect, hapticTap } from "@/lib/haptics";
+import { hapticLike, hapticSelect, hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
@@ -14,6 +14,8 @@ import { space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "../action-sheet";
 import { useShareSheet } from "../share-sheet";
+import { Icon, useBounceOn } from "@/components/icon";
+import { GlassIconButton } from "@/components/glass";
 
 /** Sound is one switch for the whole Reels feed (starts muted, like every other feed video in the app). */
 let reelsMuted = true;
@@ -264,7 +266,7 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
   }
 
   function confirmDelete() {
-    Alert.alert("Delete this reel?", "This cannot be undone.", [
+    alertWithHaptic("warning", "Delete this reel?", "This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -290,7 +292,7 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
       emitPostPinned(reel.sourceId, next);
     } catch (e) {
       setPinned(!next);
-      Alert.alert(next ? "Could not pin" : "Could not unpin", errorText(e));
+      alertWithHaptic("error", next ? "Could not pin" : "Could not unpin", errorText(e));
     }
   }
 
@@ -329,12 +331,12 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
         {userPaused ? (
           <View style={styles.center} pointerEvents="none">
             <View style={styles.playBadge}>
-              <Ionicons name="play" size={44} color={colors.onMedia} style={{ marginLeft: 5 }} />
+              <Icon name="play" size={44} color={colors.onMedia} style={{ marginLeft: 5 }} />
             </View>
           </View>
         ) : null}
         <Animated.View pointerEvents="none" style={[styles.center, styles.bigHeart, { opacity: bigHeart, transform: [{ scale: bigHeart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
-          <Ionicons name="heart" size={110} color={colors.onMedia} />
+          <Icon name="heart" size={110} color={colors.onMedia} />
         </Animated.View>
       </Pressable>
 
@@ -343,9 +345,7 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
       <View pointerEvents="none" style={[styles.topShade, { height: Math.max(TOP_SHADE_MIN, topInset + TOP_SHADE_EXTRA) }]} />
       <View pointerEvents="none" style={styles.shade} />
 
-      <Pressable onPress={() => setReelsMuted(!muted)} hitSlop={8} style={({ pressed }) => [styles.mute, { top: topInset + 10 }, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={muted ? "Turn sound on" : "Turn sound off"}>
-        <Ionicons name={muted ? "volume-mute" : "volume-high"} size={18} color={colors.onMedia} />
-      </Pressable>
+      <GlassIconButton icon={muted ? "volume-mute" : "volume-high"} label={muted ? "Turn sound on" : "Turn sound off"} onPress={() => setReelsMuted(!muted)} variant="media" size={36} iconSize={17} haptic="select" hitSlop={8} style={[styles.mute, { top: topInset + 10 }]} />
 
       <View style={[styles.overlay, { paddingBottom: 31 + bottomInset }]} pointerEvents="box-none">
         <View style={styles.info} pointerEvents="box-none">
@@ -353,7 +353,7 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
             <Text style={styles.author} numberOfLines={1}>
               {reel.author.name}
             </Text>
-            {reel.author.verified ? <Ionicons name="checkmark-circle" size={15} color={colors.verifiedOnMedia} accessibilityLabel="Verified student" /> : null}
+            {reel.author.verified ? <Icon name="checkmark-circle" sf="checkmark.seal.fill" size={16} color={colors.verifiedOnMedia} accessibilityLabel="Verified student" /> : null}
           </Pressable>
           {/* Short by default, like TikTok: one line of title and one of caption, "… more" opens the rest. */}
           {oneLine ? (
@@ -408,10 +408,12 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
 function RailButton({ icon, label, color, onPress, a11y, selected, small, scale }: { icon: keyof typeof Ionicons.glyphMap; label?: string; color?: string; onPress: () => void; a11y: string; selected?: boolean; small?: boolean; scale?: Animated.Value }) {
   const colors = useColors();
   const styles = useStyles();
+  // A heart or a bookmark that turns on bounces like the system's symbols.
+  const bounce = useBounceOn(Boolean(selected));
   return (
     <Pressable onPress={onPress} hitSlop={6} style={({ pressed }) => [styles.railButton, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={a11y} accessibilityState={selected === undefined ? undefined : { selected }}>
       <Animated.View style={scale ? { transform: [{ scale }] } : undefined}>
-        <Ionicons name={icon} size={small ? 30 : 34} color={color ?? colors.onMedia} style={styles.iconShadow} />
+        <Icon name={icon} size={small ? 30 : 34} color={color ?? colors.onMedia} style={styles.iconShadow} bounce={bounce} />
       </Animated.View>
       {label ? <Text style={styles.railLabel}>{label}</Text> : null}
     </Pressable>
@@ -451,7 +453,7 @@ const useStyles = makeStyles((colors) => {
     bigHeart: { shadowColor: colors.shadow, shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 3 } },
     shade: { position: "absolute", left: 0, right: 0, bottom: 0, height: SHADE_HEIGHT, experimental_backgroundImage: scrimGradient(colors.mediaScrim, bottomShare) },
     topShade: { position: "absolute", left: 0, right: 0, top: 0, experimental_backgroundImage: scrimGradient(colors.mediaScrim, topShare) },
-    mute: { position: "absolute", right: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
+    mute: { position: "absolute", right: 12 },
     // Instagram's geometry on an iPhone: the "…" centre 46pt above the tab bar, then save, share, comment and like every 73pt or so; the caption line level with "…".
     overlay: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "flex-end", paddingLeft: space.lg, paddingRight: space.sm, paddingBottom: 31, gap: space.sm + space.xxs },
     info: { flex: 1, gap: 6, paddingBottom: 2 },

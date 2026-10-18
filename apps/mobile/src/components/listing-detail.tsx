@@ -1,6 +1,6 @@
 import { Children, Fragment, isValidElement, type ReactNode, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { getOrCreateDirectConversation, getPostEngagement, recordContact, recordView, reportContent, REPORT_REASONS, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
@@ -15,6 +15,7 @@ import { PhotoCarousel } from "./photo-carousel";
 import { firstImageOf, useShareSheet } from "./share-sheet";
 import { useQuery } from "@/lib/hooks";
 import { Button, Eyebrow, Skeleton } from "./ui";
+import { Icon } from "@/components/icon";
 
 /**
  * Shared detail layout, one continuous surface with hairlines between its parts: the photos, then the title and price in
@@ -123,7 +124,7 @@ export function ListingDetail({
             {lead ? <Text style={styles.lead}>{lead}</Text> : null}
           </View>
           <Pressable onPress={menu} hitSlop={8} accessibilityRole="button" accessibilityLabel="Options" style={({ pressed }) => [styles.dots, pressed && { opacity: 0.7 }]}>
-            <Ionicons name="ellipsis-horizontal" size={22} color={colors.muted} />
+            <Icon name="ellipsis-horizontal" size={22} color={colors.muted} />
           </Pressable>
         </View>
         {facts ? <FactGrid>{facts}</FactGrid> : null}
@@ -232,7 +233,7 @@ export function Fact({ icon, label, eyebrow }: { icon: keyof typeof Ionicons.gly
     <View style={{ gap: space.xxs }}>
       {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-        {eyebrow ? null : <Ionicons name={icon} size={16} color={colors.muted} />}
+        {eyebrow ? null : <Icon name={icon} size={16} color={colors.muted} />}
         <Text style={[styles.cellValue, { flexShrink: 1 }]} numberOfLines={2}>
           {label}
         </Text>

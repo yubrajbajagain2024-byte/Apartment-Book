@@ -17,17 +17,17 @@ import {
   useWindowDimensions,
   type GestureResponderHandlers,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { APP_NAME, listFriends, sendSharedPost, type FeedMedia, type ProfileSummary, type SharedPost } from "@apartment-book/shared";
-import { hapticSuccess, hapticTap } from "@/lib/haptics";
+import { hapticSuccess, hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { motion, radius, shadows, space, type } from "@/lib/theme";
+import { motion, radius, sheetShape, space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { Avatar } from "./avatar";
+import { Icon } from "@/components/icon";
 
 /** Besides the snapshot, the sheet needs the website link for "Share to…" and, optionally, the words that go before it. */
 export type ShareOptions = { url: string; label?: string };
@@ -229,7 +229,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
         const missed = recipients.filter((p) => failed.includes(p.id));
         setPicked(new Map(missed.map((p) => [p.id, p])));
         setStatus("idle");
-        Alert.alert(`Could not send to ${missed.map((p) => p.full_name).join(", ")}`, "Check your connection and try again.");
+        alertWithHaptic("error", `Could not send to ${missed.map((p) => p.full_name).join(", ")}`, "Check your connection and try again.");
         return;
       }
       hapticSuccess();
@@ -238,7 +238,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
     } catch (e) {
       if (!alive.current) return;
       setStatus("idle");
-      Alert.alert("Could not send", errorText(e));
+      alertWithHaptic("error", "Could not send", errorText(e));
     }
   }
 
@@ -261,7 +261,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
   if (!user) {
     body = (
       <Pressable onPress={() => closeThen(() => router.push("/(auth)/login"))} accessibilityRole="button" accessibilityLabel="Log in to share with friends" style={({ pressed }) => [styles.empty, pressed && { opacity: 0.7 }]}>
-        <Ionicons name="person-circle-outline" size={44} color={colors.faint} />
+        <Icon name="person-circle-outline" size={44} color={colors.faint} />
         <Text style={styles.loginText}>Log in to share with friends</Text>
         <Text style={styles.emptyBody}>Posts you share land in a chat with each friend.</Text>
       </Pressable>
@@ -284,7 +284,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
   } else if (friends.length === 0 && !q.trim()) {
     body = (
       <View style={styles.empty}>
-        <Ionicons name="people-outline" size={44} color={colors.faint} />
+        <Icon name="people-outline" size={44} color={colors.faint} />
         <Text style={styles.emptyTitle}>Friends you follow back show up here.</Text>
         <Pressable onPress={() => closeThen(() => router.push("/find-people"))} accessibilityRole="button" accessibilityLabel="Find people" style={({ pressed }) => [styles.ghostButton, pressed && { opacity: 0.7 }]}>
           <Text style={styles.ghostButtonText}>Find people</Text>
@@ -315,7 +315,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
                 <Avatar name={p.full_name} url={p.avatar_url} size={64} userId={p.id} ringColor={colors.elevated} />
                 {selected ? (
                   <View style={styles.check}>
-                    <Ionicons name="checkmark" size={14} color={colors.onBrand} />
+                    <Icon name="checkmark" size={14} color={colors.onBrand} />
                   </View>
                 ) : null}
               </View>
@@ -337,12 +337,12 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
           Share
         </Text>
         <Pressable onPress={onClose} hitSlop={10} style={({ pressed }) => [styles.close, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Close">
-          <Ionicons name="close" size={18} color={colors.text} />
+          <Icon name="close" size={18} color={colors.text} />
         </Pressable>
       </View>
       {user ? (
         <View style={styles.search}>
-          <Ionicons name="search-outline" size={18} color={colors.muted} />
+          <Icon name="search-outline" size={18} color={colors.muted} />
           <TextInput
             value={q}
             onChangeText={setQ}
@@ -372,7 +372,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
         ) : null}
         {body}
       </ScrollView>
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom - sheetShape.marginBottom, space.md) }]}>
         {user && picked.size > 0 ? (
           <View style={styles.composer}>
             <Text style={styles.to} numberOfLines={1}>
@@ -399,7 +399,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
                 accessibilityState={{ disabled: busy || picked.size === 0 }}
                 style={({ pressed }) => [styles.send, status === "sent" && { backgroundColor: colors.successFill }, pressed && !busy && { opacity: 0.85 }]}
               >
-                {status === "sending" ? <ActivityIndicator size="small" color={colors.onBrand} /> : status === "sent" ? <Ionicons name="checkmark" size={16} color={colors.onBrand} /> : null}
+                {status === "sending" ? <ActivityIndicator size="small" color={colors.onBrand} /> : status === "sent" ? <Icon name="checkmark" size={16} color={colors.onBrand} /> : null}
                 <Text style={styles.sendText}>{sendLabel}</Text>
               </Pressable>
             </View>
@@ -407,10 +407,10 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
         ) : null}
         <Pressable onPress={() => void shareTo()} disabled={busy} accessibilityRole="button" accessibilityLabel="Share to…" style={({ pressed }) => [styles.secondary, pressed && { backgroundColor: colors.input }]}>
           <View style={styles.secondaryIcon}>
-            <Ionicons name="share-outline" size={20} color={colors.text} />
+            <Icon name="share-outline" size={20} color={colors.text} />
           </View>
           <Text style={styles.secondaryText}>Share to…</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.faint} />
+          <Icon name="chevron-forward" size={16} color={colors.faint} />
         </Pressable>
       </View>
     </>
@@ -420,14 +420,15 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
 const useStyles = makeStyles((colors) => ({
   root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
   // The sheet floats over the dimmed screen: the system's sheet shadow, and the largest corner the system allows.
-  sheet: { height: "72%", backgroundColor: colors.elevated, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, overflow: "hidden", shadowColor: colors.shadow, ...shadows.sheet },
+  // iOS 26: the sheet floats inset from the screen's edges, its corners concentric with the phone's, a hairline for its edge.
+  sheet: { height: "72%", backgroundColor: colors.elevated, ...sheetShape, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   header: { alignItems: "center", paddingTop: space.sm, paddingBottom: space.md, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: space.md },
+  handle: { width: 36, height: 5, borderRadius: 2.5, backgroundColor: colors.borderStrong, marginBottom: space.md },
   // The sheet's title is the serif headline, a size down.
   title: { ...type.headline, fontSize: 18, lineHeight: 24, color: colors.text },
   close: { position: "absolute", right: space.md, top: 18, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
   // The search box looks like a Field at rest: the soft fill with a hairline.
-  search: { flexDirection: "row", alignItems: "center", gap: space.sm, marginHorizontal: space.md, marginTop: space.md, paddingHorizontal: 12, height: 40, borderRadius: radius.md, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border },
+  search: { flexDirection: "row", alignItems: "center", gap: space.sm, marginHorizontal: space.md, marginTop: space.md, paddingHorizontal: 12, height: 40, borderRadius: radius.md, borderCurve: "continuous", backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border },
   searchInput: { flex: 1, ...type.bodySmall, color: colors.text, paddingVertical: 0 },
   list: { paddingHorizontal: space.md, paddingTop: space.md, paddingBottom: space.sm, flexGrow: 1 },
   grid: { flexDirection: "row", flexWrap: "wrap" },
@@ -443,7 +444,7 @@ const useStyles = makeStyles((colors) => ({
   loginText: { ...type.headline, fontSize: 18, lineHeight: 24, color: colors.text, textAlign: "center" },
   errorText: { ...type.caption, fontSize: 14, color: colors.red, textAlign: "center" },
   // The look of ErrorBanner in components/ui.
-  banner: { flexDirection: "row", alignItems: "center", gap: space.md, marginBottom: space.sm, padding: space.md, borderRadius: radius.md, backgroundColor: colors.dangerSoft },
+  banner: { flexDirection: "row", alignItems: "center", gap: space.md, marginBottom: space.sm, padding: space.md, borderRadius: radius.md, borderCurve: "continuous", backgroundColor: colors.dangerSoft },
   bannerText: { flex: 1, ...type.caption, fontSize: 14, color: colors.dangerText },
   bannerRetry: { ...type.label, color: colors.dangerText },
   // A secondary button: a hairline capsule, the words in ink.
@@ -456,7 +457,7 @@ const useStyles = makeStyles((colors) => ({
   note: { flex: 1, minHeight: 40, maxHeight: 96, backgroundColor: colors.input, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingTop: 9, paddingBottom: 9, fontSize: 15, lineHeight: 20, color: colors.text },
   send: { minWidth: 84, height: 40, borderRadius: radius.pill, paddingHorizontal: space.lg, backgroundColor: colors.brand, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   sendText: { ...type.label, fontSize: 15, color: colors.onBrand },
-  secondary: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm + space.xxs, paddingHorizontal: space.xs, borderRadius: radius.md },
+  secondary: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm + space.xxs, paddingHorizontal: space.xs, borderRadius: radius.md, borderCurve: "continuous" },
   secondaryIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
   secondaryText: { flex: 1, ...type.subheading, color: colors.text },
 }));

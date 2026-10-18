@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { Animated, Pressable, StyleSheet, View, type LayoutChangeEvent } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import type { ProfileVisibility } from "@apartment-book/shared";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 export type ProfileTabKey = "posts" | "classes" | "reels" | "saved" | "liked" | "listings";
 
@@ -121,23 +122,23 @@ export function ProfileTabs({
                 <>
                   {/* Both looks are drawn, one over the other, and crossfade with the pager on the UI thread: nothing re-renders while the finger moves. */}
                   <Animated.View style={{ opacity: fade.off }}>
-                    <Ionicons name={t.icon} size={ICON_SIZE} color={colors.muted} />
+                    <Icon name={t.icon} size={ICON_SIZE} color={colors.muted} />
                   </Animated.View>
                   <Animated.View style={[styles.over, { opacity: fade.on }]}>
-                    <Ionicons name={t.activeIcon} size={ICON_SIZE} color={colors.text} />
+                    <Icon name={t.activeIcon} size={ICON_SIZE} color={colors.text} />
                   </Animated.View>
                   {badge ? (
                     <Animated.View style={[styles.badge, { opacity: fade.on }]}>
-                      <Ionicons name={VISIBILITY_ICON[badge]} size={12} color={colors.muted} />
+                      <Icon name={VISIBILITY_ICON[badge]} size={12} color={colors.muted} />
                     </Animated.View>
                   ) : null}
                 </>
               ) : (
                 <>
-                  <Ionicons name={selected ? t.activeIcon : t.icon} size={ICON_SIZE} color={selected ? colors.text : colors.muted} />
+                  <Icon name={selected ? t.activeIcon : t.icon} size={ICON_SIZE} color={selected ? colors.text : colors.muted} />
                   {selected && badge ? (
                     <View style={styles.badge}>
-                      <Ionicons name={VISIBILITY_ICON[badge]} size={12} color={colors.muted} />
+                      <Icon name={VISIBILITY_ICON[badge]} size={12} color={colors.muted} />
                     </View>
                   ) : null}
                 </>

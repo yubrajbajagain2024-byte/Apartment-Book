@@ -1,11 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { APARTMENT_SORTS, GENDER_PREFERENCES, ITEM_CONDITIONS, ITEM_SORTS, RADIUS_OPTIONS_MILES, type ApartmentSort, type GenderPref, type HousingSection, type ItemCondition, type ItemSort } from "@apartment-book/shared";
 import { Button } from "@/components/ui";
-import { radius, shadows, space, type } from "@/lib/theme";
+import { radius, sheetShape, space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 /** What narrows each page of Explore beyond its search box and pills. Toggles are `true` or left out, never false. */
 export type RoomFilters = { sort: ApartmentSort; minBedrooms?: number; minPrice?: number; maxPrice?: number; radiusMiles?: number; furnished?: true; petsAllowed?: true; videoOnly?: true };
@@ -141,7 +141,7 @@ export function FilterSheet({ section, open, filters, onApply, onClose }: { sect
               </Pressable>
             ) : null}
             <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close" style={styles.close}>
-              <Ionicons name="close" size={18} color={colors.text} />
+              <Icon name="close" size={18} color={colors.text} />
             </Pressable>
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
@@ -205,7 +205,7 @@ export function FilterSheet({ section, open, filters, onApply, onClose }: { sect
               </>
             )}
           </ScrollView>
-          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom - sheetShape.marginBottom, space.md) }]}>
             <Button title="Show results" onPress={() => onApply(tidyAll(apply(section, filters, d)))} />
           </View>
         </View>
@@ -223,8 +223,9 @@ const useStyles = makeStyles((colors, scheme) => ({
   backdrop: { flex: 1 },
   // The sheet floats on the design system's sheet shadow in light; a shadow cannot be seen on black, so in the dark theme
   // a hairline edge keeps it apart from the page instead.
-  sheet: { maxHeight: "86%", backgroundColor: colors.elevated, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderTopWidth: scheme === "dark" ? StyleSheet.hairlineWidth : 0, borderColor: colors.border, alignItems: "stretch", shadowColor: colors.shadow, ...(scheme === "light" ? shadows.sheet : { elevation: 0 }) },
-  handle: { alignSelf: "center", width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, marginTop: space.sm, marginBottom: space.xs },
+  // iOS 26: the sheet floats inset from the screen's edges, its corners concentric with the phone's, a hairline for its edge.
+  sheet: { maxHeight: "86%", backgroundColor: colors.elevated, ...sheetShape, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, alignItems: "stretch" },
+  handle: { alignSelf: "center", width: 36, height: 5, borderRadius: 2.5, backgroundColor: colors.borderStrong, marginTop: space.sm, marginBottom: space.xs },
   head: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: 20, paddingVertical: space.sm },
   // The sheet's title in the serif of headlines; Reset is a quiet label in ink.
   title: { ...type.headline, flex: 1, color: colors.text },
@@ -245,7 +246,7 @@ const useStyles = makeStyles((colors, scheme) => ({
   // A Field's look: a soft fill in a hairline, the label small and grey (its words are the sheet's own, so no small caps).
   money: { flex: 1, gap: 6 },
   moneyLabel: { ...type.footnote, fontWeight: "600", color: colors.muted, marginLeft: 2 },
-  moneyBox: { flexDirection: "row", alignItems: "center", gap: 6, height: 46, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border },
+  moneyBox: { flexDirection: "row", alignItems: "center", gap: 6, height: 46, paddingHorizontal: 14, borderRadius: radius.md, borderCurve: "continuous", backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border },
   moneySign: { fontSize: 16, color: colors.muted },
   moneyInput: { flex: 1, fontSize: 16, color: colors.text, paddingVertical: 0 },
   footer: { paddingHorizontal: 20, paddingTop: space.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },

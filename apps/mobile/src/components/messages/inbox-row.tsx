@@ -1,11 +1,11 @@
 import { memo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import type { ConversationSummary, MessageWithSender, ProfileSummary } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { highlightParts, inboxTime } from "./inbox-utils";
+import { Icon } from "@/components/icon";
 
 /** Inbox rows' photo size. */
 export const INBOX_AVATAR = 56;
@@ -39,7 +39,7 @@ export function InboxAvatar({ conversation: c, size = INBOX_AVATAR }: { conversa
   }
   return (
     <View style={[styles.groupIcon, { width: size, height: size, borderRadius: size / 2 }]}>
-      <Ionicons name="people" size={Math.round(size * 0.42)} color={colors.brand} />
+      <Icon name="people" size={Math.round(size * 0.42)} color={colors.brand} />
     </View>
   );
 }
@@ -80,10 +80,10 @@ export const InboxRow = memo(function InboxRow({ conversation: c, muted = false,
           </Text>
           {c.type === "group" ? (
             <View style={styles.tag} accessibilityLabel="Group chat">
-              <Ionicons name="people" size={11} color={colors.accent} />
+              <Icon name="people" size={11} color={colors.accent} />
             </View>
           ) : null}
-          {muted ? <Ionicons name="notifications-off-outline" size={14} color={colors.muted} accessibilityLabel="Muted" /> : null}
+          {muted ? <Icon name="notifications-off-outline" size={14} color={colors.muted} accessibilityLabel="Muted" /> : null}
           <View style={{ flex: 1 }} />
           {time ? <Text style={[styles.time, unread && styles.timeUnread]}>{time}</Text> : null}
         </View>
@@ -199,7 +199,7 @@ const useStyles = makeStyles((colors) => ({
   name: { flexShrink: 1, ...type.subheading, fontSize: 16, color: colors.text },
   // Unread is told by weight and ink, not colour: the name a step bolder, the preview and the time in the text colour.
   nameUnread: { fontWeight: "700" },
-  tag: { width: 20, height: 20, borderRadius: radius.sm, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
+  tag: { width: 20, height: 20, borderRadius: radius.sm, borderCurve: "continuous", backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
   time: { flexShrink: 0, ...type.caption, color: colors.muted },
   timeUnread: { color: colors.text },
   previewLine: { flexDirection: "row", alignItems: "center", gap: 10 },

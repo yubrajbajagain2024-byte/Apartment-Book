@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { BUZZ_PAGE_SIZE, BUZZ_SORTS, BUZZ_TOPICS, labelFor, listBuzz, type BuzzPost, type BuzzSort, type BuzzTopic } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
-import { EmptyState, ErrorBanner, Skeleton } from "@/components/ui";
+import { EmptyState, ErrorBanner, Skeleton, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
 import { useTabBarInset } from "@/lib/tab-bar";
@@ -14,6 +14,9 @@ import { supabase } from "@/lib/supabase";
 import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { BUZZ_GUTTER, BuzzCard, BuzzSearchRow, emitBuzzEvent, onBuzzEvent } from "./buzz-card";
+import { Icon } from "@/components/icon";
+import { refreshWithHaptic } from "@/lib/haptics";
+import { useTabReselect } from "@/lib/tab-reselect";
 
 const SORT_ICONS: Record<BuzzSort, keyof typeof Ionicons.glyphMap> = { hot: "flame-outline", new: "time-outline", top: "trending-up-outline" };
 
@@ -24,11 +27,11 @@ function FilterPill({ label, icon, active, caret, onPress, accessibilityLabel }:
   const ink = active ? colors.text : colors.muted;
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.filter, active && styles.filterActive, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} accessibilityState={{ selected: Boolean(active) }}>
-      {icon ? <Ionicons name={icon} size={14} color={ink} /> : null}
+      {icon ? <Icon name={icon} size={14} color={ink} /> : null}
       <Text style={[styles.filterText, { color: ink }]} maxFontSizeMultiplier={1.3}>
         {label}
       </Text>
-      {caret ? <Ionicons name="chevron-down" size={13} color={ink} /> : null}
+      {caret ? <Icon name="chevron-down" size={13} color={ink} /> : null}
     </Pressable>
   );
 }
@@ -51,7 +54,7 @@ function BuzzSkeleton() {
               <Skeleton width={i % 2 ? "58%" : "76%"} height={14} />
               <Skeleton width="84%" height={10} style={{ marginTop: 2 }} />
             </View>
-            {i % 2 ? <Skeleton width={96} height={72} style={{ borderRadius: radius.md }} /> : null}
+            {i % 2 ? <Skeleton width={96} height={72} style={{ borderRadius: radius.md, borderCurve: "continuous" }} /> : null}
           </View>
           <View style={{ flexDirection: "row", gap: space.sm }}>
             <Skeleton width={104} height={32} round />
@@ -64,7 +67,7 @@ function BuzzSkeleton() {
 }
 
 /** Home → Buzz: anonymous Reddit-style threads. `topInset` is the height of the floating Home bar above the list, which `onScroll` reports its scroll to (the bar slides away with it). */
-export function BuzzSection({ topInset, onScroll }: { active: boolean; topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
+export function BuzzSection({ active, topInset, onScroll }: { active: boolean; topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
   const router = useRouter();
   const show = useActionSheet();
   const { user, profile } = useSession();
@@ -176,10 +179,15 @@ export function BuzzSection({ topInset, onScroll }: { active: boolean; topInset:
   const inset = useMemo(() => ({ top: topInset }), [topInset]);
   const tabBar = useTabBarInset();
   const startOffset = useMemo(() => ({ x: 0, y: -topInset }), [topInset]);
+  // Tapping Home again while Buzz is on screen: back to the top.
+  const listRef = useRef<FlatList<BuzzPost>>(null);
+  const appearCells = useAppearingCells();
+  useTabReselect(() => listRef.current?.scrollToOffset({ offset: ios ? -topInset : 0, animated: true }), active);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <AnimatedFlatList
+        ref={listRef}
         data={items}
         keyExtractor={(p) => p.id}
         onScroll={onScroll}
@@ -197,11 +205,11 @@ export function BuzzSection({ topInset, onScroll }: { active: boolean; topInset:
           <View style={styles.header}>
             <View style={styles.searchRow}>
               <View style={styles.search}>
-                <Ionicons name="search" size={18} color={colors.muted} />
+                <Icon name="search" size={18} color={colors.muted} />
                 <TextInput value={search} onChangeText={setSearch} placeholder="Search Buzz" placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} returnKeyType="search" clearButtonMode="while-editing" autoCorrect={false} style={styles.searchInput} accessibilityLabel="Search Buzz" />
               </View>
               <Pressable onPress={create} style={({ pressed }) => [styles.plus, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Post anonymously on Buzz">
-                <Ionicons name="add" size={24} color={colors.text} />
+                <Icon name="add" size={24} color={colors.text} />
               </Pressable>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -BUZZ_GUTTER }} contentContainerStyle={{ gap: space.sm, paddingHorizontal: BUZZ_GUTTER }} keyboardShouldPersistTaps="handled">
@@ -211,13 +219,14 @@ export function BuzzSection({ topInset, onScroll }: { active: boolean; topInset:
               ))}
             </ScrollView>
             <View style={styles.notice}>
-              <Ionicons name="eye-off-outline" size={13} color={colors.muted} style={styles.noticeIcon} />
+              <Icon name="eye-off-outline" size={13} color={colors.muted} style={styles.noticeIcon} />
               {/* The whole sentence, on two lines where a phone is narrow: cut short, it would hide what it promises. */}
               <Text style={styles.noticeText} numberOfLines={2}>Buzz is anonymous. Nobody sees who wrote a post or a reply.</Text>
             </View>
             {error && items.length > 0 ? <ErrorBanner message={error} onRetry={refresh} /> : null}
           </View>
         }
+        CellRendererComponent={appearCells}
         renderItem={({ item }) =>
           searching ? (
             <BuzzSearchRow post={item} />
@@ -258,7 +267,7 @@ export function BuzzSection({ topInset, onScroll }: { active: boolean; topInset:
         }
         onEndReached={loadMore}
         onEndReachedThreshold={0.6}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} progressViewOffset={ios ? undefined : topInset} tintColor={colors.brand} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshWithHaptic(refresh)} progressViewOffset={ios ? undefined : topInset} tintColor={colors.brand} />}
       />
     </View>
   );

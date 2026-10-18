@@ -8,6 +8,7 @@ import { Button, Chip, Field } from "@/components/ui";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { space } from "@/lib/theme";
+import { alertWithHaptic, hapticSuccess } from "@/lib/haptics";
 
 export default function CreateRoommateScreen() {
   const { user, profile } = useSession();
@@ -43,9 +44,10 @@ export default function CreateRoommateScreen() {
     setBusy(true);
     try {
       const created = await createRoommatePost(supabase, user!.id, parsed.data);
+      hapticSuccess();
       router.replace({ pathname: "/roommates/[id]", params: { id: created.id } });
     } catch (e) {
-      Alert.alert("Could not post", e instanceof Error ? e.message : "Try again");
+      alertWithHaptic("error", "Could not post", e instanceof Error ? e.message : "Try again");
     } finally {
       setBusy(false);
     }

@@ -9,7 +9,9 @@
  * Every text colour clears WCAG contrast on every surface it sits on (bg, card, input, panel, elevated), in both themes:
  * `text` above 15:1, `muted` at least 6.5:1 (AAA on the screen), `faint` at least 4.6:1 (AA, even placeholders on a
  * field's fill). Hairlines (`border`) are about 1.3:1 so they read as a crisp line, not a smudge, and the outlines of
- * controls you tap (`borderStrong`) about 1.6:1 or more so a chip or an outline button reads as one shape.
+ * controls you tap (`borderStrong`) about 1.6:1 or more so a chip or an outline button reads as one shape. The floating
+ * bar's `glass` fill lets a breath of the content through its Liquid Glass at 92%: even over pure black or white
+ * content its grey labels keep at least 6:1.
  */
 export type ThemeColors = {
   /** CampConnect's primary: ink. Buttons, links, selected tabs and chips; white ink in dark. */
@@ -118,7 +120,7 @@ export const lightColors: ThemeColors = {
   accent: "#5B4BDB",
   accentBlue: "#4F5FD8",
   accentTeal: "#7C6EE6",
-  glass: "rgba(247,246,243,0.96)",
+  glass: "rgba(247,246,243,0.92)",
   glassEdge: "rgba(18,18,20,0.12)",
   glassHighlight: "rgba(18,18,20,0.08)",
   bg: "#F7F6F3",
@@ -158,7 +160,7 @@ export const lightColors: ThemeColors = {
   mediaPill: "rgba(0,0,0,0.62)",
   mediaTextShadow: "rgba(0,0,0,0.6)",
   verifiedOnMedia: "#E6CB85",
-  mediaControl: "rgba(18,18,20,0.46)",
+  mediaControl: "rgba(18,18,20,0.58)",
   mediaControlEdge: "rgba(255,255,255,0.24)",
   mediaControlActive: "rgba(255,255,255,0.28)",
   mediaBg: "#000000",
@@ -175,7 +177,7 @@ export const darkColors: ThemeColors = {
   accent: "#9A8CFF",
   accentBlue: "#8F9BFF",
   accentTeal: "#B3A7FF",
-  glass: "rgba(21,21,23,0.96)",
+  glass: "rgba(21,21,23,0.92)",
   glassEdge: "rgba(255,255,255,0.14)",
   glassHighlight: "rgba(255,255,255,0.14)",
   bg: "#0B0B0C",
@@ -215,7 +217,7 @@ export const darkColors: ThemeColors = {
   mediaPill: "rgba(0,0,0,0.62)",
   mediaTextShadow: "rgba(0,0,0,0.6)",
   verifiedOnMedia: "#E6CB85",
-  mediaControl: "rgba(18,18,20,0.46)",
+  mediaControl: "rgba(18,18,20,0.58)",
   mediaControlEdge: "rgba(255,255,255,0.24)",
   mediaControlActive: "rgba(255,255,255,0.28)",
   mediaBg: "#000000",

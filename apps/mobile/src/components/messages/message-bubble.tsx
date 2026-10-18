@@ -1,7 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import {
   extractLinks,
@@ -19,6 +18,7 @@ import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { AttachmentFileRow } from "./attachment-file-row";
 import { AttachmentGrid, type GridMedia } from "./attachment-grid";
+import { Icon } from "@/components/icon";
 
 /**
  * A sent photo or video as something drawable: a signed URL with the storage path as its cache key, or null while
@@ -212,11 +212,11 @@ export function MessageRow({
           {mine && receipt && receipt !== "seen" ? (
             <View style={styles.receipt} accessibilityLabel={receipt === "sending" ? "Sending" : receipt === "sent" ? "Sent" : "Delivered"}>
               {receipt === "sending" ? (
-                <Ionicons name="ellipse-outline" size={13} color={colors.faint} />
+                <Icon name="ellipse-outline" size={13} color={colors.faint} />
               ) : receipt === "sent" ? (
-                <Ionicons name="checkmark-circle-outline" size={14} color={colors.faint} />
+                <Icon name="checkmark-circle-outline" size={14} color={colors.faint} />
               ) : (
-                <Ionicons name="checkmark-circle" size={14} color={colors.faint} />
+                <Icon name="checkmark-circle" size={14} color={colors.faint} />
               )}
             </View>
           ) : null}
@@ -308,8 +308,8 @@ const useStyles = makeStyles((colors) => ({
   failedTime: { color: colors.red, fontWeight: "600" },
   receipt: { width: 16, alignItems: "center", marginBottom: 18 },
   seen: { flexDirection: "row", justifyContent: "flex-end", gap: 2, paddingRight: 2, marginTop: 2 },
-  highlight: { position: "absolute", top: -3, bottom: -3, left: -8, right: -8, borderRadius: radius.md, backgroundColor: colors.brandSoft },
-  card: { width: 240, maxWidth: "100%", borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.card, overflow: "hidden" },
+  highlight: { position: "absolute", top: -3, bottom: -3, left: -8, right: -8, borderRadius: radius.md, borderCurve: "continuous", backgroundColor: colors.brandSoft },
+  card: { width: 240, maxWidth: "100%", borderRadius: radius.lg, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.card, overflow: "hidden" },
   // 4:5 would be 300pt tall at this width, so the picture is capped at 200 and cropped.
   cardImage: { width: "100%", height: 200, backgroundColor: colors.input },
   cardBody: { padding: 10, gap: 4 },

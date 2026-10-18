@@ -11,6 +11,7 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { space } from "@/lib/theme";
 import { makeStyles } from "@/lib/theme-provider";
+import { alertWithHaptic } from "@/lib/haptics";
 
 const NOBODY: ProfileSummary[] = [];
 
@@ -72,7 +73,7 @@ export default function NewMessageScreen() {
       router.replace({ pathname: "/messages/[id]", params: { id } });
     } catch (e) {
       setOpening(null);
-      Alert.alert("Couldn't open the chat", errorText(e));
+      alertWithHaptic("error", "Couldn't open the chat", errorText(e));
     }
   }
 

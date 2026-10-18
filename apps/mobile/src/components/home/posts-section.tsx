@@ -5,7 +5,7 @@ import { listFeedPosts, type FeedPostWithAuthor } from "@apartment-book/shared";
 import { CaughtUp } from "@/components/home/caught-up";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
-import { EmptyState, ErrorBanner, FeedSkeleton } from "@/components/ui";
+import { EmptyState, ErrorBanner, FeedSkeleton, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
 import { useTabBarInset } from "@/lib/tab-bar";
@@ -17,6 +17,8 @@ import { space, type } from "@/lib/theme";
 import { useColors } from "@/lib/theme-provider";
 import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { InstaPost } from "./insta-post";
+import { refreshWithHaptic } from "@/lib/haptics";
+import { useTabReselect } from "@/lib/tab-reselect";
 
 /** Home → Posts: photo-first posts from students, newest first. The campus and "Following" (only the people you follow) are chosen from the menu under your photo in the top bar; new posts are made with the "+" badge on your photo in the top bar. */
 export function PostsSection({ active, topInset, onScroll }: { active: boolean; topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
@@ -48,6 +50,9 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
 
   // Coming back to Posts keeps the list and the scroll position. It only reloads when this person has just published a post.
   const listRef = useRef<FlatList<FeedPostWithAuthor>>(null);
+  const appearCells = useAppearingCells();
+  // Tapping Home again while Posts is on screen: back to the top.
+  useTabReselect(() => listRef.current?.scrollToOffset({ offset: inset.topOffset, animated: true }), active);
   const wasActive = useRef(active);
   const { refresh, setItems } = feed;
   useEffect(() => {
@@ -81,6 +86,7 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
         scrollEventThrottle={16}
         // Room under the last post for the floating bottom bar.
         contentContainerStyle={{ paddingBottom: 96 + tabBar, paddingTop: inset.paddingTop }}
+        CellRendererComponent={appearCells}
         renderItem={({ item: p }) => (
           <InstaPost
             post={p}
@@ -112,7 +118,7 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
         onEndReachedThreshold={0.6}
         onViewableItemsChanged={onViewable}
         viewabilityConfig={viewability}
-        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} progressViewOffset={inset.progressViewOffset} />}
+        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={refreshWithHaptic(feed.refresh)} progressViewOffset={inset.progressViewOffset} />}
       />
       <CommentsSheet target={target} onClose={closeComments} onCountChange={(d) => commenting && setCommentDelta((prev) => ({ ...prev, [commenting.id]: (prev[commenting.id] ?? 0) + d }))} />
     </View>

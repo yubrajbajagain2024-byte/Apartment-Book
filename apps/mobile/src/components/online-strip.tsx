@@ -44,7 +44,7 @@ export function OnlineStrip() {
 
 const useStyles = makeStyles((colors) => ({
   // Outlined like Card, so the strip still stands apart from the feed in both themes.
-  wrap: { backgroundColor: colors.card, borderRadius: radius.lg, paddingTop: space.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  wrap: { backgroundColor: colors.card, borderRadius: radius.lg, borderCurve: "continuous", paddingTop: space.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   heading: { ...type.label, fontSize: 13, color: colors.muted, paddingHorizontal: space.md, paddingBottom: space.sm },
   name: { ...type.footnote, fontSize: 11, color: colors.text },
 }));

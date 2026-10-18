@@ -6,6 +6,7 @@ import { Badge, Button, EmptyState, Tag } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
 import { space } from "@/lib/theme";
+import { alertWithHaptic } from "@/lib/haptics";
 
 export default function ApartmentScreen() {
   const { id, comment } = useLocalSearchParams<{ id: string; comment?: string }>();
@@ -41,7 +42,7 @@ export default function ApartmentScreen() {
           variant="danger"
           size="sm"
           onPress={() =>
-            Alert.alert("Delete this listing?", "This cannot be undone.", [
+            alertWithHaptic("warning", "Delete this listing?", "This cannot be undone.", [
               { text: "Cancel", style: "cancel" },
               { text: "Delete", style: "destructive", onPress: () => deleteApartment(supabase, a.id).then(() => router.back()).catch((e) => Alert.alert("Could not delete", e.message)) },
             ])

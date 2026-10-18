@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
-import { Ionicons } from "@expo/vector-icons";
 import {
   addProfileClass,
   classCodeProblem,
@@ -33,11 +32,12 @@ import {
 } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
 import { Button, EmptyState } from "@/components/ui";
-import { hapticTap } from "@/lib/haptics";
+import { hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
 import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 type UpdateClasses = (fn: (classes: ProfileClass[]) => ProfileClass[]) => void;
 /** What the form is open for: a new class, or one of yours being changed. */
@@ -94,7 +94,7 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
       await removeProfileClass(supabase, c.id);
     } catch (e) {
       onChange((list) => (list.some((x) => x.id === c.id) ? list : [...list, c]));
-      Alert.alert(`Could not delete ${c.code}`, errorText(e));
+      alertWithHaptic("error", `Could not delete ${c.code}`, errorText(e));
     }
   }
 
@@ -109,7 +109,7 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
           icon: "trash-outline",
           destructive: true,
           onPress: () =>
-            Alert.alert(`Delete ${c.code}?`, c.course_group_id ? `It comes off your ${c.term} classes, and you leave its section's chat.` : `It comes off your ${c.term} classes.`, [
+            alertWithHaptic("warning", `Delete ${c.code}?`, c.course_group_id ? `It comes off your ${c.term} classes, and you leave its section's chat.` : `It comes off your ${c.term} classes.`, [
               { text: "Cancel", style: "cancel" },
               { text: "Delete", style: "destructive", onPress: () => void remove(c) },
             ]),
@@ -167,7 +167,7 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
                   style={({ pressed }) => [styles.classRow, own && pressed && styles.classRowPressed]}
                 >
                   <View style={styles.codeBadge}>
-                    <Ionicons name="book-outline" size={16} color={colors.brand} />
+                    <Icon name="book-outline" size={16} color={colors.brand} />
                   </View>
                   <View style={{ flex: 1, gap: 1 }}>
                     <Text style={styles.code}>{c.code}</Text>
@@ -275,7 +275,7 @@ function AddClassForm({ userId, initial, classes, onSaved, onClose }: { userId: 
       <View style={styles.formHead}>
         <Text style={styles.formTitle}>{initial ? "Edit class" : "Add a class"}</Text>
         <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close" style={styles.formClose}>
-          <Ionicons name="close" size={18} color={colors.text} />
+          <Icon name="close" size={18} color={colors.text} />
         </Pressable>
       </View>
       <View style={styles.pair}>
@@ -494,14 +494,14 @@ function MeetingsEditor({ meetings, onChange, error }: { meetings: ClassMeeting[
               {first ? (
                 slots.length < MAX_CLASS_MEETINGS ? (
                   <Pressable onPress={() => addTime(s.day)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Add another time on ${label}`} style={({ pressed }) => [styles.slotAction, pressed && { opacity: 0.6 }]}>
-                    <Ionicons name="add-circle-outline" size={20} color={colors.brand} />
+                    <Icon name="add-circle-outline" size={20} color={colors.brand} />
                   </Pressable>
                 ) : (
                   <View style={styles.slotAction} />
                 )
               ) : (
                 <Pressable onPress={() => removeSlot(index)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Remove this time on ${label}`} style={({ pressed }) => [styles.slotAction, pressed && { opacity: 0.6 }]}>
-                  <Ionicons name="close-circle-outline" size={20} color={colors.muted} />
+                  <Icon name="close-circle-outline" size={20} color={colors.muted} />
                 </Pressable>
               )}
             </View>
@@ -541,12 +541,12 @@ const useStyles = makeStyles((colors) => ({
   title: { ...type.caption, color: colors.muted },
   details: { ...type.footnote, color: colors.faint },
   // The form: a hairline card with a serif title, eyebrow labels and fields on the soft fill, like the system's Field.
-  form: { gap: space.md, padding: space.lg, borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.card },
+  form: { gap: space.md, padding: space.lg, borderRadius: radius.lg, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.card },
   formHead: { flexDirection: "row", alignItems: "center" },
   formTitle: { flex: 1, ...type.headline, color: colors.text },
   formClose: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center" },
   label: { ...type.eyebrow, color: colors.muted, marginLeft: 2 },
-  input: { backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, lineHeight: 20, color: colors.text },
+  input: { backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, borderCurve: "continuous", paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, lineHeight: 20, color: colors.text },
   pair: { flexDirection: "row", gap: space.sm },
   error: { ...type.footnote, color: colors.red, marginLeft: 2 },
   added: { ...type.caption, color: colors.successText },
@@ -561,14 +561,14 @@ const useStyles = makeStyles((colors) => ({
   dayText: { ...type.label, fontSize: 13, color: colors.muted },
   dayTextOn: { color: colors.onBrand },
   hint: { ...type.footnote, color: colors.faint },
-  slot: { gap: 6, padding: space.sm, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  slot: { gap: 6, padding: space.sm, borderRadius: radius.md, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   // A second time on the same day sits tight under the first, without a day name of its own.
   slotExtra: { marginTop: -2 },
   slotRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   slotDay: { width: 40, ...type.label, fontSize: 13, color: colors.text },
   slotTimeWrap: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
   slotDash: { ...type.caption, fontSize: 14, color: colors.muted },
-  time: { flex: 1, height: 38, alignItems: "center", justifyContent: "center", paddingHorizontal: 8, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input },
+  time: { flex: 1, height: 38, alignItems: "center", justifyContent: "center", paddingHorizontal: 8, borderRadius: radius.md, borderCurve: "continuous", borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input },
   timeOn: { borderColor: colors.text },
   timeValue: { ...type.label, fontSize: 14, color: colors.text },
   slotAction: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },

@@ -1,9 +1,9 @@
-import { useMemo } from "react";
-import { RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { useMemo, useRef } from "react";
+import { RefreshControl, Text, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { formatDistance, formatPrice, isVerifiedPoster, KM_PER_MILE, listApartments, listingMedia, type ApartmentWithOwner } from "@apartment-book/shared";
 import type { RoomFilters } from "@/components/housing/filter-sheet";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
-import { EmptyState, ErrorBanner, FeedSkeleton, Tag } from "@/components/ui";
+import { EmptyState, ErrorBanner, FeedSkeleton, Tag, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -12,13 +12,15 @@ import { useTabBarInset } from "@/lib/tab-bar";
 import { space, type } from "@/lib/theme";
 import { useColors } from "@/lib/theme-provider";
 import { useEngagement } from "@/lib/use-engagement";
+import { refreshWithHaptic } from "@/lib/haptics";
+import { useTabReselect } from "@/lib/tab-reselect";
 
 /**
  * The Apartments half of the Explore tab: the listings feed, starting `topInset` under the floating labels and pills and
  * reporting its scroll through `onScroll`. The search (`q`) and the campus come from the Housing screen's own bar, which
  * also owns the "+" button.
  */
-export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filtered }: { topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void; q: string; campus: "mine" | "all"; filters: RoomFilters; filtered: boolean }) {
+export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filtered, active = true }: { topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void; q: string; campus: "mine" | "all"; filters: RoomFilters; filtered: boolean; active?: boolean }) {
   const colors = useColors();
   const { user, profile } = useSession();
   const universityId = campus === "all" ? undefined : (profile?.university_id ?? undefined);
@@ -31,16 +33,22 @@ export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filt
   const { savedIds, engagement } = useEngagement("apartment", feed.items, user?.id ?? null);
   const inset = useMemo(() => listInset(topInset), [topInset]);
   const tabBar = useTabBarInset();
+  // Tapping Explore again while Room is on screen: back to the top.
+  const listRef = useRef<FlatList<ApartmentWithOwner>>(null);
+  const appearCells = useAppearingCells();
+  useTabReselect(() => listRef.current?.scrollToOffset({ offset: inset.topOffset, animated: true }), active);
 
   return (
     <View style={{ flex: 1 }}>
       <AnimatedFlatList
+        ref={listRef}
         data={feed.items}
         keyExtractor={(a) => a.id}
         {...inset.list}
         onScroll={onScroll}
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: 90 + tabBar, paddingTop: inset.paddingTop }}
+        CellRendererComponent={appearCells}
         renderItem={({ item: a }) => (
           <PostCard
             targetType="apartment"
@@ -70,7 +78,7 @@ export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filt
         ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ ...type.caption, textAlign: "center", color: colors.faint, paddingVertical: space.md }}>Loading more…</Text> : null}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
-        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} progressViewOffset={inset.progressViewOffset} />}
+        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={refreshWithHaptic(feed.refresh)} progressViewOffset={inset.progressViewOffset} />}
       />
     </View>
   );

@@ -1,16 +1,18 @@
-import { useMemo } from "react";
-import { RefreshControl, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { useMemo, useRef } from "react";
+import { RefreshControl, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { budgetLabel, formatDate, formatDistance, isVerifiedPoster, KM_PER_MILE, listRoommatePosts, listingMedia, type RoommatePostWithAuthor } from "@apartment-book/shared";
 import type { RoommateFilters } from "@/components/housing/filter-sheet";
 import { OnlineStrip } from "@/components/online-strip";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
-import { EmptyState, ErrorBanner, FeedSkeleton, Tag } from "@/components/ui";
+import { EmptyState, ErrorBanner, FeedSkeleton, Tag, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useTabBarInset } from "@/lib/tab-bar";
 import { useEngagement } from "@/lib/use-engagement";
+import { refreshWithHaptic } from "@/lib/haptics";
+import { useTabReselect } from "@/lib/tab-reselect";
 
 /** The two kinds of roommate post the "Has a room" and "Looking for a room" pills pick between. */
 export type RoommateType = "has_room" | "needs_room";
@@ -20,7 +22,7 @@ export type RoommateType = "has_room" | "needs_room";
  * and pills and reporting its scroll through `onScroll`. The search (`q`), the campus and the kind of post come from the
  * Housing screen's own bar, which also owns the "+" button.
  */
-export function RoommatesSection({ topInset, onScroll, q, campus, type, filters, filtered }: { topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void; q: string; campus: "mine" | "all"; type: RoommateType | undefined; filters: RoommateFilters; filtered: boolean }) {
+export function RoommatesSection({ topInset, onScroll, q, campus, type, filters, filtered, active = true }: { topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void; q: string; campus: "mine" | "all"; type: RoommateType | undefined; filters: RoommateFilters; filtered: boolean; active?: boolean }) {
   const { user, profile } = useSession();
   const universityId = campus === "all" ? undefined : (profile?.university_id ?? undefined);
   // The filter sheet's choices; distance needs a campus to measure from, so it is dropped on "every university".
@@ -31,11 +33,16 @@ export function RoommatesSection({ topInset, onScroll, q, campus, type, filters,
   );
   const { savedIds, engagement } = useEngagement("roommate", feed.items, user?.id ?? null);
   const inset = useMemo(() => listInset(topInset), [topInset]);
+  // Tapping Explore again while Roommate is on screen: back to the top.
+  const listRef = useRef<FlatList<RoommatePostWithAuthor>>(null);
+  const appearCells = useAppearingCells();
+  useTabReselect(() => listRef.current?.scrollToOffset({ offset: inset.topOffset, animated: true }), active);
   const tabBar = useTabBarInset();
 
   return (
     <View style={{ flex: 1 }}>
       <AnimatedFlatList
+        ref={listRef}
         data={feed.items}
         keyExtractor={(p) => p.id}
         {...inset.list}
@@ -47,6 +54,7 @@ export function RoommatesSection({ topInset, onScroll, q, campus, type, filters,
             <OnlineStrip />
           </View>
         }
+        CellRendererComponent={appearCells}
         renderItem={({ item: p }) => {
           const budget = budgetLabel(p);
           return (
@@ -85,7 +93,7 @@ export function RoommatesSection({ topInset, onScroll, q, campus, type, filters,
         ListEmptyComponent={feed.loading ? <FeedSkeleton rows={2} /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon={filtered || q ? "search-outline" : "people-outline"} title={filtered || q ? "No roommate posts match" : "No roommate posts yet"} body={filtered ? "Try fewer filters." : q ? "Try another word." : "Be the first to post for your campus."} />}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
-        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} progressViewOffset={inset.progressViewOffset} />}
+        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={refreshWithHaptic(feed.refresh)} progressViewOffset={inset.progressViewOffset} />}
       />
     </View>
   );

@@ -1,12 +1,12 @@
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { formatPrice, ITEM_CONDITIONS, labelFor, photosFor, timeAgo, type ItemWithSeller } from "@apartment-book/shared";
 import { categoryIcon } from "@/components/marketplace/item-card";
 import { AnimatedPressable, usePressScale } from "@/components/ui";
 import { motion, radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 
 /**
@@ -28,7 +28,7 @@ export function ItemTile({ item }: { item: ItemWithSeller }) {
       onPressOut={press.onPressOut}
       accessibilityLabel={item.title}
     >
-      <View style={styles.photo}>{photo ? <Image source={{ uri: photo.url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={motion.base} /> : <Ionicons name={categoryIcon(item.category)} size={32} color={colors.faint} />}</View>
+      <View style={styles.photo}>{photo ? <Image source={{ uri: photo.url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={motion.base} /> : <Icon name={categoryIcon(item.category)} size={32} color={colors.faint} />}</View>
       <View style={styles.words}>
         <Text style={styles.price} numberOfLines={1}>
           {item.price === 0 ? "Free" : formatPrice(item.price, item.currency)}
@@ -46,7 +46,7 @@ export function ItemTile({ item }: { item: ItemWithSeller }) {
 }
 
 const useStyles = makeStyles((colors) => ({
-  tile: { flex: 1, maxWidth: "49%", backgroundColor: colors.card, borderRadius: radius.md, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  tile: { flex: 1, maxWidth: "49%", backgroundColor: colors.card, borderRadius: radius.md, borderCurve: "continuous", overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   // The skeleton tone shows while the photo loads, and behind the icon of an item without one.
   photo: { aspectRatio: 1, backgroundColor: colors.skeleton, alignItems: "center", justifyContent: "center" },
   words: { padding: space.sm + space.xxs, gap: space.xxs },

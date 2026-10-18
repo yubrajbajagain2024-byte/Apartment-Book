@@ -9,6 +9,7 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { space, type } from "@/lib/theme";
 import { useColors } from "@/lib/theme-provider";
+import { alertWithHaptic, hapticSuccess } from "@/lib/haptics";
 
 export default function CreateItemScreen() {
   const colors = useColors();
@@ -33,9 +34,10 @@ export default function CreateItemScreen() {
     setBusy(true);
     try {
       const created = await createItem(supabase, user!.id, parsed.data);
+      hapticSuccess();
       router.replace({ pathname: "/marketplace/[id]", params: { id: created.id } });
     } catch (e) {
-      Alert.alert("Could not post", e instanceof Error ? e.message : "Try again");
+      alertWithHaptic("error", "Could not post", e instanceof Error ? e.message : "Try again");
     } finally {
       setBusy(false);
     }

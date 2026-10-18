@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, View, type GestureResponderHandlers } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { PostTargetType } from "@apartment-book/shared";
-import { motion, radius, shadows, space } from "@/lib/theme";
+import { motion, radius, sheetShape, space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { CommentComposer, CommentList, CommentsHeading, useCommentThread } from "./comments";
+import { Icon } from "@/components/icon";
 
 /** `focusComposer` opens the sheet straight into typing (the "Add comment…" bar under a reel), once the sheet has slid up. */
 export type CommentsTarget = { targetType: PostTargetType; targetId: string; ownerId: string; comments: number; focusComposer?: boolean };
@@ -80,13 +80,13 @@ function SheetBody({ target, panHandlers, onClose, onCountChange }: { target: Co
         <View style={styles.handle} />
         <CommentsHeading count={count} onSort={thread.setSort} />
         <Pressable onPress={onClose} hitSlop={10} style={({ pressed }) => [styles.close, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Close">
-          <Ionicons name="close" size={18} color={colors.text} />
+          <Icon name="close" size={18} color={colors.text} />
         </Pressable>
       </View>
       <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.list}>
         <CommentList thread={thread} emptyText="Be the first to comment." />
       </ScrollView>
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom - sheetShape.marginBottom, space.md) }]}>
         <CommentComposer thread={thread} />
       </View>
     </>
@@ -96,9 +96,10 @@ function SheetBody({ target, panHandlers, onClose, onCountChange }: { target: Co
 const useStyles = makeStyles((colors) => ({
   root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
   // The sheet floats over the dimmed screen: the system's sheet shadow, and the largest corner the system allows.
-  sheet: { height: "70%", backgroundColor: colors.elevated, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, overflow: "hidden", shadowColor: colors.shadow, ...shadows.sheet },
+  // iOS 26: the sheet floats inset from the screen's edges, its corners concentric with the phone's, a hairline for its edge.
+  sheet: { height: "70%", backgroundColor: colors.elevated, ...sheetShape, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   header: { alignItems: "center", paddingTop: space.sm, paddingBottom: space.md, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: space.md },
+  handle: { width: 36, height: 5, borderRadius: 2.5, backgroundColor: colors.borderStrong, marginBottom: space.md },
   close: { position: "absolute", right: space.md, top: 18, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
   list: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.sm },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: space.lg, paddingTop: space.md, backgroundColor: colors.elevated },

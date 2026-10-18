@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View, type ViewToken } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { listReels, REELS_PAGE_SIZE, type Reel } from "@apartment-book/shared";
 import { errorText } from "@/lib/hooks";
@@ -13,6 +12,9 @@ import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { ReelCommentsSheet } from "./reel-comments-sheet";
 import { ReelItem, reelKey } from "./reel-item";
+import { Icon } from "@/components/icon";
+import { refreshWithHaptic } from "@/lib/haptics";
+import { useTabReselect } from "@/lib/tab-reselect";
 
 /** Set after someone posts a reel, so the feed reloads the next time it is on screen. */
 let reelsStale = false;
@@ -54,6 +56,8 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
   const [visible, setVisible] = useState(0);
   const [commentsKey, setCommentsKey] = useState<string | null>(null);
   const listRef = useRef<FlatList<Reel>>(null);
+  // Tapping Home again while Reels is on screen: back to the first reel.
+  useTabReselect(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }), active);
   const seq = useRef(0);
   const offset = useRef(0);
   const done = useRef(false);
@@ -198,7 +202,7 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
   if (error && (!reels || reels.length === 0)) {
     body = (
       <View style={[styles.fill, styles.centered, { paddingTop: topInset }]}>
-        <Ionicons name="cloud-offline-outline" size={40} color={colors.onMediaMuted} />
+        <Icon name="cloud-offline-outline" size={40} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>Reels did not load</Text>
         <Text style={styles.stateBody}>{error}</Text>
         <Pressable onPress={() => void loadFirst("initial")} style={({ pressed }) => [styles.stateButton, pressed && { opacity: 0.8 }]} accessibilityRole="button">
@@ -216,11 +220,11 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
   } else if (reels.length === 0) {
     body = (
       <View style={[styles.fill, styles.centered, { paddingTop: topInset }]}>
-        <Ionicons name="film-outline" size={40} color={colors.onMediaMuted} />
+        <Icon name="film-outline" size={40} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>No reels yet</Text>
         <Text style={styles.stateBody}>Share a quick video of campus life, your place or a room tour.</Text>
         <Pressable onPress={create} style={({ pressed }) => [styles.stateButton, pressed && { opacity: 0.8 }]} accessibilityRole="button">
-          <Ionicons name="add" size={18} color={colors.mediaBg} />
+          <Icon name="add" size={18} color={colors.mediaBg} />
           <Text style={styles.stateButtonText}>Post the first reel</Text>
         </Pressable>
         <Pressable onPress={() => void loadFirst("refresh")} hitSlop={8} style={({ pressed }) => [{ marginTop: space.md }, pressed && { opacity: 0.7 }]} accessibilityRole="button">
@@ -252,7 +256,7 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
         onEndReached={() => void loadMore()}
         onEndReachedThreshold={2}
         scrollsToTop={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadFirst("refresh")} tintColor={colors.onMedia} colors={[colors.brand]} progressViewOffset={topInset} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshWithHaptic(() => void loadFirst("refresh"))} tintColor={colors.onMedia} colors={[colors.brand]} progressViewOffset={topInset} />}
       />
     );
   }
@@ -282,7 +286,7 @@ const useStyles = makeStyles((colors) => ({
   centered: { alignItems: "center", justifyContent: "center", paddingHorizontal: space.xxl, gap: space.sm },
   stateTitle: { ...type.headline, color: colors.onMedia, textAlign: "center", marginTop: space.xs },
   stateBody: { ...type.caption, fontSize: 14, lineHeight: 20, color: colors.onMediaMuted, textAlign: "center", maxWidth: 300 },
-  stateButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 44, backgroundColor: colors.onMedia, borderRadius: radius.md, paddingHorizontal: 20, marginTop: space.md },
+  stateButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 44, backgroundColor: colors.onMedia, borderRadius: radius.md, borderCurve: "continuous", paddingHorizontal: 20, marginTop: space.md },
   stateButtonText: { ...type.label, fontSize: 15, color: colors.mediaBg },
   stateLink: { ...type.label, color: colors.onMediaMuted },
   more: { position: "absolute", bottom: 6, left: 0, right: 0, alignItems: "center" },

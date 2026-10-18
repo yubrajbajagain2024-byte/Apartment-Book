@@ -5,6 +5,8 @@ import Animated, { Extrapolation, interpolate, useAnimatedStyle, useSharedValue,
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TAB_BAR_HEIGHT, TAB_BAR_SIDE, tabBarBottom } from "@/lib/tab-bar";
+import { useReduceTransparency } from "@/lib/accessibility";
+import { hapticSelect } from "@/lib/haptics";
 import { useAppTheme } from "@/lib/theme-provider";
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>["tabBar"]>>[0];
@@ -15,21 +17,23 @@ const GLASS = isLiquidGlassAvailable();
 const ACTIVE_SHARE = 1.5;
 /** The pill's inset from the bar's top and bottom edges. */
 const PILL_INSET = 6;
-const ICON_SIZE = 24;
+/** The system tab bars' glyph size: SF Symbols at this size read level with the 11pt labels under them. */
+const ICON_SIZE = 26;
 /** A soft, settled spring: no overshoot to speak of, so the pill never wobbles past a tab. */
 const SPRING = { damping: 20, stiffness: 190, mass: 0.8 };
 
 /**
  * The floating bottom bar, GroupMe style: a rounded glass pill with the five tabs in a row and one lighter capsule that
  * slides from the tab you were on to the one you tapped on a soft spring, while the tabs make room for it (the tab on
- * screen is ACTIVE_SHARE as wide as the others, and the widths follow the same spring, so nothing jumps). No haptic
- * plays for a switch. The navigator's own events still fire (tabPress can be prevented, tabLongPress
+ * screen is ACTIVE_SHARE as wide as the others, and the widths follow the same spring, so nothing jumps), with a
+ * selection tick and the new tab's symbol bouncing. The navigator's own events still fire (tabPress can be prevented, tabLongPress
  * is sent), each tab keeps its icon, title and badge from its screen options, and screen readers hear
  * "Home, tab, 1 of 5" as before. Everything that moves runs on the UI thread (Reanimated).
  */
 export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
+  const reduceTransparency = useReduceTransparency();
   const [rowWidth, setRowWidth] = useState(0);
   const count = state.routes.length;
   // The widths: an idle tab is one unit, the tab on screen ACTIVE_SHARE units, and the row holds them all exactly.
@@ -45,10 +49,11 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
 
   return (
     <View style={[styles.bar, { bottom: tabBarBottom(insets), borderColor: colors.glassEdge }]}>
-      {/* An all but opaque fill first: the liquid glass on top samples it, so the bar keeps its glass light and edge but the
-          feed no longer shows through and washes out the labels. Without liquid glass the fill is the bar. */}
-      <View style={[styles.fill, { backgroundColor: colors.glass }]} />
-      {GLASS ? <GlassView style={styles.fill} glassEffectStyle="regular" colorScheme={isDark ? "dark" : "light"} /> : null}
+      {/* An all but opaque fill first: the liquid glass on top samples it, so the bar keeps its glass light, its edge and a
+          breath of the feed's colour, while the labels keep their contrast. The glass answers a touch (interactive), as
+          the system's own bars do. Reduce Transparency, or no liquid glass, leaves a solid bar. */}
+      <View style={[styles.fill, { backgroundColor: reduceTransparency ? colors.bar : colors.glass }]} />
+      {GLASS && !reduceTransparency ? <GlassView style={styles.fill} glassEffectStyle="regular" isInteractive colorScheme={isDark ? "dark" : "light"} /> : null}
       {/* The row is measured empty first: a slot drawn before its width is known would keep a flex that overrides the widths later. */}
       <View style={styles.row} onLayout={(e) => setRowWidth(e.nativeEvent.layout.width)}>
         {unit > 0 ? <Animated.View pointerEvents="none" style={[styles.pill, { width: wide, backgroundColor: colors.glassHighlight }, pillStyle]} /> : null}
@@ -61,6 +66,8 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
           const onPress = () => {
             const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
             if (focused || event.defaultPrevented) return;
+            // The selection tick of a picker as the capsule moves (the tab's own symbol bounces with it).
+            hapticSelect();
             // The route names are not known to the types here (any tab navigator can use this bar).
             (navigation as unknown as { navigate: (name: string, params?: object) => void }).navigate(route.name, route.params);
           };

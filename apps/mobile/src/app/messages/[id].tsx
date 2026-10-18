@@ -1,6 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, View, useWindowDimensions, type ListRenderItem } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { Stack, useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { HeaderHeightContext } from "expo-router/react-navigation";
 import {
@@ -34,7 +33,7 @@ import { Composer, ComposerNotice } from "@/components/messages/composer";
 import { MediaViewer, type MediaViewerItem } from "@/components/messages/media-viewer";
 import { MessageRow, messageMedia, type MediaResolver } from "@/components/messages/message-bubble";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
-import { hapticTap } from "@/lib/haptics";
+import { hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText, useQuery } from "@/lib/hooks";
 import { openMessageFile, removeUploadedFiles, uploadAttachment, type ChatMessage, type OutgoingFiles, type PendingAttachment, type UploadStatus } from "@/lib/message-attachments";
 import { useSession } from "@/lib/session";
@@ -42,6 +41,7 @@ import { supabase } from "@/lib/supabase";
 import { space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { useChatActivity } from "@/lib/use-activity-status";
+import { Icon } from "@/components/icon";
 
 /** Messages from one person this close together form one run: hugging bubbles, one avatar, one time. */
 const RUN_GAP_MS = 5 * 60 * 1000;
@@ -448,7 +448,7 @@ function Chat({
         // Their status can show again.
         refreshActivity.current();
       },
-      (e) => Alert.alert("Couldn't unblock", errorText(e)),
+      (e) => alertWithHaptic("error", "Couldn't unblock", errorText(e)),
     );
   }
 
@@ -609,7 +609,7 @@ function Chat({
         onPress: () => {
           reportContent(supabase, userId, { targetType: "message", targetId: m.id, reason: r.value }).then(
             () => Alert.alert("Thanks for letting us know", "Our team will review this message."),
-            (e) => Alert.alert("Couldn't send the report", errorText(e)),
+            (e) => alertWithHaptic("error", "Couldn't send the report", errorText(e)),
           );
         },
       })),
@@ -744,7 +744,7 @@ function Chat({
         >
           {isGroup ? (
             <View style={styles.groupAvatar}>
-              <Ionicons name="people" size={17} color={colors.brand} />
+              <Icon name="people" size={17} color={colors.brand} />
             </View>
           ) : (
             <Avatar name={other?.full_name} url={other?.avatar_url} size="sm" userId={other?.id} ringColor={colors.bar} />
@@ -770,10 +770,10 @@ function Chat({
       headerRight: () => (
         <View style={styles.headerButtons}>
           <Pressable onPress={openSearch} hitSlop={8} accessibilityRole="button" accessibilityLabel="Search in this chat" style={styles.headerButton}>
-            <Ionicons name="search" size={22} color={colors.brand} />
+            <Icon name="search" size={22} color={colors.brand} />
           </Pressable>
           <Pressable onPress={openInfo} hitSlop={8} accessibilityRole="button" accessibilityLabel="Chat details" style={styles.headerButton}>
-            <Ionicons name="information-circle-outline" size={26} color={colors.brand} />
+            <Icon name="information-circle-outline" size={26} color={colors.brand} />
           </Pressable>
         </View>
       ),

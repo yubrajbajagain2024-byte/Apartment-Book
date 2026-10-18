@@ -1,11 +1,12 @@
 import { memo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { formatPrice, ITEM_CONDITIONS, labelFor, photosFor, type ItemCategoryValue, type ItemWithSeller } from "@apartment-book/shared";
 import { usePressScale } from "@/components/ui";
 import { motion, radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -105,7 +106,7 @@ export const MarketItemCard = memo(function MarketItemCard({ item, width, campus
         {photo ? <Image source={{ uri: photo.url }} placeholder={photo.blur ? { uri: photo.blur } : undefined} style={StyleSheet.absoluteFill} contentFit="cover" transition={motion.base} recyclingKey={item.id} /> : null}
         {/* The space above the words: the photo shows through it, or the category icon sits in its middle. */}
         <View style={styles.room} onLayout={onPhoto ? undefined : (e) => setRoom(e.nativeEvent.layout.height)}>
-          {!onPhoto && iconSize >= 16 ? <Ionicons name={categoryIcon(item.category)} size={iconSize} color={colors.faint} /> : null}
+          {!onPhoto && iconSize >= 16 ? <Icon name={categoryIcon(item.category)} size={iconSize} color={colors.faint} /> : null}
         </View>
         <View style={[styles.words, onPhoto && styles.wordsOnPhoto]}>
           {onPhoto ? <View style={styles.fadeRamp} /> : null}
@@ -129,7 +130,7 @@ export const MarketItemCard = memo(function MarketItemCard({ item, width, campus
               ) : null}
               {campus ? (
                 <>
-                  <Ionicons name="location" size={11} color={metaColor} style={pinStyle} />
+                  <Icon name="location" size={11} color={metaColor} style={pinStyle} />
                   <Text style={metaStyle} numberOfLines={1}>
                     {campus}
                   </Text>
@@ -139,7 +140,7 @@ export const MarketItemCard = memo(function MarketItemCard({ item, width, campus
           ) : null}
           {pickup ? (
             <View style={styles.metaRow}>
-              <Ionicons name="location" size={11} color={metaColor} style={pinStyle} />
+              <Icon name="location" size={11} color={metaColor} style={pinStyle} />
               <Text style={[metaStyle, styles.shrink]} numberOfLines={1}>
                 {pickup}
               </Text>
@@ -149,7 +150,7 @@ export const MarketItemCard = memo(function MarketItemCard({ item, width, campus
       </Pressable>
       <Pressable onPress={like} hitSlop={8} accessibilityRole="button" accessibilityLabel={liked ? "Unlike" : "Like"} accessibilityState={{ selected: liked }} style={({ pressed }) => [styles.heart, pressed && styles.heartPressed]}>
         <Animated.View style={{ transform: [{ scale: pop }] }}>
-          <Ionicons name={liked ? "heart" : "heart-outline"} size={22} color={liked ? colors.like : onPhoto ? colors.onMedia : colors.text} style={onPhoto ? styles.markOnPhoto : undefined} />
+          <Icon name={liked ? "heart" : "heart-outline"} size={22} color={liked ? colors.like : onPhoto ? colors.onMedia : colors.text} style={onPhoto ? styles.markOnPhoto : undefined} />
         </Animated.View>
       </Pressable>
     </Animated.View>
@@ -160,7 +161,7 @@ const useStyles = makeStyles((colors) => {
   const textShadow = { textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 };
   return {
     // A card surface in a hairline frame; behind a photo the skeleton tone shows while it loads.
-    card: { borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+    card: { borderRadius: radius.md, borderCurve: "continuous", overflow: "hidden", backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
     cardWithPhoto: { backgroundColor: colors.skeleton },
     // The card's button covers it: the words stack at the foot, the room above them takes what is left. Words too tall
     // for the card (very large text) run off the top, so the price goes before the pickup line does.

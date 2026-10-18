@@ -40,6 +40,23 @@ sinks under the finger), `Field` (eyebrow label, soft fill, an ink hairline on f
 or a font name: they take tokens through `useColors()` / `makeStyles()` and the `type` scale, so Light, Dark and System
 Default all hold. The mark is a serif "C" on ink (`assets/images`, drawn from the Playfair outline).
 
+On iOS the app speaks the platform's own language, after Apple's Human Interface Guidelines and Liquid Glass. Every icon
+is an SF Symbol (`src/components/icon.tsx` maps each Ionicons name used in the app to its symbol, each one checked
+against the SF Symbols catalogue, and falls back to the Ionicon on Android, the web and older iOS): the tab bar uses the
+system's own glyphs, filled when selected, verified students carry Apple's seal, and a heart, a bookmark or a tab
+answers with the system's bounce when it turns on. Liquid Glass belongs to the navigation layer only
+(`src/components/glass.tsx`): the floating tab bar (interactive glass over a 92% fill, so its labels keep at least 6:1
+over any content), the floating "+" (glass tinted with the ink), the round buttons over a profile's cover, the "Mark
+all as read" pill, and over photos and video the Back and sound buttons and the Campus | Global toggle (clear glass on
+a dark dimming layer). Content stays opaque. Rounded rectangles use iOS's continuous corners, bottom sheets float inset
+from the screen's edges with corners concentric with the phone's and a system grabber, and the segmented control
+springs its thumb like UIKit's. Haptics follow Apple's vocabulary (`src/lib/haptics.ts`): a selection tick for tabs,
+chips, segments and switches, the softest impact when a primary button commits or a list is pulled to refresh, success
+when something is published, a warning as a destructive choice is asked for, an error when something fails, and a light
+tap as a held row's menu rises. Tapping the tab you are on scrolls its list back to the top (`src/lib/tab-reselect.ts`),
+rows fade in once as they first arrive, and Reduce Motion and Reduce Transparency are honoured throughout
+(`src/lib/accessibility.ts`): animations become still and glass gives way to solid fills.
+
 ## Home and the tabs
 
 The bottom bar has five tabs: Home, Search, Explore, Messages, Profile (your own photo in a circle, ringed while

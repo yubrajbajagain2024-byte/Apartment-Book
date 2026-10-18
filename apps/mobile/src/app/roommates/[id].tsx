@@ -6,6 +6,7 @@ import { Badge, Button, EmptyState, Tag } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
 import { space } from "@/lib/theme";
+import { alertWithHaptic } from "@/lib/haptics";
 
 export default function RoommateScreen() {
   const { id, comment } = useLocalSearchParams<{ id: string; comment?: string }>();
@@ -47,7 +48,7 @@ export default function RoommateScreen() {
           variant="danger"
           size="sm"
           onPress={() =>
-            Alert.alert("Delete this post?", "This cannot be undone.", [
+            alertWithHaptic("warning", "Delete this post?", "This cannot be undone.", [
               { text: "Cancel", style: "cancel" },
               { text: "Delete", style: "destructive", onPress: () => deleteRoommatePost(supabase, p.id).then(() => router.back()).catch((e) => Alert.alert("Could not delete", e.message)) },
             ])

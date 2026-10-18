@@ -1,9 +1,10 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { ownSectionNote, PROFILE_SECTION_NOUNS, PROFILE_VISIBILITY_OPTIONS, visibilityLabel, type ProfileSection, type ProfileVisibility } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
 import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 export const VISIBILITY_ICONS: Record<ProfileVisibility, keyof typeof Ionicons.glyphMap> = { public: "earth-outline", friends: "people-outline", private: "lock-closed-outline" };
 
@@ -38,7 +39,7 @@ export function VisibilityRow({ section, value, busy, onChange }: { section: Pro
   }
   return (
     <View style={styles.row}>
-      <Ionicons name={VISIBILITY_ICONS[value]} size={16} color={colors.muted} />
+      <Icon name={VISIBILITY_ICONS[value]} size={16} color={colors.muted} />
       <Text style={styles.note}>{ownSectionNote(section, value)}</Text>
       <Pressable onPress={change} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel={changeLabel} accessibilityState={{ disabled: Boolean(busy), busy: Boolean(busy) }} style={({ pressed }) => [styles.change, pressed && { opacity: 0.6 }]}>
         {busy ? <ActivityIndicator size="small" color={colors.brand} /> : <Text style={styles.changeText}>Change</Text>}
@@ -54,7 +55,7 @@ export function LockedNotice({ message }: { message: string }) {
   return (
     <View style={styles.locked} accessible accessibilityLabel={message}>
       <View style={styles.lockCircle}>
-        <Ionicons name="lock-closed" size={24} color={colors.text} />
+        <Icon name="lock-closed" size={24} color={colors.text} />
       </View>
       <Text style={styles.lockedText}>{message}</Text>
     </View>
@@ -86,7 +87,7 @@ export function VisibilityPicker({ section, value, onChange }: { section: Profil
               accessibilityState={{ checked: selected }}
               style={[styles.segment, selected && styles.segmentOn]}
             >
-              <Ionicons name={VISIBILITY_ICONS[o.value]} size={14} color={selected ? colors.brand : colors.muted} />
+              <Icon name={VISIBILITY_ICONS[o.value]} size={14} color={selected ? colors.brand : colors.muted} />
               <Text style={[styles.segmentText, selected && { color: colors.brand }]}>{o.label}</Text>
             </Pressable>
           );

@@ -1,11 +1,12 @@
 import { memo, useCallback } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { compactCount, type ProfileTile, type ProfileTileType } from "@apartment-book/shared";
 import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 /** What VoiceOver calls each kind of square: "Reel: Move-in day…". */
 export const TILE_TYPE_LABELS: Record<ProfileTileType, string> = { post: "Post", reel: "Reel", apartment: "Apartment", roommate: "Roommate post", item: "Item" };
@@ -78,25 +79,25 @@ export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspe
         </View>
       ) : (
         <View style={styles.blank}>
-          <Ionicons name={tile.isVideo ? "play" : "image-outline"} size={26} color={colors.faint} />
+          <Icon name={tile.isVideo ? "play" : "image-outline"} size={26} color={colors.faint} />
         </View>
       )}
 
       {tile.views !== null ? (
         <View style={styles.views} pointerEvents="none">
-          <Ionicons name={tile.isVideo ? "play" : "eye-outline"} size={13} color={ink} style={inkShadow} />
+          <Icon name={tile.isVideo ? "play" : "eye-outline"} size={13} color={ink} style={inkShadow} />
           <Text style={[styles.viewsText, { color: ink }, inkShadow]}>{compactCount(tile.views)}</Text>
         </View>
       ) : listing ? (
         <View style={styles.views} pointerEvents="none">
-          <Ionicons name={LISTING_ICONS[listing]} size={13} color={ink} style={inkShadow} />
+          <Icon name={LISTING_ICONS[listing]} size={13} color={ink} style={inkShadow} />
         </View>
       ) : null}
 
       {tile.pinned ? (
-        <Ionicons name="pin" size={16} color={ink} style={[styles.corner, inkShadow]} />
+        <Icon name="pin" size={16} color={ink} style={[styles.corner, inkShadow]} />
       ) : tile.multiPhoto ? (
-        <Ionicons name="copy" size={15} color={ink} style={[styles.corner, inkShadow]} />
+        <Icon name="copy" size={15} color={ink} style={[styles.corner, inkShadow]} />
       ) : null}
     </Pressable>
   );
@@ -124,19 +125,19 @@ export const ListingGridTile = memo(function ListingGridTile({ tile, width, aspe
         </>
       ) : (
         <View style={styles.listingBlank}>
-          <Ionicons name={LISTING_ICONS[kind]} size={28} color={colors.faint} />
+          <Icon name={LISTING_ICONS[kind]} size={28} color={colors.faint} />
         </View>
       )}
 
       {tile.isVideo ? (
-        <Ionicons name="play" size={15} color={ink} style={[styles.corner, inkShadow]} />
+        <Icon name="play" size={15} color={ink} style={[styles.corner, inkShadow]} />
       ) : tile.multiPhoto ? (
-        <Ionicons name="copy" size={15} color={ink} style={[styles.corner, inkShadow]} />
+        <Icon name="copy" size={15} color={ink} style={[styles.corner, inkShadow]} />
       ) : null}
 
       <View style={styles.listingText} pointerEvents="none">
         <View style={styles.listingKindRow}>
-          <Ionicons name={LISTING_ICONS[kind]} size={11} color={ink} style={inkShadow} />
+          <Icon name={LISTING_ICONS[kind]} size={11} color={ink} style={inkShadow} />
           <Text style={[styles.listingKind, { color: ink }, inkShadow]} numberOfLines={1}>
             {LISTING_KINDS[kind]}
           </Text>
@@ -151,7 +152,7 @@ export const ListingGridTile = memo(function ListingGridTile({ tile, width, aspe
 
 // The soft grey fills (words-only and blank squares) are input: bg is now the screen itself.
 const useStyles = makeStyles((colors) => ({
-  tile: { backgroundColor: colors.skeleton, overflow: "hidden", borderRadius: TILE_RADIUS },
+  tile: { backgroundColor: colors.skeleton, overflow: "hidden", borderRadius: TILE_RADIUS, borderCurve: "continuous" },
   words: { flex: 1, backgroundColor: colors.input, padding: space.sm, justifyContent: "center" },
   wordsText: { ...type.caption, lineHeight: 17, color: colors.text, fontWeight: "500" },
   blank: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.input },

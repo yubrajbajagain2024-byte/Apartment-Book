@@ -1,10 +1,11 @@
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { sharedPostLabel, type SharedItem, type SharedPost } from "@apartment-book/shared";
 import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { linkHost } from "./shared-content";
+import { Icon } from "@/components/icon";
 
 const KIND_NAME: Record<SharedPost["kind"], string> = { post: "Post", reel: "Reel", listing: "Listing" };
 const KIND_ICON: Record<SharedPost["kind"], keyof typeof Ionicons.glyphMap> = { post: "images-outline", reel: "film-outline", listing: "home-outline" };
@@ -37,7 +38,7 @@ export function SharedLinkRow({ item, meta, onPress, onLongPress }: { item: Shar
         {shared?.image_url ? (
           <Image source={{ uri: shared.image_url }} style={styles.thumbImage} contentFit="cover" transition={150} accessible={false} />
         ) : (
-          <Ionicons name={shared ? KIND_ICON[shared.kind] : "link"} size={22} color={colors.brand} />
+          <Icon name={shared ? KIND_ICON[shared.kind] : "link"} size={22} color={colors.brand} />
         )}
       </View>
       <View style={styles.body}>
@@ -57,7 +58,7 @@ export function SharedLinkRow({ item, meta, onPress, onLongPress }: { item: Shar
 
 const useStyles = makeStyles((colors) => ({
   row: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: 10 },
-  thumb: { width: 52, height: 52, borderRadius: radius.md, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  thumb: { width: 52, height: 52, borderRadius: radius.md, borderCurve: "continuous", backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   thumbImage: { width: 52, height: 52 },
   body: { flex: 1, minWidth: 0, gap: 2 },
   title: { ...type.subheading, color: colors.text },

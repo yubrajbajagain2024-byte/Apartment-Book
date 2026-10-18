@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View, type ViewToken } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,6 +17,8 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
+import { GlassIconButton } from "@/components/glass";
 
 /** Breathing room between the status bar and the top row, as on Home's bar. */
 const TOP_GAP = 8;
@@ -275,7 +276,7 @@ export default function ReelViewerScreen() {
     // The only reel here was deleted.
     body = (
       <View style={styles.centered}>
-        <Ionicons name="film-outline" size={40} color={colors.onMediaMuted} />
+        <Icon name="film-outline" size={40} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>No more reels</Text>
         <Pressable onPress={leave} style={({ pressed }) => [styles.stateButton, pressed && { opacity: 0.8 }]} accessibilityRole="button">
           <Text style={styles.stateButtonText}>Back</Text>
@@ -285,7 +286,7 @@ export default function ReelViewerScreen() {
   } else if (gone) {
     body = (
       <View style={styles.centered}>
-        <Ionicons name="film-outline" size={40} color={colors.onMediaMuted} />
+        <Icon name="film-outline" size={40} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>This reel is no longer available</Text>
         <Pressable onPress={leave} style={({ pressed }) => [styles.stateButton, pressed && { opacity: 0.8 }]} accessibilityRole="button">
           <Text style={styles.stateButtonText}>Back</Text>
@@ -295,7 +296,7 @@ export default function ReelViewerScreen() {
   } else if (error) {
     body = (
       <View style={styles.centered}>
-        <Ionicons name="cloud-offline-outline" size={40} color={colors.onMediaMuted} />
+        <Icon name="cloud-offline-outline" size={40} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>The reel did not load</Text>
         <Text style={styles.stateBody}>{error}</Text>
         <Pressable onPress={() => setRetry((n) => n + 1)} style={({ pressed }) => [styles.stateButton, pressed && { opacity: 0.8 }]} accessibilityRole="button">
@@ -320,9 +321,8 @@ export default function ReelViewerScreen() {
       {/* One row floating over the video: Back at the left, the toggle in the middle (the reel's own sound button takes the right end); touches between them go through to the reel. */}
       <View pointerEvents="box-none" style={[styles.top, { paddingTop: rowTop }]}>
         <View pointerEvents="box-none" style={styles.row}>
-          <Pressable onPress={leave} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back" style={({ pressed }) => [styles.back, pressed && { opacity: 0.6 }]}>
-            <Ionicons name="chevron-back" size={30} color={colors.onMedia} style={styles.shadow} />
-          </Pressable>
+          {/* Back on clear glass over the video, as the system draws its bar buttons over media. */}
+          <GlassIconButton icon="chevron-back" label="Back" onPress={leave} variant="media" size={40} iconSize={19} haptic={false} hitSlop={8} style={styles.back} />
           {segments.length > 1 ? <ScopeToggle segments={segments} value={chosen} onChange={choose} overVideo shadow={styles.shadow} /> : null}
         </View>
       </View>
@@ -354,12 +354,12 @@ const useStyles = makeStyles((colors) => ({
   centered: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: space.xxl, gap: space.sm },
   stateTitle: { ...type.headline, color: colors.onMedia, marginTop: space.xs, textAlign: "center" },
   stateBody: { ...type.caption, fontSize: 14, lineHeight: 20, color: colors.onMediaMuted, textAlign: "center", maxWidth: 300 },
-  stateButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 44, backgroundColor: colors.onMedia, borderRadius: radius.md, paddingHorizontal: 20, marginTop: space.md },
+  stateButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 44, backgroundColor: colors.onMedia, borderRadius: radius.md, borderCurve: "continuous", paddingHorizontal: 20, marginTop: space.md },
   stateButtonText: { ...type.label, fontSize: 15, color: colors.mediaBg },
   top: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 },
   // The toggle is centred on the screen; Back keeps to the left edge, level with it.
   row: { height: ROW, alignItems: "center", justifyContent: "center" },
-  back: { position: "absolute", left: space.sm, top: 0, width: ROW, height: ROW, alignItems: "center", justifyContent: "center" },
+  back: { position: "absolute", left: space.md, top: (ROW - 40) / 2 },
   // A dark, see-through capsule in the screen's gutters, the same in both themes since it sits on video.
   commentBar: { position: "absolute", left: 0, right: 0, paddingHorizontal: space.lg },
   commentInput: { height: COMMENT_BAR, borderRadius: radius.pill, justifyContent: "center", paddingHorizontal: 20, backgroundColor: colors.mediaPill, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.onMediaMuted },

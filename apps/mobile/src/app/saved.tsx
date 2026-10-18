@@ -68,7 +68,7 @@ export default function SavedScreen() {
 
 const useStyles = makeStyles((colors) => ({
   content: { padding: space.lg, gap: space.md },
-  skeleton: { borderRadius: radius.lg },
+  skeleton: { borderRadius: radius.lg, borderCurve: "continuous" },
   card: { padding: space.md, gap: 2 },
   title: { ...type.subheading, color: colors.text },
   meta: { ...type.caption, color: colors.muted },

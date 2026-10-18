@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { listForYou, type FeedPostWithAuthor, type ForYouItem } from "@apartment-book/shared";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
-import { EmptyState, ErrorBanner, FeedSkeleton } from "@/components/ui";
+import { EmptyState, ErrorBanner, FeedSkeleton, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
 import { useTabBarInset } from "@/lib/tab-bar";
@@ -18,6 +18,8 @@ import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { CaughtUp } from "./caught-up";
 import { InstaPost } from "./insta-post";
 import { markReelsStale } from "./reels-section";
+import { refreshWithHaptic } from "@/lib/haptics";
+import { useTabReselect } from "@/lib/tab-reselect";
 
 /** The list's key: posts and reels share one table, so the id alone tells rows apart. */
 const keyOf = (post: ForYouItem) => post.id;
@@ -123,6 +125,9 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
   // Coming back to For you keeps the list and the scroll position. It reloads only when something new was published
   // while another page was showing: a post or a reel by this person.
   const listRef = useRef<FlatList<ForYouItem>>(null);
+  const appearCells = useAppearingCells();
+  // Tapping Home again while For you is on screen: back to the top, as on every iOS tab (the bar slides back with it).
+  useTabReselect(() => listRef.current?.scrollToOffset({ offset: inset.topOffset, animated: true }), active);
   const wasActive = useRef(active);
   useEffect(() => {
     // The first load on mount already includes anything posted before.
@@ -162,6 +167,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
             </View>
           ) : null
         }
+        CellRendererComponent={appearCells}
         renderItem={({ item }) => (
           <InstaPost
             post={item}
@@ -206,7 +212,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
         onEndReachedThreshold={0.6}
         onViewableItemsChanged={onViewable}
         viewabilityConfig={viewability}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} progressViewOffset={inset.progressViewOffset} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshWithHaptic(refresh)} progressViewOffset={inset.progressViewOffset} />}
       />
       <CommentsSheet target={target} onClose={closeComments} onCountChange={(d) => commenting && setCommentDelta((prev) => ({ ...prev, [commenting.id]: (prev[commenting.id] ?? 0) + d }))} />
     </View>

@@ -11,6 +11,8 @@ import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon, useBounceOn } from "@/components/icon";
+import { alertWithHaptic } from "@/lib/haptics";
 
 /*
  * Buzz looks like Reddit, but it is anonymous. Where Reddit shows a community, Buzz shows the topic;
@@ -69,7 +71,7 @@ export function TopicIcon({ topic, size = 24 }: { topic: BuzzTopic; size?: numbe
   const look = TOPIC_LOOK[topic] ?? TOPIC_LOOK.other;
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: look.color, alignItems: "center", justifyContent: "center" }}>
-      <Ionicons name={look.icon} size={Math.round(size * 0.58)} color={colors.onBrand} />
+      <Icon name={look.icon} size={Math.round(size * 0.58)} color={colors.onBrand} />
     </View>
   );
 }
@@ -93,7 +95,7 @@ export function AnonAvatar({ alias, size = 28 }: { alias: string; size?: number 
   const [bg, fg] = AVATAR_COLORS[hash % AVATAR_COLORS.length];
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: bg, alignItems: "center", justifyContent: "center" }}>
-      <Ionicons name="person" size={Math.round(size * 0.56)} color={fg} />
+      <Icon name="person" size={Math.round(size * 0.56)} color={fg} />
     </View>
   );
 }
@@ -210,17 +212,20 @@ export function VotePill({ vote, onVote, bare = false, labels = ["Upvote", "Down
   const styles = useStyles();
   const filled = !bare && (up || down);
   const ink = filled ? colors.onBrand : colors.text;
+  const upBounce = useBounceOn(up);
+  const downBounce = useBounceOn(down);
   return (
     <View style={[bare ? styles.votesBare : styles.pill, !bare && { paddingHorizontal: 0, gap: 0 }, filled && { backgroundColor: up ? colors.brand : colors.downvoteFill, borderColor: up ? colors.brand : colors.downvoteFill }]}>
       <Pressable onPress={() => onVote(1)} hitSlop={bare ? 8 : { top: 8, bottom: 8, left: 8 }} style={bare ? styles.arrowBare : styles.arrowLeft} accessibilityRole="button" accessibilityLabel={labels[0]} accessibilityState={{ selected: up }}>
-        <MaterialCommunityIcons name={up ? "arrow-up-bold" : "arrow-up-bold-outline"} size={20} color={filled ? colors.onBrand : up ? colors.brand : bare ? colors.muted : colors.text} />
+        {/* Apple's arrow shapes on iOS 17+ (filled once you have voted, with the system bounce), the bold arrows elsewhere. */}
+        <Icon name="arrow-up" sf={up ? "arrowshape.up.fill" : "arrowshape.up"} size={19} weight="medium" bounce={upBounce} color={filled ? colors.onBrand : up ? colors.brand : bare ? colors.muted : colors.text} fallback={<MaterialCommunityIcons name={up ? "arrow-up-bold" : "arrow-up-bold-outline"} size={20} color={filled ? colors.onBrand : up ? colors.brand : bare ? colors.muted : colors.text} />} />
       </Pressable>
       <Text style={[styles.pillText, { color: bare ? (up ? colors.brand : down ? colors.downvote : colors.muted) : ink, minWidth: 14, textAlign: "center" }]} accessibilityLabel={`Score ${vote.score}`}>
         {compactCount(vote.score)}
       </Text>
       {bare ? null : <View style={[styles.pillDivider, filled && { backgroundColor: colors.onBrand, opacity: 0.45 }]} />}
       <Pressable onPress={() => onVote(-1)} hitSlop={bare ? 8 : { top: 8, bottom: 8, right: 8 }} style={bare ? styles.arrowBare : styles.arrowRight} accessibilityRole="button" accessibilityLabel={labels[1]} accessibilityState={{ selected: down }}>
-        <MaterialCommunityIcons name={down ? "arrow-down-bold" : "arrow-down-bold-outline"} size={20} color={filled ? colors.onBrand : down ? colors.downvote : bare ? colors.muted : colors.text} />
+        <Icon name="arrow-down" sf={down ? "arrowshape.down.fill" : "arrowshape.down"} size={19} weight="medium" bounce={downBounce} color={filled ? colors.onBrand : down ? colors.downvote : bare ? colors.muted : colors.text} fallback={<MaterialCommunityIcons name={down ? "arrow-down-bold" : "arrow-down-bold-outline"} size={20} color={filled ? colors.onBrand : down ? colors.downvote : bare ? colors.muted : colors.text} />} />
       </Pressable>
     </View>
   );
@@ -265,7 +270,7 @@ export function useBuzzMenu(post: BuzzPost | null, { onRemoved, onMuted }: PostH
   function hideThread() {
     if (!post) return;
     if (!user) return needLogin();
-    Alert.alert("Hide this thread?", "You will no longer see this thread. Whoever posted it will not be told, and you will still not know who they are.", [
+    alertWithHaptic("warning", "Hide this thread?", "You will no longer see this thread. Whoever posted it will not be told, and you will still not know who they are.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Hide",
@@ -282,7 +287,7 @@ export function useBuzzMenu(post: BuzzPost | null, { onRemoved, onMuted }: PostH
 
   function remove() {
     if (!post) return;
-    Alert.alert("Delete this post?", "The post and all its replies will be removed. This cannot be undone.", [
+    alertWithHaptic("warning", "Delete this post?", "The post and all its replies will be removed. This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -321,12 +326,12 @@ function PillRow({ post, onVote, onReplies, repliesHint, onShare }: { post: Buzz
     <View style={styles.pills}>
       <VotePill vote={vote} onVote={(d) => void cast(d)} />
       <Pressable onPress={onReplies} style={({ pressed }) => [styles.pill, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={`${repliesLabel(post.commentCount)}. ${repliesHint}`}>
-        <MaterialCommunityIcons name="comment-outline" size={17} color={colors.text} />
+        <Icon name="chatbubble-outline" sf="bubble.right" size={18} color={colors.text} fallback={<MaterialCommunityIcons name="comment-outline" size={17} color={colors.text} />} />
         <Text style={styles.pillText}>{compactCount(post.commentCount)}</Text>
       </Pressable>
       <View style={{ flex: 1 }} />
       <Pressable onPress={onShare} style={({ pressed }) => [styles.pill, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Share">
-        <MaterialCommunityIcons name="share-outline" size={19} color={colors.text} />
+        <Icon name="arrow-redo-outline" sf="arrowshape.turn.up.right" size={19} color={colors.text} fallback={<MaterialCommunityIcons name="share-outline" size={19} color={colors.text} />} />
       </Pressable>
     </View>
   );
@@ -343,11 +348,11 @@ function Thumb({ media }: { media: FeedMedia[] }) {
       {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} /> : null}
       {first.type === "video" ? (
         <View style={styles.play}>
-          <Ionicons name="play" size={12} color={colors.onMedia} style={{ marginLeft: 1 }} />
+          <Icon name="play" size={12} color={colors.onMedia} style={{ marginLeft: 1 }} />
         </View>
       ) : media.length > 1 ? (
         <View style={styles.count}>
-          <Ionicons name="images" size={10} color={colors.onMedia} />
+          <Icon name="images" size={10} color={colors.onMedia} />
           <Text style={{ color: colors.onMedia, fontSize: 10, fontWeight: "700" }}>{media.length}</Text>
         </View>
       ) : null}
@@ -385,7 +390,7 @@ export function BuzzCard({ post, onVote, onRemoved, onMuted }: BuzzCardProps) {
           {post.isMine ? <Text style={styles.you}>You</Text> : null}
         </Pressable>
         <Pressable onPress={menu} hitSlop={10} style={styles.dots} accessibilityRole="button" accessibilityLabel="Post options">
-          <Ionicons name="ellipsis-horizontal" size={20} color={colors.muted} />
+          <Icon name="ellipsis-horizontal" size={20} color={colors.muted} />
         </Pressable>
       </View>
 
@@ -500,7 +505,7 @@ const useStyles = makeStyles((colors) => ({
   main: { flexDirection: "row", alignItems: "flex-start", gap: space.md, paddingHorizontal: BUZZ_GUTTER, paddingTop: 6 },
   title: { ...type.heading, color: colors.text },
   preview: { fontSize: 14, lineHeight: 20, color: colors.muted },
-  thumb: { width: 96, height: 72, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.skeleton },
+  thumb: { width: 96, height: 72, borderRadius: radius.md, borderCurve: "continuous", overflow: "hidden", backgroundColor: colors.skeleton },
   play: { position: "absolute", left: 6, bottom: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.mediaPill, alignItems: "center", justifyContent: "center" },
   count: { position: "absolute", right: 6, bottom: 6, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.mediaPill, borderRadius: radius.pill, paddingHorizontal: 6, paddingVertical: 2 },
 
@@ -526,5 +531,5 @@ const useStyles = makeStyles((colors) => ({
   blockAge: { ...type.caption, color: colors.muted },
   blockTitle: { ...type.headline, fontSize: 22, lineHeight: 28, color: colors.text, paddingHorizontal: BUZZ_GUTTER, paddingTop: space.md },
   blockBody: { ...type.body, color: colors.text, paddingHorizontal: BUZZ_GUTTER, paddingTop: space.sm },
-  blockMedia: { marginTop: space.md, marginHorizontal: BUZZ_GUTTER, borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.mediaBg },
+  blockMedia: { marginTop: space.md, marginHorizontal: BUZZ_GUTTER, borderRadius: radius.lg, borderCurve: "continuous", overflow: "hidden", backgroundColor: colors.mediaBg },
 }));

@@ -1,9 +1,13 @@
-import { useEffect, useRef, type ReactNode, type Ref } from "react";
-import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type PressableProps, type StyleProp, type TextInputProps, type TextStyle, type ViewStyle } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { useCallback, useEffect, useMemo, useRef, type ReactNode, type Ref } from "react";
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type LayoutChangeEvent, type PressableProps, type StyleProp, type TextInputProps, type TextStyle, type ViewStyle } from "react-native";
+import type { Ionicons } from "@expo/vector-icons";
+import Reanimated, { FadeIn } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { motion, radius, shadows, space, type } from "@/lib/theme";
+import { reduceMotionEnabled, useReduceMotion } from "@/lib/accessibility";
+import { hapticSelect, hapticSoft } from "@/lib/haptics";
+import { continuous, motion, radius, shadows, space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 /**
  * The building blocks every screen is made of, in CampConnect's design system (see lib/theme.ts): ink buttons that sink
@@ -24,17 +28,79 @@ export function Screen({ children, scroll = false, padded = true, style }: { chi
 /** A Pressable whose style can carry animated values (the press sink): shared so no screen makes its own. */
 export const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-/** The press feel every control shares: it sinks a touch on a soft spring while the finger is down, and rises back when it lifts. */
-export function usePressScale(to = motion.pressScale) {
+/**
+ * The press feel every control shares: it sinks a touch on a soft spring while the finger is down, and rises back when
+ * it lifts. Still under Reduce Motion.
+ */
+export function usePressScale(to: number = motion.pressScale) {
   const scale = useRef(new Animated.Value(1)).current;
-  const onPressIn = () => Animated.spring(scale, { toValue: to, ...motion.legacySpring }).start();
-  const onPressOut = () => Animated.spring(scale, { toValue: 1, ...motion.legacySpring }).start();
+  const onPressIn = () => {
+    if (!reduceMotionEnabled()) Animated.spring(scale, { toValue: to, ...motion.legacySpring }).start();
+  };
+  const onPressOut = () => {
+    if (!reduceMotionEnabled()) Animated.spring(scale, { toValue: 1, ...motion.legacySpring }).start();
+  };
   return { scale, onPressIn, onPressOut };
 }
 
 /**
+ * Content arriving where a skeleton stood: a short fade in, once. Lists ask `useAppearOnce()` for each row's entering
+ * animation, so a row fades in the first time it is drawn and never again (not when it is scrolled back into view).
+ * Nothing moves under Reduce Motion.
+ */
+export function useAppearOnce() {
+  const seen = useRef(new Set<string>());
+  const reduce = useReduceMotion();
+  return useCallback(
+    (key: string) => {
+      if (seen.current.has(key)) return undefined;
+      seen.current.add(key);
+      return reduce ? undefined : FadeIn.duration(motion.base);
+    },
+    [reduce],
+  );
+}
+
+/**
+ * A list's cell wrapper (pass it as CellRendererComponent): each row fades in the first time it is drawn (content
+ * replacing the skeleton, the next page arriving) and never again, so scrolling back up does not flicker. One per list,
+ * stable for its life. Nothing moves under Reduce Motion.
+ */
+export function useAppearingCells() {
+  const reduce = useReduceMotion();
+  const reduceRef = useRef(reduce);
+  reduceRef.current = reduce;
+  return useMemo(() => {
+    const seen = new Set<string>();
+    return function AppearingCell({ children, cellKey, style, onLayout }: { children?: ReactNode; cellKey: string; style?: StyleProp<ViewStyle>; onLayout?: (e: LayoutChangeEvent) => void }) {
+      const first = useRef<boolean | null>(null);
+      if (first.current === null) {
+        first.current = !seen.has(cellKey);
+        seen.add(cellKey);
+      }
+      return (
+        <Reanimated.View entering={first.current && !reduceRef.current ? FadeIn.duration(motion.base) : undefined} style={style} onLayout={onLayout}>
+          {children}
+        </Reanimated.View>
+      );
+    };
+  }, []);
+}
+
+/** A view that fades in when it first mounts (see useAppearOnce for lists). */
+export function Appear({ children, style, appear = true }: { children: ReactNode; style?: StyleProp<ViewStyle>; appear?: boolean }) {
+  const reduce = useReduceMotion();
+  return (
+    <Reanimated.View entering={appear && !reduce ? FadeIn.duration(motion.base) : undefined} style={style}>
+      {children}
+    </Reanimated.View>
+  );
+}
+
+/**
  * Primary is ink (white ink in dark), secondary a hairline outline, ghost just the words, danger the one red fill.
- * `size="sm"` fits a row (Follow in a list). The whole button sinks slightly while pressed; disabled fades it.
+ * `size="sm"` fits a row (Follow in a list). The whole button sinks slightly while pressed; disabled fades it. A
+ * primary or danger button commits something, so it answers with the softest haptic; outline and ghost stay silent.
  */
 export function Button({
   title,
@@ -67,8 +133,12 @@ export function Button({
       }}
       style={[styles.button, size === "sm" && styles.buttonSmall, fill, { transform: [{ scale: press.scale }] }, disabled && styles.disabled, style]}
       {...props}
+      onPress={(e) => {
+        if (variant === "primary" || variant === "danger") hapticSoft();
+        props.onPress?.(e);
+      }}
     >
-      {loading ? <ActivityIndicator color={fg} size="small" /> : icon ? <Ionicons name={icon} size={size === "sm" ? 16 : 18} color={fg} /> : null}
+      {loading ? <ActivityIndicator color={fg} size="small" /> : icon ? <Icon name={icon} size={size === "sm" ? 16 : 18} color={fg} /> : null}
       <Text style={[styles.buttonText, size === "sm" && styles.buttonTextSmall, { color: fg }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
         {title}
       </Text>
@@ -112,8 +182,16 @@ export function Chip({ label, active, onPress, icon }: { label: string; active?:
   const styles = useStyles();
   const colors = useColors();
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: active }} style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && { opacity: 0.7 }]}>
-      {icon ? <Ionicons name={icon} size={14} color={active ? colors.text : colors.muted} /> : null}
+    <Pressable
+      onPress={() => {
+        hapticSelect();
+        onPress?.();
+      }}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && { opacity: 0.7 }]}
+    >
+      {icon ? <Icon name={icon} size={14} color={active ? colors.text : colors.muted} /> : null}
       <Text style={[styles.chipText, active && styles.chipTextActive]} maxFontSizeMultiplier={1.3}>
         {label}
       </Text>
@@ -130,7 +208,7 @@ export function Tag({ label, icon, strong }: { label: string; icon?: keyof typeo
   const colors = useColors();
   return (
     <View style={[styles.tag, strong && styles.tagStrong]}>
-      {icon ? <Ionicons name={icon} size={12} color={strong ? colors.text : colors.muted} /> : null}
+      {icon ? <Icon name={icon} size={12} color={strong ? colors.text : colors.muted} /> : null}
       <Text style={[styles.tagText, strong && styles.tagTextStrong]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
         {label}
       </Text>
@@ -195,12 +273,14 @@ export function Loading({ label }: { label?: string }) {
 /** A placeholder shape that breathes (a slow fade in and out) while what goes there loads. */
 export function Skeleton({ width, height, round, style }: { width?: number | `${number}%`; height: number; round?: boolean; style?: StyleProp<ViewStyle> }) {
   const styles = useStyles();
-  const pulse = useRef(new Animated.Value(0.55)).current;
+  const reduce = useReduceMotion();
+  const pulse = useRef(new Animated.Value(0.7)).current;
   useEffect(() => {
+    if (reduce) return;
     const loop = Animated.loop(Animated.sequence([Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }), Animated.timing(pulse, { toValue: 0.55, duration: 900, useNativeDriver: true })]));
     loop.start();
     return () => loop.stop();
-  }, [pulse]);
+  }, [pulse, reduce]);
   return <Animated.View style={[styles.skeleton, { width: width ?? "100%", height, borderRadius: round ? height / 2 : radius.sm, opacity: pulse }, style]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />;
 }
 
@@ -217,7 +297,7 @@ export function FeedSkeleton({ rows = 3, media = true }: { rows?: number; media?
               <Skeleton width="26%" height={10} />
             </View>
           </View>
-          {media ? <Skeleton height={i === 1 ? 220 : 300} style={{ borderRadius: radius.lg }} /> : <Skeleton width="88%" height={12} />}
+          {media ? <Skeleton height={i === 1 ? 220 : 300} style={{ borderRadius: radius.lg, borderCurve: "continuous" }} /> : <Skeleton width="88%" height={12} />}
           <View style={{ flexDirection: "row", gap: 18 }}>
             <Skeleton width={24} height={24} round />
             <Skeleton width={24} height={24} round />
@@ -253,7 +333,7 @@ export function EmptyState({ icon = "search-outline", title, body, action }: { i
   return (
     <View style={[styles.center, { padding: space.xl, gap: space.sm }]}>
       <View style={styles.emptyIcon}>
-        <Ionicons name={icon} size={24} color={colors.text} />
+        <Icon name={icon} size={24} color={colors.text} />
       </View>
       <Text style={styles.emptyTitle}>{title}</Text>
       {body ? <Text style={[styles.hint, styles.emptyBody]}>{body}</Text> : null}
@@ -284,8 +364,8 @@ export function Row({ children, style, gap = space.sm }: { children: ReactNode; 
 const useStyles = makeStyles((colors, scheme) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   screenInner: { flex: 1 },
-  button: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 48, paddingHorizontal: 20, borderRadius: radius.md },
-  buttonSmall: { minHeight: 34, paddingHorizontal: 14, borderRadius: radius.sm + 2 },
+  button: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 50, paddingHorizontal: 20, borderRadius: radius.lg, ...continuous },
+  buttonSmall: { minHeight: 34, paddingHorizontal: 14, borderRadius: radius.md, borderCurve: "continuous" },
   buttonText: { ...type.label, fontSize: 15, letterSpacing: 0.1 },
   buttonTextSmall: { fontSize: 13 },
   primary: { backgroundColor: colors.brand },
@@ -294,7 +374,7 @@ const useStyles = makeStyles((colors, scheme) => ({
   danger: { backgroundColor: colors.dangerFill },
   disabled: { opacity: 0.45 },
   label: { ...type.eyebrow, color: colors.muted, marginLeft: 2 },
-  inputFrame: { backgroundColor: colors.input, borderRadius: radius.md, borderWidth: 1 },
+  inputFrame: { backgroundColor: colors.input, borderRadius: radius.md, borderWidth: 1, ...continuous },
   input: { paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, lineHeight: 20, color: colors.text },
   error: { color: colors.red, ...type.footnote, marginLeft: 2 },
   hint: { color: colors.muted, ...type.caption },
@@ -309,7 +389,7 @@ const useStyles = makeStyles((colors, scheme) => ({
   badge: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: radius.pill, alignSelf: "flex-start" },
   badgeText: { fontSize: 11, fontWeight: "700", letterSpacing: 0.4 },
   // A hairline keeps the card apart from the screen in both themes; light adds the faintest lift.
-  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: space.lg, gap: space.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: colors.shadow, ...(scheme === "light" ? shadows.card : { elevation: 0 }) },
+  card: { backgroundColor: colors.card, borderRadius: radius.lg, borderCurve: "continuous", padding: space.lg, gap: space.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: colors.shadow, ...(scheme === "light" ? shadows.card : { elevation: 0 }) },
   eyebrow: { ...type.eyebrow, color: colors.muted },
   sectionTitle: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 12 },
   sectionTitleText: { ...type.headline, color: colors.text, flexShrink: 1 },
@@ -319,5 +399,5 @@ const useStyles = makeStyles((colors, scheme) => ({
   emptyIcon: { width: 56, height: 56, borderRadius: 28, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", marginBottom: 4 },
   emptyTitle: { ...type.headline, color: colors.text, textAlign: "center" },
   emptyBody: { textAlign: "center", fontSize: 14, lineHeight: 20, maxWidth: 300 },
-  errorBanner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.dangerSoft, paddingHorizontal: 14, paddingVertical: 12, borderRadius: radius.md },
+  errorBanner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.dangerSoft, paddingHorizontal: 14, paddingVertical: 12, borderRadius: radius.md, borderCurve: "continuous" },
 }));

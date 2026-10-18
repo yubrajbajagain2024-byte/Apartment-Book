@@ -1,11 +1,13 @@
 import { type ReactNode } from "react";
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { compactCount, type FollowStats, type ProfileWithUniversity } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { usePressScale } from "@/components/ui";
 import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
+import { GlassIconButton } from "@/components/glass";
 
 /** Height of the pills beside the photo (Edit profile, Follow, Message…) and of the round Share button. */
 export const PROFILE_BUTTON_HEIGHT = 40;
@@ -36,13 +38,8 @@ export type CoverAction = { icon: keyof typeof Ionicons.glyphMap; label: string;
  * right. The same fill over the cover and, once the cover has scrolled away, over the bar.
  */
 export function CoverButton({ icon, label, onPress }: CoverAction) {
-  const styles = useStyles();
-  const colors = useColors();
-  return (
-    <Pressable onPress={onPress} hitSlop={6} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.coverButton, pressed && { opacity: 0.6 }]}>
-      <Ionicons name={icon} size={22} color={colors.text} />
-    </Pressable>
-  );
+  // Liquid Glass over the cover, as the system draws bar buttons over content; Back stays silent, the others tap.
+  return <GlassIconButton icon={icon} label={label} onPress={onPress} variant="bar" size={COVER_BUTTON} iconSize={19} haptic={label === "Back" ? false : "tap"} />;
 }
 
 /**
@@ -101,7 +98,7 @@ export function HeaderIconButton({ icon, label, onPress }: { icon: keyof typeof 
   const colors = useColors();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.button, styles.round, pressed && { opacity: 0.7 }]}>
-      <Ionicons name={icon} size={20} color={colors.text} />
+      <Icon name={icon} size={20} color={colors.text} />
     </Pressable>
   );
 }
@@ -172,7 +169,7 @@ export function ProfileHeader({
                 </View>
               ) : null}
               <View style={styles.plus}>
-                <Ionicons name="add" size={16} color={colors.onBrand} />
+                <Icon name="add" size={16} color={colors.onBrand} />
               </View>
             </Pressable>
           ) : (
@@ -186,7 +183,7 @@ export function ProfileHeader({
         {onAccount ? (
           <Pressable onPress={onAccount} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${profile.full_name}, account options`} style={({ pressed }) => [styles.nameRow, pressed && { opacity: 0.6 }]}>
             {name}
-            <Ionicons name="chevron-down" size={16} color={colors.muted} style={styles.nameChevron} />
+            <Icon name="chevron-down" size={16} color={colors.muted} style={styles.nameChevron} />
           </Pressable>
         ) : (
           <View style={styles.nameRow}>{name}</View>
@@ -197,7 +194,7 @@ export function ProfileHeader({
               @{handle}
             </Text>
             <Pressable onPress={onShowQr} hitSlop={10} accessibilityRole="button" accessibilityLabel="Show profile QR code" style={({ pressed }) => pressed && { opacity: 0.6 }}>
-              <Ionicons name="qr-code-outline" size={14} color={colors.muted} />
+              <Icon name="qr-code-outline" size={14} color={colors.muted} />
             </Pressable>
           </View>
         ) : null}
@@ -206,7 +203,7 @@ export function ProfileHeader({
           <View style={styles.chipRow}>
             {school ? (
               <View style={styles.chip}>
-                <Ionicons name="school-outline" size={13} color={colors.muted} />
+                <Icon name="school-outline" size={13} color={colors.muted} />
                 <Text style={styles.chipText} numberOfLines={1}>
                   {school}
                 </Text>

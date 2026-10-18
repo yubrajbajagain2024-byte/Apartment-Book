@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View, type ViewToken } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { useIsFocused, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -31,6 +31,8 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { radius, shadows, space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
+import { alertWithHaptic, refreshWithHaptic, hapticTap } from "@/lib/haptics";
 
 /** How far each level of replies moves to the right. One thin vertical line is drawn per level. */
 const INDENT = 14;
@@ -44,7 +46,7 @@ function RoundButton({ icon, label, onPress }: { icon: keyof typeof Ionicons.gly
   const styles = useStyles();
   return (
     <Pressable onPress={onPress} hitSlop={6} style={({ pressed }) => [styles.round, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={label}>
-      <Ionicons name={icon} size={21} color={colors.text} />
+      <Icon name={icon} size={21} color={colors.text} />
     </Pressable>
   );
 }
@@ -269,7 +271,7 @@ export default function BuzzThreadScreen() {
     const message = c.isOp
       ? "This reply is from the person who started the thread, so the whole thread will be hidden for you. They will not be told, and you will still not know who they are."
       : "You will no longer see their replies in this thread. They will not be told, and you will still not know who they are.";
-    Alert.alert(title, message, [
+    alertWithHaptic("warning", title, message, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Hide",
@@ -290,7 +292,7 @@ export default function BuzzThreadScreen() {
   }
 
   function deleteReply(c: BuzzComment) {
-    Alert.alert("Delete this reply?", "This cannot be undone.", [
+    alertWithHaptic("warning", "Delete this reply?", "This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -398,10 +400,10 @@ export default function BuzzThreadScreen() {
             <RefreshControl
               refreshing={refreshing}
               tintColor={colors.brand}
-              onRefresh={() => {
+              onRefresh={refreshWithHaptic(() => {
                 setRefreshing(true);
                 void load();
-              }}
+              })}
             />
           }
           ListHeaderComponent={
@@ -424,7 +426,7 @@ export default function BuzzThreadScreen() {
               <View style={styles.sortRow}>
                 <Pressable onPress={pickSort} hitSlop={8} style={({ pressed }) => [styles.sort, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={`Sort replies: ${labelFor(BUZZ_COMMENT_SORTS, sort)}`}>
                   <Text style={styles.sortText}>{labelFor(BUZZ_COMMENT_SORTS, sort)}</Text>
-                  <Ionicons name="chevron-down" size={13} color={colors.muted} />
+                  <Icon name="chevron-down" size={13} color={colors.muted} />
                 </Pressable>
               </View>
             </View>
@@ -447,7 +449,7 @@ export default function BuzzThreadScreen() {
         />
         {topLevelCount > 1 && !composing ? (
           <Pressable onPress={jumpToNext} style={({ pressed }) => [styles.jump, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Jump to the next reply">
-            <Ionicons name="chevron-down" size={24} color={colors.text} />
+            <Icon name="chevron-down" size={24} color={colors.text} />
           </Pressable>
         ) : null}
       </View>
@@ -459,7 +461,7 @@ export default function BuzzThreadScreen() {
               Replying to {replyTo.alias}
             </Text>
             <Pressable onPress={() => setReplyTo(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cancel replying to this person">
-              <Ionicons name="close" size={15} color={colors.muted} />
+              <Icon name="close" size={15} color={colors.muted} />
             </Pressable>
           </View>
         ) : null}
@@ -487,12 +489,12 @@ export default function BuzzThreadScreen() {
               accessibilityLabel="Reply anonymously"
             />
             <Pressable onPress={() => void send()} disabled={!canSend} style={({ pressed }) => [styles.send, !canSend && { opacity: 0.4 }, pressed && canSend && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Send reply">
-              <Ionicons name="arrow-up" size={20} color={colors.onBrand} />
+              <Icon name="arrow-up" size={20} color={colors.onBrand} />
             </Pressable>
           </View>
         ) : (
           <Pressable onPress={() => openComposer(null)} style={({ pressed }) => [styles.join, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Reply anonymously" accessibilityHint={user ? "Your name is never shown" : "Log in first. Your name is never shown"}>
-            <Ionicons name="add" size={22} color={colors.text} />
+            <Icon name="add" size={22} color={colors.text} />
             <Text style={styles.joinText} numberOfLines={1}>
               {body.trim() ? body.trim() : user ? "Join the conversation" : "Log in to join the conversation"}
             </Text>
@@ -532,7 +534,15 @@ function ReplyRow({ reply: c, vote: override, onVoted, onToggle, onReply, onMenu
 
       <Pressable
         onPress={() => onToggle(c.id)}
-        onLongPress={c.collapsed ? undefined : onMenu}
+        onLongPress={
+          c.collapsed
+            ? undefined
+            : () => {
+                // A held reply answers like a context menu: a light tap as its menu rises (the "…" button stays silent).
+                hapticTap();
+                onMenu();
+              }
+        }
         delayLongPress={300}
         style={styles.replyHead}
         accessibilityRole="button"
@@ -560,10 +570,10 @@ function ReplyRow({ reply: c, vote: override, onVoted, onToggle, onReply, onMenu
           </Text>
           <View style={styles.actions}>
             <Pressable onPress={onMenu} hitSlop={8} style={({ pressed }) => [styles.action, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Reply options">
-              <Ionicons name="ellipsis-horizontal" size={18} color={colors.muted} />
+              <Icon name="ellipsis-horizontal" size={18} color={colors.muted} />
             </Pressable>
             <Pressable onPress={onReply} hitSlop={8} style={({ pressed }) => [styles.action, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={`Reply to ${c.alias}`}>
-              <Ionicons name="arrow-undo-outline" size={17} color={colors.muted} />
+              <Icon name="arrow-undo-outline" size={17} color={colors.muted} />
               <Text style={styles.actionText}>Reply</Text>
             </Pressable>
             <VotePill bare vote={vote} onVote={(d) => void cast(d)} labels={["Upvote reply", "Downvote reply"]} />

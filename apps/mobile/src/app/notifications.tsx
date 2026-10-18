@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { listNotifications, markNotificationsRead, timeAgo, type NotificationWithActor } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
-import { Button, EmptyState, ErrorBanner, RowSkeleton } from "@/components/ui";
+import { Button, EmptyState, ErrorBanner, RowSkeleton, useAppearingCells } from "@/components/ui";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
+import { refreshWithHaptic } from "@/lib/haptics";
 
 const PAGE = 30;
 /** The small mark on each row saying what kind of notification it is (over the actor's photo, or alone without one). */
@@ -22,6 +24,7 @@ const AVATAR = 44;
  * clears the rest; the list pulls to refresh and loads older rows as it scrolls. Signed out it asks to log in.
  */
 export default function NotificationsScreen() {
+  const appearCells = useAppearingCells();
   const { user } = useSession();
   const router = useRouter();
   const styles = useStyles();
@@ -111,6 +114,7 @@ export default function NotificationsScreen() {
         contentContainerStyle={[styles.list, (items?.length ?? 0) === 0 && styles.listEmpty]}
         ItemSeparatorComponent={Hairline}
         ListHeaderComponent={items && items.length > 0 ? <Text style={styles.summary}>{unread > 0 ? `${unread} unread` : "All caught up"}</Text> : null}
+        CellRendererComponent={appearCells}
         renderItem={({ item: n }) => {
           const icon = ICONS[n.type] ?? "notifications";
           const isUnread = n.read_at === null;
@@ -126,12 +130,12 @@ export default function NotificationsScreen() {
                   <>
                     <Avatar name={n.actor.full_name} url={n.actor.avatar_url} size={AVATAR} online={false} transition={0} />
                     <View style={styles.kind}>
-                      <Ionicons name={icon} size={11} color={colors.onBrand} />
+                      <Icon name={icon} size={11} color={colors.onBrand} />
                     </View>
                   </>
                 ) : (
                   <View style={styles.kindAlone}>
-                    <Ionicons name={icon} size={20} color={colors.brand} />
+                    <Icon name={icon} size={20} color={colors.brand} />
                   </View>
                 )}
               </View>
@@ -164,7 +168,7 @@ export default function NotificationsScreen() {
         ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footer} color={colors.muted} /> : null}
         onEndReached={() => void loadMore()}
         onEndReachedThreshold={0.6}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshWithHaptic(() => void onRefresh())} />}
       />
     </View>
   );

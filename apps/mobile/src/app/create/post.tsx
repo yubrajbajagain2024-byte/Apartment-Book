@@ -11,6 +11,7 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
+import { alertWithHaptic, hapticSuccess } from "@/lib/haptics";
 
 const MAX_LENGTH = 4000;
 
@@ -49,9 +50,10 @@ export default function CreatePostScreen() {
     try {
       const created = await createFeedPost(supabase, user!.id, parsed.data);
       markPostsStale();
+      hapticSuccess();
       router.replace({ pathname: "/posts/[id]", params: { id: created.id } } as never);
     } catch (e) {
-      Alert.alert("Could not post", e instanceof Error ? e.message : "Try again");
+      alertWithHaptic("error", "Could not post", e instanceof Error ? e.message : "Try again");
     } finally {
       setBusy(false);
     }

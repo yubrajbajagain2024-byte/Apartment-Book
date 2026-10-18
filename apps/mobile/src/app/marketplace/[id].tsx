@@ -5,6 +5,7 @@ import { DetailSkeleton, Fact, ListingDetail, useDetailStyles } from "@/componen
 import { Button, EmptyState } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
+import { alertWithHaptic } from "@/lib/haptics";
 
 export default function ItemScreen() {
   const { id, comment } = useLocalSearchParams<{ id: string; comment?: string }>();
@@ -41,7 +42,7 @@ export default function ItemScreen() {
             variant="danger"
             size="sm"
             onPress={() =>
-              Alert.alert("Delete this item?", "This cannot be undone.", [
+              alertWithHaptic("warning", "Delete this item?", "This cannot be undone.", [
                 { text: "Cancel", style: "cancel" },
                 { text: "Delete", style: "destructive", onPress: () => deleteItem(supabase, item.id).then(() => router.back()).catch((e) => Alert.alert("Could not delete", e.message)) },
               ])

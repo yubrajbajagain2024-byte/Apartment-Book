@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { formatDayLabel, formatMessageTime, isSameDay, searchConversationMessages, type MessageWithSender } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
@@ -11,6 +11,7 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 /** The newest matches only; the database caps a search at 100. */
 const LIMIT = 50;
@@ -120,7 +121,7 @@ export default function ChatSearchScreen() {
     <View style={styles.screen}>
       <View style={styles.header}>
         <View style={styles.search}>
-          {searching ? <ActivityIndicator size="small" color={colors.muted} style={styles.icon} /> : <Ionicons name="search" size={18} color={colors.muted} style={styles.icon} />}
+          {searching ? <ActivityIndicator size="small" color={colors.muted} style={styles.icon} /> : <Icon name="search" size={18} color={colors.muted} style={styles.icon} />}
           <TextInput
             autoFocus
             value={text}
@@ -138,7 +139,7 @@ export default function ChatSearchScreen() {
           />
           {text ? (
             <Pressable onPress={() => setText("")} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear search">
-              <Ionicons name="close-circle" size={18} color={colors.faint} />
+              <Icon name="close-circle" size={18} color={colors.faint} />
             </Pressable>
           ) : null}
         </View>

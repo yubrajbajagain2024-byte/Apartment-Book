@@ -9,6 +9,7 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { space, type } from "@/lib/theme";
 import { useColors } from "@/lib/theme-provider";
+import { alertWithHaptic, hapticSuccess } from "@/lib/haptics";
 
 export default function CreateApartmentScreen() {
   const colors = useColors();
@@ -46,9 +47,10 @@ export default function CreateApartmentScreen() {
     try {
       const created = await createApartment(supabase, user!.id, parsed.data);
       Alert.alert(video ? "Posted with a video tour 🎉" : "Posted!", video ? "Listings with a tour rank higher and get more messages." : "Tip: add a video tour later to rank higher.");
+      hapticSuccess();
       router.replace({ pathname: "/apartments/[id]", params: { id: created.id } });
     } catch (e) {
-      Alert.alert("Could not post", e instanceof Error ? e.message : "Try again");
+      alertWithHaptic("error", "Could not post", e instanceof Error ? e.message : "Try again");
     } finally {
       setBusy(false);
     }

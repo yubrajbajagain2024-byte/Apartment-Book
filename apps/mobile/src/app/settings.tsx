@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deleteMyAccount, isProfileVisibility, listUniversities, normalizeUsername, PROFILE_VISIBILITY_COLUMNS, setShowActiveStatus, updateProfile, USERNAME_RULES, usernameProblem, type ProfileSection, type ProfileVisibility, type ProfileWithUniversity } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
@@ -13,6 +12,8 @@ import { supabase } from "@/lib/supabase";
 import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { useChangeAvatar } from "@/lib/use-change-avatar";
+import { Icon } from "@/components/icon";
+import { hapticSelect, alertWithHaptic } from "@/lib/haptics";
 
 /** The database's defaults, for a profile read before these settings existed. */
 const DEFAULT_VISIBILITY: Record<ProfileSection, ProfileVisibility> = { classes: "friends", saved: "private", liked: "public" };
@@ -116,7 +117,7 @@ export default function SettingsScreen() {
     if (url) setAvatarUrl(url);
   }
   function deleteAccount() {
-    Alert.alert("Delete your account?", "Your profile, posts, messages and saved items will be permanently deleted. This cannot be undone.", [
+    alertWithHaptic("warning", "Delete your account?", "Your profile, posts, messages and saved items will be permanently deleted. This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete account",
@@ -240,7 +241,7 @@ function ThemeCard() {
                 <Text style={styles.themeLabel}>{option.label}</Text>
                 {hint ? <Text style={styles.hint}>{hint}</Text> : null}
               </View>
-              {checked ? <Ionicons name="checkmark" size={20} color={colors.brand} /> : null}
+              {checked ? <Icon name="checkmark" size={20} color={colors.brand} /> : null}
             </Pressable>
           );
         })}
@@ -259,7 +260,18 @@ function ToggleRow({ label, hint, value, onChange, divider = false }: { label: s
         <Text style={styles.rowLabel}>{label}</Text>
         {hint ? <Text style={styles.hint}>{hint}</Text> : null}
       </View>
-      <Switch value={value} onValueChange={onChange} trackColor={{ true: colors.brand }} accessibilityLabel={label} accessibilityHint={hint} />
+      {/* The system switch (Liquid Glass on iOS 26), tinted with the ink, a selection tick as it flips. */}
+      <Switch
+        value={value}
+        onValueChange={(next) => {
+          hapticSelect();
+          onChange(next);
+        }}
+        trackColor={{ true: colors.brand, false: colors.borderStrong }}
+        ios_backgroundColor={colors.borderStrong}
+        accessibilityLabel={label}
+        accessibilityHint={hint}
+      />
     </View>
   );
 }
@@ -271,7 +283,7 @@ const useStyles = makeStyles((colors) => ({
   section: { gap: space.sm },
   sectionLabel: { ...type.eyebrow, color: colors.muted, marginLeft: space.xs },
   // Groups are hairline outlines on the card surface, no shadow: nothing here floats.
-  group: { backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, padding: space.lg, gap: space.lg },
+  group: { backgroundColor: colors.card, borderRadius: radius.lg, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, padding: space.lg, gap: space.lg },
   // A group of rows draws its own hairlines between them instead of a gap.
   rows: { paddingVertical: space.xs, gap: 0 },
   rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
@@ -279,7 +291,7 @@ const useStyles = makeStyles((colors) => ({
   rowLabel: { ...type.bodySmall, color: colors.text },
   label: { marginLeft: 2 },
   // The same soft fill and hairline as a Field, with the "@" fixed at the start.
-  handleBox: { flexDirection: "row", alignItems: "center", backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingLeft: 14 },
+  handleBox: { flexDirection: "row", alignItems: "center", backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, borderCurve: "continuous", paddingLeft: 14 },
   at: { fontSize: 16, lineHeight: 20, color: colors.muted, fontWeight: "600" },
   handleInput: { flex: 1, paddingLeft: 2, paddingRight: 14, paddingVertical: 13, fontSize: 16, lineHeight: 20, color: colors.text },
   hint: { ...type.footnote, color: colors.muted, marginLeft: 2 },

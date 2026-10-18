@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View, type LayoutRectangle, type StyleProp, type TextStyle } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Icon } from "@/components/icon";
 
 /**
  * The sliding underline is laid out this wide and scaled to each label: the native driver animates transforms but not
@@ -151,7 +151,7 @@ export function SlidingTabs<T extends string>({
                   <Text style={[styles.label, { fontSize }, styles.text, { color: active ? labelColor : dimColor }, active && styles.bold, textStyle]} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>{s.label}</Text>
                 )}
               </View>
-              {(Array.isArray(caret) ? (caret as readonly T[]).includes(s.value) : caret === s.value) ? <Ionicons name="chevron-down" size={14} color={active ? labelColor : dimColor} style={[styles.caret, textStyle]} /> : null}
+              {(Array.isArray(caret) ? (caret as readonly T[]).includes(s.value) : caret === s.value) ? <Icon name="chevron-down" size={14} color={active ? labelColor : dimColor} style={[styles.caret, textStyle]} /> : null}
             </View>
             {slide ? null : <View style={[styles.underline, styles.staticUnderline, { backgroundColor: active ? tint : "transparent" }]} />}
           </Pressable>

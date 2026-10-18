@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -35,13 +35,14 @@ import { SharedMediaRow } from "@/components/messages/shared-media-row";
 import { SharedTabs } from "@/components/messages/shared-tabs";
 import { profileUrl } from "@/components/profile/share-profile-sheet";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
-import { hapticSuccess } from "@/lib/haptics";
+import { hapticSuccess, refreshWithHaptic } from "@/lib/haptics";
 import { errorText, useQuery } from "@/lib/hooks";
 import { openChatLink, openInBrowser, sharedPostHref } from "@/lib/message-attachments";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 /** Squares per row in the Media grid, and the hairline between them (Instagram's grid). */
 const COLUMNS = 3;
@@ -467,7 +468,7 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
             menu.length > 0
               ? () => (
                   <Pressable onPress={openMenu} hitSlop={8} accessibilityRole="button" accessibilityLabel="More options" style={styles.headerButton}>
-                    <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
+                    <Icon name="ellipsis-horizontal" size={22} color={colors.text} />
                   </Pressable>
                 )
               : undefined,
@@ -484,7 +485,7 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
         stickyHeaderIndices={[1]}
         onEndReached={() => void shared.loadMore(tab)}
         onEndReachedThreshold={1}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshWithHaptic(() => void onRefresh())} />}
         onScroll={(e) => (scrollY.current = e.nativeEvent.contentOffset.y)}
         scrollEventThrottle={64}
         showsVerticalScrollIndicator={false}
@@ -499,7 +500,7 @@ const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   headerButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   // The members as one hairline group of rows, like the actions at the bottom.
-  members: { marginHorizontal: space.lg, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, overflow: "hidden" },
+  members: { marginHorizontal: space.lg, borderRadius: radius.lg, borderCurve: "continuous", backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, overflow: "hidden" },
   statusBox: { paddingHorizontal: space.lg, paddingVertical: space.xl, alignItems: "stretch", justifyContent: "center" },
   more: { paddingVertical: space.lg, alignItems: "center" },
   empty: { paddingTop: space.sm },
