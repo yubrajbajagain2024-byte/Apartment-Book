@@ -39,6 +39,7 @@ import { errorText, useQuery } from "@/lib/hooks";
 import { openMessageFile, removeUploadedFiles, uploadAttachment, type ChatMessage, type OutgoingFiles, type PendingAttachment, type UploadStatus } from "@/lib/message-attachments";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { useChatActivity } from "@/lib/use-activity-status";
 
@@ -811,11 +812,11 @@ function Chat({
           onScrollToIndexFailed={onScrollToIndexFailed}
           initialNumToRender={20}
           windowSize={15}
-          ListFooterComponent={loadingOlder ? <ActivityIndicator style={styles.older} color={colors.brand} /> : null}
+          ListFooterComponent={loadingOlder ? <ActivityIndicator style={styles.older} color={colors.muted} /> : null}
           ListEmptyComponent={
             !loaded ? (
               <View style={styles.emptyBox}>
-                <ActivityIndicator color={colors.brand} />
+                <ActivityIndicator color={colors.muted} />
               </View>
             ) : loadError ? (
               <View style={styles.errorBox}>
@@ -844,12 +845,13 @@ const useStyles = makeStyles((colors) => ({
   older: { marginVertical: 12 },
   emptyBox: { padding: 24, alignItems: "center" },
   errorBox: { padding: 16 },
-  empty: { textAlign: "center", color: colors.muted, padding: 24 },
+  // The start of a conversation: a quiet serif aside, like the end of a feed.
+  empty: { ...type.aside, textAlign: "center", color: colors.muted, padding: space.xl },
   headerTitle: { flexDirection: "row", alignItems: "center", gap: 8 },
   headerText: { flexShrink: 1 },
-  headerName: { fontWeight: "700", fontSize: 16, color: colors.text },
+  headerName: { ...type.subheading, fontSize: 16, color: colors.text },
   headerSubRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  headerSub: { flexShrink: 1, fontSize: 11, color: colors.muted },
+  headerSub: { flexShrink: 1, ...type.footnote, fontSize: 11, color: colors.muted },
   activeDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.green },
   headerButtons: { flexDirection: "row", alignItems: "center", gap: 14 },
   headerButton: { paddingHorizontal: 2 },

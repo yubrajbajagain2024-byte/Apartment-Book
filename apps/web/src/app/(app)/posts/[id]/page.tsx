@@ -48,8 +48,8 @@ export default async function PostPage({ params }: Props) {
   return (
     <div className="mx-auto flex w-full max-w-[500px] flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <Link href={homeSectionHref(reel ? "reels" : "posts")} className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
-          <ArrowLeft className="h-4 w-4" /> Back to {reel ? "reels" : "posts"}
+        <Link href={homeSectionHref(reel ? "reels" : "posts")} className="inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-900">
+          <ArrowLeft className="h-4 w-4" strokeWidth={1.75} /> Back to {reel ? "reels" : "posts"}
         </Link>
         {isOwner ? (
           <ConfirmButton variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" confirmText={`Delete this ${reel ? "reel" : "post"}? This cannot be undone.`} action={deletePostAction.bind(null, post.id)}>

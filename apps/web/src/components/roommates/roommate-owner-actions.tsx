@@ -7,9 +7,9 @@ import { ConfirmButton } from "@/components/common/confirm-button";
 export function RoommateOwnerActions({ post }: { post: RoommatePost }) {
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Manage your post</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">Manage your post</p>
       <LinkButton href={`/roommates/${post.id}/edit`} variant="secondary">
-        <Pencil className="h-4 w-4" /> Edit post
+        <Pencil className="h-4 w-4" strokeWidth={1.75} /> Edit post
       </LinkButton>
       <ConfirmButton variant="outline" action={setRoommatePostActiveAction.bind(null, post.id, !post.is_active)}>
         {post.is_active ? "Mark as found" : "Reactivate post"}

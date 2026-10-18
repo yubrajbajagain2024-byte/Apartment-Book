@@ -18,11 +18,11 @@ import {
 } from "@apartment-book/shared";
 import { useFollowStatsMany } from "@/components/follow-button";
 import { PersonRow } from "@/components/person-row";
-import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { Button, EmptyState, ErrorBanner, RowSkeleton } from "@/components/ui";
 import { useFeed, useQuery } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { space } from "@/lib/theme";
+import { space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 type Kind = "followers" | "following";
@@ -79,7 +79,7 @@ export default function FollowsScreen() {
       ) : view === "signed-out" ? (
         <EmptyState icon="people-outline" title={MUTUAL_FRIENDS_LOGIN_PROMPT} body={`${note}.`} action={<Button title="Log in" onPress={() => router.push("/(auth)/login")} />} />
       ) : (
-        <Loading />
+        <RowSkeleton />
       )}
     </View>
   );
@@ -138,7 +138,7 @@ function PeopleList({ userId, list, viewerId, empty, onRowChange, onRefresh }: {
       renderItem={({ item }) => <PersonRow person={item} stats={rowStats[item.id]} userId={viewerId} onNeedLogin={needLogin} onChange={onRowChange} onPress={() => router.push({ pathname: "/profile/[id]", params: { id: item.id } })} />}
       ListEmptyComponent={
         feed.loading ? (
-          <Loading />
+          <RowSkeleton />
         ) : feed.error ? (
           <View style={{ padding: space.lg }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View>
         ) : (
@@ -156,13 +156,14 @@ function PeopleList({ userId, list, viewerId, empty, onRowChange, onRefresh }: {
 const useStyles = makeStyles((colors) => ({
   // The screen colour (white in light, as before; black in dark like every other screen).
   screen: { flex: 1, backgroundColor: colors.bg },
-  name: { textAlign: "center", color: colors.muted, fontSize: 13, paddingTop: space.sm },
+  name: { ...type.caption, textAlign: "center", color: colors.muted, paddingTop: space.sm },
   segments: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   segment: { flex: 1, alignItems: "center", paddingTop: space.md, gap: space.sm },
-  segmentText: { fontSize: 15, fontWeight: "600", color: colors.muted },
-  segmentTextActive: { color: colors.text, fontWeight: "800" },
+  segmentText: { ...type.label, fontSize: 15, color: colors.muted },
+  // The open tab in ink; the underline is ink too, on the row's hairline.
+  segmentTextActive: { color: colors.text, fontWeight: "700" },
   underline: { height: 2, alignSelf: "stretch", backgroundColor: "transparent" },
   note: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: space.lg, paddingVertical: space.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  noteText: { flexShrink: 1, fontSize: 13, color: colors.muted, textAlign: "center" },
-  more: { textAlign: "center", color: colors.faint, padding: 12 },
+  noteText: { ...type.caption, flexShrink: 1, color: colors.muted, textAlign: "center" },
+  more: { ...type.footnote, textAlign: "center", color: colors.faint, padding: space.md },
 }));

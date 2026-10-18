@@ -21,7 +21,7 @@
     "android": {
       "package": "com.apartmentbook.app",
       "adaptiveIcon": {
-        "backgroundColor": "#1877f2",
+        "backgroundColor": "#121214",
         "foregroundImage": "./assets/images/adaptive-icon.png"
       },
       "permissions": [
@@ -41,7 +41,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#1877f2",
+          "backgroundColor": "#F7F6F3",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 120
         }
@@ -56,7 +56,7 @@
       [
         "expo-notifications",
         {
-          "color": "#1877f2"
+          "color": "#5B4BDB"
         }
       ],
       "expo-video",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
+import { Button, LinkButton } from "@/components/ui/button";
 
 export default function GlobalError({
   error,
@@ -18,22 +18,19 @@ export default function GlobalError({
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-      <h1 className="text-2xl font-semibold">Something went wrong</h1>
-      <p className="max-w-lg text-gray-600">
+      <h1 className="font-display text-2xl tracking-tight text-gray-900">Something went wrong</h1>
+      <p className="max-w-lg text-sm leading-relaxed text-gray-500">
         {notConfigured
           ? "The app cannot reach Supabase yet. Copy apps/web/.env.example to apps/web/.env.local, fill in your project URL and key, then restart the dev server."
           : error.message || "An unexpected error occurred."}
       </p>
-      <div className="flex gap-3">
-        <button
-          onClick={reset}
-          className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700"
-        >
+      <div className="mt-2 flex gap-3">
+        <Button type="button" onClick={reset}>
           Try again
-        </button>
-        <Link href="/" className="rounded-lg bg-gray-200 px-4 py-2 font-medium hover:bg-gray-300">
+        </Button>
+        <LinkButton href="/" variant="secondary">
           Home
-        </Link>
+        </LinkButton>
       </div>
     </main>
   );

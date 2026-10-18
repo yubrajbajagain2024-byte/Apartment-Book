@@ -33,17 +33,20 @@ export function useSaveToggle(targetType: PostTargetType, targetId: string, init
 }
 
 export function SaveToggleButton({ controller, size = "md", className }: { controller: SaveController; size?: "sm" | "md"; className?: string }) {
+  // Small is the round button over a photo (a soft white disc, the bookmark filling with ink once saved); medium is the
+  // full button on a detail page, a hairline until saved and ink after.
   const classes = cn(
-    "inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition-colors",
-    size === "sm" ? "h-8 w-8" : "h-10 px-4 text-sm",
-    controller.saved ? "bg-brand-50 text-brand-700 hover:bg-brand-100" : "bg-gray-200 text-gray-800 hover:bg-gray-300",
+    "ab-press inline-flex items-center justify-center gap-2 font-semibold transition-colors disabled:opacity-60",
+    size === "sm"
+      ? cn("h-8 w-8 rounded-full bg-white/90 text-gray-900 shadow-card backdrop-blur hover:bg-white", controller.saved && "text-gray-900")
+      : cn("h-11 rounded-[10px] px-5 text-sm", controller.saved ? "bg-gray-900 text-white hover:bg-gray-800" : "bg-transparent text-gray-900 ring-1 ring-gray-300 hover:bg-gray-50"),
     className,
   );
 
   if (!controller.signedIn) {
     return (
       <Link href="/login" className={classes} aria-label="Save">
-        <Bookmark className="h-5 w-5" />
+        <Bookmark className="h-[18px] w-[18px]" strokeWidth={1.75} />
         {size === "md" ? "Save" : null}
       </Link>
     );
@@ -64,7 +67,7 @@ export function SaveToggleButton({ controller, size = "md", className }: { contr
         controller.toggle();
       }}
     >
-      <Bookmark className={cn("h-5 w-5", controller.saved && "fill-current")} />
+      <Bookmark className={cn("h-[18px] w-[18px]", controller.saved && "fill-current")} strokeWidth={1.75} />
       {size === "md" ? (controller.saved ? "Saved" : "Save") : null}
     </button>
   );

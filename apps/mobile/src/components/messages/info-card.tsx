@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { ProfileSummary } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { hapticTap } from "@/lib/haptics";
-import { radius, space } from "@/lib/theme";
+import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -86,7 +86,7 @@ export function InfoButtons({ buttons }: { buttons: InfoButton[] }) {
         >
           {({ pressed }) => (
             <>
-              <View style={[styles.circle, pressed && { backgroundColor: colors.border }]}>
+              <View style={[styles.circle, pressed && { backgroundColor: colors.input }]}>
                 <Ionicons name={b.icon} size={22} color={colors.text} />
               </View>
               <Text style={styles.buttonLabel} numberOfLines={1}>
@@ -111,8 +111,8 @@ export function InfoSectionTitle({ title, count }: { title: string; count?: numb
   );
 }
 
-/** One member of a group: photo, name ("You" beside your own) and a chevron; tapping opens the profile. */
-export function InfoMemberRow({ member, isMe, onPress }: { member: ProfileSummary; isMe: boolean; onPress: () => void }) {
+/** One member of a group: photo, name ("You" beside your own) and a quiet chevron; tapping opens the profile. `divider` draws the hairline above it. */
+export function InfoMemberRow({ member, isMe, divider = false, onPress }: { member: ProfileSummary; isMe: boolean; divider?: boolean; onPress: () => void }) {
   const styles = useStyles();
   const colors = useColors();
   return (
@@ -121,14 +121,14 @@ export function InfoMemberRow({ member, isMe, onPress }: { member: ProfileSummar
       accessibilityRole="button"
       accessibilityLabel={isMe ? `${member.full_name}, you` : member.full_name}
       accessibilityHint="Opens their profile"
-      style={({ pressed }) => [styles.member, pressed && { backgroundColor: colors.input }]}
+      style={({ pressed }) => [styles.member, divider && styles.memberDivider, pressed && { backgroundColor: colors.input }]}
     >
-      <Avatar name={member.full_name} url={member.avatar_url} size="md" userId={member.id} />
+      <Avatar name={member.full_name} url={member.avatar_url} size="md" userId={member.id} ringColor={colors.card} />
       <Text style={styles.memberName} numberOfLines={1}>
         {member.full_name}
       </Text>
       {isMe ? <Text style={styles.memberTag}>You</Text> : null}
-      <Ionicons name="chevron-forward" size={18} color={colors.faint} />
+      <Ionicons name="chevron-forward" size={16} color={colors.faint} />
     </Pressable>
   );
 }
@@ -171,22 +171,27 @@ export function InfoActionList({ actions }: { actions: InfoListAction[] }) {
 
 const useStyles = makeStyles((colors) => ({
   card: { alignItems: "center", paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: space.md, gap: 4 },
-  name: { fontSize: 22, fontWeight: "800", color: colors.text, textAlign: "center", marginTop: space.md },
-  handle: { fontSize: 15, color: colors.muted, textAlign: "center" },
-  detail: { fontSize: 13, color: colors.faint, textAlign: "center" },
+  // The name in the serif, as on the profile.
+  name: { ...type.title, color: colors.text, textAlign: "center", marginTop: space.md },
+  handle: { ...type.bodySmall, color: colors.muted, textAlign: "center" },
+  detail: { ...type.caption, color: colors.faint, textAlign: "center" },
   groupMark: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
   buttons: { flexDirection: "row", justifyContent: "center", gap: space.lg, paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.lg },
   button: { width: 76, alignItems: "center", gap: 6 },
-  circle: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
-  buttonLabel: { fontSize: 12, fontWeight: "600", color: colors.text },
-  section: { fontSize: 17, fontWeight: "800", color: colors.text, paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.sm },
-  sectionCount: { fontSize: 15, fontWeight: "600", color: colors.muted },
-  member: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: 8 },
-  memberName: { flex: 1, fontSize: 15, fontWeight: "600", color: colors.text },
-  memberTag: { fontSize: 13, color: colors.muted },
+  // Hairline rings; the fill comes only under the finger.
+  circle: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  buttonLabel: { ...type.footnote, fontWeight: "600", color: colors.text },
+  // An eyebrow over each group of rows; the count follows it, fainter.
+  section: { ...type.eyebrow, color: colors.muted, paddingHorizontal: space.lg, paddingTop: space.xl, paddingBottom: space.sm },
+  sectionCount: { color: colors.faint },
+  // Rows inside the screen's hairline group (see the info screen's `members`).
+  member: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, minHeight: 56, paddingVertical: space.sm },
+  memberDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  memberName: { flex: 1, ...type.subheading, color: colors.text },
+  memberTag: { ...type.caption, color: colors.muted },
   list: { marginHorizontal: space.lg, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, overflow: "hidden" },
   listRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, minHeight: 52 },
   listDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   listIcon: { width: 24, alignItems: "center" },
-  listLabel: { flex: 1, fontSize: 16, fontWeight: "600" },
+  listLabel: { flex: 1, ...type.subheading, fontSize: 16 },
 }));

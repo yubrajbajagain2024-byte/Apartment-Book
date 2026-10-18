@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Screen } from "@/components/ui";
 import type { ThemePreference } from "@/lib/palette";
 import { supabase } from "@/lib/supabase";
+import { type } from "@/lib/theme";
 import { useAppTheme } from "@/lib/theme-provider";
 
 function isThemePreference(value: string | undefined): value is ThemePreference {
@@ -43,7 +44,7 @@ export default function DevLoginScreen() {
   }, [email, password, to, theme, router, setPreference]);
   return (
     <Screen>
-      <Text style={{ color: colors.text }}>{status}</Text>
+      <Text style={{ ...type.body, color: colors.muted }}>{status}</Text>
     </Screen>
   );
 }

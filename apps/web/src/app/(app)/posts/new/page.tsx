@@ -12,8 +12,8 @@ export default async function NewPostPage() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-bold">Create a post</h1>
-        <p className="text-sm text-gray-600">Share news, a question or a moment with other students.</p>
+        <h1 className="font-display text-3xl tracking-tight text-gray-900">Create a post</h1>
+        <p className="mt-1 text-sm text-gray-500">Share news, a question or a moment with other students.</p>
       </div>
       <PostForm action={createPostAction} userId={user.id} author={{ name, avatarUrl: profile?.avatar_url ?? null }} defaultUniversityId={profile?.university_id} />
     </div>

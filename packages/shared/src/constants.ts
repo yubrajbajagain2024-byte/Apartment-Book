@@ -1,8 +1,9 @@
-export const APP_NAME = "Apartment Book";
+export const APP_NAME = "CampConnect";
 /** The wordmark in the app's Home top bar (Instagram puts its logotype there), with the feed dropdown next to it. */
 export const HOME_BRAND = "CampConnect";
+/** The line under the wordmark at every signed-out entry point, verbatim. */
 export const APP_TAGLINE =
-  "Apartments, roommates and move-in essentials for university students.";
+  "A private social network for university life — connecting students, clubs, events, campus news, housing, roommates, and the student marketplace in one place.";
 
 export const DEFAULT_PAGE_SIZE = 12;
 export const MESSAGES_PAGE_SIZE = 50;
@@ -161,12 +162,11 @@ export const HOME_SECTIONS = [
 export type HomeSection = (typeof HOME_SECTIONS)[number]["value"];
 export const DEFAULT_HOME_SECTION: HomeSection = "foryou";
 /**
- * Sections that stay out of the tab row (and the app's pager): Posts and Reels are still sections with their addresses
- * (/?tab=posts, /?tab=reels), their feeds and their data, and the For you blend carries both posts and reels; they just
- * have no tab of their own.
+ * Sections that stay out of the tab row (and the app's pager): Posts is still a section with its address (/?tab=posts),
+ * its feed and its data, and the For you blend keeps carrying posts (and reels); it just has no tab of its own.
  */
-export const HIDDEN_HOME_SECTIONS: readonly HomeSection[] = ["posts", "reels"];
-/** The tabs Home shows, left to right: For you | Buzz. */
+export const HIDDEN_HOME_SECTIONS: readonly HomeSection[] = ["posts"];
+/** The tabs Home shows, left to right: For you | Buzz | Reels. */
 export const HOME_TABS = HOME_SECTIONS.filter((s) => !HIDDEN_HOME_SECTIONS.includes(s.value));
 /**
  * Where a Home section lives on the website. The landing section keeps the clean "/" address, the others

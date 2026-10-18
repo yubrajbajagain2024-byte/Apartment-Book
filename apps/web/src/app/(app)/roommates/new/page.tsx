@@ -11,10 +11,10 @@ export default async function NewRoommatePostPage() {
   const user = await requireUser("/roommates/new");
   const [profile, universities] = await Promise.all([getCurrentProfile(), listUniversities(await createClient())]);
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4">
+    <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold">Create a roommate post</h1>
-        <p className="text-sm text-gray-600">Tell other students what you are looking for.</p>
+        <h1 className="font-display text-3xl tracking-tight text-gray-900">Create a roommate post</h1>
+        <p className="mt-1.5 text-sm text-gray-500">Tell other students what you are looking for.</p>
       </div>
       <RoommateForm action={createRoommatePostAction} universities={universities} userId={user.id} defaultUniversityId={profile?.university_id} />
     </div>

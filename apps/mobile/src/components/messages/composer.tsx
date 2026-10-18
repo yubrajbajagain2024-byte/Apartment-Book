@@ -7,6 +7,7 @@ import { useActionSheet } from "@/components/action-sheet";
 import { hapticTap } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { ATTACHMENT_LIMIT_TEXT, captureMedia, pickDocuments, pickLibraryMedia, type PendingAttachment, type PickResult } from "@/lib/message-attachments";
+import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { AttachmentStrip } from "./attachment-strip";
 
@@ -156,12 +157,15 @@ const useStyles = makeStyles((colors) => ({
   bar: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.bar },
   row: { flexDirection: "row", alignItems: "flex-end", gap: 8, paddingHorizontal: 10, paddingTop: 8 },
   attach: { width: 36, height: 40, alignItems: "center", justifyContent: "center" },
+  // The soft fill with a hairline edge, a capsule at one line that squares a little as it grows.
   input: {
     flex: 1,
     minHeight: 40,
     maxHeight: 120,
     backgroundColor: colors.input,
-    borderRadius: 20,
+    borderRadius: radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: 10,
@@ -171,9 +175,9 @@ const useStyles = makeStyles((colors) => ({
     textAlignVertical: "center",
   },
   send: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-  notice: { alignItems: "center", gap: 4, paddingHorizontal: 24, paddingTop: 14, paddingBottom: 6 },
-  noticeTitle: { fontSize: 15, fontWeight: "700", color: colors.text, textAlign: "center" },
-  noticeBody: { fontSize: 13, color: colors.muted, textAlign: "center" },
-  noticeButton: { marginTop: 8, paddingHorizontal: 18, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.input },
-  noticeButtonText: { fontSize: 14, fontWeight: "700", color: colors.brand },
+  notice: { alignItems: "center", gap: 4, paddingHorizontal: space.xl, paddingTop: 14, paddingBottom: 6 },
+  noticeTitle: { ...type.subheading, color: colors.text, textAlign: "center" },
+  noticeBody: { ...type.caption, color: colors.muted, textAlign: "center" },
+  noticeButton: { marginTop: space.sm, height: 34, paddingHorizontal: 18, justifyContent: "center", borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border },
+  noticeButtonText: { ...type.label, color: colors.text },
 }));

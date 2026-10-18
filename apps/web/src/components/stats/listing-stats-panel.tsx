@@ -10,14 +10,14 @@ export function ListingStatsPanel({ stats, title = "Your post so far" }: { stats
   ];
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
-      <dl className="grid grid-cols-3 gap-2">
+      <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">{title}</p>
+      <dl className="grid grid-cols-3 divide-x divide-gray-200 overflow-hidden rounded-[10px] ring-1 ring-gray-200">
         {items.map((i) => (
-          <div key={i.label} className="rounded-lg bg-gray-50 px-3 py-2 text-center">
-            <dt className="flex items-center justify-center gap-1 text-xs text-gray-500">
-              <i.icon className="h-3.5 w-3.5" /> {i.label}
+          <div key={i.label} className="flex flex-col items-center gap-0.5 px-2 py-2.5 text-center">
+            <dd className="font-display text-xl leading-none tracking-tight tabular-nums text-gray-900">{i.value}</dd>
+            <dt className="flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-[0.1em] text-gray-500">
+              <i.icon className="h-3 w-3" strokeWidth={1.75} /> {i.label}
             </dt>
-            <dd className="text-lg font-bold text-gray-900">{i.value}</dd>
           </div>
         ))}
       </dl>

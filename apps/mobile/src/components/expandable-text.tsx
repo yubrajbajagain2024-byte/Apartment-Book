@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Text, View, type StyleProp, type TextStyle } from "react-native";
+import { type } from "@/lib/theme";
 import { makeStyles } from "@/lib/theme-provider";
 
 /**
@@ -40,7 +41,7 @@ export function ExpandableText({ children, style, lines = 3, expanded: startOpen
 
 const useStyles = makeStyles((colors) => ({
   measure: { position: "absolute", top: 0, left: 0, right: 0, opacity: 0 },
-  toggle: { color: colors.muted, fontSize: 14, fontWeight: "600", paddingTop: 3, alignSelf: "flex-start" },
+  toggle: { ...type.caption, fontSize: 14, fontWeight: "600", color: colors.muted, paddingTop: 3, alignSelf: "flex-start" },
   // Standing in for the whole text, the fold needs no space above it.
   toggleAlone: { paddingTop: 0 },
 }));

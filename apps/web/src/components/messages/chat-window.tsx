@@ -66,7 +66,7 @@ function SharedPostCard({ shared, pending }: { shared: SharedPost; pending?: boo
       href={`${SHARED_TARGET_BASE[shared.target_type]}${encodeURIComponent(shared.target_id)}`}
       data-testid="shared-post"
       aria-label={`${label}: ${shared.title ?? shared.caption ?? shared.author.name}`}
-      className={cn("mb-1 block w-64 max-w-full overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-sm hover:bg-gray-50", pending && "opacity-60")}
+      className={cn("mb-1 block w-64 max-w-full overflow-hidden rounded-[14px] bg-white text-left shadow-card ring-1 ring-gray-200 transition-colors hover:bg-gray-50", pending && "opacity-60")}
     >
       {/* The snapshot's pictures can point anywhere, and they must never be able to break the chat: next/image only for hosts it serves. */}
       {shared.image_url ? (
@@ -85,7 +85,7 @@ function SharedPostCard({ shared, pending }: { shared: SharedPost; pending?: boo
       </span>
       {shared.title ? <span className="line-clamp-1 block break-words px-3 pt-1 text-sm font-semibold text-gray-900">{shared.title}</span> : null}
       {shared.caption ? <span className="line-clamp-2 block break-words px-3 pt-0.5 text-sm text-gray-800">{shared.caption}</span> : null}
-      <span className="mt-2 block border-t border-gray-100 px-3 py-2 text-xs font-semibold text-brand-700">{label}</span>
+      <span className="mt-2 block border-t border-gray-100 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">{label}</span>
     </Link>
   );
 }
@@ -315,14 +315,14 @@ export function ChatWindow({
       <div ref={listRef} className="scrollbar-thin flex-1 overflow-y-auto px-3 py-4 sm:px-6">
         {hasMore ? (
           <div className="mb-4 flex justify-center">
-            <button type="button" onClick={loadMore} disabled={loadingMore} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">
+            <button type="button" onClick={loadMore} disabled={loadingMore} className="ab-press rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-200 transition-colors hover:bg-gray-50 hover:text-gray-900 disabled:opacity-50">
               {loadingMore ? "Loading…" : "Load earlier messages"}
             </button>
           </div>
         ) : null}
         {messages.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-gray-500">
-            <p className="font-medium text-gray-700">This is the start of your conversation.</p>
+          <div className="ab-fade-in flex h-full flex-col items-center justify-center gap-2 text-center text-gray-500">
+            <p className="font-display text-xl tracking-tight text-gray-900">This is the start of your conversation.</p>
             <p className="text-sm">Say hello 👋</p>
           </div>
         ) : null}
@@ -336,7 +336,7 @@ export function ChatWindow({
             const attachments = m.attachments ?? [];
             return (
               <li key={m.id} className="flex flex-col">
-                {showDay && hydrated ? <p className="my-3 text-center text-[11px] font-medium uppercase tracking-wide text-gray-400">{formatDayLabel(m.created_at)}</p> : null}
+                {showDay && hydrated ? <p className="my-4 text-center text-[11px] font-bold uppercase tracking-[0.1em] text-gray-400">{formatDayLabel(m.created_at)}</p> : null}
                 <div className={cn("flex items-end gap-2", mine ? "flex-row-reverse" : "flex-row", continued && "mt-0")}>
                   {!mine ? (
                     <span className="w-8 shrink-0">
@@ -344,11 +344,11 @@ export function ChatWindow({
                     </span>
                   ) : null}
                   <div className={cn("flex max-w-[75%] flex-col", mine ? "items-end" : "items-start")}>
-                    {!mine && isGroup && !continued ? <span className="mb-0.5 ml-1 text-[11px] text-gray-500">{m.sender?.full_name ?? "Unknown"}</span> : null}
+                    {!mine && isGroup && !continued ? <span className="mb-0.5 ml-1 text-[11px] font-medium text-gray-500">{m.sender?.full_name ?? "Unknown"}</span> : null}
                     {/* A shared post, reel or listing sits above the words (a share without words has no bubble at all). */}
                     {shared ? <SharedPostCard shared={shared} pending={m.pending} /> : null}
                     {m.image_url ? (
-                      <a href={m.image_url} target="_blank" rel="noopener noreferrer" className="relative mb-1 block h-48 w-48 overflow-hidden rounded-2xl bg-gray-100">
+                      <a href={m.image_url} target="_blank" rel="noopener noreferrer" className="relative mb-1 block h-48 w-48 overflow-hidden rounded-[14px] bg-gray-100 ring-1 ring-gray-200">
                         <Image src={m.image_url} alt="Shared photo" fill sizes="192px" className="object-cover" />
                       </a>
                     ) : null}
@@ -359,8 +359,8 @@ export function ChatWindow({
                     {m.content && !(m.image_url && m.content === "📷 Photo") ? (
                       <div
                         className={cn(
-                          "whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm",
-                          mine ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-900",
+                          "whitespace-pre-wrap break-words rounded-[18px] px-3.5 py-2 text-[15px] leading-snug",
+                          mine ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-900",
                           m.pending && "opacity-60",
                           m.failed && "bg-red-100 text-red-800",
                         )}
@@ -390,14 +390,14 @@ export function ChatWindow({
       </div>
 
       <form
-        className="flex items-end gap-2 border-t border-gray-200 px-3 py-3 sm:px-4"
+        className="flex items-end gap-2 border-t border-gray-200 bg-white px-3 py-3 sm:px-4"
         onSubmit={(e) => {
           e.preventDefault();
           void send(text);
         }}
       >
-        <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-brand-600 hover:bg-brand-50" aria-label="Send a photo">
-          {uploading ? <Spinner className="h-5 w-5" /> : <ImagePlus className="h-5 w-5" />}
+        <label className="ab-press flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gray-400" aria-label="Send a photo">
+          {uploading ? <Spinner className="h-5 w-5" /> : <ImagePlus className="h-5 w-5" strokeWidth={1.75} />}
           <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" disabled={uploading} onChange={(e) => attachImage(e.target.files)} />
         </label>
         <textarea
@@ -414,10 +414,10 @@ export function ChatWindow({
           maxLength={4000}
           placeholder="Aa"
           aria-label="Message"
-          className="max-h-32 min-h-10 flex-1 resize-none rounded-2xl bg-gray-100 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-200"
+          className="max-h-32 min-h-10 flex-1 resize-none rounded-[20px] bg-gray-100 px-4 py-2.5 text-[15px] leading-snug text-gray-900 transition-colors placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-gray-900"
         />
-        <button type="submit" disabled={sending || uploading || text.trim().length === 0} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-40" aria-label="Send">
-          <Send className="h-5 w-5" />
+        <button type="submit" disabled={sending || uploading || text.trim().length === 0} className="ab-press flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-900 text-white transition-colors hover:bg-gray-800 disabled:opacity-40" aria-label="Send">
+          <Send className="h-[18px] w-[18px]" strokeWidth={1.75} />
         </button>
       </form>
       {error ? <p className="px-4 pb-2 text-xs text-red-600">{error}</p> : null}

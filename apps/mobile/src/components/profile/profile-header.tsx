@@ -3,7 +3,8 @@ import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View, type St
 import { Ionicons } from "@expo/vector-icons";
 import { compactCount, type FollowStats, type ProfileWithUniversity } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
-import { radius, space } from "@/lib/theme";
+import { usePressScale } from "@/components/ui";
+import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 /** Height of the pills beside the photo (Edit profile, Follow, Message…) and of the round Share button. */
@@ -19,6 +20,8 @@ const AVATAR_OUTER = AVATAR_SIZE + AVATAR_RING * 2;
 /** How far the photo hangs over the cover's bottom edge. */
 const AVATAR_OVERLAP = 42;
 const COVER_BUTTON = 38;
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /** The @handle, when the profile has one (profiles read before the username column existed have none). */
 export function profileHandle(profile: ProfileWithUniversity): string | null {
@@ -70,19 +73,29 @@ export function ProfileFloatingBar({ topInset, name, left, right, opacity }: { t
   );
 }
 
-/** A grey pill beside the photo: Edit profile, Message. */
+/** A hairline capsule beside the photo: Edit profile, Message. It sinks a touch under the finger, like every button. */
 export function HeaderButton({ title, onPress, disabled, style }: { title: string; onPress: () => void; disabled?: boolean; style?: StyleProp<ViewStyle> }) {
   const styles = useStyles();
+  const press = usePressScale();
   return (
-    <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ disabled: Boolean(disabled) }} style={({ pressed }) => [styles.button, { opacity: disabled ? 0.5 : pressed ? 0.7 : 1 }, style]}>
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: Boolean(disabled) }}
+      style={[styles.button, { opacity: disabled ? 0.5 : 1, transform: [{ scale: press.scale }] }, style]}
+    >
       <Text style={styles.buttonText} numberOfLines={1}>
         {title}
       </Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
-/** The round grey button beside the pills: Share profile on your own profile. */
+/** The round hairline button beside the capsules: Share profile on your own profile. */
 export function HeaderIconButton({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
   const styles = useStyles();
   const colors = useColors();
@@ -211,24 +224,27 @@ export function ProfileHeader({
 
         <View style={styles.stats}>
           <Stat n={posts} label={posts === 1 ? "Post" : "Posts"} />
-          <Stat n={follow.followers} label={follow.followers === 1 ? "Follower" : "Followers"} onPress={() => onOpenFollows("followers")} />
-          <Stat n={follow.following} label="Following" onPress={() => onOpenFollows("following")} />
-          <Stat n={likes} label={likes === 1 ? "Like" : "Likes"} />
+          <Stat n={follow.followers} label={follow.followers === 1 ? "Follower" : "Followers"} onPress={() => onOpenFollows("followers")} divider />
+          <Stat n={follow.following} label="Following" onPress={() => onOpenFollows("following")} divider />
+          <Stat n={likes} label={likes === 1 ? "Like" : "Likes"} divider />
         </View>
       </View>
     </View>
   );
 }
 
-/** Bold number over a grey word; Followers and Following open the owner's lists (anyone else's mutual friends). Read out as "243 Followers". */
-function Stat({ n, label, onPress }: { n: number; label: string; onPress?: () => void }) {
+/**
+ * A serif number over an eyebrow; Followers and Following open the owner's lists (anyone else's mutual friends). Read out
+ * as "243 Followers". `divider` draws the hairline between this stat and the one before it.
+ */
+function Stat({ n, label, onPress, divider = false }: { n: number; label: string; onPress?: () => void; divider?: boolean }) {
   const styles = useStyles();
   return (
-    <Pressable onPress={onPress} disabled={!onPress} hitSlop={6} accessibilityRole={onPress ? "button" : "text"} accessibilityLabel={`${n} ${label}`} style={({ pressed }) => [styles.stat, pressed && { opacity: 0.6 }]}>
-      <Text style={styles.statNumber} numberOfLines={1}>
+    <Pressable onPress={onPress} disabled={!onPress} hitSlop={6} accessibilityRole={onPress ? "button" : "text"} accessibilityLabel={`${n} ${label}`} style={({ pressed }) => [styles.stat, divider && styles.statDivider, pressed && { opacity: 0.6 }]}>
+      <Text style={styles.statNumber} numberOfLines={1} maxFontSizeMultiplier={1.2}>
         {compactCount(n)}
       </Text>
-      <Text style={styles.statLabel} numberOfLines={1}>
+      <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.2}>
         {label}
       </Text>
     </Pressable>
@@ -247,7 +263,7 @@ const useStyles = makeStyles((colors) => ({
   floatBar: { position: "absolute", top: 0, left: 0, right: 0 },
   floatBg: { backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   floatTitle: { position: "absolute", left: 60, right: 60, height: PROFILE_BAR_ROW_HEIGHT, alignItems: "center", justifyContent: "center" },
-  floatName: { fontSize: 17, fontWeight: "800", color: colors.text },
+  floatName: { ...type.headline, color: colors.text },
   floatRow: { position: "absolute", left: 0, right: 0, height: PROFILE_BAR_ROW_HEIGHT, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 8 },
   coverButton: { width: COVER_BUTTON, height: COVER_BUTTON, borderRadius: COVER_BUTTON / 2, backgroundColor: colors.coverButton, alignItems: "center", justifyContent: "center" },
   coverButtonSpace: { width: COVER_BUTTON, height: COVER_BUTTON },
@@ -258,23 +274,26 @@ const useStyles = makeStyles((colors) => ({
   // The ring is the screen's own colour (the profile sits on bg), cutting the badge out of the photo.
   plus: { position: "absolute", right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: colors.brand, borderWidth: 2.5, borderColor: colors.bg, alignItems: "center", justifyContent: "center" },
   actions: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: space.sm, paddingBottom: 6 },
-  button: { height: PROFILE_BUTTON_HEIGHT, borderRadius: radius.pill, backgroundColor: colors.input, alignItems: "center", justifyContent: "center", paddingHorizontal: 20, flexShrink: 1 },
-  buttonText: { fontSize: 15, fontWeight: "700", color: colors.text },
+  // A hairline capsule, no fill: the ink Follow button beside it is the one thing that is filled.
+  button: { height: PROFILE_BUTTON_HEIGHT, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent", alignItems: "center", justifyContent: "center", paddingHorizontal: 18, flexShrink: 1 },
+  buttonText: { ...type.label, color: colors.text },
   round: { width: PROFILE_BUTTON_HEIGHT, paddingHorizontal: 0, flexShrink: 0 },
   info: { paddingHorizontal: space.lg },
   nameRow: { marginTop: space.sm, flexDirection: "row", alignItems: "center", alignSelf: "flex-start", maxWidth: "100%" },
-  name: { fontSize: 22, fontWeight: "800", color: colors.text, flexShrink: 1 },
+  // The name in the serif: the one display line of the profile.
+  name: { ...type.title, color: colors.text, flexShrink: 1 },
   nameChevron: { marginLeft: 4, marginTop: 3 },
   handleRow: { marginTop: 2, flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%" },
-  handle: { fontSize: 14, color: colors.muted, flexShrink: 1 },
+  handle: { ...type.caption, fontSize: 14, color: colors.muted, flexShrink: 1 },
   chipRow: { marginTop: 10, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: space.sm },
-  chip: { flexDirection: "row", alignItems: "center", gap: 5, height: 26, paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: colors.input, maxWidth: "100%" },
-  chipText: { fontSize: 13, fontWeight: "600", color: colors.muted, flexShrink: 1 },
-  study: { fontSize: 14, color: colors.text, flexShrink: 1 },
-  bio: { marginTop: 10, fontSize: 15, lineHeight: 20, color: colors.text },
-  // The card with the numbers: a soft panel with four columns.
-  stats: { marginTop: 14, flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 4, borderRadius: 18, backgroundColor: colors.panel },
-  stat: { flex: 1, alignItems: "center", gap: 1, paddingHorizontal: 2 },
-  statNumber: { fontSize: 17, fontWeight: "800", color: colors.text },
-  statLabel: { fontSize: 13, color: colors.muted },
+  chip: { flexDirection: "row", alignItems: "center", gap: 5, height: 26, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, maxWidth: "100%" },
+  chipText: { ...type.label, fontSize: 12, color: colors.muted, flexShrink: 1 },
+  study: { ...type.caption, fontSize: 14, color: colors.text, flexShrink: 1 },
+  bio: { marginTop: 10, ...type.bodySmall, color: colors.text },
+  // The numbers: four columns between two hairlines, hairlines between them, no box.
+  stats: { marginTop: space.lg, flexDirection: "row", alignItems: "stretch", borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  stat: { flex: 1, alignItems: "center", gap: 2, paddingVertical: space.md, paddingHorizontal: 2 },
+  statDivider: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border },
+  statNumber: { ...type.headline, color: colors.text },
+  statLabel: { ...type.eyebrow, color: colors.muted },
 }));

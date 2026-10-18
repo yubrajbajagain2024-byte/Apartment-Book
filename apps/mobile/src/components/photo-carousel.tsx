@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from "expo-video";
 import type { FeedMedia } from "@apartment-book/shared";
+import { radius, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 const DOUBLE_TAP_MS = 260;
@@ -146,7 +147,7 @@ function VideoSlide({ media, width, height, playing }: { media: Extract<FeedMedi
           setMuted(!muted);
         }}
         accessibilityRole="button" accessibilityLabel={muted ? "Unmute" : "Mute"}
-        style={styles.mute}
+        style={({ pressed }) => [styles.mute, pressed && { opacity: 0.7 }]}
       >
         <Ionicons name={muted ? "volume-mute" : "volume-high"} size={16} color={colors.onMedia} />
       </Pressable>
@@ -156,12 +157,12 @@ function VideoSlide({ media, width, height, playing }: { media: Extract<FeedMedi
 
 // Everything here sits on the photo or video, so it uses the media colours, which are the same in both themes.
 const useStyles = makeStyles((colors) => ({
-  counter: { position: "absolute", top: 10, right: 10, backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
-  counterText: { color: colors.onMedia, fontSize: 12, fontWeight: "700" },
+  counter: { position: "absolute", top: 10, right: 10, backgroundColor: colors.mediaPill, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 3 },
+  counterText: { ...type.footnote, fontWeight: "600", color: colors.onMedia },
   dots: { position: "absolute", bottom: 10, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 5 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.onMediaMuted },
   dotActive: { width: 18, backgroundColor: colors.onMedia },
-  videoBadge: { position: "absolute", top: 10, left: 10, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  videoBadgeText: { color: colors.onMedia, fontSize: 12, fontWeight: "700" },
+  videoBadge: { position: "absolute", top: 10, left: 10, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.mediaPill, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4 },
+  videoBadgeText: { ...type.footnote, fontWeight: "600", color: colors.onMedia },
   mute: { position: "absolute", right: 10, bottom: 28, width: 32, height: 32, borderRadius: 16, backgroundColor: colors.mediaPill, alignItems: "center", justifyContent: "center" },
 }));

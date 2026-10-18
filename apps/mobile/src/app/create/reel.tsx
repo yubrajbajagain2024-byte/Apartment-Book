@@ -12,7 +12,7 @@ import { markForYouStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { pickVideo, uploadVideo } from "@/lib/video";
-import { radius } from "@/lib/theme";
+import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 const CAPTION_MAX = 2200;
@@ -82,7 +82,7 @@ export default function CreateReelScreen() {
       await createReel(supabase, user.id, parsed.data);
       markReelsStale();
       markForYouStale();
-      // Back to Home, opened on Reels (on For you while Reels has no tab: the reel is in that blend), so they see what they shared.
+      // Back to Home, opened on Reels, so the new reel is the first thing they see.
       openHomeSection("reels");
       router.dismissTo("/(tabs)");
     } catch (e) {
@@ -103,7 +103,7 @@ export default function CreateReelScreen() {
   const percent = upload ? Math.round(upload.progress * 100) : 0;
   const poster = video ? (video.poster_url ?? muxPosterUrl(video.playback_id)) : null;
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
       <Stack.Screen options={{ title: "New reel" }} />
 
       {video && poster ? (
@@ -114,12 +114,12 @@ export default function CreateReelScreen() {
               <Ionicons name="checkmark-circle" size={14} color={colors.onMedia} />
               <Text style={styles.readyText}>Video ready</Text>
             </View>
-            <Pressable onPress={() => setVideo(null)} disabled={busy} style={styles.remove} accessibilityRole="button" accessibilityLabel="Remove video">
+            <Pressable onPress={() => setVideo(null)} disabled={busy} style={({ pressed }) => [styles.remove, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Remove video">
               <Ionicons name="close" size={18} color={colors.onMedia} />
             </Pressable>
           </View>
-          <Pressable onPress={chooseSource} disabled={busy} hitSlop={8} accessibilityRole="button">
-            <Text style={{ color: colors.brand, fontWeight: "700" }}>Use a different video</Text>
+          <Pressable onPress={chooseSource} disabled={busy} hitSlop={8} style={({ pressed }) => pressed && { opacity: 0.7 }} accessibilityRole="button">
+            <Text style={styles.link}>Use a different video</Text>
           </Pressable>
         </View>
       ) : upload ? (
@@ -131,7 +131,7 @@ export default function CreateReelScreen() {
           <Text style={styles.hint}>{upload.phase === "uploading" ? "Keep the app open while your video uploads." : "Almost done. We are getting your video ready to play."}</Text>
         </View>
       ) : (
-        <Pressable onPress={chooseSource} style={[styles.box, styles.pick, errors.videos ? { borderColor: colors.red } : null]} accessibilityRole="button" accessibilityLabel="Add a video">
+        <Pressable onPress={chooseSource} style={({ pressed }) => [styles.box, styles.pick, errors.videos ? { borderColor: colors.red } : null, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Add a video">
           <View style={styles.iconCircle}>
             <Ionicons name="videocam" size={26} color={colors.onBrand} />
           </View>
@@ -139,7 +139,7 @@ export default function CreateReelScreen() {
           <Text style={[styles.hint, { textAlign: "center" }]}>Record one now or pick one from your phone. Vertical videos up to 3 minutes look best.</Text>
         </Pressable>
       )}
-      {errors.videos && !video && !upload ? <Text style={{ color: colors.red, fontSize: 13 }}>{errors.videos}</Text> : null}
+      {errors.videos && !video && !upload ? <Text style={styles.error}>{errors.videos}</Text> : null}
 
       <Field label="Caption" value={caption} onChangeText={setCaption} multiline maxLength={CAPTION_MAX} placeholder="Say something about your video…" error={errors.body} hint={caption.length > CAPTION_MAX - 200 ? `${CAPTION_MAX - caption.length} characters left` : undefined} />
 
@@ -151,16 +151,20 @@ export default function CreateReelScreen() {
 }
 
 const useStyles = makeStyles((colors) => ({
-  previewWrap: { alignItems: "center", gap: 12 },
+  previewWrap: { alignItems: "center", gap: space.md },
   preview: { width: 200, aspectRatio: 9 / 16, borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.mediaBg },
-  readyBadge: { position: "absolute", left: 8, bottom: 8, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
-  readyText: { color: colors.onMedia, fontSize: 12, fontWeight: "700" },
-  remove: { position: "absolute", right: 8, top: 8, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.mediaPill, alignItems: "center", justifyContent: "center" },
-  box: { backgroundColor: colors.card, borderRadius: radius.md, padding: 16, gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  pick: { alignItems: "center", paddingVertical: 28, borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.brand },
-  iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-  boxTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
-  track: { height: 8, borderRadius: 4, backgroundColor: colors.border, overflow: "hidden" },
-  fillBar: { height: 8, backgroundColor: colors.brand },
-  hint: { fontSize: 13, color: colors.muted, lineHeight: 18 },
+  readyBadge: { position: "absolute", left: space.sm, bottom: space.sm, flexDirection: "row", alignItems: "center", gap: space.xs, backgroundColor: colors.mediaPill, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 4 },
+  readyText: { ...type.footnote, fontWeight: "600", color: colors.onMedia },
+  remove: { position: "absolute", right: space.sm, top: space.sm, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.mediaPill, alignItems: "center", justifyContent: "center" },
+  link: { ...type.label, color: colors.text },
+  // A card like the system's; the empty picker draws a quiet dashed edge instead, with the one ink disc in the middle.
+  box: { backgroundColor: colors.card, borderRadius: radius.lg, padding: space.lg, gap: space.sm + space.xxs, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  pick: { alignItems: "center", paddingVertical: space.xxl, borderWidth: 1, borderStyle: "dashed", borderColor: colors.faint, backgroundColor: "transparent" },
+  iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", marginBottom: space.xs },
+  boxTitle: { ...type.heading, fontSize: 16, color: colors.text },
+  // A thin progress line in ink.
+  track: { height: 4, borderRadius: 2, backgroundColor: colors.border, overflow: "hidden" },
+  fillBar: { height: 4, backgroundColor: colors.brand },
+  hint: { ...type.caption, color: colors.muted },
+  error: { ...type.footnote, color: colors.red },
 }));

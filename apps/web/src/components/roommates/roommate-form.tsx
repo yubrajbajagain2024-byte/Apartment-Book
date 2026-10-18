@@ -64,8 +64,8 @@ export function RoommateForm({
           <fieldset className="sm:col-span-2">
             <div className="grid gap-2 sm:grid-cols-2">
               {ROOMMATE_POST_TYPES.map((t) => (
-                <label key={t.value} className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-300 px-3 py-3 text-sm has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50">
-                  <input type="radio" name="postType" value={t.value} defaultChecked={def("postType", initial?.post_type ?? "needs_room") === t.value} className="text-brand-600" />
+                <label key={t.value} className="ab-press flex cursor-pointer items-center gap-3 rounded-[10px] px-3.5 py-3 text-sm font-medium text-gray-700 ring-1 ring-gray-200 transition-colors hover:bg-gray-50 has-[:checked]:bg-gray-50 has-[:checked]:font-semibold has-[:checked]:text-gray-900 has-[:checked]:ring-gray-900">
+                  <input type="radio" name="postType" value={t.value} defaultChecked={def("postType", initial?.post_type ?? "needs_room") === t.value} className="h-4 w-4 accent-gray-900" />
                   {t.label}
                 </label>
               ))}
@@ -151,7 +151,7 @@ export function RoommateForm({
       <Card>
         <CardHeader>
           <CardTitle>Video (optional)</CardTitle>
-          <p className="mt-1 text-sm text-gray-600">Show your room or say hi on camera. Posts with a video rank higher.</p>
+          <p className="mt-1 text-sm text-gray-500">Show your room or say hi on camera. Posts with a video rank higher.</p>
         </CardHeader>
         <CardBody>
           <VideoUploader initial={initial?.videos} tour={false} max={1} />
@@ -169,7 +169,7 @@ export function RoommateForm({
         </CardBody>
       </Card>
 
-      <div className="flex items-center justify-end gap-3">
+      <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-5">
         <LinkButton href={initial ? `/roommates/${initial.id}` : "/roommates"} variant="ghost">
           Cancel
         </LinkButton>

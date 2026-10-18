@@ -12,7 +12,8 @@ import { RoommatesSection, type RoommateType } from "@/components/housing/roomma
 import { SlidingTabs } from "@/components/sliding-tabs";
 import { useCollapsingHeader } from "@/lib/collapsing-header";
 import { hapticSwipe } from "@/lib/haptics";
-import { radius, space } from "@/lib/theme";
+// Aliased: the screen keeps a `type` state (the roommate post kind) of its own.
+import { radius, space, type as typeScale } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 
 const ORDER = HOUSING_SECTIONS.map((s) => s.value);
@@ -270,7 +271,7 @@ export default function HousingScreen() {
                 accessibilityState={{ selected: p.selected }}
                 style={({ pressed }) => [styles.chip, p.selected && styles.chipSelected, pressed && !p.selected && { opacity: 0.7 }]}
               >
-                {p.icon ? <Ionicons name={p.icon} size={14} color={p.selected ? colors.brand : colors.muted} /> : null}
+                {p.icon ? <Ionicons name={p.icon} size={14} color={p.selected ? colors.text : colors.muted} /> : null}
                 {/* The pills follow the text size as far as the labels above them do, so "All" never ends in an ellipsis. */}
                 <Text style={[styles.chipText, p.selected && styles.chipTextSelected]} numberOfLines={1} maxFontSizeMultiplier={1.2}>
                   {p.label}
@@ -335,13 +336,15 @@ const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   chrome: { backgroundColor: colors.bar, zIndex: 3 },
   titleRow: { height: TITLE_ROW, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md, paddingLeft: 20, paddingRight: space.lg },
-  title: { flexShrink: 1, fontSize: 30, fontWeight: "800", letterSpacing: -0.5, color: colors.text },
+  // The serif of the app's own bars (see type.title), a step larger than the Home wordmark: this is a page's title.
+  title: { ...typeScale.title, fontSize: 28, lineHeight: 34, flexShrink: 1, color: colors.text },
   searchRow: { height: SEARCH_ROW, flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: 20 },
-  // As tall as the box, round, on the same fill; tinted while a filter is in force, with the count on its corner.
-  filterButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
-  filterButtonOn: { backgroundColor: colors.brandSoft },
-  filterBadge: { position: "absolute", top: 3, right: 3, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-  filterBadgeText: { fontSize: 10, fontWeight: "800", color: colors.onBrand },
+  // As tall as the box, round, on the same fill; while a filter is in force it takes a chip's selected look (an ink ring
+  // on the warm wash), with the count on its corner.
+  filterButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.input, borderWidth: 1, borderColor: "transparent", alignItems: "center", justifyContent: "center" },
+  filterButtonOn: { backgroundColor: colors.brandSoft, borderColor: colors.text },
+  filterBadge: { position: "absolute", top: 2, right: 2, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  filterBadgeText: { fontSize: 10, lineHeight: 12, fontWeight: "700", color: colors.onBrand },
   // The input fill, not the card colour: the screen behind it is white in light and black in dark. The inbox's box exactly.
   search: { flex: 1, height: 46, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 16 },
   searchMark: { width: 20, alignItems: "center" },
@@ -351,8 +354,9 @@ const useStyles = makeStyles((colors) => ({
   // The labels row, as tall as Home's, with the hairline the sliding underline sits on.
   tabs: { height: TABS_ROW, flexDirection: "row", marginHorizontal: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   pills: { height: PILLS_ROW, flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: 20 },
-  chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: colors.input },
-  chipSelected: { backgroundColor: colors.brandSoft },
-  chipText: { fontSize: 13, fontWeight: "600", color: colors.text },
-  chipTextSelected: { color: colors.brand },
+  // The design system's Chip: a hairline capsule at rest, an ink outline on the warm wash once chosen.
+  chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 13, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" },
+  chipSelected: { backgroundColor: colors.brandSoft, borderColor: colors.text },
+  chipText: { ...typeScale.label, fontSize: 13, color: colors.muted },
+  chipTextSelected: { color: colors.text },
 }));

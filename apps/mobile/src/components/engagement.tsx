@@ -5,6 +5,7 @@ import { getPostEngagement, likePost, toggleSaved, unlikePost, type PostEngageme
 import { hapticLike, hapticSelect } from "@/lib/haptics";
 import { onPostEngagement } from "@/lib/posts-events";
 import { supabase } from "@/lib/supabase";
+import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 export function useLike(targetType: PostTargetType, targetId: string, initial: PostEngagement | undefined, userId: string | null, onNeedLogin: () => void) {
@@ -117,16 +118,16 @@ export function EngagementBar({ liked, likes, onLike, onComment, onMessage, mess
   const styles = useStyles();
   return (
     <View style={styles.bar}>
-      <Pressable style={styles.action} onPress={onLike} accessibilityRole="button" accessibilityLabel={liked ? "Unlike" : "Like"} accessibilityState={{ selected: liked }}>
+      <Pressable style={({ pressed }) => [styles.action, pressed && { opacity: 0.7 }]} onPress={onLike} accessibilityRole="button" accessibilityLabel={liked ? "Unlike" : "Like"} accessibilityState={{ selected: liked }}>
         <Ionicons name={liked ? "thumbs-up" : "thumbs-up-outline"} size={20} color={liked ? colors.brand : colors.text} />
         <Text style={[styles.actionText, liked && { color: colors.brand }]}>{liked ? "Liked" : "Like"}</Text>
         {likes > 0 ? <Text style={styles.count}>{likes}</Text> : null}
       </Pressable>
-      <Pressable style={styles.action} onPress={onComment} accessibilityRole="button" accessibilityLabel="Comment">
+      <Pressable style={({ pressed }) => [styles.action, pressed && { opacity: 0.7 }]} onPress={onComment} accessibilityRole="button" accessibilityLabel="Comment">
         <Ionicons name="chatbox-outline" size={20} color={colors.text} />
         <Text style={styles.actionText}>Comment</Text>
       </Pressable>
-      <Pressable style={styles.action} onPress={onMessage} accessibilityRole="button" accessibilityLabel={messageLabel}>
+      <Pressable style={({ pressed }) => [styles.action, pressed && { opacity: 0.7 }]} onPress={onMessage} accessibilityRole="button" accessibilityLabel={messageLabel}>
         <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
         <Text style={styles.actionText}>{messageLabel}</Text>
       </Pressable>
@@ -135,11 +136,11 @@ export function EngagementBar({ liked, likes, onLike, onComment, onMessage, mess
 }
 
 const useStyles = makeStyles((colors) => ({
-  summary: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 12, paddingVertical: 6 },
-  summaryText: { fontSize: 12, color: colors.muted },
+  summary: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: space.md, paddingVertical: 6 },
+  summaryText: { ...type.footnote, color: colors.muted },
   likePill: { width: 16, height: 16, borderRadius: 8, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-  bar: { flexDirection: "row", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: 6, paddingVertical: 4 },
-  action: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 38, borderRadius: 8 },
-  actionText: { fontSize: 13, fontWeight: "700", color: colors.text },
-  count: { fontSize: 12, color: colors.muted },
+  bar: { flexDirection: "row", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: 6, paddingVertical: space.xs },
+  action: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 38, borderRadius: radius.sm },
+  actionText: { ...type.label, fontSize: 13, color: colors.text },
+  count: { ...type.footnote, color: colors.muted },
 }));

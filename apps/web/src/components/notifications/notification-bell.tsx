@@ -7,7 +7,7 @@ import { Bell } from "lucide-react";
 import { getUnreadNotificationCount, listNotifications, markNotificationsRead, type NotificationWithActor } from "@apartment-book/shared";
 import { createClient, ensureRealtimeAuth, uniqueChannelName } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { Spinner } from "@/components/ui/spinner";
+import { RowSkeleton } from "@/components/feed/feed-bits";
 import { NotificationItem } from "./notification-item";
 
 /** Top-bar bell: live unread count, dropdown with the latest notifications. */
@@ -89,7 +89,7 @@ export function NotificationBell({ userId, initialCount }: { userId: string; ini
         onClick={toggle}
         aria-label={count > 0 ? `Notifications, ${count} unread` : "Notifications"}
         aria-expanded={open}
-        className={cn("relative flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-gray-800 hover:bg-gray-300", open && "bg-brand-50 text-brand-700")}
+        className={cn("ab-press relative flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-900 hover:bg-gray-200", open && "bg-gray-200")}
       >
         <Bell className="h-5 w-5" />
         {count > 0 ? (
@@ -99,25 +99,32 @@ export function NotificationBell({ userId, initialCount }: { userId: string; ini
         ) : null}
       </button>
       {open ? (
-        <div role="dialog" aria-label="Notifications" className="absolute right-0 top-full z-50 mt-2 w-[min(24rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-gray-200">
-          <div className="flex items-center justify-between px-4 py-3">
-            <h2 className="text-lg font-bold">Notifications</h2>
+        <div role="dialog" aria-label="Notifications" className="ab-fade-in absolute right-0 top-full z-50 mt-2 w-[min(24rem,calc(100vw-1.5rem))] overflow-hidden rounded-[14px] bg-white shadow-float ring-1 ring-gray-200">
+          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+            <h2 className="font-display text-xl tracking-tight text-gray-900">Notifications</h2>
             {count > 0 ? (
-              <button type="button" onClick={markAll} className="text-sm font-medium text-brand-600 hover:underline">
+              <button type="button" onClick={markAll} className="text-[13px] font-semibold text-gray-900 hover:underline">
                 Mark all as read
               </button>
             ) : null}
           </div>
-          <div className="max-h-[70vh] overflow-y-auto px-1.5 pb-1.5">
+          <div className="max-h-[70vh] overflow-y-auto">
             {loading || items === null ? (
-              <div className="flex justify-center py-8 text-brand-600"><Spinner /></div>
+              // The shape of three rows while the list loads.
+              <div className="divide-y divide-gray-100" aria-busy="true" aria-label="Loading">
+                <RowSkeleton />
+                <RowSkeleton />
+                <RowSkeleton />
+              </div>
             ) : items.length === 0 ? (
-              <p className="px-3 py-8 text-center text-sm text-gray-600">Nothing yet. New messages, saves and places near campus will show here.</p>
+              <p className="px-6 py-10 text-center text-sm leading-relaxed text-gray-500">Nothing yet. New messages, saves and places near campus will show here.</p>
             ) : (
-              items.map((n) => <NotificationItem key={n.id} notification={n} onOpen={openNotification} compact />)
+              <div className="divide-y divide-gray-100">
+                {items.map((n) => <NotificationItem key={n.id} notification={n} onOpen={openNotification} compact />)}
+              </div>
             )}
           </div>
-          <Link href="/notifications" onClick={() => setOpen(false)} className="block border-t border-gray-100 px-4 py-2.5 text-center text-sm font-semibold text-brand-600 hover:bg-gray-50">
+          <Link href="/notifications" onClick={() => setOpen(false)} className="block border-t border-gray-100 px-4 py-2.5 text-center text-[13px] font-semibold text-gray-900 transition-colors hover:bg-gray-50">
             See all
           </Link>
         </div>

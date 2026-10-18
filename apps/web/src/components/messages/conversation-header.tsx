@@ -25,8 +25,8 @@ export function ConversationHeader({ conversation, currentUserId }: { conversati
   return (
     <div className="border-b border-gray-200">
       <div className="flex h-14 items-center gap-2 px-2 sm:px-4">
-        <Link href="/messages" className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-gray-100 md:hidden" aria-label="Back to chats">
-          <ArrowLeft className="h-5 w-5" />
+        <Link href="/messages" className="ab-press flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 md:hidden" aria-label="Back to chats">
+          <ArrowLeft className="h-5 w-5" strokeWidth={1.75} />
         </Link>
         <ConversationAvatar conversation={conversation} size="sm" />
         <div className="min-w-0 flex-1">
@@ -37,11 +37,11 @@ export function ConversationHeader({ conversation, currentUserId }: { conversati
           </p>
         </div>
         {conversation.type === "group" ? (
-          <button type="button" onClick={() => setOpen((v) => !v)} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-gray-100" aria-label="Group info" aria-expanded={open}>
-            {open ? <X className="h-5 w-5" /> : <Info className="h-5 w-5" />}
+          <button type="button" onClick={() => setOpen((v) => !v)} className={cn("ab-press flex h-9 w-9 items-center justify-center rounded-full text-gray-700 transition-colors hover:bg-gray-100", open && "bg-gray-100 text-gray-900")} aria-label="Group info" aria-expanded={open}>
+            {open ? <X className="h-5 w-5" strokeWidth={1.75} /> : <Info className="h-5 w-5" strokeWidth={1.75} />}
           </button>
         ) : other ? (
-          <Link href={`/profile/${other.id}`} className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-600 hover:bg-brand-50">
+          <Link href={`/profile/${other.id}`} className="ab-press inline-flex h-8 items-center rounded-full px-3 text-[13px] font-semibold text-gray-900 ring-1 ring-gray-200 transition-colors hover:bg-gray-50">
             View profile
           </Link>
         ) : null}
@@ -61,17 +61,17 @@ function GroupInfo({ conversation, currentUserId }: { conversation: Conversation
   if (conversation.courseGroup) {
     const g = conversation.courseGroup;
     return (
-      <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50 px-4 py-4">
-        <p className="text-sm text-gray-700">
+      <div className="ab-fade-in flex flex-col gap-4 border-t border-gray-100 px-4 py-4">
+        <p className="text-sm leading-relaxed text-gray-600">
           Course chat: everyone at your university taking <span className="font-semibold">{g.code}</span> section <span className="font-semibold">{g.section}</span> in {g.term}. Classmates join by
           adding the class to their profile and leave by removing it; the chat is deleted when the semester ends.
         </p>
         <div>
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Members</p>
-          <ul className="flex flex-col gap-1">
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">Members</p>
+          <ul className="flex flex-col gap-0.5">
             {conversation.members.map((m) => (
               <li key={m.id}>
-                <Link href={`/profile/${m.id}`} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-white">
+                <Link href={`/profile/${m.id}`} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-gray-900 transition-colors hover:bg-gray-50">
                   <Avatar name={m.full_name} src={m.avatar_url} size="sm" />
                   {m.full_name}
                   {m.id === currentUserId ? <span className="text-xs text-gray-500">(you)</span> : null}
@@ -85,7 +85,7 @@ function GroupInfo({ conversation, currentUserId }: { conversation: Conversation
   }
 
   return (
-    <div className="grid gap-4 border-t border-gray-100 bg-gray-50 px-4 py-4 md:grid-cols-2">
+    <div className="ab-fade-in grid gap-5 border-t border-gray-100 px-4 py-4 md:grid-cols-2">
       <div className="flex flex-col gap-3">
         <form
           className="flex gap-2"
@@ -103,11 +103,11 @@ function GroupInfo({ conversation, currentUserId }: { conversation: Conversation
           </Button>
         </form>
         <div>
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Members</p>
-          <ul className="flex flex-col gap-1">
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">Members</p>
+          <ul className="flex flex-col gap-0.5">
             {conversation.members.map((m) => (
               <li key={m.id}>
-                <Link href={`/profile/${m.id}`} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-white">
+                <Link href={`/profile/${m.id}`} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-gray-900 transition-colors hover:bg-gray-50">
                   <Avatar name={m.full_name} src={m.avatar_url} size="sm" />
                   {m.full_name}
                   {m.id === currentUserId ? <span className="text-xs text-gray-500">(you)</span> : null}
@@ -120,8 +120,8 @@ function GroupInfo({ conversation, currentUserId }: { conversation: Conversation
       </div>
       <div className="flex flex-col gap-3">
         <div>
-          <p className="mb-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            <UserPlus className="h-3.5 w-3.5" /> Add people
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">
+            <UserPlus className="h-3.5 w-3.5" strokeWidth={1.75} /> Add people
           </p>
           <MemberPicker selected={adding} onChange={setAdding} excludeIds={conversation.members.map((m) => m.id)} />
           {adding.length > 0 ? (
@@ -154,7 +154,7 @@ function GroupInfo({ conversation, currentUserId }: { conversation: Conversation
             });
           }}
         >
-          <LogOut className="h-4 w-4" /> Leave group
+          <LogOut className="h-4 w-4" strokeWidth={1.75} /> Leave group
         </Button>
       </div>
     </div>

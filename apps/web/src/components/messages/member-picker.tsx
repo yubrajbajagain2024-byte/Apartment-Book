@@ -65,11 +65,11 @@ export function MemberPicker({
       {selected.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {selected.map((p) => (
-            <span key={p.id} className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 py-1 pl-1 pr-2 text-sm font-medium text-brand-800">
+            <span key={p.id} className="inline-flex items-center gap-1.5 rounded-full bg-white py-1 pl-1 pr-2 text-sm font-medium text-gray-900 ring-1 ring-gray-200">
               <Avatar name={p.full_name} src={p.avatar_url} size="xs" />
               {p.full_name}
-              <button type="button" onClick={() => onChange(selected.filter((s) => s.id !== p.id))} aria-label={`Remove ${p.full_name}`} className="rounded-full p-0.5 hover:bg-brand-100">
-                <X className="h-3.5 w-3.5" />
+              <button type="button" onClick={() => onChange(selected.filter((s) => s.id !== p.id))} aria-label={`Remove ${p.full_name}`} className="ab-press rounded-full p-0.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900">
+                <X className="h-3.5 w-3.5" strokeWidth={1.75} />
               </button>
             </span>
           ))}
@@ -81,7 +81,7 @@ export function MemberPicker({
         {loading ? <Spinner className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /> : null}
       </div>
       {results.length > 0 ? (
-        <ul className="max-h-60 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 bg-white">
+        <ul className="max-h-60 divide-y divide-gray-100 overflow-y-auto rounded-[10px] bg-white shadow-card ring-1 ring-gray-200">
           {results.map((p) => (
             <li key={p.id}>
               <button
@@ -90,7 +90,7 @@ export function MemberPicker({
                   onChange([...selected, p]);
                   handleQueryChange("");
                 }}
-                className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-900 transition-colors hover:bg-gray-50"
               >
                 <Avatar name={p.full_name} src={p.avatar_url} size="sm" />
                 {p.full_name}

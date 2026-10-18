@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MapPin, School, Tag } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { formatPrice, getItem, getListingStats, isSaved, ITEM_CATEGORIES, ITEM_CONDITIONS, labelFor, photosFor } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -38,8 +38,8 @@ export default async function ItemPage({ params }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Link href="/marketplace" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
-        <ArrowLeft className="h-4 w-4" /> Back to marketplace
+      <Link href="/marketplace" className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900">
+        <ArrowLeft className="h-4 w-4" strokeWidth={1.75} /> Back to marketplace
       </Link>
 
       <ViewTracker targetType="item" targetId={item.id} />
@@ -47,31 +47,33 @@ export default async function ItemPage({ params }: Props) {
         <div className="flex flex-col gap-4">
           <PhotoHero photos={photosFor(item.images, item.image_meta)} alt={item.title} />
           <Card>
-            <CardBody className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <h1 className="text-2xl font-bold text-gray-900">{item.title}</h1>
-                <p className="text-2xl font-bold text-brand-700">{item.price === 0 ? "Free" : formatPrice(item.price, item.currency)}</p>
+            <CardBody className="flex flex-col gap-5 px-5 py-5 sm:px-6 sm:py-6">
+              <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+                <h1 className="min-w-0 flex-1 font-display text-2xl tracking-tight text-gray-900 sm:text-3xl">{item.title}</h1>
+                <p className="font-display text-2xl tracking-tight text-gray-900 sm:text-3xl">{item.price === 0 ? "Free" : formatPrice(item.price, item.currency)}</p>
               </div>
               {item.status !== "available" ? <Badge tone="amber" className="w-fit">This item is {item.status}</Badge> : null}
-              <div className="flex flex-wrap gap-2">
-                <Badge tone="blue">
-                  <Tag className="mr-1 h-3 w-3" /> {labelFor(ITEM_CATEGORIES, item.category)}
-                </Badge>
-                <Badge>Condition: {labelFor(ITEM_CONDITIONS, item.condition)}</Badge>
-                {item.pickup_location ? (
-                  <Badge>
-                    <MapPin className="mr-1 h-3 w-3" /> {item.pickup_location}
-                  </Badge>
-                ) : null}
-                {item.university ? (
-                  <Badge>
-                    <School className="mr-1 h-3 w-3" /> {item.university.name}
-                  </Badge>
-                ) : null}
-              </div>
-              <div>
-                <h2 className="mb-1 font-semibold text-gray-900">Description</h2>
-                <p className="whitespace-pre-line text-gray-800">{item.description}</p>
+              {/* The facts as a hairline grid: the gap shows the line colour between the white cells. */}
+              <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[10px] bg-gray-200 ring-1 ring-gray-200 sm:grid-cols-4">
+                {[
+                  { label: "Category", value: labelFor(ITEM_CATEGORIES, item.category) },
+                  { label: "Condition", value: labelFor(ITEM_CONDITIONS, item.condition) },
+                  item.pickup_location ? { label: "Pickup", value: item.pickup_location } : null,
+                  item.university ? { label: "Campus", value: item.university.name } : null,
+                ]
+                  .filter((f): f is { label: string; value: string } => f !== null)
+                  .map((f) => (
+                    <div key={f.label} className="min-w-0 bg-white px-3.5 py-3">
+                      <dt className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">{f.label}</dt>
+                      <dd className="mt-1 truncate text-sm font-medium text-gray-900" title={f.value}>
+                        {f.value}
+                      </dd>
+                    </div>
+                  ))}
+              </dl>
+              <div className="border-t border-gray-100 pt-5">
+                <h2 className="mb-2 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">Description</h2>
+                <p className="whitespace-pre-line text-[15px] leading-relaxed text-gray-800">{item.description}</p>
               </div>
             </CardBody>
           </Card>
@@ -83,8 +85,8 @@ export default async function ItemPage({ params }: Props) {
               <Link href={`/profile/${item.seller.id}`} className="flex items-center gap-3">
                 <Avatar name={item.seller.full_name} src={item.seller.avatar_url} size="lg" />
                 <div className="min-w-0">
-                  <p className="truncate font-semibold text-gray-900">{item.seller.full_name}</p>
-                  <p className="text-xs text-gray-500">Listed {timeAgo(item.created_at)}</p>
+                  <p className="truncate font-display text-lg leading-tight tracking-tight text-gray-900">{item.seller.full_name}</p>
+                  <p className="mt-0.5 text-xs text-gray-500">Listed {timeAgo(item.created_at)}</p>
                 </div>
               </Link>
               {!isOwner ? (
@@ -100,7 +102,7 @@ export default async function ItemPage({ params }: Props) {
               )}
             </CardBody>
           </Card>
-          <p className="px-1 text-xs text-gray-500">Meet on campus or in a public place, and check the item before paying.</p>
+          <p className="px-1 text-xs leading-relaxed text-gray-500">Meet on campus or in a public place, and check the item before paying.</p>
         </aside>
       </div>
     </div>

@@ -3,13 +3,14 @@ import { ScrollView, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { getFeedPost, getPostEngagement, getPostPreviewsMany, isSaved, recordView, type FeedPostWithAuthor, type PostEngagement, type PostPreview } from "@apartment-book/shared";
 import { Comments } from "@/components/comments";
-import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { EmptyState, ErrorBanner, FeedSkeleton } from "@/components/ui";
 import { InstaPost } from "@/components/home/insta-post";
 import { markReelsStale } from "@/components/home/reels-section";
 import { useQuery } from "@/lib/hooks";
 import { emitPostRemoved } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 const NO_ENGAGEMENT: PostEngagement = { likes: 0, comments: 0, likedByMe: false };
@@ -28,8 +29,8 @@ export default function PostScreen() {
     recordView(supabase, "post", id).catch(() => {});
     return { post, engagement, saved, preview: previews[id] };
   }, [id, user?.id]);
-  if (loading && !data) return <Loading />;
-  if (error && !data) return <View style={{ padding: 16 }}><ErrorBanner message={error} onRetry={refresh} /></View>;
+  if (loading && !data) return <FeedSkeleton rows={1} />;
+  if (error && !data) return <View style={{ padding: space.lg }}><ErrorBanner message={error} onRetry={refresh} /></View>;
   if (!data) return <EmptyState icon="newspaper-outline" title="This post is no longer available" />;
   return <PostDetail key={`${data.post.id}:${user?.id ?? "guest"}`} post={data.post} engagement={data.engagement} saved={data.saved} preview={data.preview} focusComments={comment === "1"} />;
 }
@@ -74,5 +75,5 @@ function PostDetail({ post, engagement, saved, preview, focusComments }: { post:
 }
 
 const useStyles = makeStyles((colors) => ({
-  thread: { padding: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  thread: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
 }));

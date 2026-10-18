@@ -168,8 +168,8 @@ const useStyles = makeStyles((colors) => ({
   over: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
   badge: { position: "absolute", right: -16, top: -2 },
   // UNDERLINE_SHARE of the tab.
-  underline: { height: 3, width: "58%", borderRadius: 2, backgroundColor: "transparent" },
+  underline: { height: 2, width: "58%", borderRadius: 1, backgroundColor: "transparent" },
   underlineActive: { backgroundColor: colors.text },
   // On the row's bottom edge, where each tab's own underline sits.
-  slider: { position: "absolute", bottom: 0, height: 3, borderRadius: 2, backgroundColor: colors.text },
+  slider: { position: "absolute", bottom: 0, height: 2, borderRadius: 1, backgroundColor: colors.text },
 }));

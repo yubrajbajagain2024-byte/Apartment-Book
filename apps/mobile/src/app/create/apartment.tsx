@@ -7,6 +7,7 @@ import { MediaPicker } from "@/components/photo-picker";
 import { Button, Chip, Field } from "@/components/ui";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { space, type } from "@/lib/theme";
 import { useColors } from "@/lib/theme-provider";
 
 export default function CreateApartmentScreen() {
@@ -54,7 +55,7 @@ export default function CreateApartmentScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 12, gap: 12, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: space.xxxl }} keyboardShouldPersistTaps="handled">
       <FormSection title="Video tour and photos">
         <MediaPicker kind="apartments" userId={user.id} photos={photos} onPhotos={setPhotos} video={video} onVideo={setVideo} videoFirst />
       </FormSection>
@@ -80,14 +81,14 @@ export default function CreateApartmentScreen() {
         <Field label="Available from (YYYY-MM-DD)" value={f.availableFrom} onChangeText={(v) => set("availableFrom", v)} placeholder="2027-01-05" error={errors.availableFrom} />
         <Field label="Lease length (months)" value={f.leaseMonths} onChangeText={(v) => set("leaseMonths", v)} keyboardType="number-pad" placeholder="12" />
         <Field label="Contact phone (optional)" value={f.contactPhone} onChangeText={(v) => set("contactPhone", v)} keyboardType="phone-pad" />
-        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.muted }}>Amenities</Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        <Text style={{ ...type.caption, fontWeight: "600", color: colors.muted, marginLeft: 2 }}>Amenities</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
           {AMENITIES.map((a) => (
             <Chip key={a.value} label={a.label} active={f.amenities.includes(a.value)} onPress={() => set("amenities", f.amenities.includes(a.value) ? f.amenities.filter((x) => x !== a.value) : [...f.amenities, a.value])} />
           ))}
         </View>
       </FormSection>
-      <Button title="Post listing" onPress={() => void submit()} loading={busy} />
+      <Button title="Post listing" onPress={() => void submit()} loading={busy} style={{ marginTop: space.sm }} />
     </ScrollView>
   );
 }

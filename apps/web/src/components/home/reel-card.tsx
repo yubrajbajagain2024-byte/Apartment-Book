@@ -126,7 +126,7 @@ export function ReelCard({
 
   return (
     <section data-reel data-index={index} aria-label={`Reel by ${reel.author.name}`} className="flex h-full w-full snap-start snap-always items-center justify-center sm:py-2">
-      <div className="relative h-full w-full overflow-hidden bg-black sm:aspect-[9/16] sm:w-auto sm:max-w-full sm:rounded-2xl sm:shadow-lg">
+      <div className="relative h-full w-full overflow-hidden bg-black sm:aspect-[9/16] sm:w-auto sm:max-w-full sm:rounded-2xl sm:shadow-float">
         <ReelVideo src={muxPlaybackUrl(reel.video.playback_id)} poster={reel.video.poster_url ?? muxPosterUrl(reel.video.playback_id)} active={active} near={near} eager={index === 0} onDoubleTap={doubleTap} />
         {burst > 0 ? (
           <span key={burst} className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
@@ -151,7 +151,7 @@ export function ReelCard({
         <div className="absolute bottom-4 right-2 z-20 flex flex-col items-center gap-2 text-white">
           <ActionButton label={like.liked ? "Unlike" : "Like"} count={like.likes} pressed={like.liked} disabled={like.pending} onClick={toggleLike}>
             {/* A new key on every like restarts the pop. */}
-            <Heart key={pop} className={cn("h-7 w-7", like.liked && "fill-current text-red-500", like.liked && pop > 0 && "ab-pop")} />
+            <Heart key={pop} className={cn("h-7 w-7", like.liked && "fill-current text-like", like.liked && pop > 0 && "ab-pop")} />
           </ActionButton>
           <ActionButton
             label="Comments"
@@ -184,7 +184,7 @@ export function ReelCard({
             <Link href={`/profile/${reel.author.id}`} className="truncate hover:underline">
               {reel.author.name}
             </Link>
-            {reel.author.verified ? <BadgeCheck className="h-4 w-4 shrink-0 text-brand-200" aria-label="Verified student" /> : null}
+            {reel.author.verified ? <BadgeCheck className="h-4 w-4 shrink-0 text-verified" aria-label="Verified student" /> : null}
             {isMine ? <span className="shrink-0 rounded-full bg-white/20 px-1.5 py-0.5 text-[11px] font-semibold">You</span> : null}
             <span className="shrink-0 text-xs font-normal text-white/80" suppressHydrationWarning>
               · {timeAgo(reel.createdAt)}
@@ -272,7 +272,7 @@ function ActionButton({
   children: React.ReactNode;
 }) {
   return (
-    <button type="button" onClick={onClick} disabled={disabled} aria-label={label} aria-pressed={pressed} className="group flex flex-col items-center gap-0.5 text-[12px] font-semibold [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
+    <button type="button" onClick={onClick} disabled={disabled} aria-label={label} aria-pressed={pressed} className="ab-press group flex flex-col items-center gap-0.5 text-[12px] font-semibold [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
       <span className="flex h-12 w-12 items-center justify-center rounded-full bg-black/40 backdrop-blur transition-colors group-hover:bg-black/60">{children}</span>
       <span className="tabular-nums">{text ?? compact.format(count ?? 0)}</span>
     </button>

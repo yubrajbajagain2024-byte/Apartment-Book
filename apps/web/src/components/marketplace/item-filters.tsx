@@ -1,6 +1,6 @@
 import { ITEM_CATEGORIES, ITEM_CONDITIONS, ITEM_SORTS, type University } from "@apartment-book/shared";
 import { Input, Select } from "@/components/ui/input";
-import { FilterBar } from "@/components/common/filter-bar";
+import { FilterBar, FilterLabel } from "@/components/common/filter-bar";
 
 export type ItemFilterValues = {
   q?: string;
@@ -15,11 +15,11 @@ export type ItemFilterValues = {
 export function ItemFilters({ universities, values, hasFilters }: { universities: University[]; values: ItemFilterValues; hasFilters: boolean }) {
   return (
     <FilterBar action="/marketplace" hasFilters={hasFilters}>
-      <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs font-medium text-gray-600">
+      <FilterLabel className="min-w-40 flex-1">
         Search
         <Input name="q" defaultValue={values.q ?? ""} placeholder="Mattress, desk, textbook…" />
-      </label>
-      <label className="flex min-w-44 flex-col gap-1 text-xs font-medium text-gray-600">
+      </FilterLabel>
+      <FilterLabel className="min-w-44">
         Category
         <Select name="category" defaultValue={values.category ?? ""}>
           <option value="">All categories</option>
@@ -29,8 +29,8 @@ export function ItemFilters({ universities, values, hasFilters }: { universities
             </option>
           ))}
         </Select>
-      </label>
-      <label className="flex min-w-48 flex-col gap-1 text-xs font-medium text-gray-600">
+      </FilterLabel>
+      <FilterLabel className="min-w-48">
         University
         <Select name="university" defaultValue={values.university ?? "all"}>
           <option value="all">All universities</option>
@@ -40,8 +40,8 @@ export function ItemFilters({ universities, values, hasFilters }: { universities
             </option>
           ))}
         </Select>
-      </label>
-      <label className="flex w-32 flex-col gap-1 text-xs font-medium text-gray-600">
+      </FilterLabel>
+      <FilterLabel className="w-32">
         Condition
         <Select name="condition" defaultValue={values.condition ?? ""}>
           <option value="">Any</option>
@@ -51,16 +51,16 @@ export function ItemFilters({ universities, values, hasFilters }: { universities
             </option>
           ))}
         </Select>
-      </label>
-      <label className="flex w-24 flex-col gap-1 text-xs font-medium text-gray-600">
+      </FilterLabel>
+      <FilterLabel className="w-24">
         Min price
         <Input name="minPrice" type="number" min={0} defaultValue={values.minPrice ?? ""} placeholder="0" />
-      </label>
-      <label className="flex w-24 flex-col gap-1 text-xs font-medium text-gray-600">
+      </FilterLabel>
+      <FilterLabel className="w-24">
         Max price
         <Input name="maxPrice" type="number" min={0} defaultValue={values.maxPrice ?? ""} placeholder="Any" />
-      </label>
-      <label className="flex w-40 flex-col gap-1 text-xs font-medium text-gray-600">
+      </FilterLabel>
+      <FilterLabel className="w-40">
         Sort by
         <Select name="sort" defaultValue={values.sort ?? "newest"}>
           {ITEM_SORTS.map((s) => (
@@ -69,7 +69,7 @@ export function ItemFilters({ universities, values, hasFilters }: { universities
             </option>
           ))}
         </Select>
-      </label>
+      </FilterLabel>
     </FilterBar>
   );
 }

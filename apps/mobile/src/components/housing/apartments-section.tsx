@@ -3,12 +3,13 @@ import { RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheti
 import { formatDistance, formatPrice, isVerifiedPoster, KM_PER_MILE, listApartments, listingMedia, type ApartmentWithOwner } from "@apartment-book/shared";
 import type { RoomFilters } from "@/components/housing/filter-sheet";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
-import { Badge, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { EmptyState, ErrorBanner, FeedSkeleton, Tag } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useTabBarInset } from "@/lib/tab-bar";
+import { space, type } from "@/lib/theme";
 import { useColors } from "@/lib/theme-provider";
 import { useEngagement } from "@/lib/use-engagement";
 
@@ -54,17 +55,19 @@ export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filt
             createdAt={a.created_at}
             saved={savedIds.has(a.id)}
             engagement={engagement[a.id]}
+            // The listing's facts as quiet hairline capsules under its words.
             details={
               <>
-                {a.furnished ? <Badge label="Furnished" tone="blue" /> : null}
-                {a.utilities_included ? <Badge label="Utilities included" tone="green" /> : null}
-                {a.pets_allowed ? <Badge label="Pets OK" /> : null}
+                {a.furnished ? <Tag label="Furnished" /> : null}
+                {a.utilities_included ? <Tag label="Utilities included" /> : null}
+                {a.pets_allowed ? <Tag label="Pets OK" /> : null}
               </>
             }
           />
         )}
-        ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon={filtered || q ? "search-outline" : "home-outline"} title={filtered || q ? "No apartments match" : "No apartments yet"} body={filtered ? "Try fewer filters." : q ? "Try another word." : "Be the first to list a place."} />}
-        ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : null}
+        // While the first page loads the feed keeps its shape: two posts drawn as grey blocks, no spinner.
+        ListEmptyComponent={feed.loading ? <FeedSkeleton rows={2} /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon={filtered || q ? "search-outline" : "home-outline"} title={filtered || q ? "No apartments match" : "No apartments yet"} body={filtered ? "Try fewer filters." : q ? "Try another word." : "Be the first to list a place."} />}
+        ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ ...type.caption, textAlign: "center", color: colors.faint, paddingVertical: space.md }}>Loading more…</Text> : null}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
         refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={feed.refresh} progressViewOffset={inset.progressViewOffset} />}

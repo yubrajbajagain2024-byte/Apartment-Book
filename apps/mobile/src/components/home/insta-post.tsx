@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reelFromFeedPost, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromFeedPost, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
+import { APP_NAME, captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reelFromFeedPost, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromFeedPost, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
 import { hapticTap } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
@@ -10,6 +10,7 @@ import { openReel } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { shortDate } from "@/lib/short-date";
 import { SITE_URL, supabase } from "@/lib/supabase";
+import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "../action-sheet";
 import { Avatar } from "../avatar";
@@ -114,7 +115,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   }
 
   /** The share sheet: send it to friends as a chat card, or "Share to…" the link with the system sheet. */
-  const share = () => shareSheet.open(sharedPostFromFeedPost(post, media), { url: `${SITE_URL}${path}`, label: `${author.full_name} on Apartment Book` });
+  const share = () => shareSheet.open(sharedPostFromFeedPost(post, media), { url: `${SITE_URL}${path}`, label: `${author.full_name} on ${APP_NAME}` });
 
   async function message() {
     if (!user) return needLogin();
@@ -259,12 +260,12 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
           ) : null}
 
           {!detail && comments > 1 ? (
-            <Pressable onPress={onComments} accessibilityRole="button">
+            <Pressable onPress={onComments} style={({ pressed }) => pressed && { opacity: 0.7 }} accessibilityRole="button">
               <Text style={styles.viewAll}>View all {compactCount(comments)} comments</Text>
             </Pressable>
           ) : null}
           {!detail && comments > 0 && preview?.lastComment ? (
-            <Pressable onPress={onComments}>
+            <Pressable onPress={onComments} style={({ pressed }) => pressed && { opacity: 0.7 }}>
               <Text style={styles.line} numberOfLines={2}>
                 <Text style={styles.bold}>{preview.lastComment.author.full_name}</Text> {preview.lastComment.body}
               </Text>
@@ -277,19 +278,21 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
 }
 
 const useStyles = makeStyles((colors) => ({
-  post: { width: "100%", backgroundColor: colors.bg, paddingTop: 4, paddingBottom: 18 },
-  body: { paddingHorizontal: POST_GUTTER, paddingTop: 2, paddingBottom: 12 },
+  // Posts follow each other on the screen with room between them; no box, no hairline.
+  post: { width: "100%", backgroundColor: colors.bg, paddingTop: space.xs, paddingBottom: 20 },
+  body: { paddingHorizontal: POST_GUTTER, paddingTop: 2, paddingBottom: space.md },
   text: { ...POST_TEXT, color: colors.text },
   heart: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", shadowColor: colors.shadow, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 2 } },
-  slideDots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingTop: 10 },
+  // The slide dots: the one place the violet accent appears on a post.
+  slideDots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.xs, paddingTop: space.sm + space.xxs },
   slideDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.faint },
   slideDotActive: { backgroundColor: colors.accent },
-  below: { paddingHorizontal: POST_GUTTER, paddingTop: 6, gap: 4 },
+  below: { paddingHorizontal: POST_GUTTER, paddingTop: 6, gap: space.xs },
   likedBy: { flexDirection: "row", alignItems: "center", gap: 6 },
   face: { borderWidth: 1.5, borderColor: colors.bg, borderRadius: 12 },
   line: { fontSize: 14, lineHeight: 19, color: colors.text, flexShrink: 1 },
-  bold: { fontWeight: "700" },
-  // Hashtags in the brand blue: a dark navy would vanish on the dark theme.
+  bold: { fontWeight: "600" },
+  // Hashtags take the accent, which is readable on both themes.
   tag: { color: colors.hashtag },
-  viewAll: { fontSize: 14, color: colors.muted },
+  viewAll: { fontSize: 14, lineHeight: 19, color: colors.muted },
 }));

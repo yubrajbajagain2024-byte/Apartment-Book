@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { radius } from "@/lib/theme";
+import { radius, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 export function Segmented<T extends string>({ options, value, onChange }: { options: { value: T; label: string }[]; value: T | undefined; onChange: (v: T) => void }) {
@@ -40,10 +40,10 @@ export function FormSection({ title, children }: { title: string; children: Reac
 
 const useStyles = makeStyles((colors) => ({
   segment: { flexDirection: "row", backgroundColor: colors.input, borderRadius: radius.md, padding: 3 },
-  segmentItem: { flex: 1, paddingVertical: 9, alignItems: "center", borderRadius: radius.sm },
+  segmentItem: { flex: 1, paddingVertical: 9, alignItems: "center", borderRadius: radius.md - 3 },
   segmentActive: { backgroundColor: colors.brand },
-  segmentText: { fontWeight: "700", color: colors.muted, fontSize: 13 },
+  segmentText: { ...type.label, fontSize: 13, color: colors.muted },
   // Outlined like Card, so a section still stands apart from the screen in both themes.
   section: { backgroundColor: colors.card, borderRadius: radius.lg, padding: 16, gap: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  sectionTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
+  sectionTitle: { ...type.heading, fontSize: 16, color: colors.text },
 }));

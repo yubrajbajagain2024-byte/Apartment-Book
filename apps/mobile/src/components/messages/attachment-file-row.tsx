@@ -2,7 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, t
 import { Ionicons } from "@expo/vector-icons";
 import { formatFileSize, type MessageAttachment } from "@apartment-book/shared";
 import { fileExtension, openInBrowser, openMessageFile, type UploadStatus } from "@/lib/message-attachments";
-import { radius } from "@/lib/theme";
+import { radius, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -88,6 +88,6 @@ const useStyles = makeStyles((colors) => ({
   },
   icon: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
   body: { flex: 1, minWidth: 0, gap: 2 },
-  name: { fontSize: 14, fontWeight: "600", color: colors.text },
-  meta: { fontSize: 12, color: colors.muted },
+  name: { ...type.label, fontSize: 14, color: colors.text },
+  meta: { ...type.footnote, color: colors.muted },
 }));

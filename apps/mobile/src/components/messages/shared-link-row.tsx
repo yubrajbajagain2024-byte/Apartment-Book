@@ -2,7 +2,7 @@ import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { sharedPostLabel, type SharedItem, type SharedPost } from "@apartment-book/shared";
-import { radius, space } from "@/lib/theme";
+import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { linkHost } from "./shared-content";
 
@@ -60,7 +60,7 @@ const useStyles = makeStyles((colors) => ({
   thumb: { width: 52, height: 52, borderRadius: radius.md, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   thumbImage: { width: 52, height: 52 },
   body: { flex: 1, minWidth: 0, gap: 2 },
-  title: { fontSize: 15, fontWeight: "700", color: colors.text },
-  detail: { fontSize: 13, lineHeight: 18, color: colors.muted },
-  meta: { fontSize: 12, color: colors.faint },
+  title: { ...type.subheading, color: colors.text },
+  detail: { ...type.caption, color: colors.muted },
+  meta: { ...type.footnote, color: colors.faint },
 }));

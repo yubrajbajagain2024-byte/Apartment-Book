@@ -15,7 +15,7 @@ import {
 } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { openChatLink, sharedPostHref, type ChatMessage, type OutgoingFiles, type UploadStatus } from "@/lib/message-attachments";
-import { radius } from "@/lib/theme";
+import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { AttachmentFileRow } from "./attachment-file-row";
 import { AttachmentGrid, type GridMedia } from "./attachment-grid";
@@ -288,7 +288,7 @@ function SharedPostCard({ shared, dimmed, onLongPress }: { shared: SharedPost; d
 }
 
 const useStyles = makeStyles((colors) => ({
-  day: { textAlign: "center", fontSize: 11, color: colors.faint, marginTop: 14, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 },
+  day: { ...type.eyebrow, fontWeight: "600", textAlign: "center", color: colors.faint, marginTop: space.lg, marginBottom: 6 },
   line: { flexDirection: "row", alignItems: "flex-end", gap: 6, marginTop: 2 },
   lineMine: { flexDirection: "row-reverse" },
   groupStart: { marginTop: 10 },
@@ -296,7 +296,7 @@ const useStyles = makeStyles((colors) => ({
   stack: { maxWidth: "78%", gap: 3 },
   stackMine: { alignItems: "flex-end" },
   stackTheirs: { alignItems: "flex-start" },
-  sender: { fontSize: 11, color: colors.muted, marginLeft: 4 },
+  sender: { ...type.footnote, fontSize: 11, color: colors.muted, marginLeft: 4 },
   bubble: { borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8 },
   mine: { backgroundColor: colors.brand },
   theirs: { backgroundColor: colors.input },
@@ -304,7 +304,7 @@ const useStyles = makeStyles((colors) => ({
   failed: { backgroundColor: colors.dangerSoft },
   text: { fontSize: 15, lineHeight: 20 },
   link: { textDecorationLine: "underline" },
-  time: { fontSize: 11, color: colors.faint, marginHorizontal: 4 },
+  time: { ...type.footnote, fontSize: 11, color: colors.faint, marginHorizontal: 4 },
   failedTime: { color: colors.red, fontWeight: "600" },
   receipt: { width: 16, alignItems: "center", marginBottom: 18 },
   seen: { flexDirection: "row", justifyContent: "flex-end", gap: 2, paddingRight: 2, marginTop: 2 },
@@ -314,8 +314,8 @@ const useStyles = makeStyles((colors) => ({
   cardImage: { width: "100%", height: 200, backgroundColor: colors.input },
   cardBody: { padding: 10, gap: 4 },
   cardAuthor: { flexDirection: "row", alignItems: "center", gap: 6 },
-  cardName: { fontSize: 13, fontWeight: "600", color: colors.text, flexShrink: 1 },
-  cardTitle: { fontSize: 14, fontWeight: "600", lineHeight: 19, color: colors.text },
+  cardName: { ...type.label, fontSize: 13, color: colors.text, flexShrink: 1 },
+  cardTitle: { ...type.subheading, fontSize: 14, lineHeight: 19, color: colors.text },
   cardText: { fontSize: 14, lineHeight: 19, color: colors.text },
-  cardFooter: { fontSize: 13, fontWeight: "600", color: colors.brand, marginTop: 2 },
+  cardFooter: { ...type.label, fontSize: 13, color: colors.brand, marginTop: 2 },
 }));

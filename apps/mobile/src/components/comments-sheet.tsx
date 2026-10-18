@@ -3,7 +3,7 @@ import { Animated, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressabl
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { PostTargetType } from "@apartment-book/shared";
-import { radius } from "@/lib/theme";
+import { motion, radius, shadows, space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { CommentComposer, CommentList, CommentsHeading, useCommentThread } from "./comments";
 
@@ -38,9 +38,9 @@ export function CommentsSheet({ target, onClose, onCountChange }: { target: Comm
         onPanResponderMove: (_, g) => drag.setValue(Math.max(0, g.dy)),
         onPanResponderRelease: (_, g) => {
           if (g.dy > 90 || g.vy > 1.2) closeRef.current();
-          else Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+          else Animated.spring(drag, { toValue: 0, ...motion.legacySpring }).start();
         },
-        onPanResponderTerminate: () => Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start(),
+        onPanResponderTerminate: () => Animated.spring(drag, { toValue: 0, ...motion.legacySpring }).start(),
       }),
     [drag],
   );
@@ -79,8 +79,8 @@ function SheetBody({ target, panHandlers, onClose, onCountChange }: { target: Co
       <View {...panHandlers} style={styles.header}>
         <View style={styles.handle} />
         <CommentsHeading count={count} onSort={thread.setSort} />
-        <Pressable onPress={onClose} hitSlop={10} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
-          <Ionicons name="close" size={20} color={colors.text} />
+        <Pressable onPress={onClose} hitSlop={10} style={({ pressed }) => [styles.close, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Close">
+          <Ionicons name="close" size={18} color={colors.text} />
         </Pressable>
       </View>
       <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.list}>
@@ -95,10 +95,11 @@ function SheetBody({ target, panHandlers, onClose, onCountChange }: { target: Co
 
 const useStyles = makeStyles((colors) => ({
   root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
-  sheet: { height: "70%", backgroundColor: colors.elevated, borderTopLeftRadius: radius.lg + 4, borderTopRightRadius: radius.lg + 4, overflow: "hidden" },
-  header: { alignItems: "center", paddingTop: 8, paddingBottom: 10, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 10 },
-  close: { position: "absolute", right: 12, top: 16, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
-  list: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 8 },
-  footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: 14, paddingTop: 10, backgroundColor: colors.elevated },
+  // The sheet floats over the dimmed screen: the system's sheet shadow, and the largest corner the system allows.
+  sheet: { height: "70%", backgroundColor: colors.elevated, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, overflow: "hidden", shadowColor: colors.shadow, ...shadows.sheet },
+  header: { alignItems: "center", paddingTop: space.sm, paddingBottom: space.md, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: space.md },
+  close: { position: "absolute", right: space.md, top: 18, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
+  list: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.sm },
+  footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: space.lg, paddingTop: space.md, backgroundColor: colors.elevated },
 }));

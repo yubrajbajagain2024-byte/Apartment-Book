@@ -171,12 +171,12 @@ const styles = StyleSheet.create({
   // The label and, for one section, the chevron after it: what the underline is measured against.
   labelBox: { flexDirection: "row", alignItems: "center", gap: 1 },
   caret: { marginTop: 1 },
-  label: { fontSize: 15, fontWeight: "600" },
-  bold: { fontWeight: "800" },
+  label: { fontSize: 15, fontWeight: "500", letterSpacing: -0.1 },
+  bold: { fontWeight: "700" },
   ghost: { opacity: 0 },
   text: { position: "absolute", top: 0, left: 0, right: 0, textAlign: "center" },
   // The same bottom edge for the static underline (spanning its label) and the sliding one (scaled to the label), so nothing jumps when one replaces the other.
-  underline: { position: "absolute", bottom: 0, height: 3, borderRadius: 2 },
+  underline: { position: "absolute", bottom: 0, height: 2, borderRadius: 1 },
   staticUnderline: { left: 0, right: 0 },
   slidingUnderline: { left: 0, width: BASE_WIDTH },
 });

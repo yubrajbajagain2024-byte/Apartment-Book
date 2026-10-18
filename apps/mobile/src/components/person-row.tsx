@@ -1,9 +1,9 @@
-import { Pressable, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { isVerifiedPoster, type FollowStats, type PosterSummary } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { FollowButton } from "@/components/follow-button";
-import { space } from "@/lib/theme";
+import { space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 /**
@@ -21,7 +21,7 @@ export function PersonRow({ person: p, stats, userId, onNeedLogin, onChange, onP
           <Text numberOfLines={1} style={styles.personName}>{p.full_name}</Text>
           {isVerifiedPoster(p) ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <Ionicons name="checkmark-circle" size={13} color={colors.brand} />
+              <Ionicons name="checkmark-circle" size={13} color={colors.verified} />
               <Text numberOfLines={1} style={styles.domain}>{p.university?.email_domain}</Text>
             </View>
           ) : null}
@@ -33,8 +33,9 @@ export function PersonRow({ person: p, stats, userId, onNeedLogin, onChange, onP
 }
 
 const useStyles = makeStyles((colors) => ({
-  row: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: 10 },
+  // The hairline runs between the gutters, under the photo, the words and the button alike.
+  row: { flexDirection: "row", alignItems: "center", gap: space.md, marginHorizontal: space.lg, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   person: { flex: 1, flexDirection: "row", alignItems: "center", gap: space.md },
-  personName: { fontSize: 15, fontWeight: "700", color: colors.text },
-  domain: { fontSize: 13, color: colors.muted },
+  personName: { ...type.subheading, color: colors.text },
+  domain: { ...type.caption, color: colors.muted },
 }));

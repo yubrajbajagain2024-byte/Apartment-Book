@@ -41,7 +41,7 @@ export function NotificationList({ initial }: { initial: NotificationWithActor[]
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-600">{unread > 0 ? `${unread} unread` : "All caught up"}</p>
+        <p className={unread > 0 ? "text-sm text-gray-500" : "font-display text-base italic text-gray-500"}>{unread > 0 ? `${unread} unread` : "All caught up"}</p>
         {unread > 0 ? (
           <Button
             variant="secondary"
@@ -56,9 +56,9 @@ export function NotificationList({ initial }: { initial: NotificationWithActor[]
           </Button>
         ) : null}
       </div>
-      <div className="divide-y divide-gray-100 rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
+      <div className="divide-y divide-gray-100 overflow-hidden rounded-xl bg-white shadow-card ring-1 ring-gray-200">
         {items.length === 0 ? (
-          <p className="px-4 py-10 text-center text-sm text-gray-600">Nothing yet. New messages, saves and places near campus will show here.</p>
+          <p className="px-6 py-12 text-center text-sm leading-relaxed text-gray-500">Nothing yet. New messages, saves and places near campus will show here.</p>
         ) : (
           items.map((n) => <NotificationItem key={n.id} notification={n} onOpen={open} />)
         )}
