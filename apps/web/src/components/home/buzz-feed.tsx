@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FeedFooter } from "@/components/feed/feed-bits";
+import { FeedFooter, RowSkeleton } from "@/components/feed/feed-bits";
 import { BUZZ_FOCUS_SEARCH, BUZZ_SEARCH_ID, BuzzSortMenu, BuzzTopicIcon } from "./buzz-bits";
 import { BuzzRow, BuzzSearchRow } from "./buzz-card";
 
@@ -101,12 +101,12 @@ export function BuzzFeed({ initial, filters, signedIn, scope }: BuzzFeedProps) {
     setItems((prev) => prev.filter((p) => p.id !== id));
   }
 
-  const pill = "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold transition-colors";
+  const pill = "ab-press inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold";
 
   return (
     <div className="-mx-3 -mt-1 flex flex-col sm:mx-0 sm:mt-0" data-testid="buzz-feed">
       {/* One white sheet like Reddit's feed: edge to edge on a phone, rounded on a desktop, rows split by hairlines. */}
-      <div className="bg-white sm:rounded-xl sm:shadow-sm sm:ring-1 sm:ring-gray-200">
+      <div className="bg-white sm:rounded-xl sm:shadow-card sm:ring-1 sm:ring-gray-200">
         <section className="flex flex-col gap-2.5 px-4 pb-2.5 pt-3" aria-label="Buzz filters">
           <div className="flex items-center gap-2">
             <form action="/" method="get" role="search" className="relative min-w-0 flex-1">
@@ -124,11 +124,11 @@ export function BuzzFeed({ initial, filters, signedIn, scope }: BuzzFeedProps) {
                 maxLength={100}
                 placeholder="Search Buzz"
                 aria-label="Search Buzz"
-                className="h-10 w-full rounded-full bg-gray-100 pl-10 pr-4 text-base text-gray-900 sm:text-[15px] outline-none placeholder:text-gray-500 focus:bg-white focus:ring-2 focus:ring-brand-500"
+                className="h-10 w-full rounded-full bg-gray-100 pl-10 pr-4 text-base text-gray-900 outline-none transition-colors placeholder:text-gray-500 focus:bg-white focus:ring-1 focus:ring-gray-900 sm:text-[15px]"
               />
             </form>
-            <Link href="/buzz/new" aria-label="Start a thread" title="Start a thread" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-900 transition-colors hover:bg-gray-200" data-testid="buzz-start">
-              <Plus className="h-6 w-6" />
+            <Link href="/buzz/new" aria-label="Start a thread" title="Start a thread" className="ab-press flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-900 text-white hover:bg-gray-800" data-testid="buzz-start">
+              <Plus className="h-5 w-5" />
             </Link>
           </div>
 
@@ -152,14 +152,14 @@ export function BuzzFeed({ initial, filters, signedIn, scope }: BuzzFeedProps) {
           </div>
 
           <p className="flex items-start gap-1.5 text-xs text-gray-500">
-            <VenetianMask className="mt-px h-4 w-4 shrink-0" />
+            <VenetianMask className="mt-px h-4 w-4 shrink-0" strokeWidth={1.75} />
             <span>
               Buzz is anonymous. Nobody sees your name or profile here, only a random name like &quot;Student 48213&quot;. Be kind.
               {filters.universityId || scope?.hasHomeUniversity ? (
                 <>
                   {" "}
                   {filters.universityId ? `Showing ${scope?.universityName ?? "your university"}` : "Showing all universities"} ·{" "}
-                  <Link href={buzzHref({ ...current, all: Boolean(filters.universityId) })} scroll={false} className="font-semibold text-brand-700 hover:underline">
+                  <Link href={buzzHref({ ...current, all: Boolean(filters.universityId) })} scroll={false} className="font-semibold text-gray-900 underline decoration-gray-300 underline-offset-2 transition-colors hover:decoration-gray-900">
                     {filters.universityId ? "All universities" : "My university"}
                   </Link>
                 </>
@@ -169,9 +169,9 @@ export function BuzzFeed({ initial, filters, signedIn, scope }: BuzzFeedProps) {
         </section>
 
         {filters.q ? (
-          <p className="flex items-center justify-between gap-2 border-t border-gray-200 px-4 py-2.5 text-[15px] font-bold text-gray-900">
+          <p className="flex items-center justify-between gap-2 border-t border-gray-200 px-4 py-3 font-display text-[17px] tracking-tight text-gray-900">
             <span className="min-w-0 truncate">Threads for &quot;{filters.q}&quot;</span>
-            <Link href={buzzHref({ ...current, q: undefined })} scroll={false} className="inline-flex shrink-0 items-center gap-0.5 text-[13px] font-semibold text-brand-700 hover:underline">
+            <Link href={buzzHref({ ...current, q: undefined })} scroll={false} className="inline-flex shrink-0 items-center gap-0.5 font-sans text-[13px] font-semibold tracking-normal text-gray-500 hover:text-gray-900">
               <X className="h-3.5 w-3.5" /> Clear
             </Link>
           </p>
@@ -200,7 +200,7 @@ export function BuzzFeed({ initial, filters, signedIn, scope }: BuzzFeedProps) {
             />
           </div>
         ) : (
-          <ul className="divide-y divide-gray-200 border-t border-gray-200 sm:[&>li:last-child>article]:rounded-b-xl" data-testid="buzz-list">
+          <ul className="divide-y divide-gray-100 border-t border-gray-200 sm:[&>li:last-child>article]:rounded-b-xl" data-testid="buzz-list">
             {items.map((p, i) => (
               <li key={p.id}>
                 {filters.q ? <BuzzSearchRow post={p} /> : <BuzzRow post={p} signedIn={signedIn} priority={i < 3} onRemoved={onRemoved} topicHref={(topic) => buzzHref({ sort: filters.sort, topic, all })} />}
@@ -208,6 +208,13 @@ export function BuzzFeed({ initial, filters, signedIn, scope }: BuzzFeedProps) {
             ))}
           </ul>
         )}
+        {/* The next page on its way: two rows drawn in shimmer blocks under the list. */}
+        {loading ? (
+          <div className="divide-y divide-gray-100 border-t border-gray-100">
+            <RowSkeleton />
+            <RowSkeleton />
+          </div>
+        ) : null}
       </div>
 
       {items.length > 0 || !done ? <FeedFooter sentinelRef={sentinelRef} loading={loading} done={done} error={error} onRetry={loadMore} count={items.length} /> : null}

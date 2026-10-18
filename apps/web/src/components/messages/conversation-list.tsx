@@ -14,8 +14,8 @@ import { OnlineDot } from "@/components/presence/online-dot";
 export function ConversationAvatar({ conversation, size = "md" }: { conversation: ConversationSummary; size?: "sm" | "md" | "lg" }) {
   if (conversation.type === "group") {
     return (
-      <span className={cn("flex shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700", size === "lg" ? "h-14 w-14" : size === "md" ? "h-12 w-12" : "h-8 w-8")}>
-        <Users className={size === "sm" ? "h-4 w-4" : "h-6 w-6"} />
+      <span className={cn("flex shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700 ring-1 ring-gray-200", size === "lg" ? "h-14 w-14" : size === "md" ? "h-12 w-12" : "h-8 w-8")}>
+        <Users className={size === "sm" ? "h-4 w-4" : "h-5 w-5"} strokeWidth={1.75} />
       </span>
     );
   }
@@ -76,24 +76,24 @@ export function ConversationList({ conversations, currentUserId }: { conversatio
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between px-4 py-3">
-        <h1 className="text-xl font-bold">Chats</h1>
+      <div className="flex h-14 items-center justify-between border-b border-gray-200 px-4">
+        <h1 className="font-display text-2xl tracking-tight text-gray-900">Chats</h1>
         <div className="flex items-center gap-1">
           {unreadIds.length > 0 ? (
-            <button type="button" onClick={markAllRead} disabled={marking} className="h-9 rounded-full px-3 text-sm font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-50">
+            <button type="button" onClick={markAllRead} disabled={marking} className="ab-press h-9 rounded-full px-3 text-[13px] font-semibold text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50">
               Mark all as read
             </button>
           ) : null}
-          <Link href="/messages/new" className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200" aria-label="New message">
-            <SquarePen className="h-5 w-5" />
+          <Link href="/messages/new" className="ab-press flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-900 hover:bg-gray-200" aria-label="New message">
+            <SquarePen className="h-[18px] w-[18px]" strokeWidth={1.75} />
           </Link>
         </div>
       </div>
-      <ul className="scrollbar-thin flex-1 overflow-y-auto px-2 pb-2">
+      <ul className="scrollbar-thin flex-1 divide-y divide-gray-100 overflow-y-auto">
         {conversations.length === 0 ? (
-          <li className="px-3 py-8 text-center text-sm text-gray-500">
+          <li className="px-6 py-10 text-center text-sm leading-relaxed text-gray-500">
             No conversations yet. Message a listing owner, or{" "}
-            <Link href="/messages/new" className="font-medium text-brand-600 hover:underline">
+            <Link href="/messages/new" className="font-semibold text-brand-600 underline-offset-4 hover:underline">
               start a new chat
             </Link>
             .
@@ -104,22 +104,27 @@ export function ConversationList({ conversations, currentUserId }: { conversatio
           const unread = c.unreadCount > 0;
           return (
             <li key={c.id}>
+              {/* Unread shows as weight: an ink title and preview, a small accent dot by the time, and the count. */}
               <Link
                 href={`/messages/${c.id}`}
-                className={cn("flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-100", active && "bg-brand-50 hover:bg-brand-50")}
+                className={cn("flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50", active && "bg-gray-100 hover:bg-gray-100")}
+                aria-current={active ? "page" : undefined}
               >
                 <ConversationAvatar conversation={c} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className={cn("truncate text-sm", unread ? "font-bold text-gray-900" : "font-semibold text-gray-800")}>{c.title}</p>
-                    <span className="shrink-0 text-[11px] text-gray-500">{hydrated ? timeAgo(c.lastMessageAt) : ""}</span>
+                    <p className={cn("truncate text-[15px]", unread ? "font-semibold text-gray-900" : "font-medium text-gray-700")}>{c.title}</p>
+                    <span className="flex shrink-0 items-center gap-1.5 text-[11px] text-gray-500">
+                      {unread ? <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" /> : null}
+                      {hydrated ? timeAgo(c.lastMessageAt) : ""}
+                    </span>
                   </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className={cn("truncate text-xs", unread ? "font-semibold text-gray-900" : "text-gray-500")}>
+                  <div className="mt-0.5 flex items-center justify-between gap-2">
+                    <p className={cn("truncate text-[13px]", unread ? "font-medium text-gray-900" : "text-gray-500")}>
                       {c.lastMessagePreview ?? (c.type === "group" ? `${c.members.length} members` : "Say hi 👋")}
                     </p>
                     {unread ? (
-                      <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-brand-600 px-1.5 text-[10px] font-bold text-white">
+                      <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-gray-900 px-1.5 text-[10px] font-bold tabular-nums text-white">
                         {c.unreadCount > 99 ? "99+" : c.unreadCount}
                       </span>
                     ) : null}

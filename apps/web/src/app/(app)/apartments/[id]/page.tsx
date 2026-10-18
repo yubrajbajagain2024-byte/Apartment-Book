@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatDate, timeAgo } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { buttonClasses } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { PhotoHero } from "@/components/photos/photo-hero";
 import { PostedBanner } from "@/components/video/posted-banner";
@@ -71,8 +72,8 @@ export default async function ApartmentPage({ params, searchParams }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Link href="/apartments" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
-        <ArrowLeft className="h-4 w-4" /> Back to apartments
+      <Link href="/apartments" className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900">
+        <ArrowLeft className="h-4 w-4" strokeWidth={1.75} /> Back to apartments
       </Link>
 
       <ViewTracker targetType="apartment" targetId={apartment.id} />
@@ -84,18 +85,18 @@ export default async function ApartmentPage({ params, searchParams }: Props) {
           <PhotoHero photos={photosFor(apartment.images, apartment.image_meta)} media={listingMedia(apartment.images, apartment.image_meta, apartment.videos)} alt={apartment.title} />
 
           <Card>
-            <CardBody className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">{apartment.title}</h1>
-                  <p className="mt-1 flex items-center gap-1 text-gray-600">
-                    <MapPin className="h-4 w-4" /> {apartment.address}
+            <CardBody className="flex flex-col gap-5 px-5 py-5 sm:px-6 sm:py-6">
+              <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+                <div className="min-w-0 flex-1">
+                  <h1 className="font-display text-2xl tracking-tight text-gray-900 sm:text-3xl">{apartment.title}</h1>
+                  <p className="mt-2 flex items-center gap-1.5 text-sm text-gray-500">
+                    <MapPin className="h-4 w-4 shrink-0" strokeWidth={1.75} /> {apartment.address}
                     {apartment.city ? `, ${apartment.city}` : ""}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-brand-700">{formatPrice(apartment.price_per_month, apartment.currency)}</p>
-                  <p className="text-sm text-gray-500">per month</p>
+                  <p className="font-display text-2xl tracking-tight text-gray-900 sm:text-3xl">{formatPrice(apartment.price_per_month, apartment.currency)}</p>
+                  <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">per month</p>
                 </div>
               </div>
 
@@ -105,10 +106,11 @@ export default async function ApartmentPage({ params, searchParams }: Props) {
                 </Badge>
               ) : null}
 
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {/* The facts as a hairline grid: the gap shows the line colour between the white cells. */}
+              <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[10px] bg-gray-200 ring-1 ring-gray-200 sm:grid-cols-3">
                 {facts.map((f) => (
-                  <div key={f.label} className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-800">
-                    <f.icon className="h-4 w-4 text-brand-600" /> {f.label}
+                  <div key={f.label} className="flex items-center gap-2.5 bg-white px-3.5 py-3 text-sm text-gray-800">
+                    <f.icon className="h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.75} /> {f.label}
                   </div>
                 ))}
               </div>
@@ -122,20 +124,20 @@ export default async function ApartmentPage({ params, searchParams }: Props) {
                 ))}
               </div>
 
-              <div>
-                <h2 className="mb-1 font-semibold text-gray-900">About this place</h2>
-                <p className="whitespace-pre-line text-gray-800">{apartment.description}</p>
+              <div className="border-t border-gray-100 pt-5">
+                <h2 className="mb-2 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">About this place</h2>
+                <p className="whitespace-pre-line text-[15px] leading-relaxed text-gray-800">{apartment.description}</p>
               </div>
 
               {pinned ? (
-                <div>
-                  <h2 className="mb-2 font-semibold text-gray-900">Where it is</h2>
+                <div className="border-t border-gray-100 pt-5">
+                  <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">Where it is</h2>
                   <ListingMap center={{ latitude: apartment.latitude as number, longitude: apartment.longitude as number }} pins={mapPins} fitToPins height={280} scrollWheelZoom={false} />
                 </div>
               ) : null}
               {apartment.map_url ? (
-                <a href={apartment.map_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline">
-                  <ExternalLink className="h-4 w-4" /> Open in maps
+                <a href={apartment.map_url} target="_blank" rel="noopener noreferrer" className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-brand-600 underline-offset-4 hover:underline">
+                  <ExternalLink className="h-4 w-4" strokeWidth={1.75} /> Open in maps
                 </a>
               ) : null}
             </CardBody>
@@ -148,8 +150,8 @@ export default async function ApartmentPage({ params, searchParams }: Props) {
               <Link href={`/profile/${apartment.owner.id}`} className="flex items-center gap-3">
                 <Avatar name={apartment.owner.full_name} src={apartment.owner.avatar_url} size="lg" />
                 <div className="min-w-0">
-                  <p className="truncate font-semibold text-gray-900">{apartment.owner.full_name}</p>
-                  <p className="text-xs text-gray-500">Posted {timeAgo(apartment.created_at)}</p>
+                  <p className="truncate font-display text-lg leading-tight tracking-tight text-gray-900">{apartment.owner.full_name}</p>
+                  <p className="mt-0.5 text-xs text-gray-500">Posted {timeAgo(apartment.created_at)}</p>
                 </div>
               </Link>
               {!isOwner ? (
@@ -164,8 +166,8 @@ export default async function ApartmentPage({ params, searchParams }: Props) {
                   />
                   <SaveButton targetType="apartment" targetId={apartment.id} initialSaved={saved} signedIn={Boolean(user)} />
                   {apartment.contact_phone ? (
-                    <a href={`tel:${apartment.contact_phone}`} className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold hover:bg-gray-50">
-                      <Phone className="h-4 w-4" /> {apartment.contact_phone}
+                    <a href={`tel:${apartment.contact_phone}`} className={buttonClasses({ variant: "outline" })}>
+                      <Phone className="h-4 w-4" strokeWidth={1.75} /> {apartment.contact_phone}
                     </a>
                   ) : null}
                 </div>
@@ -177,7 +179,7 @@ export default async function ApartmentPage({ params, searchParams }: Props) {
               )}
             </CardBody>
           </Card>
-          <p className="px-1 text-xs text-gray-500">
+          <p className="px-1 text-xs leading-relaxed text-gray-500">
             Stay safe: never send deposits before seeing the place, and meet in public or on campus.
           </p>
         </aside>

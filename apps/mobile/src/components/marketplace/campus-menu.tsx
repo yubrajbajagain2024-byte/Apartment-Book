@@ -1,6 +1,6 @@
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { radius } from "@/lib/theme";
+import { radius, shadows, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 /** Whose items the Marketplace shows: the person's own university, or every university. */
@@ -41,10 +41,10 @@ const useStyles = makeStyles((colors, scheme) => ({
   backdrop: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   // Touches beside the card fall through to the backdrop, which closes the menu.
   anchor: { position: "absolute", left: 0, right: 0, alignItems: "center", paddingHorizontal: 16, pointerEvents: "box-none" },
-  // A shadow cannot be seen on black, so in the dark theme a hairline outline keeps the menu apart from the page.
-  menu: { width: MENU_WIDTH, maxWidth: "100%", backgroundColor: colors.elevated, borderRadius: radius.lg, paddingVertical: 6, shadowColor: colors.shadow, shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 10, borderWidth: scheme === "dark" ? StyleSheet.hairlineWidth : 0, borderColor: colors.border },
-  item: { height: 44, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16 },
-  itemText: { flex: 1, fontSize: 15, fontWeight: "600", color: colors.text },
+  // The design system's floating shadow; a shadow cannot be seen on black, so in the dark theme a hairline outline keeps the menu apart from the page.
+  menu: { width: MENU_WIDTH, maxWidth: "100%", backgroundColor: colors.elevated, borderRadius: radius.lg, paddingVertical: 6, shadowColor: colors.shadow, ...(scheme === "light" ? shadows.float : { elevation: 0 }), borderWidth: scheme === "dark" ? StyleSheet.hairlineWidth : 0, borderColor: colors.border },
+  item: { height: 44, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg },
+  itemText: { ...type.subheading, flex: 1, color: colors.text },
   itemSelected: { fontWeight: "700" },
   check: { width: 20, alignItems: "center" },
 }));

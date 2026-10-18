@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View, type TextInput as TextInputType } from "react-native";
+import { Alert, Animated, Pressable, StyleSheet, Text, TextInput, View, type TextInput as TextInputType } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { addComment, blockUser, COMMENT_SORTS, compactCount, deleteComment, getMyCommentVotes, listComments, reportContent, REPORT_REASONS, shortAge, threadComments, voteComment, type CommentSort, type PostCommentNode, type PostCommentWithAuthor, type PostTargetType, type ReportReason } from "@apartment-book/shared";
@@ -9,9 +9,10 @@ import { hapticLike, hapticSuccess, hapticTap } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { radius } from "@/lib/theme";
+import { motion, radius, space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { Avatar } from "./avatar";
+import { Skeleton } from "./ui";
 
 /*
  * The thread looks like TikTok's comment sheet: no bubbles, a round avatar, the name in small grey, the comment in
@@ -322,7 +323,7 @@ export function CommentsHeading({ count, onSort, align = "center" }: { count: nu
           )
         }
         hitSlop={10}
-        style={styles.sort}
+        style={({ pressed }) => [styles.sort, pressed && { opacity: 0.7 }]}
         accessibilityRole="button"
         accessibilityLabel="Sort comments"
       >
@@ -332,16 +333,22 @@ export function CommentsHeading({ count, onSort, align = "center" }: { count: nu
   );
 }
 
-/** My avatar and the "Add comment…" pill with its send arrow; a "Replying to Name" chip above it while replying. Signed out it asks you to log in. */
+/**
+ * My avatar and the "Add comment…" capsule with its send arrow; a "Replying to Name" chip above it while replying. The
+ * capsule sits on the soft input fill with a hairline that turns to ink while it has focus, like a Field. Signed out it
+ * asks you to log in.
+ */
 export function CommentComposer({ thread }: { thread: CommentThread }) {
   const { colors, isDark } = useAppTheme();
   const styles = useStyles();
+  const focus = useRef(new Animated.Value(0)).current;
+  const borderColor = focus.interpolate({ inputRange: [0, 1], outputRange: [colors.border, colors.text] });
   const { user, profile, replyTo, body, setBody, busy, error, inputRef, needLogin, submit, cancelReply } = thread;
   if (!user) {
     return (
-      <Pressable onPress={needLogin} style={styles.login} accessibilityRole="button">
-        <Text style={{ color: colors.muted, fontSize: 14 }}>
-          <Text style={{ color: colors.brand, fontWeight: "700" }}>Log in</Text> to join the conversation
+      <Pressable onPress={needLogin} style={({ pressed }) => [styles.login, pressed && { opacity: 0.7 }]} accessibilityRole="button">
+        <Text style={styles.loginText}>
+          <Text style={styles.loginLink}>Log in</Text> to join the conversation
         </Text>
       </Pressable>
     );
@@ -349,7 +356,7 @@ export function CommentComposer({ thread }: { thread: CommentThread }) {
   const hasText = body.trim().length > 0;
   const canSend = hasText && !busy;
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: space.sm }}>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {replyTo ? (
         <View style={styles.replyingTo}>
@@ -363,13 +370,43 @@ export function CommentComposer({ thread }: { thread: CommentThread }) {
       ) : null}
       <View style={styles.inputRow}>
         <Avatar name={profile?.full_name} url={profile?.avatar_url} size="sm" />
-        <View style={styles.pill}>
-          <TextInput ref={inputRef} value={body} onChangeText={setBody} placeholder={replyTo ? "Add a reply…" : "Add comment…"} placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} multiline maxLength={1000} style={styles.input} accessibilityLabel="Write a comment" />
-          <Pressable onPress={() => void submit()} disabled={!canSend} hitSlop={4} style={[styles.send, busy && { opacity: 0.5 }]} accessibilityRole="button" accessibilityLabel="Post comment" accessibilityState={{ disabled: !canSend }}>
+        <Animated.View style={[styles.pill, { borderColor }]}>
+          <TextInput
+            ref={inputRef}
+            value={body}
+            onChangeText={setBody}
+            placeholder={replyTo ? "Add a reply…" : "Add comment…"}
+            placeholderTextColor={colors.faint}
+            keyboardAppearance={isDark ? "dark" : "light"}
+            multiline
+            maxLength={1000}
+            style={styles.input}
+            accessibilityLabel="Write a comment"
+            onFocus={() => Animated.timing(focus, { toValue: 1, duration: motion.fast, useNativeDriver: false }).start()}
+            onBlur={() => Animated.timing(focus, { toValue: 0, duration: motion.fast, useNativeDriver: false }).start()}
+          />
+          <Pressable onPress={() => void submit()} disabled={!canSend} hitSlop={4} style={({ pressed }) => [styles.send, busy && { opacity: 0.5 }, pressed && canSend && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Post comment" accessibilityState={{ disabled: !canSend }}>
             <Ionicons name={hasText ? "arrow-up-circle" : "arrow-up-circle-outline"} size={28} color={hasText ? colors.brand : colors.faint} />
           </Pressable>
-        </View>
+        </Animated.View>
       </View>
+    </View>
+  );
+}
+
+/** The thread while it loads: three comments drawn as grey shapes, so the sheet keeps its layout instead of a word. */
+function CommentSkeleton() {
+  return (
+    <View accessibilityLabel="Loading" style={{ gap: 14 }}>
+      {[0, 1, 2].map((i) => (
+        <View key={i} style={{ flexDirection: "row", gap: GAP, alignItems: "flex-start" }}>
+          <Skeleton width={AVATAR} height={AVATAR} round />
+          <View style={{ flex: 1, gap: 7, paddingTop: 4 }}>
+            <Skeleton width="28%" height={10} />
+            <Skeleton width={i === 1 ? "60%" : "88%"} height={12} />
+          </View>
+        </View>
+      ))}
     </View>
   );
 }
@@ -387,7 +424,7 @@ export function CommentList({ thread, emptyText }: { thread: CommentThread; empt
       </Pressable>
     </View>
   ) : null;
-  if (comments === null) return failed ?? <Text style={styles.muted}>Loading…</Text>;
+  if (comments === null) return failed ?? <CommentSkeleton />;
   if (items.length === 0) return failed ?? (emptyText ? <Text style={[styles.muted, styles.empty]}>{emptyText}</Text> : null);
   return (
     // Rows carry their own spacing (below, not between), so a reply's thread line runs unbroken into the next reply.
@@ -484,7 +521,7 @@ function CommentRow({ node: c, vote: override, isAuthor, onVoted, onReply, onHol
         </Text>
         <View style={styles.actions}>
           <Text style={styles.time}>{shortAge(c.created_at)}</Text>
-          <Pressable onPress={onReply} hitSlop={8} accessibilityRole="button" accessibilityLabel="Reply">
+          <Pressable onPress={onReply} hitSlop={8} style={({ pressed }) => pressed && { opacity: 0.7 }} accessibilityRole="button" accessibilityLabel="Reply">
             <Text style={styles.action}>Reply</Text>
           </Pressable>
           <View style={{ flex: 1 }} />
@@ -513,7 +550,7 @@ function RepliesToggle({ count, open, onPress }: { count: number; open: boolean;
   const styles = useStyles();
   const label = open ? "Hide replies" : `View ${repliesLabel(count)}`;
   return (
-    <Pressable onPress={onPress} hitSlop={6} style={styles.toggle} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ expanded: open }}>
+    <Pressable onPress={onPress} hitSlop={6} style={({ pressed }) => [styles.toggle, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ expanded: open }}>
       <View style={styles.toggleDash} />
       <Text style={styles.toggleText}>{label}</Text>
       <Ionicons name={open ? "chevron-up" : "chevron-down"} size={12} color={colors.muted} />
@@ -523,38 +560,44 @@ function RepliesToggle({ count, open, onPress }: { count: number; open: boolean;
 
 const useStyles = makeStyles((colors) => ({
   headingRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
-  heading: { fontSize: 15, fontWeight: "700", color: colors.text },
+  // "230 comments" is the sheet's title, so it takes the serif headline, a size down.
+  heading: { ...type.headline, fontSize: 18, lineHeight: 24, color: colors.text },
   sort: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
 
-  login: { paddingVertical: 10, alignItems: "center" },
-  error: { color: colors.red, fontSize: 13 },
-  replyingTo: { alignSelf: "flex-start", maxWidth: "100%", marginLeft: 32 + GAP, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 5 },
-  replyingText: { flexShrink: 1, fontSize: 12, fontWeight: "600", color: colors.muted },
+  login: { paddingVertical: space.md, alignItems: "center" },
+  loginText: { ...type.caption, fontSize: 14, color: colors.muted },
+  loginLink: { color: colors.text, fontWeight: "700" },
+  error: { ...type.footnote, color: colors.red },
+  replyingTo: { alignSelf: "flex-start", maxWidth: "100%", marginLeft: 32 + GAP, flexDirection: "row", alignItems: "center", gap: space.sm, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 5 },
+  replyingText: { flexShrink: 1, ...type.footnote, fontWeight: "600", color: colors.muted },
   inputRow: { flexDirection: "row", alignItems: "flex-end", gap: GAP },
-  pill: { flex: 1, flexDirection: "row", alignItems: "flex-end", backgroundColor: colors.input, borderRadius: 22, paddingLeft: 14, paddingRight: 4, minHeight: 40 },
-  input: { flex: 1, fontSize: 15, color: colors.text, paddingVertical: 10, maxHeight: 120 },
-  send: { width: 36, height: 40, alignItems: "center", justifyContent: "center" },
+  // The capsule's border colour is animated (see CommentComposer): a hairline at rest, ink while typing.
+  pill: { flex: 1, flexDirection: "row", alignItems: "flex-end", backgroundColor: colors.input, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, paddingLeft: 14, paddingRight: 4, minHeight: 40 },
+  input: { flex: 1, fontSize: 15, lineHeight: 20, color: colors.text, paddingVertical: 9, maxHeight: 120 },
+  send: { width: 36, height: 38, alignItems: "center", justifyContent: "center" },
 
-  muted: { color: colors.muted, fontSize: 14 },
-  empty: { textAlign: "center", paddingVertical: 32 },
+  muted: { ...type.caption, fontSize: 14, color: colors.muted },
+  // Nothing here yet: a quiet serif aside.
+  empty: { ...type.aside, textAlign: "center", paddingVertical: space.xxl },
   /** The load error with its Retry link, where the first comment would be. */
-  loadError: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 14 },
-  retry: { fontSize: 13, fontWeight: "700", color: colors.brand },
+  loadError: { flexDirection: "row", alignItems: "center", gap: space.md, paddingBottom: 14 },
+  retry: { ...type.label, fontSize: 13, color: colors.text },
 
   row: { flexDirection: "row", gap: GAP, alignItems: "flex-start", paddingBottom: 14 },
   /** Replies hang off one thin line. */
   reply: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border, paddingLeft: 10 },
-  nameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  name: { fontSize: 13, fontWeight: "600", color: colors.muted, flexShrink: 1 },
-  authorTag: { fontSize: 13, fontWeight: "600", color: colors.brand },
-  body: { fontSize: 15, color: colors.text, lineHeight: 20, marginTop: 1 },
-  actions: { flexDirection: "row", alignItems: "center", gap: 14, paddingTop: 4 },
-  time: { fontSize: 12, color: colors.muted },
-  action: { fontSize: 12, fontWeight: "700", color: colors.muted },
-  likes: { flexDirection: "row", alignItems: "center", gap: 4 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: space.xs },
+  name: { ...type.caption, fontWeight: "600", color: colors.muted, flexShrink: 1 },
+  authorTag: { ...type.caption, fontWeight: "600", color: colors.text },
+  body: { ...type.bodySmall, color: colors.text, marginTop: 1 },
+  // The metadata under a comment stays quiet: the time in the faintest grey, the actions in muted.
+  actions: { flexDirection: "row", alignItems: "center", gap: 14, paddingTop: space.xs },
+  time: { ...type.footnote, color: colors.faint },
+  action: { ...type.footnote, fontWeight: "600", color: colors.muted },
+  likes: { flexDirection: "row", alignItems: "center", gap: space.xs },
   iconButton: { height: 28, minWidth: 24, alignItems: "center", justifyContent: "center" },
-  count: { fontSize: 12, color: colors.muted },
+  count: { ...type.footnote, color: colors.muted },
   toggle: { flexDirection: "row", alignItems: "center", gap: 10, marginLeft: REPLY_INDENT, paddingBottom: 14 },
-  toggleDash: { width: 24, height: StyleSheet.hairlineWidth, backgroundColor: colors.muted },
-  toggleText: { fontSize: 12, fontWeight: "700", color: colors.muted },
+  toggleDash: { width: 24, height: StyleSheet.hairlineWidth, backgroundColor: colors.faint },
+  toggleText: { ...type.footnote, fontWeight: "600", color: colors.muted },
 }));

@@ -15,30 +15,31 @@ export function NotificationItem({ notification, onOpen, compact }: { notificati
     <button
       type="button"
       onClick={() => onOpen(notification)}
-      className={cn("flex w-full items-start gap-3 rounded-lg px-3 text-left hover:bg-gray-100", compact ? "py-2" : "py-3", unread && "bg-brand-50/60")}
+      // Unread is said by the weight of the words and the small accent dot, never by a tinted row.
+      className={cn("flex w-full items-start gap-3 px-4 text-left transition-colors hover:bg-gray-50", compact ? "py-2.5" : "py-3.5")}
     >
       <span className="relative shrink-0">
         {notification.actor ? (
           <Avatar name={notification.actor.full_name} src={notification.actor.avatar_url} size={compact ? "sm" : "md"} />
         ) : (
-          <span className={cn("flex items-center justify-center rounded-full bg-brand-100 text-brand-700", compact ? "h-8 w-8" : "h-10 w-10")}>
-            <Icon className="h-4 w-4" />
+          <span className={cn("flex items-center justify-center rounded-full bg-white text-gray-900 ring-1 ring-gray-200", compact ? "h-8 w-8" : "h-10 w-10")}>
+            <Icon className="h-4 w-4" strokeWidth={1.75} />
           </span>
         )}
         {notification.actor ? (
-          <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white ring-2 ring-white">
-            <Icon className="h-3 w-3" />
+          <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gray-900 text-white ring-2 ring-white">
+            <Icon className="h-3 w-3" strokeWidth={2} />
           </span>
         ) : null}
       </span>
       <span className="min-w-0 flex-1">
-        <span className={cn("block truncate text-sm", unread ? "font-semibold text-gray-900" : "text-gray-800")}>{notification.title}</span>
-        {notification.body ? <span className="line-clamp-2 text-sm text-gray-600">{notification.body}</span> : null}
-        <span className={cn("block text-xs", unread ? "font-medium text-brand-700" : "text-gray-500")} suppressHydrationWarning>
+        <span className={cn("block truncate text-sm", unread ? "font-semibold text-gray-900" : "font-medium text-gray-700")}>{notification.title}</span>
+        {notification.body ? <span className={cn("line-clamp-2 text-sm", unread ? "text-gray-700" : "text-gray-500")}>{notification.body}</span> : null}
+        <span className={cn("mt-0.5 block text-[11px] tracking-[0.02em]", unread ? "text-gray-600" : "text-gray-400")} suppressHydrationWarning>
           {timeAgo(notification.created_at)}
         </span>
       </span>
-      {unread ? <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-brand-600" aria-label="Unread" /> : null}
+      {unread ? <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-accent" aria-label="Unread" /> : null}
     </button>
   );
 }

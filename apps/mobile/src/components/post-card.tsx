@@ -1,9 +1,10 @@
 import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { getOrCreateDirectConversation, reportContent, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type PostTargetType, type SharedPost, REPORT_REASONS } from "@apartment-book/shared";
+import { APP_NAME, getOrCreateDirectConversation, reportContent, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type PostTargetType, type SharedPost, REPORT_REASONS } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
 import { shortDate } from "@/lib/short-date";
 import { SITE_URL, supabase } from "@/lib/supabase";
+import { space, type } from "@/lib/theme";
 import { makeStyles } from "@/lib/theme-provider";
 import { useActionSheet } from "./action-sheet";
 import { useLike, useSave } from "./engagement";
@@ -44,8 +45,8 @@ export type PostCardProps = {
 export const FEED_HEADER_PADDING = 12;
 
 /**
- * An apartment or roommate post in a feed, laid out like the posts on Home (see post-bits): header → title, price line
- * and the description folded to three lines ("more…" / "less") with its chips → the photos or video in a rounded frame →
+ * An apartment or roommate post in a feed, laid out like the posts on Home (see post-bits): header → the price line in
+ * the serif, the title under it, and the description folded to three lines ("more…" / "less") with its chips → the photos or video in a rounded frame →
  * heart, comment and share with their counts, the chat pill (not on your own listing) and the bookmark. No card box: posts follow each other on the screen with room between them.
  */
 export function PostCard(props: PostCardProps) {
@@ -85,7 +86,7 @@ export function PostCard(props: PostCardProps) {
       props.targetType === "post"
         ? { target_type: "post", target_id: props.targetId, kind: "post", path, title: null, caption, image_url: imageUrl, author }
         : sharedPostFromListing({ targetType: props.targetType, targetId: props.targetId, title: title ?? poster.name, caption, imageUrl, author });
-    shareSheet.open(shared, { url: `${SITE_URL}${path}`, label: title ?? "Apartment Book" });
+    shareSheet.open(shared, { url: `${SITE_URL}${path}`, label: title ?? APP_NAME });
   }
 
   function report() {
@@ -114,10 +115,10 @@ export function PostCard(props: PostCardProps) {
     <View style={styles.post} accessibilityLabel={`Post: ${title ?? description?.slice(0, 40) ?? "post"}`}>
       <PostHeader name={poster.name} avatarUrl={poster.avatarUrl} userId={poster.id} verified={poster.verified} meta={meta} onOpen={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })} onMenu={menu} />
 
-      {/* The words come before the picture, Facebook style; a tap on them opens the listing. */}
+      {/* The words come before the picture, Facebook style, price first like the detail screens; a tap on them opens the listing. */}
       <Pressable onPress={() => openDetail()} style={styles.body}>
-        {title ? <Text style={styles.title}>{title}</Text> : null}
         {lead ? <Text style={styles.lead}>{lead}</Text> : null}
+        {title ? <Text style={styles.title}>{title}</Text> : null}
         {text ? (
           <ExpandableText style={styles.description} lines={props.descriptionLines ?? 3}>
             {text}
@@ -140,11 +141,12 @@ export function PostCard(props: PostCardProps) {
 }
 
 const useStyles = makeStyles((colors) => ({
-  post: { width: "100%", backgroundColor: colors.bg, paddingTop: 4, paddingBottom: 18 },
-  body: { paddingHorizontal: POST_GUTTER, paddingTop: 2, paddingBottom: 12, gap: 3 },
-  // The title reads like a Home post's words: the same size and weight, nothing bold.
-  title: { ...POST_TEXT, color: colors.text },
-  lead: { fontSize: 14, fontWeight: "700", color: colors.brand },
+  // Posts follow each other on the screen with room between them, the same rhythm as the Home posts.
+  post: { width: "100%", backgroundColor: colors.bg, paddingTop: space.xs, paddingBottom: 20 },
+  body: { paddingHorizontal: POST_GUTTER, paddingTop: 2, paddingBottom: space.md, gap: 3 },
+  // Listings read price first: the price (or lead) line is the card's one serif, the title a sans subheading under it.
+  lead: { ...type.headline, color: colors.text },
+  title: { ...type.subheading, color: colors.text },
   description: { ...POST_TEXT, color: colors.text },
-  details: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 6 },
+  details: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.sm, marginTop: 6 },
 }));

@@ -122,18 +122,18 @@ function DockWindow({ state, userId, onClose, onToggle }: { state: DockWindowSta
 
   return (
     <section
-      className={cn("pointer-events-auto flex w-80 flex-col overflow-hidden rounded-t-xl bg-white shadow-[0_-2px_16px_rgba(0,0,0,0.18)] ring-1 ring-gray-200", state.minimized ? "h-11" : "h-[28rem]")}
+      className={cn("pointer-events-auto flex w-80 flex-col overflow-hidden rounded-t-[14px] bg-white shadow-float ring-1 ring-gray-200", state.minimized ? "h-11" : "h-[28rem]")}
       aria-label={`Chat with ${title}`}
     >
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-gray-200 px-2">
         <button
           type="button"
           onClick={onToggle}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-gray-100"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-gray-50"
           aria-label={state.minimized ? `Expand chat with ${title}` : `Minimize chat with ${title}`}
           aria-describedby={line ? statusId : undefined}
         >
-          {conversation ? <ConversationAvatar conversation={conversation} size="sm" /> : <span className="h-8 w-8 rounded-full bg-gray-200" />}
+          {conversation ? <ConversationAvatar conversation={conversation} size="sm" /> : <span className="ab-skeleton h-8 w-8 rounded-full" />}
           <span className="flex min-w-0 flex-col">
             <span className="truncate text-sm font-semibold text-gray-900">{title}</span>
             {line ? (
@@ -147,14 +147,14 @@ function DockWindow({ state, userId, onClose, onToggle }: { state: DockWindowSta
             ) : null}
           </span>
         </button>
-        <Link href={`/messages/${state.id}`} className="flex h-8 w-8 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100" aria-label="Open in Messages">
-          <Maximize2 className="h-4 w-4" />
+        <Link href={`/messages/${state.id}`} className="ab-press flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900" aria-label="Open in Messages">
+          <Maximize2 className="h-4 w-4" strokeWidth={1.75} />
         </Link>
-        <button type="button" onClick={onToggle} className="flex h-8 w-8 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100" aria-label={state.minimized ? "Expand" : "Minimize"}>
-          <Minus className="h-4 w-4" />
+        <button type="button" onClick={onToggle} className="ab-press flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900" aria-label={state.minimized ? "Expand" : "Minimize"}>
+          <Minus className="h-4 w-4" strokeWidth={1.75} />
         </button>
-        <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100" aria-label="Close chat">
-          <X className="h-4 w-4" />
+        <button type="button" onClick={onClose} className="ab-press flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900" aria-label="Close chat">
+          <X className="h-4 w-4" strokeWidth={1.75} />
         </button>
       </header>
       {!state.minimized ? (
@@ -164,7 +164,7 @@ function DockWindow({ state, userId, onClose, onToggle }: { state: DockWindowSta
           ) : conversation && messages ? (
             <ChatWindow key={state.id} conversation={conversation} currentUserId={userId} initialMessages={messages} prefill={messages.length === 0 ? state.prefill : undefined} />
           ) : (
-            <div className="flex flex-1 items-center justify-center text-brand-600">
+            <div className="flex flex-1 items-center justify-center text-gray-400">
               <Spinner />
             </div>
           )}

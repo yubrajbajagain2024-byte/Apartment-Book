@@ -21,10 +21,11 @@ export default async function ProfileSettingsPage({
   if (!profile) notFound();
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4">
+    <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold">{welcome ? `Welcome, ${profile.full_name.split(" ")[0]}!` : "Profile settings"}</h1>
-        <p className="text-sm text-gray-600">
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">Settings</p>
+        <h1 className="font-display text-3xl tracking-tight text-gray-900">{welcome ? `Welcome, ${profile.full_name.split(" ")[0]}!` : "Profile settings"}</h1>
+        <p className="mt-1.5 text-sm leading-relaxed text-gray-500">
           {welcome ? "Pick your university so we can show you apartments, roommates and items near campus." : "Update how other students see you."}
         </p>
       </div>

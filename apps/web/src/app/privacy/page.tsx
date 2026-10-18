@@ -10,7 +10,7 @@ export default function PrivacyPage() {
       <p>Your name, university email address, the profile details you choose to add (photo, program, bio), the listings, posts, comments and messages you create, and basic device information such as a push notification token if you allow notifications.</p>
       <p>Photos and videos you upload are stored as you provide them. Location data in photos (EXIF) is not used to place your listing; a listing only has a map location when you set one.</p>
       <h2>How we use it</h2>
-      <p>To run Apartment Book: show your posts to other students, deliver your messages, count views and messages on your own listings, show who is online (you can turn this off in Settings), and send notifications you have opted into.</p>
+      <p>To run CampConnect: show your posts to other students, deliver your messages, count views and messages on your own listings, show who is online (you can turn this off in Settings), and send notifications you have opted into.</p>
       <p>We do not sell your data and we do not show advertising.</p>
       <h2>Who can see what</h2>
       <p>Listings, roommate posts, marketplace items, comments and your public profile are visible to everyone who uses the app. Messages are visible only to the members of the conversation. Reports you file are visible only to the team.</p>

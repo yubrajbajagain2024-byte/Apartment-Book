@@ -20,12 +20,12 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { listFriends, sendSharedPost, type FeedMedia, type ProfileSummary, type SharedPost } from "@apartment-book/shared";
+import { APP_NAME, listFriends, sendSharedPost, type FeedMedia, type ProfileSummary, type SharedPost } from "@apartment-book/shared";
 import { hapticSuccess, hapticTap } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { radius } from "@/lib/theme";
+import { motion, radius, shadows, space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { Avatar } from "./avatar";
 
@@ -123,9 +123,9 @@ function ShareSheet({ request, onClose }: { request: ShareRequest | null; onClos
         onPanResponderMove: (_, g) => drag.setValue(Math.max(0, g.dy)),
         onPanResponderRelease: (_, g) => {
           if (g.dy > 90 || g.vy > 1.2) closeRef.current();
-          else Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+          else Animated.spring(drag, { toValue: 0, ...motion.legacySpring }).start();
         },
-        onPanResponderTerminate: () => Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start(),
+        onPanResponderTerminate: () => Animated.spring(drag, { toValue: 0, ...motion.legacySpring }).start(),
       }),
     [drag],
   );
@@ -244,7 +244,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
 
   /** The system share sheet, as the Share buttons opened before: the link with a line of words in front of it. */
   async function shareTo() {
-    const label = options.label ?? shared.title ?? (shared.caption ? shared.caption.slice(0, 80) : `${shared.author.name} on Apartment Book`);
+    const label = options.label ?? shared.title ?? (shared.caption ? shared.caption.slice(0, 80) : `${shared.author.name} on ${APP_NAME}`);
     try {
       const result = await Share.share({ message: `${label} · ${options.url}`, url: options.url });
       if (alive.current && result.action === Share.sharedAction) onClose();
@@ -270,7 +270,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
     body = (
       <View style={styles.empty}>
         <Text style={styles.errorText}>{error}</Text>
-        <Pressable onPress={() => setAttempt((n) => n + 1)} accessibilityRole="button" accessibilityLabel="Retry" style={styles.ghostButton}>
+        <Pressable onPress={() => setAttempt((n) => n + 1)} accessibilityRole="button" accessibilityLabel="Retry" style={({ pressed }) => [styles.ghostButton, pressed && { opacity: 0.7 }]}>
           <Text style={styles.ghostButtonText}>Retry</Text>
         </Pressable>
       </View>
@@ -286,7 +286,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
       <View style={styles.empty}>
         <Ionicons name="people-outline" size={44} color={colors.faint} />
         <Text style={styles.emptyTitle}>Friends you follow back show up here.</Text>
-        <Pressable onPress={() => closeThen(() => router.push("/find-people"))} accessibilityRole="button" accessibilityLabel="Find people" style={styles.ghostButton}>
+        <Pressable onPress={() => closeThen(() => router.push("/find-people"))} accessibilityRole="button" accessibilityLabel="Find people" style={({ pressed }) => [styles.ghostButton, pressed && { opacity: 0.7 }]}>
           <Text style={styles.ghostButtonText}>Find people</Text>
         </Pressable>
       </View>
@@ -319,7 +319,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
                   </View>
                 ) : null}
               </View>
-              <Text style={[styles.tileName, selected && { color: colors.brand }]} numberOfLines={2}>
+              <Text style={[styles.tileName, selected && styles.tileNameSelected]} numberOfLines={2}>
                 {p.full_name}
               </Text>
             </Pressable>
@@ -336,8 +336,8 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
         <Text style={styles.title} accessibilityRole="header">
           Share
         </Text>
-        <Pressable onPress={onClose} hitSlop={10} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
-          <Ionicons name="close" size={20} color={colors.text} />
+        <Pressable onPress={onClose} hitSlop={10} style={({ pressed }) => [styles.close, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Close">
+          <Ionicons name="close" size={18} color={colors.text} />
         </Pressable>
       </View>
       {user ? (
@@ -419,38 +419,44 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
 
 const useStyles = makeStyles((colors) => ({
   root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
-  sheet: { height: "72%", backgroundColor: colors.elevated, borderTopLeftRadius: radius.lg + 4, borderTopRightRadius: radius.lg + 4, overflow: "hidden" },
-  header: { alignItems: "center", paddingTop: 8, paddingBottom: 10, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 10 },
-  title: { fontSize: 16, fontWeight: "700", color: colors.text },
-  close: { position: "absolute", right: 12, top: 16, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
-  search: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 12, marginTop: 12, paddingHorizontal: 12, height: 40, borderRadius: radius.md, backgroundColor: colors.input },
-  searchInput: { flex: 1, fontSize: 15, color: colors.text, paddingVertical: 0 },
-  list: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8, flexGrow: 1 },
+  // The sheet floats over the dimmed screen: the system's sheet shadow, and the largest corner the system allows.
+  sheet: { height: "72%", backgroundColor: colors.elevated, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, overflow: "hidden", shadowColor: colors.shadow, ...shadows.sheet },
+  header: { alignItems: "center", paddingTop: space.sm, paddingBottom: space.md, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: space.md },
+  // The sheet's title is the serif headline, a size down.
+  title: { ...type.headline, fontSize: 18, lineHeight: 24, color: colors.text },
+  close: { position: "absolute", right: space.md, top: 18, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
+  // The search box looks like a Field at rest: the soft fill with a hairline.
+  search: { flexDirection: "row", alignItems: "center", gap: space.sm, marginHorizontal: space.md, marginTop: space.md, paddingHorizontal: 12, height: 40, borderRadius: radius.md, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border },
+  searchInput: { flex: 1, ...type.bodySmall, color: colors.text, paddingVertical: 0 },
+  list: { paddingHorizontal: space.md, paddingTop: space.md, paddingBottom: space.sm, flexGrow: 1 },
   grid: { flexDirection: "row", flexWrap: "wrap" },
-  tile: { alignItems: "center", paddingVertical: 8, paddingHorizontal: 4, gap: 6 },
+  tile: { alignItems: "center", paddingVertical: space.sm, paddingHorizontal: space.xs, gap: 6 },
   // The ring is the sheet's own colour, cutting the tick out of the photo.
   check: { position: "absolute", right: -2, bottom: -2, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.brand, borderWidth: 2, borderColor: colors.elevated, alignItems: "center", justifyContent: "center" },
-  tileName: { fontSize: 12, lineHeight: 15, color: colors.text, textAlign: "center" },
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 32, paddingHorizontal: 24 },
-  emptyTitle: { fontSize: 15, fontWeight: "600", color: colors.text, textAlign: "center" },
-  emptyBody: { fontSize: 14, color: colors.muted, textAlign: "center" },
-  loginText: { fontSize: 16, fontWeight: "700", color: colors.brand, textAlign: "center" },
-  errorText: { fontSize: 14, color: colors.red, textAlign: "center" },
+  tileName: { ...type.footnote, lineHeight: 15, color: colors.text, textAlign: "center" },
+  tileNameSelected: { fontWeight: "600" },
+  empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.sm + space.xxs, paddingVertical: space.xxl, paddingHorizontal: space.xl },
+  // Nothing to show: a serif headline and a quiet line, like EmptyState.
+  emptyTitle: { ...type.headline, fontSize: 18, lineHeight: 24, color: colors.text, textAlign: "center" },
+  emptyBody: { ...type.caption, fontSize: 14, lineHeight: 20, color: colors.muted, textAlign: "center" },
+  loginText: { ...type.headline, fontSize: 18, lineHeight: 24, color: colors.text, textAlign: "center" },
+  errorText: { ...type.caption, fontSize: 14, color: colors.red, textAlign: "center" },
   // The look of ErrorBanner in components/ui.
-  banner: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8, padding: 12, borderRadius: radius.md, backgroundColor: colors.dangerSoft },
-  bannerText: { flex: 1, fontSize: 14, color: colors.dangerText },
-  bannerRetry: { fontSize: 14, fontWeight: "700", color: colors.dangerText },
-  ghostButton: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: radius.pill, backgroundColor: colors.brandSoft },
-  ghostButtonText: { fontSize: 14, fontWeight: "700", color: colors.brand },
-  footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: 12, paddingTop: 8, backgroundColor: colors.elevated },
-  composer: { gap: 6, paddingBottom: 8 },
-  to: { fontSize: 12, color: colors.muted, marginLeft: 2 },
-  composerRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
-  note: { flex: 1, minHeight: 40, maxHeight: 96, backgroundColor: colors.input, borderRadius: 20, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 10, fontSize: 15, color: colors.text },
-  send: { minWidth: 84, height: 40, borderRadius: 20, paddingHorizontal: 16, backgroundColor: colors.brand, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
-  sendText: { color: colors.onBrand, fontSize: 15, fontWeight: "700" },
-  secondary: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingHorizontal: 4, borderRadius: radius.md },
+  banner: { flexDirection: "row", alignItems: "center", gap: space.md, marginBottom: space.sm, padding: space.md, borderRadius: radius.md, backgroundColor: colors.dangerSoft },
+  bannerText: { flex: 1, ...type.caption, fontSize: 14, color: colors.dangerText },
+  bannerRetry: { ...type.label, color: colors.dangerText },
+  // A secondary button: a hairline capsule, the words in ink.
+  ghostButton: { height: 36, paddingHorizontal: space.lg, justifyContent: "center", borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" },
+  ghostButtonText: { ...type.label, color: colors.text },
+  footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: space.md, paddingTop: space.sm, backgroundColor: colors.elevated },
+  composer: { gap: 6, paddingBottom: space.sm },
+  to: { ...type.footnote, color: colors.muted, marginLeft: 2 },
+  composerRow: { flexDirection: "row", alignItems: "flex-end", gap: space.sm },
+  note: { flex: 1, minHeight: 40, maxHeight: 96, backgroundColor: colors.input, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingTop: 9, paddingBottom: 9, fontSize: 15, lineHeight: 20, color: colors.text },
+  send: { minWidth: 84, height: 40, borderRadius: radius.pill, paddingHorizontal: space.lg, backgroundColor: colors.brand, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  sendText: { ...type.label, fontSize: 15, color: colors.onBrand },
+  secondary: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm + space.xxs, paddingHorizontal: space.xs, borderRadius: radius.md },
   secondaryIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
-  secondaryText: { flex: 1, fontSize: 15, fontWeight: "600", color: colors.text },
+  secondaryText: { flex: 1, ...type.subheading, color: colors.text },
 }));

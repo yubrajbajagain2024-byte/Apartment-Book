@@ -52,7 +52,7 @@ function MediaGrid({ items, signed, onOpen }: { items: MessageAttachment[]; sign
       role="group"
       aria-label={mediaSummary(items)}
       data-testid="attachment-media"
-      className={cn("grid max-w-full gap-0.5 overflow-hidden rounded-2xl", columns === 1 ? "w-60 grid-cols-1" : columns === 2 ? "w-60 grid-cols-2" : "w-72 grid-cols-3")}
+      className={cn("grid max-w-full gap-0.5 overflow-hidden rounded-[14px] ring-1 ring-gray-200", columns === 1 ? "w-60 grid-cols-1" : columns === 2 ? "w-60 grid-cols-2" : "w-72 grid-cols-3")}
     >
       {items.map((a, i) => (
         <MediaTile key={`${i}:${a.path}`} attachment={a} file={signed[a.path]} label={tileLabel(a, i, n)} single={n === 1} onOpen={() => onOpen(i)} />
@@ -140,10 +140,10 @@ function FileCard({ attachment, file, mine }: { attachment: MessageAttachment; f
   const unavailable = Boolean(file && !file.url);
   // A file that could not be signed is tried again in a couple of minutes, so this is not final.
   const details = unavailable ? "Couldn't load" : [attachment.size > 0 ? formatFileSize(attachment.size) : null, extension].filter(Boolean).join(" · ");
-  const className = cn("flex w-64 max-w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left", mine ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-900");
+  const className = cn("flex w-64 max-w-full items-center gap-3 rounded-[14px] px-3 py-2.5 text-left transition-colors", mine ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-900");
   const content = (
     <>
-      <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", mine ? "bg-white/20 text-white" : "bg-white text-brand-600 ring-1 ring-gray-200")}>
+      <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]", mine ? "bg-white/15 text-white" : "bg-white text-gray-900 ring-1 ring-gray-200")}>
         <FileTypeIcon attachment={attachment} />
       </span>
       <span className="min-w-0 flex-1">
@@ -162,7 +162,7 @@ function FileCard({ attachment, file, mine }: { attachment: MessageAttachment; f
     );
   }
   return (
-    <a href={file.url} target="_blank" rel="noopener noreferrer" data-testid="attachment-file" title={`Open ${attachment.name}`} className={cn(className, mine ? "hover:bg-brand-700" : "hover:bg-gray-200")}>
+    <a href={file.url} target="_blank" rel="noopener noreferrer" data-testid="attachment-file" title={`Open ${attachment.name}`} className={cn(className, mine ? "hover:bg-gray-800" : "hover:bg-gray-200")}>
       {content}
       <span className="sr-only"> (opens in a new tab)</span>
     </a>

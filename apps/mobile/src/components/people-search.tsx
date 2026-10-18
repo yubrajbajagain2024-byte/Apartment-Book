@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
-import { FlatList, Text, TextInput, View } from "react-native";
+import { FlatList, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { searchPeople, type PosterSummary } from "@apartment-book/shared";
 import { useFollowStatsMany } from "@/components/follow-button";
 import { PersonRow } from "@/components/person-row";
-import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { EmptyState, ErrorBanner, RowSkeleton } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { radius, space } from "@/lib/theme";
+import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 
 /** Same array on every render while nothing has loaded, so the stats hook does not refetch for a fresh empty list. */
@@ -43,7 +43,7 @@ export function PeopleSearch({ autoFocus = false, bottomInset = 0 }: { autoFocus
   const people = data ?? NOBODY;
   const stats = useFollowStatsMany(people, me ?? null);
   const needLogin = () => router.push("/(auth)/login");
-  const section = q ? "People" : profile?.university ? `People at ${profile.university.name}` : "New on Apartment Book";
+  const section = q ? "People" : profile?.university ? `People at ${profile.university.name}` : "New on CampConnect";
 
   return (
     <View style={styles.screen}>
@@ -67,7 +67,7 @@ export function PeopleSearch({ autoFocus = false, bottomInset = 0 }: { autoFocus
         renderItem={({ item }) => <PersonRow person={item} stats={stats[item.id]} userId={me ?? null} onNeedLogin={needLogin} onPress={() => router.push({ pathname: "/profile/[id]", params: { id: item.id } })} />}
         ListEmptyComponent={
           loading && !data ? (
-            <Loading />
+            <RowSkeleton rows={8} />
           ) : error ? null : q ? (
             <EmptyState icon="search-outline" title="No one found" body="Try a different spelling of their name." />
           ) : (
@@ -82,8 +82,9 @@ export function PeopleSearch({ autoFocus = false, bottomInset = 0 }: { autoFocus
 const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: { paddingHorizontal: space.lg, paddingTop: space.md },
-  // The input fill, not the card colour: the screen behind it is white in light and black in dark.
-  search: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 14, height: 42 },
-  input: { flex: 1, fontSize: 15, color: colors.text },
-  section: { fontSize: 13, fontWeight: "600", color: colors.muted, paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.xs },
+  // The soft input fill with a hairline edge: the screen behind it is the warm ivory in light, near-black in dark.
+  search: { flexDirection: "row", alignItems: "center", gap: space.sm, backgroundColor: colors.input, borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, paddingHorizontal: 14, height: 44 },
+  input: { flex: 1, ...type.bodySmall, color: colors.text, paddingVertical: 0 },
+  // An eyebrow over the rows: "People", or where they are from.
+  section: { ...type.eyebrow, color: colors.muted, paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.sm },
 }));

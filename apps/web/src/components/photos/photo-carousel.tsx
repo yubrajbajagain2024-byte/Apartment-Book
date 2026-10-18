@@ -166,8 +166,8 @@ export function PhotoCarousel({
 
   if (count === 0) {
     return (
-      <div className={cn("relative flex w-full items-center justify-center overflow-hidden bg-gray-100 text-gray-300", className)} style={aspect ? { aspectRatio: aspect } : undefined}>
-        <ImageOff className="h-10 w-10" />
+      <div className={cn("relative flex w-full items-center justify-center overflow-hidden bg-gray-100 text-gray-400", className)} style={aspect ? { aspectRatio: aspect } : undefined}>
+        <ImageOff className="h-8 w-8" strokeWidth={1.5} />
         {children}
       </div>
     );
@@ -176,7 +176,7 @@ export function PhotoCarousel({
   return (
     <div
       ref={frameRef}
-      className={cn("group/carousel relative w-full select-none overflow-hidden bg-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-brand-500", (href || onTap) && "cursor-pointer", className)}
+      className={cn("group/carousel relative w-full select-none overflow-hidden bg-gray-100 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-900", (href || onTap) && "cursor-pointer", className)}
       style={{ ...(aspect ? { aspectRatio: aspect } : {}), touchAction: "pan-y" }}
       // Only a carousel with something to slide keeps sideways swipes; a single photo lets the Home tabs have them.
       data-no-swipe={count > 1 ? "" : undefined}
@@ -235,9 +235,9 @@ export function PhotoCarousel({
               e.stopPropagation();
               go(index - 1);
             }}
-            className={cn("absolute left-2 top-1/2 z-20 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow transition-opacity hover:bg-white md:flex", index === 0 ? "opacity-0 pointer-events-none" : "opacity-0 group-hover/carousel:opacity-100 focus-visible:opacity-100")}
+            className={cn("absolute left-2 top-1/2 z-20 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-card backdrop-blur transition-opacity hover:bg-white md:flex", index === 0 ? "opacity-0 pointer-events-none" : "opacity-0 group-hover/carousel:opacity-100 focus-visible:opacity-100")}
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ChevronLeft className="h-5 w-5" strokeWidth={1.75} />
           </button>
           <button
             type="button"
@@ -248,9 +248,9 @@ export function PhotoCarousel({
               e.stopPropagation();
               go(index + 1);
             }}
-            className={cn("absolute right-2 top-1/2 z-20 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow transition-opacity hover:bg-white md:flex", index === count - 1 ? "opacity-0 pointer-events-none" : "opacity-0 group-hover/carousel:opacity-100 focus-visible:opacity-100")}
+            className={cn("absolute right-2 top-1/2 z-20 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-card backdrop-blur transition-opacity hover:bg-white md:flex", index === count - 1 ? "opacity-0 pointer-events-none" : "opacity-0 group-hover/carousel:opacity-100 focus-visible:opacity-100")}
           >
-            <ChevronRight className="h-5 w-5" />
+            <ChevronRight className="h-5 w-5" strokeWidth={1.75} />
           </button>
           {showCounter ? (
             <span className="pointer-events-none absolute right-2 top-2 z-20 rounded-full bg-black/60 px-2 py-0.5 text-xs font-semibold text-white backdrop-blur">
@@ -274,7 +274,7 @@ export function PhotoCarousel({
                   }}
                   className="flex h-4 items-center px-0.5"
                 >
-                  <span className={cn("block h-1.5 rounded-full shadow transition-all", i === index ? "w-4 bg-white" : "w-1.5 bg-white/60")} />
+                  <span className={cn("block h-1.5 rounded-full shadow-card transition-all", i === index ? "w-4 bg-white" : "w-1.5 bg-white/60")} />
                 </button>
               ))}
             </div>

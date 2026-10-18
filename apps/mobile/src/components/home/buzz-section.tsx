@@ -4,29 +4,62 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { BUZZ_PAGE_SIZE, BUZZ_SORTS, BUZZ_TOPICS, labelFor, listBuzz, type BuzzPost, type BuzzSort, type BuzzTopic } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
-import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { EmptyState, ErrorBanner, Skeleton } from "@/components/ui";
 import { AnimatedFlatList } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
 import { useTabBarInset } from "@/lib/tab-bar";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { BUZZ_GUTTER, BuzzCard, BuzzSearchRow, emitBuzzEvent, onBuzzEvent } from "./buzz-card";
 
 const SORT_ICONS: Record<BuzzSort, keyof typeof Ionicons.glyphMap> = { hot: "flame-outline", new: "time-outline", top: "trending-up-outline" };
 
-/** A small rounded filter pill, like the ones under Reddit's search bar. */
+/** A filter capsule in the system's Chip look (a hairline at rest, ink outline and a warm wash when chosen), with room for a caret. */
 function FilterPill({ label, icon, active, caret, onPress, accessibilityLabel }: { label: string; icon?: keyof typeof Ionicons.glyphMap; active?: boolean; caret?: boolean; onPress: () => void; accessibilityLabel?: string }) {
   const colors = useColors();
   const styles = useStyles();
-  const ink = active ? colors.brand : colors.text;
+  const ink = active ? colors.text : colors.muted;
   return (
-    <Pressable onPress={onPress} style={[styles.filter, active && { backgroundColor: colors.brandSoft }]} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} accessibilityState={{ selected: Boolean(active) }}>
-      {icon ? <Ionicons name={icon} size={15} color={ink} /> : null}
-      <Text style={[styles.filterText, { color: ink }]}>{label}</Text>
-      {caret ? <Ionicons name="chevron-down" size={14} color={ink} /> : null}
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.filter, active && styles.filterActive, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} accessibilityState={{ selected: Boolean(active) }}>
+      {icon ? <Ionicons name={icon} size={14} color={ink} /> : null}
+      <Text style={[styles.filterText, { color: ink }]} maxFontSizeMultiplier={1.3}>
+        {label}
+      </Text>
+      {caret ? <Ionicons name="chevron-down" size={13} color={ink} /> : null}
     </Pressable>
+  );
+}
+
+/** The shape of the Buzz list while it loads: a few rows drawn as grey shapes (topic, title, the pills), a hairline between them. */
+function BuzzSkeleton() {
+  const colors = useColors();
+  const styles = useStyles();
+  return (
+    <View accessibilityLabel="Loading">
+      {[0, 1, 2, 3].map((i) => (
+        <View key={i} style={[styles.skeletonRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+            <Skeleton width={24} height={24} round />
+            <Skeleton width={88} height={12} />
+          </View>
+          <View style={{ flexDirection: "row", gap: space.md, alignItems: "flex-start" }}>
+            <View style={{ flex: 1, gap: 7 }}>
+              <Skeleton width="92%" height={14} />
+              <Skeleton width={i % 2 ? "58%" : "76%"} height={14} />
+              <Skeleton width="84%" height={10} style={{ marginTop: 2 }} />
+            </View>
+            {i % 2 ? <Skeleton width={96} height={72} style={{ borderRadius: radius.md }} /> : null}
+          </View>
+          <View style={{ flexDirection: "row", gap: space.sm }}>
+            <Skeleton width={104} height={32} round />
+            <Skeleton width={64} height={32} round />
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -167,11 +200,11 @@ export function BuzzSection({ topInset, onScroll }: { active: boolean; topInset:
                 <Ionicons name="search" size={18} color={colors.muted} />
                 <TextInput value={search} onChangeText={setSearch} placeholder="Search Buzz" placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} returnKeyType="search" clearButtonMode="while-editing" autoCorrect={false} style={styles.searchInput} accessibilityLabel="Search Buzz" />
               </View>
-              <Pressable onPress={create} style={styles.plus} accessibilityRole="button" accessibilityLabel="Post anonymously on Buzz">
-                <Ionicons name="add" size={26} color={colors.text} />
+              <Pressable onPress={create} style={({ pressed }) => [styles.plus, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Post anonymously on Buzz">
+                <Ionicons name="add" size={24} color={colors.text} />
               </Pressable>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -BUZZ_GUTTER }} contentContainerStyle={{ gap: 8, paddingHorizontal: BUZZ_GUTTER }} keyboardShouldPersistTaps="handled">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -BUZZ_GUTTER }} contentContainerStyle={{ gap: space.sm, paddingHorizontal: BUZZ_GUTTER }} keyboardShouldPersistTaps="handled">
               <FilterPill label={labelFor(BUZZ_SORTS, sort)} icon={SORT_ICONS[sort]} caret onPress={pickSort} accessibilityLabel={`Sort: ${labelFor(BUZZ_SORTS, sort)}`} />
               {BUZZ_TOPICS.map((t) => (
                 <FilterPill key={t.value} label={t.label} active={topic === t.value} onPress={() => setTopic(topic === t.value ? undefined : t.value)} />
@@ -179,7 +212,7 @@ export function BuzzSection({ topInset, onScroll }: { active: boolean; topInset:
             </ScrollView>
             <View style={styles.notice}>
               <Ionicons name="eye-off-outline" size={12} color={colors.faint} />
-              <Text style={styles.noticeText}>Buzz is anonymous. Nobody sees who wrote a post or a reply.</Text>
+              <Text style={styles.noticeText} numberOfLines={1}>Buzz is anonymous. Nobody sees who wrote a post or a reply.</Text>
             </View>
             {error && items.length > 0 ? <ErrorBanner message={error} onRetry={refresh} /> : null}
           </View>
@@ -202,9 +235,9 @@ export function BuzzSection({ topInset, onScroll }: { active: boolean; topInset:
         }
         ListEmptyComponent={
           loading ? (
-            <Loading />
+            <BuzzSkeleton />
           ) : error ? (
-            <View style={{ paddingHorizontal: BUZZ_GUTTER }}>
+            <View style={{ paddingHorizontal: BUZZ_GUTTER, paddingTop: space.md }}>
               <ErrorBanner message={error} onRetry={refresh} />
             </View>
           ) : filtered ? (
@@ -215,9 +248,9 @@ export function BuzzSection({ topInset, onScroll }: { active: boolean; topInset:
         }
         ListFooterComponent={
           loadingMore ? (
-            <ActivityIndicator color={colors.brand} style={{ paddingVertical: 12 }} />
+            <ActivityIndicator color={colors.muted} style={{ paddingVertical: space.lg }} />
           ) : moreError ? (
-            <Pressable onPress={fetchMore} accessibilityRole="button" style={{ paddingVertical: 12 }}>
+            <Pressable onPress={fetchMore} accessibilityRole="button" style={({ pressed }) => [{ paddingVertical: space.md }, pressed && { opacity: 0.7 }]}>
               <Text style={styles.retry}>Could not load more. Tap to try again.</Text>
             </Pressable>
           ) : ended && items.length >= BUZZ_PAGE_SIZE ? <Text style={styles.end}>You have reached the end.</Text> : null
@@ -236,16 +269,20 @@ function Hairline() {
 }
 
 const useStyles = makeStyles((colors) => ({
-  header: { paddingHorizontal: BUZZ_GUTTER, paddingTop: 10, paddingBottom: 8, gap: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  searchRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  search: { flex: 1, height: 42, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.input, borderRadius: 21, paddingHorizontal: 14 },
-  searchInput: { flex: 1, fontSize: 15, color: colors.text, paddingVertical: 0 },
-  plus: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
-  filter: { height: 32, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, borderRadius: 16, backgroundColor: colors.input },
-  filterText: { fontSize: 13, fontWeight: "600" },
+  header: { paddingHorizontal: BUZZ_GUTTER, paddingTop: space.md, paddingBottom: space.md, gap: space.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  // The search box and the "+" share one height on the soft input fill, as capsules.
+  search: { flex: 1, height: 40, flexDirection: "row", alignItems: "center", gap: space.sm, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 14 },
+  searchInput: { flex: 1, ...type.bodySmall, color: colors.text, paddingVertical: 0 },
+  plus: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
+  filter: { height: 32, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" },
+  filterActive: { backgroundColor: colors.brandSoft, borderColor: colors.text },
+  filterText: { ...type.label, fontSize: 13 },
   hairline: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  skeletonRow: { paddingHorizontal: BUZZ_GUTTER, paddingVertical: space.md, gap: space.md },
   notice: { flexDirection: "row", alignItems: "center", gap: 5 },
-  noticeText: { flex: 1, fontSize: 11, color: colors.faint },
-  retry: { textAlign: "center", color: colors.brand, fontSize: 13, fontWeight: "600" },
-  end: { textAlign: "center", color: colors.faint, fontSize: 12, paddingVertical: 12 },
+  noticeText: { flex: 1, ...type.footnote, fontSize: 11, color: colors.faint },
+  retry: { ...type.label, fontSize: 13, textAlign: "center", color: colors.muted },
+  // The end of the list is a quiet serif aside, like "You're all caught up." on For you.
+  end: { ...type.aside, textAlign: "center", color: colors.muted, paddingTop: space.xl, paddingBottom: space.lg },
 }));

@@ -13,7 +13,7 @@ export function ReportMenu({ targetType, targetId, onDone, className }: { target
   if (state === "sent") return <p className={cn("px-2.5 py-2 text-sm text-gray-700", className)}>Thanks. Our team will review it.</p>;
   return (
     <div className={className} role="group" aria-label="Report reason">
-      <p className="px-2.5 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Why are you reporting this?</p>
+      <p className="px-2.5 pb-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">Why are you reporting this?</p>
       {REPORT_REASONS.map((r) => (
         <button
           key={r.value}
@@ -27,9 +27,9 @@ export function ReportMenu({ targetType, targetId, onDone, className }: { target
               if (!result.error) setTimeout(() => onDone?.(), 1200);
             })
           }
-          className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-gray-900 hover:bg-gray-100 disabled:opacity-50"
+          className="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-gray-900 transition-colors hover:bg-gray-100 disabled:opacity-50"
         >
-          <Flag className="h-4 w-4 text-gray-500" /> {r.label}
+          <Flag className="h-4 w-4 text-gray-500" strokeWidth={1.75} /> {r.label}
         </button>
       ))}
       {state === "error" ? <p className="px-2.5 pt-1 text-xs text-red-600">Could not send the report. Try again.</p> : null}

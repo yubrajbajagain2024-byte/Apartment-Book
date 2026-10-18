@@ -7,7 +7,7 @@ import { getPostEngagementMany, getPostPreviewsMany, homeSectionHref, listForYou
 import { createClient } from "@/lib/supabase/client";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FeedFooter, SkeletonCard } from "@/components/feed/feed-bits";
+import { FeedFooter, PostSkeleton } from "@/components/feed/feed-bits";
 import { InstaPost } from "./insta-post";
 
 export type ForYouFeedProps = {
@@ -121,9 +121,9 @@ export function ForYouFeed({ initial, hasMore: initialHasMore, filters, savedIds
   return (
     <div className="-mx-3 flex flex-col bg-white sm:mx-0 sm:gap-4 sm:bg-transparent" data-testid="for-you-feed">
       {filtered || scope?.hasHomeUniversity ? (
-        <p className="px-3 pt-2 text-xs text-gray-600 sm:px-1 sm:pt-0">
+        <p className="px-3 pt-2.5 text-xs text-gray-500 sm:px-1 sm:pt-0">
           Showing posts and reels from {filtered ? (scope?.universityName ?? "your university") : "all universities"} ·{" "}
-          <Link href={filtered ? everyCampus : homeSectionHref("foryou")} scroll={false} className="font-semibold text-brand-700 hover:underline">
+          <Link href={filtered ? everyCampus : homeSectionHref("foryou")} scroll={false} className="font-semibold text-gray-900 underline decoration-gray-300 underline-offset-2 transition-colors hover:decoration-gray-900">
             {filtered ? "All universities" : "My university"}
           </Link>
         </p>
@@ -163,7 +163,7 @@ export function ForYouFeed({ initial, hasMore: initialHasMore, filters, savedIds
               priority={i < 2}
             />
           ))}
-          {loading ? <SkeletonCard aspect="aspect-[4/5]" lines={3} /> : null}
+          {loading ? <PostSkeleton /> : null}
           <FeedFooter sentinelRef={sentinelRef} loading={loading} done={!hasMore} error={error} onRetry={loadMore} count={items.length} />
         </>
       )}

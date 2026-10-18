@@ -62,7 +62,7 @@ import { emitPostPinned, onPostPinned, onPostRemoved } from "@/lib/posts-events"
 import { useSession } from "@/lib/session";
 import { tabBarInset } from "@/lib/tab-bar";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { radius, space } from "@/lib/theme";
+import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useChangeAvatar } from "@/lib/use-change-avatar";
 import { ClassesSection } from "./classes-section";
@@ -535,7 +535,7 @@ const TilesPage = memo(function TilesPage(props: TilesPageProps) {
     </>
   );
 
-  const spinner = <ActivityIndicator style={styles.spinner} color={colors.brand} />;
+  const spinner = <ActivityIndicator style={styles.spinner} color={colors.muted} />;
   let footer: ReactElement | null = null;
   if (gate === "error") footer = <ErrorLine message={gateMessage} onRetry={onRetryGate} />;
   else if (gate === "loading") footer = spinner;
@@ -606,7 +606,7 @@ const ClassesPage = memo(function ClassesPage(props: ClassesPageProps) {
   const scrollTo = useCallback((y: number, animated: boolean) => scroller.current?.scrollTo({ y, animated }), []);
   const scroll = usePageScroll(props, scrollTo);
 
-  const spinner = <ActivityIndicator style={styles.spinner} color={colors.brand} />;
+  const spinner = <ActivityIndicator style={styles.spinner} color={colors.muted} />;
   let body: ReactElement;
   if (gate === "error") body = <ErrorLine message={gateMessage} onRetry={onRetryGate} />;
   else if (gate === "loading") body = spinner;
@@ -1243,8 +1243,9 @@ const useStyles = makeStyles((colors) => ({
   follow: { flexShrink: 1, minHeight: PROFILE_BUTTON_HEIGHT, height: PROFILE_BUTTON_HEIGHT, borderRadius: radius.pill, paddingHorizontal: 18, gap: 6 },
   spinner: { paddingVertical: space.xl },
   errorLine: { padding: space.lg },
+  // An empty tab, drawn like the system's EmptyState: a thin ring, a serif headline, the one thing to do about it.
   empty: { alignItems: "center", gap: space.md, paddingHorizontal: space.xl, paddingVertical: 40 },
-  emptyIcon: { width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, borderColor: colors.text, alignItems: "center", justifyContent: "center" },
-  emptyTitle: { fontSize: 16, fontWeight: "700", color: colors.text, textAlign: "center" },
+  emptyIcon: { width: 56, height: 56, borderRadius: 28, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  emptyTitle: { ...type.headline, color: colors.text, textAlign: "center" },
   emptyAction: { minWidth: 160 },
 }));

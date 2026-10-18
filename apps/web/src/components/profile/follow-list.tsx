@@ -83,7 +83,7 @@ async function OwnLists({ profileId, profileName, kind, page }: FollowListProps)
   return (
     <div className="mx-auto flex w-full max-w-[500px] flex-col gap-3">
       <BackToProfile profileId={profileId} />
-      <h1 className="text-2xl font-bold text-gray-900">{kind === "followers" ? `${profileName}'s followers` : `${profileName} follows`}</h1>
+      <h1 className="font-display text-3xl tracking-tight text-gray-900">{kind === "followers" ? `${profileName}'s followers` : `${profileName} follows`}</h1>
       <FollowTabs profileId={profileId} active={kind} followers={stats.followers} following={stats.following} />
       {result.count === 0 ? (
         kind === "followers" ? (
@@ -136,9 +136,9 @@ async function MutualFriends({ profileId, profileName, kind, page, viewerId }: F
   return (
     <div className="mx-auto flex w-full max-w-[500px] flex-col gap-3" data-testid="mutual-friends">
       <BackToProfile profileId={profileId} />
-      <h1 className="text-2xl font-bold text-gray-900">{`${MUTUAL_FRIENDS_TITLE} with ${profileName}`}</h1>
-      <p className="flex items-center gap-2 text-sm text-gray-600" data-testid="mutual-friends-note">
-        <Lock className="h-4 w-4 shrink-0 text-gray-500" aria-hidden="true" />
+      <h1 className="font-display text-3xl tracking-tight text-gray-900">{`${MUTUAL_FRIENDS_TITLE} with ${profileName}`}</h1>
+      <p className="flex items-center gap-2 text-sm text-gray-500" data-testid="mutual-friends-note">
+        <Lock className="h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.75} aria-hidden="true" />
         {privateFollowListsNote(firstName)}
       </p>
       {body}
@@ -159,8 +159,8 @@ function rowFollowStats(supabase: Client, people: PosterSummary[]): Promise<Reco
 
 function BackToProfile({ profileId }: { profileId: string }) {
   return (
-    <Link href={`/profile/${profileId}`} className="inline-flex items-center gap-1 self-start text-sm text-gray-600 hover:text-gray-900">
-      <ArrowLeft className="h-4 w-4" /> Back to profile
+    <Link href={`/profile/${profileId}`} className="inline-flex items-center gap-1 self-start text-sm text-gray-500 transition-colors hover:text-gray-900">
+      <ArrowLeft className="h-4 w-4" strokeWidth={1.75} /> Back to profile
     </Link>
   );
 }
@@ -169,7 +169,7 @@ function BackToProfile({ profileId }: { profileId: string }) {
 function People({ people, viewerId, stats }: { people: PosterSummary[]; viewerId: string; stats: Record<string, FollowStats> }) {
   return (
     <Card>
-      {people.length === 0 ? <p className="px-4 py-6 text-center text-sm text-gray-600">Nothing on this page.</p> : null}
+      {people.length === 0 ? <p className="px-4 py-6 text-center text-sm text-gray-500">Nothing on this page.</p> : null}
       <ul className="divide-y divide-gray-100" data-testid="follow-list">
         {people.map((person) => (
           <PersonRow key={person.id} profile={person} viewerId={viewerId} signedIn stats={stats[person.id]} testId="follow-row" />

@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { listForYou, type FeedPostWithAuthor, type ForYouItem } from "@apartment-book/shared";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
-import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { EmptyState, ErrorBanner, FeedSkeleton } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
 import { useTabBarInset } from "@/lib/tab-bar";
@@ -12,6 +12,7 @@ import { errorText } from "@/lib/hooks";
 import { emitPostRemoved, onPostRemoved, takeForYouStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { CaughtUp } from "./caught-up";
@@ -181,7 +182,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
         )}
         ListEmptyComponent={
           loading ? (
-            <Loading />
+            <FeedSkeleton />
           ) : error ? (
             <View style={styles.banner}>
               <ErrorBanner message={error} onRetry={refresh} />
@@ -192,9 +193,9 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
         }
         ListFooterComponent={
           loadingMore ? (
-            <ActivityIndicator color={colors.brand} style={{ paddingVertical: 12 }} />
+            <ActivityIndicator color={colors.muted} style={{ paddingVertical: space.lg }} />
           ) : moreError ? (
-            <Pressable onPress={fetchMore} accessibilityRole="button" style={{ paddingVertical: 12 }}>
+            <Pressable onPress={fetchMore} accessibilityRole="button" style={({ pressed }) => [{ paddingVertical: space.md }, pressed && { opacity: 0.7 }]}>
               <Text style={styles.retry}>Could not load more. Tap to try again.</Text>
             </Pressable>
           ) : !hasMore && items.length > 0 ? (
@@ -213,6 +214,6 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
 }
 
 const useStyles = makeStyles((colors) => ({
-  banner: { paddingHorizontal: FEED_HEADER_PADDING, paddingTop: 10 },
-  retry: { textAlign: "center", color: colors.brand, fontSize: 13, fontWeight: "600" },
+  banner: { paddingHorizontal: FEED_HEADER_PADDING, paddingTop: space.sm },
+  retry: { ...type.label, fontSize: 13, textAlign: "center", color: colors.muted },
 }));

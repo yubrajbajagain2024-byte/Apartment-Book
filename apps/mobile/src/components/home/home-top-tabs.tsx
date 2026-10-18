@@ -10,7 +10,7 @@ import { SlidingTabs } from "@/components/sliding-tabs";
 import { hapticTap } from "@/lib/haptics";
 import { useHomeScope } from "@/lib/home-scope";
 import { useSession } from "@/lib/session";
-import { radius } from "@/lib/theme";
+import { radius, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useCreateMenu } from "./create-menu";
 
@@ -97,7 +97,7 @@ export function campusSegments(profile: { university_id: string | null; universi
  * Floating top bar of Home, X style, in three rows. Row 1: your photo in a gradient ring on the left, which opens your
  * profile, with Instagram's small "+" badge on its corner that opens the create sheet (Post / Reel / Buzz); the
  * CampConnect wordmark in the middle (it reads "Following" while that feed shows); the Notifications bell on the right
- * (it opens the notifications screen; its badge counts the unread). Row 2: the Home tabs (For you | Buzz) spread across the row
+ * (it opens the notifications screen; its badge counts the unread). Row 2: the Home tabs (For you | Buzz | Reels) spread across the row
  * with X's sliding underline (violet, as wide as the label) over a hairline. Row 3: the Campus | Global toggle, a small
  * segmented pill whose thumb slides to the choice (see useHomeScope: it scopes For you, Buzz, Posts and Reels alike;
  * Campus is the person's own university, Global every university; "Following" joins it only while Posts has a tab,
@@ -239,7 +239,7 @@ const useStyles = makeStyles((colors, scheme) => ({
   side: { width: SIDE, height: ROW, alignItems: "center", justifyContent: "center" },
   middle: { flex: 1, alignItems: "center", justifyContent: "center" },
   title: { minHeight: ROW, alignItems: "center", justifyContent: "center", maxWidth: "100%" },
-  wordmark: { fontSize: 21, fontWeight: "800", letterSpacing: -0.5, flexShrink: 1 },
+  wordmark: { ...type.title, fontSize: 23, lineHeight: 28, letterSpacing: -0.2, flexShrink: 1 },
   // The ring: a teal-to-violet gradient (plain violet where the platform draws none) with a gap in the bar's colour around the photo.
   ring: { width: RING_SIZE, height: RING_SIZE, borderRadius: RING_SIZE / 2, alignItems: "center", justifyContent: "center", backgroundColor: colors.accent, experimental_backgroundImage: `linear-gradient(135deg, ${colors.accentTeal} 0%, ${colors.accent} 100%)` },
   ringGap: { width: PHOTO + 2 * PHOTO_GAP, height: PHOTO + 2 * PHOTO_GAP, borderRadius: PHOTO / 2 + PHOTO_GAP, backgroundColor: colors.bar, alignItems: "center", justifyContent: "center" },
@@ -254,6 +254,6 @@ const useStyles = makeStyles((colors, scheme) => ({
   thumb: { position: "absolute", top: TOGGLE_PAD, bottom: TOGGLE_PAD, left: TOGGLE_PAD, width: SEGMENT, borderRadius: radius.pill, backgroundColor: colors.card, shadowColor: colors.shadow, shadowOpacity: scheme === "dark" ? 0 : 0.12, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: scheme === "dark" ? 0 : 2 },
   thumbOverVideo: { backgroundColor: colors.glassHighlight, shadowOpacity: 0, elevation: 0 },
   segment: { width: SEGMENT, height: TOGGLE_HEIGHT - 2 * TOGGLE_PAD, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
-  segmentText: { fontSize: 13, fontWeight: "600" },
+  segmentText: { ...type.label, fontSize: 13 },
   segmentTextOn: { fontWeight: "700" },
 }));

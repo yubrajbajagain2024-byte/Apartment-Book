@@ -74,13 +74,13 @@ export default async function RoommatesPage({
       <HousingSwipe section="roommates" all={values.university === "all"} className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{activeUniversity ? `Roommates at ${activeUniversity.name}` : "Find a roommate"}</h1>
-            <p className="text-sm text-gray-600">
+            <h1 className="font-display text-2xl tracking-tight text-gray-900 sm:text-3xl">{activeUniversity ? `Roommates at ${activeUniversity.name}` : "Find a roommate"}</h1>
+            <p className="mt-1 text-sm text-gray-500">
               {result.count} {result.count === 1 ? "post" : "posts"} · people with a spare room and people looking for one
             </p>
           </div>
           <LinkButton href="/roommates/new">
-            <Plus className="h-5 w-5" /> Create post
+            <Plus className="h-4 w-4" strokeWidth={2} /> Create post
           </LinkButton>
         </div>
 
@@ -106,7 +106,7 @@ export default async function RoommatesPage({
           <div className="grid gap-4 lg:grid-cols-[1fr_minmax(0,500px)_1fr] lg:gap-6">
             <div className="hidden lg:block" />
             <div className="min-w-0">
-              {user ? <OnlineNow currentUserId={user.id} layout="strip" className="-mx-3 mb-1 bg-white ring-1 ring-gray-200 sm:mx-0 sm:mb-0 sm:rounded-xl lg:hidden" /> : null}
+              {user ? <OnlineNow currentUserId={user.id} layout="strip" className="-mx-3 mb-1 bg-white ring-1 ring-gray-200 sm:mx-0 sm:mb-0 sm:rounded-[14px] lg:hidden" /> : null}
               <RoommateFeed
                 key={JSON.stringify({ ...filters, page: undefined })}
                 initial={result.data}

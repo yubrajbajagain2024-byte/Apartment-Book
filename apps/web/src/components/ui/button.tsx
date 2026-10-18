@@ -6,24 +6,25 @@ import { Spinner } from "./spinner";
 type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg" | "icon";
 
+/** Primary is ink (white ink at night), secondary a soft fill, outline a hairline, ghost just the words, danger the one red fill. */
 const variants: Record<Variant, string> = {
-  primary: "bg-brand-600 text-white hover:bg-brand-700 focus-visible:ring-brand-500",
-  secondary: "bg-gray-200 text-gray-900 hover:bg-gray-300 focus-visible:ring-gray-400",
-  outline: "border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 focus-visible:ring-gray-400",
-  ghost: "text-gray-700 hover:bg-gray-100 focus-visible:ring-gray-400",
-  danger: "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500",
+  primary: "bg-brand-600 text-white hover:bg-brand-700 focus-visible:ring-gray-400",
+  secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200 focus-visible:ring-gray-400",
+  outline: "border border-gray-300 bg-transparent text-gray-900 hover:bg-gray-50 focus-visible:ring-gray-400",
+  ghost: "text-gray-700 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-gray-400",
+  danger: "bg-red-600 text-white hover:opacity-90 focus-visible:ring-red-500",
 };
 
 const sizes: Record<Size, string> = {
-  sm: "h-8 px-3 text-sm gap-1.5",
-  md: "h-10 px-4 text-sm gap-2",
-  lg: "h-12 px-6 text-base gap-2",
+  sm: "h-9 px-3.5 text-[13px] gap-1.5",
+  md: "h-11 px-5 text-sm gap-2",
+  lg: "h-12 px-7 text-[15px] gap-2",
   icon: "h-10 w-10 p-0",
 };
 
 export function buttonClasses(opts: { variant?: Variant; size?: Size; className?: string } = {}): string {
   return cn(
-    "inline-flex shrink-0 items-center justify-center rounded-lg font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+    "ab-press inline-flex shrink-0 items-center justify-center rounded-[10px] font-semibold tracking-[0.01em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:pointer-events-none disabled:opacity-45",
     variants[opts.variant ?? "primary"],
     sizes[opts.size ?? "md"],
     opts.className,

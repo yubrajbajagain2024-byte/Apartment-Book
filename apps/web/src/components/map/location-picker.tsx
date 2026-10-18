@@ -95,16 +95,16 @@ export function LocationPicker({
         </Button>
         {addressFieldIds.length > 0 ? (
           <Button type="button" variant="outline" onClick={useAddressAbove}>
-            <Crosshair className="h-4 w-4" /> Use the address above
+            <Crosshair className="h-4 w-4" strokeWidth={1.75} /> Use the address above
           </Button>
         ) : null}
       </div>
       {results.length > 1 ? (
-        <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
+        <ul className="divide-y divide-gray-100 overflow-hidden rounded-[10px] bg-white shadow-card ring-1 ring-gray-200">
           {results.map((r) => (
             <li key={`${r.latitude},${r.longitude}`}>
-              <button type="button" onClick={() => choose(r)} className="flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" /> {r.label}
+              <button type="button" onClick={() => choose(r)} className="flex w-full items-start gap-2 px-3 py-2.5 text-left text-sm text-gray-800 transition-colors hover:bg-gray-50">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.75} /> {r.label}
               </button>
             </li>
           ))}
@@ -119,15 +119,15 @@ export function LocationPicker({
         height={300}
         scrollWheelZoom={false}
       />
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-600">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
         <span>
           {pin
             ? `Pinned at ${pin.latitude.toFixed(5)}, ${pin.longitude.toFixed(5)}${distance ? ` · about ${distance} from ${campus?.name}` : ""}`
             : "Click the map to drop a pin, or search an address. The distance to campus is calculated from the pin."}
         </span>
         {pin ? (
-          <button type="button" onClick={() => setPin(null)} className="inline-flex items-center gap-1 font-medium text-gray-700 hover:underline">
-            <X className="h-3.5 w-3.5" /> Clear pin
+          <button type="button" onClick={() => setPin(null)} className="inline-flex items-center gap-1 font-semibold text-gray-700 underline-offset-4 transition-colors hover:text-gray-900 hover:underline">
+            <X className="h-3.5 w-3.5" strokeWidth={1.75} /> Clear pin
           </button>
         ) : null}
       </div>

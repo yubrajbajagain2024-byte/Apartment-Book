@@ -6,13 +6,15 @@ export const metadata: Metadata = { title: "Messages" };
 
 export default function MessagesIndexPage() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-gray-500">
-      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-50 text-brand-600">
-        <MessageCircle className="h-8 w-8" />
+    <div className="ab-fade-in flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-gray-500">
+      <span className="mb-1 flex h-14 w-14 items-center justify-center rounded-full text-gray-900 ring-1 ring-gray-200">
+        <MessageCircle className="h-6 w-6" strokeWidth={1.5} />
       </span>
-      <p className="text-lg font-semibold text-gray-800">Your messages</p>
-      <p className="max-w-xs text-sm">Pick a conversation on the left, or start a new chat with a student or a group.</p>
-      <LinkButton href="/messages/new">New message</LinkButton>
+      <p className="font-display text-2xl tracking-tight text-gray-900">Your messages</p>
+      <p className="max-w-xs text-sm leading-relaxed">Pick a conversation on the left, or start a new chat with a student or a group.</p>
+      <div className="mt-2">
+        <LinkButton href="/messages/new">New message</LinkButton>
+      </div>
     </div>
   );
 }

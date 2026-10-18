@@ -6,7 +6,7 @@ import { Avatar } from "@/components/avatar";
 import { errorText } from "@/lib/hooks";
 import { useOnlineUsers } from "@/lib/presence";
 import { supabase } from "@/lib/supabase";
-import { space } from "@/lib/theme";
+import { space, type } from "@/lib/theme";
 import { makeStyles } from "@/lib/theme-provider";
 import { INBOX_AVATAR } from "./inbox-row";
 import { notify } from "./info-dialogs";
@@ -133,5 +133,5 @@ const useStyles = makeStyles((colors) => ({
   row: { gap: space.sm, paddingHorizontal: space.lg - (ITEM_WIDTH - INBOX_AVATAR) / 2, paddingTop: space.xs, paddingBottom: space.sm },
   item: { width: ITEM_WIDTH, alignItems: "center", gap: 6 },
   dimmed: { opacity: 0.6 },
-  name: { maxWidth: ITEM_WIDTH, fontSize: 13, color: colors.text },
+  name: { maxWidth: ITEM_WIDTH, ...type.caption, color: colors.text },
 }));

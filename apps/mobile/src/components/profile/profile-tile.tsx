@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { compactCount, type ProfileTile, type ProfileTileType } from "@apartment-book/shared";
-import { space } from "@/lib/theme";
+import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 /** What VoiceOver calls each kind of square: "Reel: Move-in day…". */
@@ -13,7 +13,7 @@ export const TILE_TYPE_LABELS: Record<ProfileTileType, string> = { post: "Post",
 export const TILE_ASPECT = 4 / 3;
 export const REEL_ASPECT = 16 / 9;
 /** The squares' rounded corners. */
-export const TILE_RADIUS = 10;
+export const TILE_RADIUS = radius.md;
 
 type ListingType = "apartment" | "roommate" | "item";
 const LISTING_ICONS: Record<ListingType, keyof typeof Ionicons.glyphMap> = { apartment: "home", roommate: "people", item: "pricetag" };
@@ -151,12 +151,12 @@ export const ListingGridTile = memo(function ListingGridTile({ tile, width, aspe
 
 // The soft grey fills (words-only and blank squares) are input: bg is now the screen itself.
 const useStyles = makeStyles((colors) => ({
-  tile: { backgroundColor: colors.border, overflow: "hidden", borderRadius: TILE_RADIUS },
+  tile: { backgroundColor: colors.skeleton, overflow: "hidden", borderRadius: TILE_RADIUS },
   words: { flex: 1, backgroundColor: colors.input, padding: space.sm, justifyContent: "center" },
-  wordsText: { fontSize: 13, lineHeight: 17, color: colors.text, fontWeight: "500" },
+  wordsText: { ...type.caption, lineHeight: 17, color: colors.text, fontWeight: "500" },
   blank: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.input },
   views: { position: "absolute", left: 8, bottom: 7, flexDirection: "row", alignItems: "center", gap: 4 },
-  viewsText: { fontSize: 12, fontWeight: "700" },
+  viewsText: { ...type.footnote, fontWeight: "700" },
   iconShadow: { textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
   corner: { position: "absolute", top: 8, right: 8 },
   // The fade under a listing's kind and title: from clear to the photo-pill dark, drawn as a real gradient (no seams).

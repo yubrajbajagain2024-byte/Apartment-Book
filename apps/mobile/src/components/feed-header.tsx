@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSession } from "@/lib/session";
 import { useTabBarInset } from "@/lib/tab-bar";
+import { shadows } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 /** The round floating "+" button of a feed (Housing's), above the bottom bar; signed out it goes to log in. */
@@ -20,5 +21,5 @@ export function Fab({ href, label }: { href: string; label: string }) {
 }
 
 const useStyles = makeStyles((colors) => ({
-  fab: { position: "absolute", right: 16, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", shadowColor: colors.shadow, shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 5 },
+  fab: { position: "absolute", right: 16, width: 54, height: 54, borderRadius: 27, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", shadowColor: colors.shadow, ...shadows.float },
 }));

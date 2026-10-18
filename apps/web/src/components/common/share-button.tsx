@@ -49,7 +49,7 @@ export function ShareButton({
 }) {
   const { share, copied } = useShare(path, title);
   const dialog = useShareDialog(path);
-  const classes = cn("inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-gray-800 hover:bg-gray-100", className);
+  const classes = cn("ab-press inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-100", className);
 
   if (sharedPost) {
     return (

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
+/** A form field: the label is a tracked small-caps eyebrow, the error or hint a quiet line under the control. */
 export function Field({
   label,
   htmlFor,
@@ -21,7 +22,7 @@ export function Field({
   const message = Array.isArray(error) ? error[0] : error;
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      <label htmlFor={htmlFor} className="text-sm font-medium text-gray-800">
+      <label htmlFor={htmlFor} className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">
         {label}
         {required ? <span className="text-red-500"> *</span> : null}
       </label>
@@ -40,14 +41,14 @@ export function Field({
 export function FormMessage({ error, success }: { error?: string | null; success?: string | null }) {
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+      <div className="rounded-[10px] border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700" role="alert">
         {error}
       </div>
     );
   }
   if (success) {
     return (
-      <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700" role="status">
+      <div className="rounded-[10px] border border-green-200 bg-green-50 px-3.5 py-2.5 text-sm text-green-700" role="status">
         {success}
       </div>
     );

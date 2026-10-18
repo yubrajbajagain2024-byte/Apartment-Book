@@ -85,11 +85,11 @@ export default async function MarketplacePage({
       <HousingSwipe section="marketplace" all={values.university === "all"} className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{activeUniversity ? `Marketplace at ${activeUniversity.name}` : "Marketplace"}</h1>
-            <p className="text-sm text-gray-600">{result.count} {result.count === 1 ? "item" : "items"} · second-hand move-in essentials from students</p>
+            <h1 className="font-display text-2xl tracking-tight text-gray-900 sm:text-3xl">{activeUniversity ? `Marketplace at ${activeUniversity.name}` : "Marketplace"}</h1>
+            <p className="mt-1 text-sm text-gray-500">{result.count} {result.count === 1 ? "item" : "items"} · second-hand move-in essentials from students</p>
           </div>
           <LinkButton href="/marketplace/new">
-            <Plus className="h-5 w-5" /> Sell something
+            <Plus className="h-4 w-4" strokeWidth={2} /> Sell something
           </LinkButton>
         </div>
 

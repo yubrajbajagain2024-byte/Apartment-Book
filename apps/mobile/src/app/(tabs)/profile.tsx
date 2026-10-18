@@ -20,7 +20,7 @@ export default function ProfileTab() {
       <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.bg }}>
         <EmptyState
           icon="person-circle-outline"
-          title="Join Apartment Book"
+          title="Join CampConnect"
           body="Sign in with your university email to post, save and message."
           action={
             <View style={{ gap: 8, width: 220 }}>

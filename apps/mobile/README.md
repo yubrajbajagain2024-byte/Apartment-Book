@@ -17,6 +17,24 @@ npx expo start --tunnel # phone anywhere with Expo Go: scan the QR code
 `.env` holds only public keys (Supabase URL + anon key, website URL). Row-level
 security protects the data, so they are safe to ship.
 
+## Design system
+
+The app's look is quiet luxury, and it lives in three files. `src/lib/theme.ts` holds what is the same in both themes:
+the corner radii (modest: 6, 10, 14, 20pt; capsules only are pills), the 4pt spacing rhythm, the type scale (Playfair
+Display, bundled in `assets/fonts` and loaded with `useFonts` in `app/_layout.tsx`, for `display`, `title`, `headline`
+and the italic `aside`: the wordmark, screen titles, big numbers and headlines; the system face for everything read and
+tapped, with `eyebrow`, a tracked small-caps label, for section and stat labels), the three shadows (`card`, `float`,
+`sheet`, faint) and the motion (one soft spring, a 0.97 press sink). `src/lib/palette.ts` holds the two palettes, every
+colour on screen: warm ivory surfaces and near-black ink by day, near-black surfaces and warm white ink at night; `brand`
+is that ink (buttons, links, selected states), `accent` the one violet (Home's underline, slide dots, hashtags), `verified`
+a bronze, `border` the hairlines that separate instead of boxes, `input` the soft field fill, and the media tokens stay
+light over photos and video in both. `src/components/ui.tsx` holds the pieces: `Button` (ink, outline, ghost, danger; it
+sinks under the finger), `Field` (eyebrow label, soft fill, an ink hairline on focus), `Chip`, `Badge`, `Card`, `Eyebrow`,
+`SectionTitle`, `Skeleton` with `FeedSkeleton` and `RowSkeleton` (lists breathe their own shape while loading), `EmptyState`
+(a serif headline) and `ErrorBanner`; `post-bits.tsx` the pieces every post is built from. Screens never pick a hex code
+or a font name: they take tokens through `useColors()` / `makeStyles()` and the `type` scale, so Light, Dark and System
+Default all hold. The mark is a serif "C" on ink (`assets/images`, drawn from the Playfair outline).
+
 ## Home and the tabs
 
 The bottom bar has five tabs: Home, Search, Explore, Messages, Profile (your own photo in a circle, ringed while
@@ -32,11 +50,11 @@ notification the database keeps for you (`src/app/notifications.tsx`: new messag
 saves of your listings, places near campus, newest first, the unread ones tinted); tapping one marks it read and opens what
 it is about, "Mark all read" sits in the header, and the bell's badge counts the unread live. Home opens on **For you**, a blend of posts and reels (anonymous Buzz threads stay on
 the Buzz page; the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
-two pages, For you | Buzz, sit side by side in a pager (Posts and Reels are sections without a tab: `HIDDEN_HOME_SECTIONS` in the shared constants keeps them out of the row and the pager while their feeds, the post and reel features and the data stay; reels run through For you, and the website keeps `/?tab=posts` with its Following filter and `/?tab=reels`): swipe left or right to move
+three pages, For you | Buzz | Reels, sit side by side in a pager (Posts is a section without a tab: `HIDDEN_HOME_SECTIONS` in the shared constants keeps it out of the row and the pager while its feed, the post features and the data stay; its Following filter is reachable on the website's `/?tab=posts`; reels also run through For you): swipe left or right to move
 between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in a teal-to-violet
 ring on the left, which opens your profile, with Instagram's small "+" badge on its corner that opens the create sheet
 (Post / Reel / Buzz; over Reels the bar's left slot holds a white "+" instead), the CampConnect wordmark in the middle (it
-reads "Following" while that feed shows) and Search on the right; then the two labels spread across the row
+reads "Following" while that feed shows) and Search on the right; then the three labels spread across the row
 (`src/components/sliding-tabs.tsx`): the active one bold with a rounded violet underline as wide as the label, sliding
 with the finger over a hairline, and a soft haptic each time the section changes, by tap or swipe. Under the labels sits the Campus | Global
 toggle, a small segmented pill whose thumb slides to the choice: Campus is your own university, Global every university (and,

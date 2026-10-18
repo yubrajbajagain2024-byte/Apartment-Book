@@ -16,6 +16,7 @@ import { emitPostEngagement, emitPostRemoved } from "@/lib/posts-events";
 import { dropHandedReel, peekHandedReel } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { radius, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 /** Breathing room between the status bar and the top row, as on Home's bar. */
@@ -274,9 +275,9 @@ export default function ReelViewerScreen() {
     // The only reel here was deleted.
     body = (
       <View style={styles.centered}>
-        <Ionicons name="film-outline" size={48} color={colors.onMediaMuted} />
+        <Ionicons name="film-outline" size={40} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>No more reels</Text>
-        <Pressable onPress={leave} style={styles.stateButton} accessibilityRole="button">
+        <Pressable onPress={leave} style={({ pressed }) => [styles.stateButton, pressed && { opacity: 0.8 }]} accessibilityRole="button">
           <Text style={styles.stateButtonText}>Back</Text>
         </Pressable>
       </View>
@@ -284,9 +285,9 @@ export default function ReelViewerScreen() {
   } else if (gone) {
     body = (
       <View style={styles.centered}>
-        <Ionicons name="film-outline" size={48} color={colors.onMediaMuted} />
+        <Ionicons name="film-outline" size={40} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>This reel is no longer available</Text>
-        <Pressable onPress={leave} style={styles.stateButton} accessibilityRole="button">
+        <Pressable onPress={leave} style={({ pressed }) => [styles.stateButton, pressed && { opacity: 0.8 }]} accessibilityRole="button">
           <Text style={styles.stateButtonText}>Back</Text>
         </Pressable>
       </View>
@@ -294,10 +295,10 @@ export default function ReelViewerScreen() {
   } else if (error) {
     body = (
       <View style={styles.centered}>
-        <Ionicons name="cloud-offline-outline" size={44} color={colors.onMediaMuted} />
+        <Ionicons name="cloud-offline-outline" size={40} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>The reel did not load</Text>
         <Text style={styles.stateBody}>{error}</Text>
-        <Pressable onPress={() => setRetry((n) => n + 1)} style={styles.stateButton} accessibilityRole="button">
+        <Pressable onPress={() => setRetry((n) => n + 1)} style={({ pressed }) => [styles.stateButton, pressed && { opacity: 0.8 }]} accessibilityRole="button">
           <Text style={styles.stateButtonText}>Try again</Text>
         </Pressable>
       </View>
@@ -305,7 +306,7 @@ export default function ReelViewerScreen() {
   } else {
     body = (
       <View style={styles.centered}>
-        <ActivityIndicator color={colors.onMedia} size="large" />
+        <ActivityIndicator color={colors.onMediaMuted} size="small" />
       </View>
     );
   }
@@ -332,7 +333,7 @@ export default function ReelViewerScreen() {
         </View>
       ) : moreError && onLast ? (
         <View style={[styles.foot, { bottom: barHeight + 6 }]} pointerEvents="box-none">
-          <Pressable onPress={() => void loadMore()} style={styles.retry} accessibilityRole="button">
+          <Pressable onPress={() => void loadMore()} style={({ pressed }) => [styles.retry, pressed && { opacity: 0.8 }]} accessibilityRole="button">
             <Text style={styles.retryText}>Could not load more reels. Tap to try again.</Text>
           </Pressable>
         </View>
@@ -343,24 +344,28 @@ export default function ReelViewerScreen() {
   );
 }
 
-/** Everything here sits over video, so it uses the media colours (light text, dark scrims) in both themes. */
+/**
+ * Everything here sits over video, so it uses the media colours (light text, dark scrims) in both themes. The states
+ * (gone, failed, nothing more) are a serif headline in white with a white button whose words take the page's black: the
+ * ink `brand` would vanish on black in the light theme.
+ */
 const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.mediaBg },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 8 },
-  stateTitle: { color: colors.onMedia, fontSize: 20, fontWeight: "800", marginTop: 6, textAlign: "center" },
-  stateBody: { color: colors.onMediaMuted, fontSize: 14, textAlign: "center", lineHeight: 20 },
-  stateButton: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 12, marginTop: 12 },
-  stateButtonText: { color: colors.onBrand, fontSize: 15, fontWeight: "700" },
+  centered: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: space.xxl, gap: space.sm },
+  stateTitle: { ...type.headline, color: colors.onMedia, marginTop: space.xs, textAlign: "center" },
+  stateBody: { ...type.caption, fontSize: 14, lineHeight: 20, color: colors.onMediaMuted, textAlign: "center", maxWidth: 300 },
+  stateButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 44, backgroundColor: colors.onMedia, borderRadius: radius.md, paddingHorizontal: 20, marginTop: space.md },
+  stateButtonText: { ...type.label, fontSize: 15, color: colors.mediaBg },
   top: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 },
   // The toggle is centred on the screen; Back keeps to the left edge, level with it.
   row: { height: ROW, alignItems: "center", justifyContent: "center" },
-  back: { position: "absolute", left: 8, top: 0, width: ROW, height: ROW, alignItems: "center", justifyContent: "center" },
-  // A dark, see-through pill in the screen's gutters, the same in both themes since it sits on video.
-  commentBar: { position: "absolute", left: 0, right: 0, paddingHorizontal: 16 },
-  commentInput: { height: COMMENT_BAR, borderRadius: 999, justifyContent: "center", paddingHorizontal: 20, backgroundColor: colors.mediaPill, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.onMediaMuted },
-  commentPlaceholder: { color: colors.onMediaMuted, fontSize: 16 },
+  back: { position: "absolute", left: space.sm, top: 0, width: ROW, height: ROW, alignItems: "center", justifyContent: "center" },
+  // A dark, see-through capsule in the screen's gutters, the same in both themes since it sits on video.
+  commentBar: { position: "absolute", left: 0, right: 0, paddingHorizontal: space.lg },
+  commentInput: { height: COMMENT_BAR, borderRadius: radius.pill, justifyContent: "center", paddingHorizontal: 20, backgroundColor: colors.mediaPill, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.onMediaMuted },
+  commentPlaceholder: { ...type.body, color: colors.onMediaMuted },
   shadow: { textShadowColor: colors.mediaScrim, textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
   foot: { position: "absolute", left: 0, right: 0, alignItems: "center" },
-  retry: { backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
-  retryText: { color: colors.onMedia, fontSize: 13, fontWeight: "700" },
+  retry: { backgroundColor: colors.mediaPill, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
+  retryText: { ...type.label, fontSize: 13, color: colors.onMedia },
 }));

@@ -5,6 +5,7 @@ import { Avatar } from "@/components/avatar";
 import { FloatingTabBar } from "@/components/floating-tab-bar";
 import { HeaderActions } from "@/components/header-actions";
 import { useSession } from "@/lib/session";
+import { fonts } from "@/lib/theme";
 import { useAppTheme } from "@/lib/theme-provider";
 import { useUnreadCount } from "@/lib/use-unread";
 
@@ -58,7 +59,8 @@ export default function TabsLayout() {
       tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
         headerStyle,
-        headerTitleStyle: { fontWeight: "700", color: colors.text },
+        headerTitleStyle: { fontFamily: fonts.display, fontSize: 19, color: colors.text },
+        headerShadowVisible: false,
         sceneStyle: { backgroundColor: colors.bg },
         headerRight: () => <HeaderActions inHeader />,
       }}

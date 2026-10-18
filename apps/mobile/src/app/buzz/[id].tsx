@@ -25,10 +25,11 @@ import {
 } from "@apartment-book/shared";
 import { useActionSheet, type SheetOption } from "@/components/action-sheet";
 import { AnonAvatar, BUZZ_GUTTER, BuzzPostBlock, BuzzTag, emitBuzzEvent, useBuzzMenu, useVote, VotePill, type Vote } from "@/components/home/buzz-card";
-import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { Button, EmptyState, ErrorBanner, RowSkeleton, Skeleton } from "@/components/ui";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { radius, shadows, space, type } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 
 /** How far each level of replies moves to the right. One thin vertical line is drawn per level. */
@@ -37,14 +38,45 @@ const INDENT = 14;
 /** A reply as the list shows it: its place in the tree, plus which reply each vertical line on its left belongs to. */
 type Row = BuzzCommentNode & { lineOwners: string[]; collapsed: boolean };
 
-/** Reddit's round header button. */
+/** A round header button on the soft input fill. */
 function RoundButton({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
   const colors = useColors();
   const styles = useStyles();
   return (
-    <Pressable onPress={onPress} hitSlop={6} style={({ pressed }) => [styles.round, pressed && { opacity: 0.6 }]} accessibilityRole="button" accessibilityLabel={label}>
-      <Ionicons name={icon} size={22} color={colors.text} />
+    <Pressable onPress={onPress} hitSlop={6} style={({ pressed }) => [styles.round, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={label}>
+      <Ionicons name={icon} size={21} color={colors.text} />
     </Pressable>
+  );
+}
+
+/** The thread while it loads: the post drawn as grey shapes (topic, a two-line title, the pills), then a few reply rows. */
+function ThreadSkeleton() {
+  const colors = useColors();
+  return (
+    <View accessibilityLabel="Loading">
+      <View style={{ paddingHorizontal: BUZZ_GUTTER, paddingTop: space.md, paddingBottom: space.lg, gap: space.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Skeleton width={34} height={34} round />
+          <View style={{ flex: 1, gap: 7 }}>
+            <Skeleton width="28%" height={12} />
+            <Skeleton width="44%" height={10} />
+          </View>
+        </View>
+        <View style={{ gap: 8 }}>
+          <Skeleton width="94%" height={20} />
+          <Skeleton width="62%" height={20} />
+        </View>
+        <View style={{ gap: 7 }}>
+          <Skeleton width="100%" height={12} />
+          <Skeleton width="86%" height={12} />
+        </View>
+        <View style={{ flexDirection: "row", gap: space.sm }}>
+          <Skeleton width={104} height={32} round />
+          <Skeleton width={64} height={32} round />
+        </View>
+      </View>
+      <RowSkeleton rows={4} />
+    </View>
   );
 }
 
@@ -320,7 +352,7 @@ export default function BuzzThreadScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         {header}
-        <Loading />
+        <ThreadSkeleton />
       </View>
     );
   }
@@ -328,7 +360,7 @@ export default function BuzzThreadScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         {header}
-        <View style={{ flex: 1, padding: 12 }}>
+        <View style={{ flex: 1, padding: space.lg }}>
           {error ? <ErrorBanner message={error} onRetry={() => void load()} /> : <EmptyState icon="chatbubbles-outline" title="This post is no longer available" body="It may have been deleted, or it is hidden for you." action={<Button title="Go back" variant="secondary" onPress={leave} />} />}
         </View>
       </View>
@@ -373,9 +405,9 @@ export default function BuzzThreadScreen() {
             />
           }
           ListHeaderComponent={
-            <View style={{ backgroundColor: colors.card }} onLayout={(e) => (headerHeight.current = e.nativeEvent.layout.height)}>
+            <View style={{ backgroundColor: colors.bg }} onLayout={(e) => (headerHeight.current = e.nativeEvent.layout.height)}>
               {error ? (
-                <View style={{ paddingHorizontal: BUZZ_GUTTER, paddingTop: 8 }}>
+                <View style={{ paddingHorizontal: BUZZ_GUTTER, paddingTop: space.sm }}>
                   <ErrorBanner message={error} onRetry={() => void load()} />
                 </View>
               ) : null}
@@ -390,9 +422,9 @@ export default function BuzzThreadScreen() {
                 onReply={() => openComposer(null)}
               />
               <View style={styles.sortRow}>
-                <Pressable onPress={pickSort} hitSlop={8} style={styles.sort} accessibilityRole="button" accessibilityLabel={`Sort replies: ${labelFor(BUZZ_COMMENT_SORTS, sort)}`}>
+                <Pressable onPress={pickSort} hitSlop={8} style={({ pressed }) => [styles.sort, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={`Sort replies: ${labelFor(BUZZ_COMMENT_SORTS, sort)}`}>
                   <Text style={styles.sortText}>{labelFor(BUZZ_COMMENT_SORTS, sort)}</Text>
-                  <Ionicons name="chevron-down" size={14} color={colors.muted} />
+                  <Ionicons name="chevron-down" size={13} color={colors.muted} />
                 </Pressable>
               </View>
             </View>
@@ -454,12 +486,12 @@ export default function BuzzThreadScreen() {
               style={styles.input}
               accessibilityLabel="Reply anonymously"
             />
-            <Pressable onPress={() => void send()} disabled={!canSend} style={[styles.send, !canSend && { opacity: 0.4 }]} accessibilityRole="button" accessibilityLabel="Send reply">
+            <Pressable onPress={() => void send()} disabled={!canSend} style={({ pressed }) => [styles.send, !canSend && { opacity: 0.4 }, pressed && canSend && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Send reply">
               <Ionicons name="arrow-up" size={20} color={colors.onBrand} />
             </Pressable>
           </View>
         ) : (
-          <Pressable onPress={() => openComposer(null)} style={styles.join} accessibilityRole="button" accessibilityLabel="Reply anonymously" accessibilityHint={user ? "Your name is never shown" : "Log in first. Your name is never shown"}>
+          <Pressable onPress={() => openComposer(null)} style={({ pressed }) => [styles.join, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Reply anonymously" accessibilityHint={user ? "Your name is never shown" : "Log in first. Your name is never shown"}>
             <Ionicons name="add" size={22} color={colors.text} />
             <Text style={styles.joinText} numberOfLines={1}>
               {body.trim() ? body.trim() : user ? "Join the conversation" : "Log in to join the conversation"}
@@ -527,11 +559,11 @@ function ReplyRow({ reply: c, vote: override, onVoted, onToggle, onReply, onMenu
             {c.body}
           </Text>
           <View style={styles.actions}>
-            <Pressable onPress={onMenu} hitSlop={8} style={styles.action} accessibilityRole="button" accessibilityLabel="Reply options">
+            <Pressable onPress={onMenu} hitSlop={8} style={({ pressed }) => [styles.action, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Reply options">
               <Ionicons name="ellipsis-horizontal" size={18} color={colors.muted} />
             </Pressable>
-            <Pressable onPress={onReply} hitSlop={8} style={styles.action} accessibilityRole="button" accessibilityLabel={`Reply to ${c.alias}`}>
-              <Ionicons name="arrow-undo-outline" size={18} color={colors.muted} />
+            <Pressable onPress={onReply} hitSlop={8} style={({ pressed }) => [styles.action, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={`Reply to ${c.alias}`}>
+              <Ionicons name="arrow-undo-outline" size={17} color={colors.muted} />
               <Text style={styles.actionText}>Reply</Text>
             </Pressable>
             <VotePill bare vote={vote} onVote={(d) => void cast(d)} labels={["Upvote reply", "Downvote reply"]} />
@@ -542,60 +574,59 @@ function ReplyRow({ reply: c, vote: override, onVoted, onToggle, onReply, onMenu
   );
 }
 
-const useStyles = makeStyles((colors, scheme) => ({
-  // In dark the bar is black over the grey post, so a hairline marks the edge; in light both are white and run together.
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingBottom: 6, backgroundColor: colors.bar, borderBottomWidth: scheme === "dark" ? StyleSheet.hairlineWidth : 0, borderBottomColor: colors.border },
-  headerGroup: { flexDirection: "row", alignItems: "center", gap: 8 },
+const useStyles = makeStyles((colors) => ({
+  // The bar is the screen's own colour; a hairline marks where the thread begins.
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: space.md, paddingBottom: 6, backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  headerGroup: { flexDirection: "row", alignItems: "center", gap: space.sm },
   round: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
 
-  sortRow: { flexDirection: "row", paddingHorizontal: BUZZ_GUTTER, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-  sort: { flexDirection: "row", alignItems: "center", gap: 4 },
-  sortText: { fontSize: 13, fontWeight: "700", color: colors.muted },
-  emptyWrap: { marginTop: 6, backgroundColor: colors.card, paddingVertical: 28, paddingHorizontal: BUZZ_GUTTER, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-  empty: { color: colors.muted, textAlign: "center" },
+  sortRow: { flexDirection: "row", paddingHorizontal: BUZZ_GUTTER, paddingVertical: space.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  sort: { flexDirection: "row", alignItems: "center", gap: space.xs },
+  sortText: { ...type.label, fontSize: 13, color: colors.muted },
+  // Nothing under the post yet: a quiet serif aside, like the end of a feed.
+  emptyWrap: { paddingVertical: space.xxl, paddingHorizontal: BUZZ_GUTTER, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  empty: { ...type.aside, color: colors.muted, textAlign: "center" },
 
-  reply: { backgroundColor: colors.card, paddingRight: BUZZ_GUTTER, paddingTop: 10, paddingBottom: 4 },
-  /** The band between two top-level replies is the list's background (colors.bg) showing through, with a hairline so it shows on white too. */
-  replyTop: { marginTop: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  // Replies sit on the screen like the post; a hairline, not a band, separates one top-level reply from the next.
+  reply: { backgroundColor: colors.bg, paddingRight: BUZZ_GUTTER, paddingTop: space.md, paddingBottom: 6 },
+  replyTop: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   lineHit: { position: "absolute", top: 0, bottom: 0, width: 13, alignItems: "center" },
   line: { position: "absolute", top: 0, bottom: 0, left: 6, width: 1, backgroundColor: colors.border },
   replyHead: { flexDirection: "row", alignItems: "center", gap: 6, paddingBottom: 6 },
-  alias: { fontSize: 13, fontWeight: "700", color: colors.muted, flexShrink: 1, marginLeft: 2 },
-  age: { fontSize: 13, color: colors.muted },
-  more: { backgroundColor: colors.input, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 1 },
-  moreText: { fontSize: 11, fontWeight: "700", color: colors.muted },
-  replyBody: { fontSize: 15, color: colors.text, lineHeight: 21 },
-  actions: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 16, paddingTop: 4 },
+  alias: { ...type.label, fontSize: 13, color: colors.muted, flexShrink: 1, marginLeft: 2 },
+  age: { ...type.caption, color: colors.muted },
+  more: { backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 1 },
+  moreText: { ...type.footnote, fontSize: 11, fontWeight: "700", color: colors.muted },
+  replyBody: { ...type.bodySmall, color: colors.text },
+  actions: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: space.lg, paddingTop: space.xs },
   action: { height: 28, flexDirection: "row", alignItems: "center", gap: 5 },
-  actionText: { fontSize: 13, fontWeight: "700", color: colors.muted },
+  actionText: { ...type.label, fontSize: 13, color: colors.muted },
 
+  // Floats over the list: the system's float shadow in light, and a hairline so it still stands off a black screen.
   jump: {
     position: "absolute",
-    right: 16,
-    bottom: 14,
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    right: space.lg,
+    bottom: space.lg,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.elevated,
-    // The shadow lifts it off a light screen; on black only this hairline outline does.
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: colors.shadow,
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
+    ...shadows.float,
   },
 
-  composerWrap: { paddingHorizontal: 12, paddingTop: 8, gap: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.bar },
-  replyingTo: { alignSelf: "flex-start", maxWidth: "100%", flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.input, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
-  replyingText: { flexShrink: 1, fontSize: 12, fontWeight: "600", color: colors.muted },
-  formError: { color: colors.red, fontSize: 12, paddingHorizontal: 4 },
-  join: { height: 44, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.input, borderRadius: 22, paddingHorizontal: 14 },
-  joinText: { flex: 1, fontSize: 15, color: colors.muted },
-  composer: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
-  input: { flex: 1, minHeight: 44, maxHeight: 140, backgroundColor: colors.input, borderRadius: 22, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, fontSize: 15, color: colors.text },
+  composerWrap: { paddingHorizontal: space.md, paddingTop: space.sm, gap: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.bar },
+  replyingTo: { alignSelf: "flex-start", maxWidth: "100%", flexDirection: "row", alignItems: "center", gap: space.sm, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 5 },
+  replyingText: { flexShrink: 1, ...type.footnote, fontWeight: "600", color: colors.muted },
+  formError: { ...type.footnote, color: colors.red, paddingHorizontal: space.xs },
+  // The capsule composer on the soft input fill, with a hairline like a Field's at rest.
+  join: { height: 44, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.border },
+  joinText: { flex: 1, ...type.bodySmall, color: colors.muted },
+  composer: { flexDirection: "row", alignItems: "flex-end", gap: space.sm },
+  input: { flex: 1, minHeight: 44, maxHeight: 140, backgroundColor: colors.input, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.text, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, fontSize: 15, lineHeight: 20, color: colors.text },
   send: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
 }));

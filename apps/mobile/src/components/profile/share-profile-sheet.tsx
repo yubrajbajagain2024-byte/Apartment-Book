@@ -7,7 +7,7 @@ import { Avatar } from "@/components/avatar";
 import { Button } from "@/components/ui";
 import { hapticSuccess } from "@/lib/haptics";
 import { SITE_URL } from "@/lib/supabase";
-import { radius, space } from "@/lib/theme";
+import { radius, shadows, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 /** Blank modules around the code: scanners need four. */
@@ -52,7 +52,7 @@ export function ShareProfileSheet({ visible, onClose, profileId, name, username,
   const canShare = Platform.OS !== "web" || typeof web?.share === "function";
   const first = name.trim().split(/\s+/)[0] || name;
   const label = own ? "QR code for your profile" : `QR code for ${first}'s profile`;
-  const words = `${name}${username ? ` (@${username})` : ""} on Apartment Book`;
+  const words = `${name}${username ? ` (@${username})` : ""} on CampConnect`;
 
   async function share() {
     try {
@@ -158,18 +158,18 @@ function QrCode({ matrix, size, label }: { matrix: boolean[][]; size: number; la
 
 const useStyles = makeStyles((colors) => ({
   root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
-  sheet: { backgroundColor: colors.elevated, borderTopLeftRadius: radius.lg + 4, borderTopRightRadius: radius.lg + 4, overflow: "hidden" },
+  sheet: { backgroundColor: colors.elevated, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, shadowColor: colors.shadow, ...shadows.sheet },
   header: { alignItems: "center", paddingTop: space.sm, paddingBottom: 10, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  grabber: { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 10 },
-  title: { fontSize: 16, fontWeight: "700", color: colors.text },
-  close: { position: "absolute", right: 12, top: 16, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
+  grabber: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: 10 },
+  title: { ...type.headline, color: colors.text },
+  close: { position: "absolute", right: 12, top: 16, width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
   body: { alignItems: "center", paddingHorizontal: space.lg, paddingTop: space.xl, gap: space.lg },
   // The hairline outline keeps the card apart from the sheet in dark mode, where the shadow does not show.
-  card: { alignItems: "center", gap: space.md, padding: space.lg, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: colors.shadow, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  card: { alignItems: "center", gap: space.md, padding: space.lg, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: colors.shadow, ...shadows.card },
   qr: { backgroundColor: QR_LIGHT },
   who: { flexDirection: "row", alignItems: "center", gap: 10, maxWidth: 260 },
-  name: { fontSize: 16, fontWeight: "800", color: colors.text },
-  handle: { fontSize: 14, color: colors.muted },
-  hint: { fontSize: 13, color: colors.muted, textAlign: "center" },
+  name: { ...type.heading, color: colors.text },
+  handle: { ...type.caption, fontSize: 14, color: colors.muted },
+  hint: { ...type.caption, color: colors.muted, textAlign: "center" },
   actions: { flexDirection: "row", gap: space.sm, alignSelf: "stretch" },
 }));

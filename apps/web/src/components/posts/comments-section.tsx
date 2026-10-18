@@ -30,7 +30,7 @@ type MenuStep = "menu" | "report" | "block" | "delete";
 /** Replies sit under the parent avatar (32px plus the gap); every level below moves another 16px in. */
 const INDENT = ["", "ml-11", "ml-[60px]", "ml-[76px]"];
 const menuItem = "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-gray-900 hover:bg-gray-100 disabled:opacity-50";
-const rateButton = "flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900";
+const rateButton = "ab-press flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900";
 
 /** The given comments and every reply below them: the server cascades a delete, so the local list must too. */
 function withReplies(list: PostCommentWithAuthor[], seeds: Iterable<string>): Set<string> {
@@ -82,10 +82,10 @@ function Confirm({ title, text, action, pending, onConfirm, onCancel }: { title:
       <p className="text-sm font-semibold text-gray-900">{title}</p>
       {text ? <p className="pt-1 text-xs text-gray-500">{text}</p> : null}
       <div className="flex gap-2 pt-3">
-        <button type="button" onClick={onCancel} className="flex-1 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-semibold text-gray-800 hover:bg-gray-200">
+        <button type="button" onClick={onCancel} className="ab-press flex-1 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-semibold text-gray-900 hover:bg-gray-200">
           Cancel
         </button>
-        <button type="button" onClick={onConfirm} disabled={pending} className="flex-1 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50">
+        <button type="button" onClick={onConfirm} disabled={pending} className="ab-press flex-1 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
           {action}
         </button>
       </div>
@@ -159,7 +159,7 @@ function CommentRow({
           {c.user_id === ownerId ? (
             <>
               {" · "}
-              <span className="text-brand-600">Author</span>
+              <span className="font-semibold text-accent">Author</span>
             </>
           ) : null}
         </p>
@@ -182,8 +182,8 @@ function CommentRow({
             <MoreHorizontal className="h-4 w-4" />
           </button>
           <div className="ml-auto flex items-center gap-1">
-            <button type="button" onClick={() => onVote(c, 1)} aria-label="Like comment" aria-pressed={liked} className={cn(rateButton, liked && "text-[#ed4956] hover:text-[#ed4956]")}>
-              <Heart className={cn("h-4 w-4", liked && "fill-current text-[#ed4956]", popped === `${c.id}:1` && "ab-pop")} />
+            <button type="button" onClick={() => onVote(c, 1)} aria-label="Like comment" aria-pressed={liked} className={cn(rateButton, liked && "text-like hover:text-like")}>
+              <Heart className={cn("h-4 w-4", liked && "fill-current text-like", popped === `${c.id}:1` && "ab-pop")} />
             </button>
             <span data-testid="comment-likes" aria-label={c.likes === 1 ? "1 like" : `${c.likes} likes`} aria-live="polite" className="min-w-2 text-xs font-medium tabular-nums text-gray-500">
               {c.likes > 0 ? compactCount(c.likes) : ""}
@@ -631,7 +631,7 @@ export function CommentsSection({
         items.push(
           <li key={`${t.id}:replies`} className="ml-11 pb-1">
             <button type="button" onClick={() => toggleThread(t.id)} aria-expanded={open} className="inline-flex h-7 items-center gap-2 text-xs font-semibold text-gray-500 hover:text-gray-900">
-              <span aria-hidden="true" className="h-px w-6 bg-gray-300" />
+              <span aria-hidden="true" className="h-px w-6 bg-gray-200" />
               {open ? "Hide replies" : t.replyCount === 1 ? "View 1 reply" : `View ${t.replyCount} replies`}
               {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </button>
@@ -647,14 +647,14 @@ export function CommentsSection({
     showAll && !hideHeader ? (
       // In a comment sheet the line stays at the top while the thread scrolls under it; the negative margins keep its place in the flow.
       <div className={cn("flex items-center justify-center gap-1", composer === "bottom" && "sticky top-0 z-10 -mb-2 -mt-3 bg-white pb-2 pt-3")}>
-        <p className="text-base font-bold text-gray-900">{count === 0 ? "No comments yet" : count === 1 ? "1 comment" : `${compactCount(count)} comments`}</p>
+        <p className="text-[15px] font-semibold tracking-[-0.01em] text-gray-900">{count === 0 ? "No comments yet" : count === 1 ? "1 comment" : `${compactCount(count)} comments`}</p>
         {count > 0 ? (
           <div ref={sortRef} className="relative">
             <button type="button" onClick={() => setSortOpen((o) => !o)} aria-label="Sort comments" aria-haspopup="menu" aria-expanded={sortOpen} className="flex h-7 w-7 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 hover:text-gray-900">
               <ListFilter className="h-4 w-4" />
             </button>
             {sortOpen ? (
-              <div role="menu" aria-label="Sort comments" className="absolute left-1/2 top-full z-30 mt-1 w-36 -translate-x-1/2 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200">
+              <div role="menu" aria-label="Sort comments" className="ab-fade-in absolute left-1/2 top-full z-30 mt-1 w-36 -translate-x-1/2 rounded-[14px] bg-white p-1.5 shadow-float ring-1 ring-gray-200">
                 {COMMENT_SORTS.map((o) => (
                   <button
                     key={o.value}
@@ -695,7 +695,7 @@ export function CommentsSection({
       ) : null}
       <div className="flex items-end gap-2">
         <Avatar name={currentUser.name} src={currentUser.avatarUrl} size="sm" className="mb-0.5" />
-        <div className="flex min-w-0 flex-1 items-end rounded-[20px] bg-gray-100 py-0.5 pl-4 pr-1.5 focus-within:ring-2 focus-within:ring-brand-200">
+        <div className="flex min-w-0 flex-1 items-end rounded-[20px] bg-gray-100 py-0.5 pl-4 pr-1.5 ring-1 ring-transparent transition-colors focus-within:bg-white focus-within:ring-gray-900">
           <textarea
             ref={ref}
             name="comment"
@@ -722,7 +722,7 @@ export function CommentsSection({
             type="submit"
             disabled={pending || !hasText}
             aria-label="Post comment"
-            className={cn("mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors", hasText ? "bg-brand-600 text-white hover:bg-brand-700" : "bg-gray-200 text-gray-400")}
+            className={cn("ab-press mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full", hasText ? "bg-brand-600 text-white hover:bg-brand-700" : "bg-gray-200 text-gray-400")}
           >
             <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
           </button>
@@ -751,7 +751,7 @@ export function CommentsSection({
             setShowAll(true);
             if (comments === null) void load();
           }}
-          className="self-start text-sm font-semibold text-gray-600 hover:underline"
+          className="self-start text-sm font-semibold text-gray-500 transition-colors hover:text-gray-900 hover:underline"
         >
           View {hidden === 1 ? "1 more comment" : `all ${count} comments`}
         </button>
@@ -771,7 +771,21 @@ export function CommentsSection({
           </button>
         </p>
       ) : null}
-      {comments === null && totalComments > 0 && !loadError ? <p className="text-sm text-gray-500">Loading comments…</p> : null}
+      {comments === null && totalComments > 0 && !loadError ? (
+        // The shape of the first comments while they load; the words stay for the screen reader.
+        <div className="flex flex-col gap-3" aria-busy="true">
+          <p className="sr-only">Loading comments…</p>
+          {Array.from({ length: Math.min(2, totalComments) }).map((_, i) => (
+            <div key={i} className="flex items-start gap-2.5" aria-hidden="true">
+              <span className="ab-skeleton h-8 w-8 shrink-0 rounded-full" />
+              <span className="flex min-w-0 flex-1 flex-col gap-2 pt-1">
+                <span className="ab-skeleton h-2.5 w-24 rounded" />
+                <span className={cn("ab-skeleton h-3 rounded", i === 0 ? "w-4/5" : "w-3/5")} />
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {items.length > 0 ? <ul className="flex flex-col">{items}</ul> : null}
 
@@ -780,7 +794,7 @@ export function CommentsSection({
       {menu && menuRow
         ? createPortal(
             // On the body, not in the row: a card's overflow-hidden and the drawer's transform would otherwise clip or misplace it.
-            <div ref={menuRef} role={step === "menu" || step === "report" ? "menu" : "dialog"} aria-label="Comment options" className="fixed z-[60] w-56 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200">
+            <div ref={menuRef} role={step === "menu" || step === "report" ? "menu" : "dialog"} aria-label="Comment options" className="ab-fade-in fixed z-[60] w-56 rounded-[14px] bg-white p-1.5 shadow-float ring-1 ring-gray-200">
               {step === "menu" ? (
                 <>
                   <button

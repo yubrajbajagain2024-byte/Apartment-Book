@@ -4,12 +4,13 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { deleteFeedPost, getFeedPost, getOrCreateDirectConversation, likePost, muxPlaybackUrl, muxPosterUrl, reelPath, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromReel, toggleSaved, unlikePost, type Reel, type ReportReason } from "@apartment-book/shared";
+import { APP_NAME, deleteFeedPost, getFeedPost, getOrCreateDirectConversation, likePost, muxPlaybackUrl, muxPosterUrl, reelPath, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromReel, toggleSaved, unlikePost, type Reel, type ReportReason } from "@apartment-book/shared";
 import { hapticLike, hapticSelect, hapticTap } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
+import { space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "../action-sheet";
 import { useShareSheet } from "../share-sheet";
@@ -209,7 +210,7 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
   /** Instagram's share sheet: send the reel to friends as a chat card, or "Share to…" the link with the system sheet. */
   function share() {
     const url = `${SITE_URL}${reelPath(reel)}`;
-    const label = reel.title ?? (reel.caption ? reel.caption.slice(0, 80) : `${reel.author.name} on Apartment Book`);
+    const label = reel.title ?? (reel.caption ? reel.caption.slice(0, 80) : `${reel.author.name} on ${APP_NAME}`);
     shareSheet.open({ ...sharedPostFromReel(reel), image_url: poster }, { url, label });
   }
 
@@ -306,7 +307,7 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
 
   return (
     <View style={{ width, height, backgroundColor: colors.mediaBg }}>
-      {near ? <ReelVideo playbackId={reel.video.playback_id} poster={poster} playing={playing && !userPaused} muted={muted} /> : <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} contentFit="cover" />}
+      {near ? <ReelVideo playbackId={reel.video.playback_id} poster={poster} playing={playing && !userPaused} muted={muted} /> : <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />}
 
       <Pressable style={StyleSheet.absoluteFill} onPress={onVideoTap} accessibilityRole="button" accessibilityLabel={userPaused ? "Play" : "Pause"}>
         {userPaused ? (
@@ -328,13 +329,13 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
         ))}
       </View>
 
-      <Pressable onPress={() => setReelsMuted(!muted)} hitSlop={8} style={[styles.mute, { top: topInset + 10 }]} accessibilityRole="button" accessibilityLabel={muted ? "Turn sound on" : "Turn sound off"}>
+      <Pressable onPress={() => setReelsMuted(!muted)} hitSlop={8} style={({ pressed }) => [styles.mute, { top: topInset + 10 }, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={muted ? "Turn sound on" : "Turn sound off"}>
         <Ionicons name={muted ? "volume-mute" : "volume-high"} size={18} color={colors.onMedia} />
       </Pressable>
 
       <View style={[styles.overlay, { paddingBottom: 31 + bottomInset }]} pointerEvents="box-none">
         <View style={styles.info} pointerEvents="box-none">
-          <Pressable onPress={() => router.push({ pathname: "/profile/[id]", params: { id: reel.author.id } })} style={{ flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start" }} accessibilityRole="link" accessibilityLabel={`${reel.author.name}'s profile`}>
+          <Pressable onPress={() => router.push({ pathname: "/profile/[id]", params: { id: reel.author.id } })} style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start" }, pressed && { opacity: 0.7 }]} accessibilityRole="link" accessibilityLabel={`${reel.author.name}'s profile`}>
             <Text style={styles.author} numberOfLines={1}>
               {reel.author.name}
             </Text>
@@ -421,7 +422,7 @@ function ReelVideo({ playbackId, poster, playing, muted }: { playbackId: string;
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} onFirstFrameRender={() => setHasFrame(true)} />
       {/* Poster stays on top until the first video frame is painted, so a reel is never a black box. */}
-      {!hasFrame ? <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
+      {!hasFrame ? <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} /> : null}
     </View>
   );
 }
@@ -437,15 +438,16 @@ const useStyles = makeStyles((colors) => {
     shade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 260 },
     mute: { position: "absolute", right: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
     // Instagram's geometry on an iPhone: the "…" centre 46pt above the tab bar, then save, share, comment and like every 73pt or so; the caption line level with "…".
-    overlay: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "flex-end", paddingLeft: 14, paddingRight: 8, paddingBottom: 31, gap: 10 },
+    overlay: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "flex-end", paddingLeft: space.lg, paddingRight: space.sm, paddingBottom: 31, gap: space.sm + space.xxs },
     info: { flex: 1, gap: 6, paddingBottom: 2 },
-    author: { color: colors.onMedia, fontSize: 16, fontWeight: "800", flexShrink: 1, ...shadow },
-    title: { color: colors.onMedia, fontSize: 15, fontWeight: "700", ...shadow },
-    caption: { color: colors.onMedia, fontSize: 14, lineHeight: 19, ...shadow },
-    more: { color: colors.onMediaMuted, fontSize: 13, fontWeight: "700", ...shadow },
-    rail: { width: 60, alignItems: "center", gap: 21 },
+    // The name leads; the title and caption follow in the system sans, every line shadowed so it stays sharp on bright footage.
+    author: { ...type.subheading, fontSize: 16, fontWeight: "700", letterSpacing: -0.1, color: colors.onMedia, flexShrink: 1, ...shadow },
+    title: { ...type.label, fontSize: 15, lineHeight: 20, color: colors.onMedia, ...shadow },
+    caption: { fontSize: 14, lineHeight: 19, color: colors.onMedia, ...shadow },
+    more: { ...type.caption, fontWeight: "600", color: colors.onMediaMuted, ...shadow },
+    rail: { width: 60, alignItems: "center", gap: 20 },
     railButton: { alignItems: "center", gap: 3, minWidth: 48 },
-    railLabel: { color: colors.onMedia, fontSize: 12, fontWeight: "700", ...shadow },
+    railLabel: { ...type.footnote, fontWeight: "600", color: colors.onMedia, ...shadow },
     iconShadow: { textShadowColor: colors.mediaScrim, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
   };
 });

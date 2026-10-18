@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FeedFooter, SkeletonCard } from "@/components/feed/feed-bits";
+import { FeedFooter, PostSkeleton } from "@/components/feed/feed-bits";
 import { useInfinitePages } from "@/components/feed/use-infinite-pages";
 import { InstaPost } from "./insta-post";
 
@@ -124,12 +124,13 @@ export function PostsFeed({ initial, totalPages, filters, savedIds, signedIn, cu
   const university = filtered ? undefined : "all";
   const feedParam = following ? "following" : undefined;
   // Same pill as the Buzz topics.
-  const pill = "inline-flex h-8 shrink-0 items-center rounded-full px-3 text-[13px] font-semibold transition-colors";
+  const pill = "ab-press inline-flex h-8 shrink-0 items-center rounded-full px-3.5 text-[13px] font-semibold";
+  const scopeLink = "font-semibold text-gray-900 underline decoration-gray-300 underline-offset-2 transition-colors hover:decoration-gray-900";
 
   return (
     <div className="-mx-3 flex flex-col bg-white sm:mx-0 sm:gap-4 sm:bg-transparent" data-testid="posts-feed">
       {signedIn ? (
-        <div role="group" aria-label="Whose posts" className="flex gap-1.5 px-3 pt-2 sm:px-0 sm:pt-0" data-testid="posts-feed-switch">
+        <div role="group" aria-label="Whose posts" className="flex gap-1.5 px-3 pt-2.5 sm:px-0 sm:pt-0" data-testid="posts-feed-switch">
           <Link href={homeSectionHref("posts", { university })} scroll={false} aria-current={following ? undefined : "page"} className={cn(pill, following ? "bg-gray-100 text-gray-800 hover:bg-gray-200" : "bg-gray-900 text-white")}>
             Everyone
           </Link>
@@ -139,18 +140,18 @@ export function PostsFeed({ initial, totalPages, filters, savedIds, signedIn, cu
         </div>
       ) : null}
       {filtered || scope?.hasHomeUniversity ? (
-        <p className="px-3 pt-2 text-xs text-gray-600 sm:px-1 sm:pt-0">
+        <p className="px-3 pt-2 text-xs text-gray-500 sm:px-1 sm:pt-0">
           {filtered ? (
             <>
               Showing posts from {scope?.universityName ?? "your university"} ·{" "}
-              <Link href={homeSectionHref("posts", { university: "all", feed: feedParam })} scroll={false} className="font-semibold text-brand-700 hover:underline">
+              <Link href={homeSectionHref("posts", { university: "all", feed: feedParam })} scroll={false} className={scopeLink}>
                 All universities
               </Link>
             </>
           ) : (
             <>
               Showing posts from all universities ·{" "}
-              <Link href={homeSectionHref("posts", { feed: feedParam })} scroll={false} className="font-semibold text-brand-700 hover:underline">
+              <Link href={homeSectionHref("posts", { feed: feedParam })} scroll={false} className={scopeLink}>
                 My university
               </Link>
             </>
@@ -205,7 +206,7 @@ export function PostsFeed({ initial, totalPages, filters, savedIds, signedIn, cu
               priority={i < 2}
             />
           ))}
-          {feed.loading ? <SkeletonCard aspect="aspect-[4/5]" lines={3} /> : null}
+          {feed.loading ? <PostSkeleton /> : null}
           <FeedFooter sentinelRef={feed.sentinelRef} loading={feed.loading} done={feed.done} error={feed.error} onRetry={feed.loadMore} count={feed.items.length} />
         </>
       )}

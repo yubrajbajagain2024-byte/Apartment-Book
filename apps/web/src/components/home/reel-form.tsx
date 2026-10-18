@@ -21,7 +21,7 @@ export function ReelForm({ action, defaultUniversityId }: { action: (prev: FormS
       <Card>
         <CardHeader>
           <CardTitle>Your video</CardTitle>
-          <p className="mt-1 text-sm text-gray-600">Vertical videos look best. Wait for &quot;Ready&quot; before you post.</p>
+          <p className="mt-1 text-sm text-gray-500">Vertical videos look best. Wait for &quot;Ready&quot; before you post.</p>
         </CardHeader>
         <CardBody>
           <VideoUploader tour={false} max={1} />

@@ -237,7 +237,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
     <div className="mx-auto w-full max-w-2xl">
       {/* Edge to edge on phones like the app; a white card in the middle of wider screens (its bottom padding keeps the
           grid's square corners inside the rounded ones, so nothing needs overflow-hidden and menus are never clipped). */}
-      <div className="-mx-3 -mt-4 bg-white pb-1 sm:mx-0 sm:mt-0 sm:rounded-2xl sm:pb-4 sm:shadow-sm sm:ring-1 sm:ring-gray-200" data-testid="profile">
+      <div className="-mx-3 -mt-4 bg-white pb-1 sm:mx-0 sm:mt-0 sm:rounded-2xl sm:pb-4 sm:shadow-card sm:ring-1 sm:ring-gray-200" data-testid="profile">
         <ProfileHeader
           profile={profile}
           handle={handle}
@@ -260,12 +260,12 @@ export default async function ProfilePage({ params, searchParams }: Props) {
 
 function TabEmpty({ icon: Icon, title, action }: { icon: LucideIcon; title: string; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-6 py-14 text-center" data-testid="profile-empty">
-      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-700">
-        <Icon className="h-6 w-6" aria-hidden="true" />
+    <div className="flex flex-col items-center gap-3 px-6 py-16 text-center" data-testid="profile-empty">
+      <span className="mb-1 flex h-12 w-12 items-center justify-center rounded-full text-gray-900 ring-1 ring-gray-200">
+        <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
       </span>
-      <p className="text-base font-semibold text-gray-900">{title}</p>
-      {action}
+      <p className="font-display text-xl tracking-tight text-gray-900">{title}</p>
+      {action ? <div className="mt-1">{action}</div> : null}
     </div>
   );
 }
@@ -273,18 +273,18 @@ function TabEmpty({ icon: Icon, title, action }: { icon: LucideIcon; title: stri
 /** A tab the visitor may not open: "Only Sunil can see their saved posts". */
 function LockedTab({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-6 py-14 text-center" data-testid="profile-locked">
-      <span className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-gray-900 text-gray-900">
-        <Lock className="h-6 w-6" aria-hidden="true" />
+    <div className="flex flex-col items-center gap-3 px-6 py-16 text-center" data-testid="profile-locked">
+      <span className="mb-1 flex h-12 w-12 items-center justify-center rounded-full text-gray-900 ring-1 ring-gray-200">
+        <Lock className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
       </span>
-      <p className="max-w-xs text-sm font-semibold text-gray-900">{message}</p>
+      <p className="max-w-xs font-display text-lg leading-snug tracking-tight text-gray-900">{message}</p>
     </div>
   );
 }
 
 function TabError({ what, href }: { what: string; href: string }) {
   return (
-    <p role="alert" className="px-6 py-14 text-center text-sm text-gray-600" data-testid="profile-tab-error">
+    <p role="alert" className="px-6 py-14 text-center text-sm text-gray-500" data-testid="profile-tab-error">
       Could not load {what} right now.{" "}
       <Link href={href} scroll={false} className="font-semibold text-brand-700 hover:underline">
         Try again

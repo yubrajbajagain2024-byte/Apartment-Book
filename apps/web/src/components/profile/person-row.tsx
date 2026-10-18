@@ -18,7 +18,7 @@ export function PersonRow({ profile, viewerId, signedIn, stats, testId = "person
       </Link>
       <Link href={`/profile/${profile.id}`} className="flex min-w-0 flex-1 items-center gap-1 text-sm font-semibold text-gray-900 hover:underline">
         <span className="truncate">{profile.full_name}</span>
-        {isVerifiedPoster(profile) ? <BadgeCheck className="h-4 w-4 shrink-0 text-brand-600" aria-label="Verified student" /> : null}
+        {isVerifiedPoster(profile) ? <BadgeCheck className="h-4 w-4 shrink-0 text-verified" aria-label="Verified student" /> : null}
       </Link>
       {profile.id === viewerId ? <span className="text-sm text-gray-500">You</span> : <FollowButton userId={profile.id} initial={stats ?? NO_FOLLOW_STATS} signedIn={signedIn} size="sm" />}
     </li>

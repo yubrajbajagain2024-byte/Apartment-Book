@@ -23,7 +23,7 @@ export function Avatar({ name, url, size = "md", online, userId, ringColor, tran
         <Image source={{ uri: url }} style={{ width: px, height: px, borderRadius: px / 2 }} contentFit="cover" transition={transition} accessibilityLabel={name ?? "Avatar"} />
       ) : (
         <View style={[styles.fallback, { width: px, height: px, borderRadius: px / 2 }]}>
-          <Text style={{ color: colors.brand, fontWeight: "700", fontSize: px * 0.36 }}>{initials(name)}</Text>
+          <Text style={{ color: colors.text, fontWeight: "600", fontSize: px * 0.36, letterSpacing: px * 0.01 }} maxFontSizeMultiplier={1}>{initials(name)}</Text>
         </View>
       )}
       {showDot ? <View accessibilityLabel="Active now" style={[styles.dot, { width: px * 0.3, height: px * 0.3, borderRadius: px * 0.15 }, ringColor ? { borderColor: ringColor } : null]} /> : null}

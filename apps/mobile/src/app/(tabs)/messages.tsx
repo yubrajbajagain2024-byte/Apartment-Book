@@ -8,13 +8,13 @@ import { INBOX_PAGES, InboxHeader, InboxSearchField } from "@/components/message
 import { InboxMessageRow, InboxNote, InboxRow, InboxSectionHeader } from "@/components/messages/inbox-row";
 import { inInbox, matchConversations, useMessageSearch, useNow, useUsernames, type InboxFilter, type InboxPage } from "@/components/messages/inbox-utils";
 import { InboxOnlineFriends, useOpenFriendChat } from "@/components/messages/online-friends";
-import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { Button, EmptyState, ErrorBanner, Loading, RowSkeleton } from "@/components/ui";
 import { hapticSwipe, hapticTap } from "@/lib/haptics";
 import { useQuery } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useTabBarInset } from "@/lib/tab-bar";
-import { radius, space } from "@/lib/theme";
+import { radius, shadows, space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useMessageRequests } from "@/lib/use-message-requests";
 import { useMutes } from "@/lib/use-mutes";
@@ -365,7 +365,7 @@ export default function MessagesScreen() {
         </View>
       );
     }
-    if (loading && !data) return <Loading />;
+    if (loading && !data) return <RowSkeleton />;
     if (error && !data)
       return (
         <View style={styles.pad}>
@@ -453,6 +453,6 @@ const useStyles = makeStyles((colors) => ({
   pad: { padding: space.lg },
   // The pill floats over the list, centred above the bottom bar; the list keeps room under it (its bottom padding).
   markAllWrap: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 2 },
-  markAll: { flexDirection: "row", alignItems: "center", gap: 8, height: 44, paddingHorizontal: 20, borderRadius: radius.pill, backgroundColor: colors.elevated, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: colors.shadow, shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-  markAllText: { fontSize: 15, fontWeight: "600", color: colors.text },
+  markAll: { flexDirection: "row", alignItems: "center", gap: 8, height: 44, paddingHorizontal: 20, borderRadius: radius.pill, backgroundColor: colors.elevated, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: colors.shadow, ...shadows.float },
+  markAllText: { ...type.label, fontSize: 15, color: colors.text },
 }));

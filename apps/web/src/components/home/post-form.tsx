@@ -63,7 +63,7 @@ export function PostForm({
       <Card>
         <CardHeader>
           <CardTitle>Video (optional)</CardTitle>
-          <p className="mt-1 text-sm text-gray-600">Add one video. Wait for &quot;Ready&quot; before you post.</p>
+          <p className="mt-1 text-sm text-gray-500">Add one video. Wait for &quot;Ready&quot; before you post.</p>
         </CardHeader>
         <CardBody>
           <VideoUploader tour={false} max={1} />

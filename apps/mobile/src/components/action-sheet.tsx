@@ -61,8 +61,8 @@ export function useActionSheet(): Show {
 
 const useStyles = makeStyles((colors) => ({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: "flex-end" },
-  sheet: { backgroundColor: colors.elevated, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: 8, paddingBottom: 24, gap: 2 },
+  sheet: { backgroundColor: colors.elevated, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: 8, paddingBottom: 24, gap: 2 },
   title: { textAlign: "center", color: colors.muted, fontSize: 13, paddingVertical: 8 },
   item: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, paddingHorizontal: 12, borderRadius: radius.md },
-  itemText: { fontSize: 16, fontWeight: "600", color: colors.text },
+  itemText: { fontSize: 16, fontWeight: "500", color: colors.text },
 }));
