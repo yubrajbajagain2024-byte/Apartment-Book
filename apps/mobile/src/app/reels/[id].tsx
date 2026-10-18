@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, Text, useWindowDimensions, View, type ViewToken } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View, type ViewToken } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -18,15 +18,17 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
-/** Breathing room between the status bar and the first row, as on Home's bar. */
+/** Breathing room between the status bar and the top row, as on Home's bar. */
 const TOP_GAP = 8;
-/** The two rows over the top of the video: Back (with the reel's sound button at the other end), then the Campus | Global toggle. */
+/** The one row over the top of the video: Back at the left, the Campus | Global toggle in the middle, the reel's sound button at the right. */
 const ROW = 44;
 /** The sound button ReelItem draws: a 36pt disc, 10pt under the inset it is given. */
 const MUTE_SIZE = 36;
 const MUTE_OFFSET = 10;
-/** The name and the rail keep this much clear above the home indicator, with no bottom bar to clear here. */
-const BOTTOM_GAP = 12;
+/** The "Add comment…" bar at the bottom of every reel: the pill's height, the gap above it, and the least it keeps from the screen's bottom edge. */
+const COMMENT_BAR = 48;
+const COMMENT_BAR_GAP = 10;
+const COMMENT_BAR_BOTTOM = 12;
 const NO_ENGAGEMENT: PostEngagement = { likes: 0, comments: 0, likedByMe: false };
 
 function mergeUnique(current: Reel[], incoming: Reel[]): Reel[] {
@@ -43,13 +45,15 @@ function splitKey(key: string): [PostTargetType, string] {
 /**
  * The Reels viewer, Instagram style: the reel tapped in a feed (For you) fills the screen and plays, and a swipe up moves
  * on to the next reel, the Reels feed (listReels) running on behind the one that was opened, page by page, posted
- * reels and listing tours alike. Over the video: Back at the top left, the reel's sound button at the top right, the
- * Campus | Global toggle under them (the same choice as Home's, see useHomeScope: picking the other one keeps the reel on
- * screen and the ones already watched, and the reels after it come from the new choice), and at the bottom the creator's
- * name, the caption and the rail (like, comments, share, save, "…") that ReelItem draws for every reel. Likes, saves and
- * comments made here reach the row the viewer was opened from (emitPostEngagement), and a reel deleted here leaves the
- * feeds too. The reel comes from the row that was tapped (see openReel) so it shows at once; opened from a link, it is
- * fetched first.
+ * reels and listing tours alike. Over the video, one row at the top: Back at the left, the Campus | Global toggle in the
+ * middle (the same choice as Home's, see useHomeScope: picking the other one keeps the reel on screen and the ones
+ * already watched, and the reels after it come from the new choice) and the reel's sound button at the right. At the
+ * bottom, the creator's name, the caption and the rail (like, comments, share, save, "…") that ReelItem draws for every
+ * reel, and under them an "Add comment…" bar that opens the comments straight into typing. The bar is drawn on every
+ * reel's page rather than floating over the list, so it sits in the same place on each reel and a swipe that starts on
+ * it still turns the page. Likes, saves and comments made here reach the row the viewer was opened from
+ * (emitPostEngagement), and a reel deleted here leaves the feeds too. The reel comes from the row that was tapped (see
+ * openReel) so it shows at once; opened from a link, it is fetched first.
  */
 export default function ReelViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -83,6 +87,8 @@ export default function ReelViewerScreen() {
   const [visible, setVisible] = useState(0);
   const visibleRef = useRef(0);
   const [commentsKey, setCommentsKey] = useState<string | null>(null);
+  /** The comments were opened from the "Add comment…" bar: the sheet comes up with the keyboard. */
+  const [commentsTyping, setCommentsTyping] = useState(false);
   const listRef = useRef<FlatList<Reel>>(null);
   /** Bumped when the feed starts over (another campus choice): answers to older requests are dropped. */
   const seq = useRef(0);
@@ -186,7 +192,10 @@ export default function ReelViewerScreen() {
       markReelsStale();
     }
   }, []);
-  const onOpenComments = useCallback((reel: Reel) => setCommentsKey(reelKey(reel)), []);
+  const onOpenComments = useCallback((reel: Reel, typing = false) => {
+    setCommentsTyping(typing);
+    setCommentsKey(reelKey(reel));
+  }, []);
   const commentsReel = commentsKey ? (reels?.find((r) => reelKey(r) === commentsKey) ?? null) : null;
   const onCommentCount = useCallback(
     (delta: number) => {
@@ -217,10 +226,12 @@ export default function ReelViewerScreen() {
     hapticTap();
   }
 
-  // The sound button sits centred in the Back row, at the other end.
+  // The sound button sits centred in the top row, at the other end from Back.
   const rowTop = insets.top + TOP_GAP;
   const muteInset = rowTop + (ROW - MUTE_SIZE) / 2 - MUTE_OFFSET;
-  const bottomInset = Math.max(insets.bottom, BOTTOM_GAP) + BOTTOM_GAP;
+  // The comment bar's pill sits this far up from the screen's bottom edge; the name and the rail stay above the bar.
+  const barBottom = Math.max(insets.bottom, COMMENT_BAR_BOTTOM);
+  const barHeight = barBottom + COMMENT_BAR + COMMENT_BAR_GAP;
 
   let body = null;
   if (height > 0 && reels && reels.length > 0) {
@@ -231,9 +242,17 @@ export default function ReelViewerScreen() {
         style={{ width, height }}
         keyExtractor={reelKey}
         renderItem={({ item, index }) => (
-          <ReelItem reel={item} width={width} height={height} topInset={muteInset} bottomInset={bottomInset} near={Math.abs(index - visible) <= 1} playing={focused && index === visible} onPatch={onPatch} onOpenComments={onOpenComments} onRemoved={onRemoved} />
+          <View style={{ width, height }}>
+            <ReelItem reel={item} width={width} height={height} topInset={muteInset} bottomInset={barHeight} near={Math.abs(index - visible) <= 1} playing={focused && index === visible} onPatch={onPatch} onOpenComments={onOpenComments} onRemoved={onRemoved} />
+            {/* "Add comment…" under the name and the rail, like Instagram's: a tap opens the comments with the keyboard up. */}
+            <View pointerEvents="box-none" style={[styles.commentBar, { bottom: barBottom }]}>
+              <Pressable onPress={() => onOpenComments(item, true)} style={({ pressed }) => [styles.commentInput, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Add comment" accessibilityHint="Opens the comments, ready to type">
+                <Text style={styles.commentPlaceholder}>Add comment…</Text>
+              </Pressable>
+            </View>
+          </View>
         )}
-        extraData={`${visible}:${focused}:${height}:${width}:${muteInset}`}
+        extraData={`${visible}:${focused}:${height}:${width}:${muteInset}:${barBottom}`}
         pagingEnabled
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
@@ -297,33 +316,29 @@ export default function ReelViewerScreen() {
       {focused ? <StatusBar style="light" /> : null}
       {body}
 
-      {/* Back, then the toggle, floating over the video; touches between them go through to the reel. */}
+      {/* One row floating over the video: Back at the left, the toggle in the middle (the reel's own sound button takes the right end); touches between them go through to the reel. */}
       <View pointerEvents="box-none" style={[styles.top, { paddingTop: rowTop }]}>
         <View pointerEvents="box-none" style={styles.row}>
           <Pressable onPress={leave} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back" style={({ pressed }) => [styles.back, pressed && { opacity: 0.6 }]}>
             <Ionicons name="chevron-back" size={30} color={colors.onMedia} style={styles.shadow} />
           </Pressable>
+          {segments.length > 1 ? <ScopeToggle segments={segments} value={chosen} onChange={choose} overVideo shadow={styles.shadow} /> : null}
         </View>
-        {segments.length > 1 ? (
-          <View pointerEvents="box-none" style={styles.toggleRow}>
-            <ScopeToggle segments={segments} value={chosen} onChange={choose} overVideo shadow={styles.shadow} />
-          </View>
-        ) : null}
       </View>
 
       {loadingMore && onLast ? (
-        <View style={[styles.foot, { bottom: 6 + insets.bottom }]} pointerEvents="none">
+        <View style={[styles.foot, { bottom: barHeight + 6 }]} pointerEvents="none">
           <ActivityIndicator color={colors.onMedia} />
         </View>
       ) : moreError && onLast ? (
-        <View style={[styles.foot, { bottom: 6 + insets.bottom }]} pointerEvents="box-none">
+        <View style={[styles.foot, { bottom: barHeight + 6 }]} pointerEvents="box-none">
           <Pressable onPress={() => void loadMore()} style={styles.retry} accessibilityRole="button">
             <Text style={styles.retryText}>Could not load more reels. Tap to try again.</Text>
           </Pressable>
         </View>
       ) : null}
 
-      <ReelCommentsSheet reel={commentsReel} onClose={() => setCommentsKey(null)} onCountChange={onCommentCount} />
+      <ReelCommentsSheet reel={commentsReel} focusComposer={commentsTyping} onClose={() => setCommentsKey(null)} onCountChange={onCommentCount} />
     </View>
   );
 }
@@ -337,9 +352,13 @@ const useStyles = makeStyles((colors) => ({
   stateButton: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 12, marginTop: 12 },
   stateButtonText: { color: colors.onBrand, fontSize: 15, fontWeight: "700" },
   top: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 },
-  row: { height: ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: 8 },
-  back: { width: ROW, height: ROW, alignItems: "center", justifyContent: "center" },
-  toggleRow: { height: ROW, alignItems: "center", justifyContent: "center" },
+  // The toggle is centred on the screen; Back keeps to the left edge, level with it.
+  row: { height: ROW, alignItems: "center", justifyContent: "center" },
+  back: { position: "absolute", left: 8, top: 0, width: ROW, height: ROW, alignItems: "center", justifyContent: "center" },
+  // A dark, see-through pill in the screen's gutters, the same in both themes since it sits on video.
+  commentBar: { position: "absolute", left: 0, right: 0, paddingHorizontal: 16 },
+  commentInput: { height: COMMENT_BAR, borderRadius: 999, justifyContent: "center", paddingHorizontal: 20, backgroundColor: colors.mediaPill, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.onMediaMuted },
+  commentPlaceholder: { color: colors.onMediaMuted, fontSize: 16 },
   shadow: { textShadowColor: colors.mediaScrim, textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
   foot: { position: "absolute", left: 0, right: 0, alignItems: "center" },
   retry: { backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },

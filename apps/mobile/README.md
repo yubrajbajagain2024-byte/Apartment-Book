@@ -43,9 +43,10 @@ toggle, a small segmented pill whose thumb slides to the choice: Campus is your 
 only while Posts has a tab, Following: the posts of people you follow, which switches to Posts); the choice scopes For you,
 Buzz, Posts and Reels alike (`src/lib/home-scope.ts`). Someone without a university has nothing to choose, so the row is not drawn.
 Tapping a reel in For you opens it full screen in the Reels viewer (`src/app/reels/[id].tsx`), like Instagram: the reel
-plays edge to edge with Back at the top left, its sound button at the top right and the same Campus | Global toggle
-under them; the creator's name, the caption and the heart, comments, share, save and "…" rail sit at the bottom
-(`src/components/home/reel-item.tsx`, as on the Reels page). A swipe up moves on to the next reel: the Reels feed runs on
+plays edge to edge under one top row with Back at the left, the same Campus | Global toggle in the middle and its sound
+button at the right; the creator's name, the caption and the heart, comments, share, save and "…" rail sit at the bottom
+(`src/components/home/reel-item.tsx`, as on the Reels page), and under them an "Add comment…" bar on every reel opens the
+comments sheet straight into typing. A swipe up moves on to the next reel: the Reels feed runs on
 behind the one that was opened, page by page, and the other campus choice keeps the reel on screen while the reels after
 it come from the new choice. The row hands its reel over (`src/lib/reel-viewer.ts`), so the viewer opens at once with the
 row's counts, and what you like, save or comment there shows on the row when you come back (`emitPostEngagement` in
