@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { type ColorValue, Platform, StyleSheet, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SymbolView, type SFSymbol, type SymbolWeight } from "expo-symbols";
@@ -218,21 +218,18 @@ export function Icon({ name, size = 24, color, style, sf, weight = "regular", bo
 
 /**
  * For `bounce`: a number that goes up each time `on` turns true after the first render (a heart filling, a bookmark
- * saving, a tab chosen), so the symbol answers the change and never plays when a screen merely appears. Zero under
- * Reduce Motion.
+ * saving, a tab chosen), so the symbol answers the change and never plays when a screen merely appears. It reads 0
+ * while `on` is false, so the thing turning off (the tab left behind, a like taken back) swaps to its plain symbol at
+ * once, with no effect: the bounce belongs to what turns on, never to what turns off. Counted during render rather than
+ * in an effect, so the symbol that turns on mounts with its bounce in the very frame it changes (never drawn plain first
+ * and then again bouncing). Zero under Reduce Motion.
  */
 export function useBounceOn(on: boolean): number {
   const reduce = useReduceMotion();
-  const [count, setCount] = useState(0);
-  const first = useRef(true);
-  useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
-    if (on && !reduce) setCount((n) => n + 1);
-  }, [on, reduce]);
-  return reduce ? 0 : count;
+  const seen = useRef<{ on: boolean; count: number } | null>(null);
+  if (seen.current === null) seen.current = { on, count: 0 };
+  else if (seen.current.on !== on) seen.current = { on, count: on ? seen.current.count + 1 : seen.current.count };
+  return reduce || !on ? 0 : seen.current.count;
 }
 
 /** The caller's margins (whichever form they came in) plus the optical inset on every side, so the icon's box stays `size`. */

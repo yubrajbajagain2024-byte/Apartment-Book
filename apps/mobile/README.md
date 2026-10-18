@@ -22,8 +22,10 @@ security protects the data, so they are safe to ship.
 The bottom bar has five tabs: Home, Search, Explore, Messages, Profile (your own photo in a circle, ringed while
 the tab is on screen; the person icon signed out). It floats over the content as a rounded
 glass pill (`src/app/(tabs)/_layout.tsx`, its size in `src/lib/tab-bar.ts`): on iOS 26 real liquid glass, with what scrolls
-under it blurred through, elsewhere a translucent fill; the tab on screen sits in a soft aurora capsule with its icon filled, and the capsule slides to
-the tab you tap on a soft spring while the tabs make room for it, GroupMe style, with a selection tick and the new tab's symbol bouncing once
+under it blurred through, elsewhere a translucent fill; the tab on screen sits in a soft aurora capsule with its icon filled. When you tap
+another tab the capsule glides there from the old one, never blinking or fading: its leading edge moves a beat ahead of its trailing edge,
+so it stretches a touch in flight and settles as it lands. The new tab's symbol bounces once with a selection tick, the tab you left returns
+to its plain look with no bounce, and the tabs make room for the capsule, GroupMe style, on a critically damped spring
 (`src/components/floating-tab-bar.tsx`, on Reanimated); every tab's list and floating button keeps `tabBarInset` clear
 under it. Search (find accounts by name and follow them) is the second tab, under its own "Search" title
 (`src/app/(tabs)/search.tsx`; the share sheet's Find people and a profile's Find friends push the same screen with the box

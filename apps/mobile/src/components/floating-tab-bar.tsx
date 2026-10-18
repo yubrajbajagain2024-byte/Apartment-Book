@@ -1,11 +1,11 @@
-import { useEffect, useState, type ComponentProps } from "react";
+import { useLayoutEffect, useRef, useState, type ComponentProps } from "react";
 import { Tabs } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { Extrapolation, interpolate, useAnimatedStyle, useSharedValue, withSpring, type SharedValue } from "react-native-reanimated";
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TAB_BAR_HEIGHT, TAB_BAR_SIDE, tabBarBottom } from "@/lib/tab-bar";
-import { useReduceTransparency } from "@/lib/accessibility";
+import { useReduceMotion, useReduceTransparency } from "@/lib/accessibility";
 import { auroraGradient } from "@/lib/theme";
 import { useAppTheme } from "@/lib/theme-provider";
 import { hapticSelect } from "@/lib/haptics";
@@ -20,14 +20,22 @@ const ACTIVE_SHARE = 1.5;
 const PILL_INSET = 6;
 /** The system tab bars' glyph size: SF Symbols at this size read level with the 11pt labels under them. */
 const ICON_SIZE = 26;
-/** A soft, settled spring: no overshoot to speak of, so the pill never wobbles past a tab. */
-const SPRING = { damping: 20, stiffness: 190, mass: 0.8 };
+/** How the tabs make room for the one picked: critically damped, so no tab ever overshoots or wobbles as it settles. */
+const SPRING = { damping: 31, stiffness: 300, mass: 0.8 };
+/**
+ * The capsule glides from the tab you were on to the one you tapped, each of its two edges on its own spring: the edge
+ * in the direction of travel leads and the other follows a beat behind, so the capsule stretches a touch as it moves and
+ * draws itself back in as it lands, like a drop of liquid. Both springs are close to critically damped: no wobble.
+ */
+const LEAD = { damping: 33, stiffness: 400, mass: 0.8 };
+const TRAIL = { damping: 29, stiffness: 290, mass: 0.8 };
 
 /**
- * The floating bottom bar, GroupMe style: a rounded glass pill with the five tabs in a row and one lighter capsule that
- * slides from the tab you were on to the one you tapped on a soft spring, while the tabs make room for it (the tab on
- * screen is ACTIVE_SHARE as wide as the others, and the widths follow the same spring, so nothing jumps), with a
- * selection tick and the new tab's symbol bouncing. The navigator's own events still fire (tabPress can be prevented, tabLongPress
+ * The floating bottom bar, GroupMe style: a rounded glass pill with the five tabs in a row and one capsule behind the tab
+ * on screen. The capsule never blinks or jumps: it glides from the tab you were on to the one you tap (see LEAD and
+ * TRAIL), while the tabs make room for it (the tab on screen is ACTIVE_SHARE as wide as the others) on a critically
+ * damped spring. Only the new tab's symbol bounces, with a selection tick; the tab you left returns to its plain look at
+ * once. The navigator's own events still fire (tabPress can be prevented, tabLongPress
  * is sent), each tab keeps its icon, title and badge from its screen options, and screen readers hear
  * "Home, tab, 1 of 5" as before. Everything that moves runs on the UI thread (Reanimated).
  */
@@ -35,18 +43,48 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
   const reduceTransparency = useReduceTransparency();
+  const reduceMotion = useReduceMotion();
   const [rowWidth, setRowWidth] = useState(0);
   const count = state.routes.length;
   // The widths: an idle tab is one unit, the tab on screen ACTIVE_SHARE units, and the row holds them all exactly.
   const unit = rowWidth > 0 ? rowWidth / (count - 1 + ACTIVE_SHARE) : 0;
   const wide = unit * ACTIVE_SHARE;
-  // Where the capsule is, in tabs: a whole number at rest, in between while it slides.
+  // How far the tabs have made room, in tabs: a whole number at rest, in between while the widths change.
   const progress = useSharedValue(state.index);
-  useEffect(() => {
-    progress.value = withSpring(state.index, SPRING);
-  }, [state.index, progress]);
-  // Every tab before the capsule is one unit wide, so its left edge is simply progress × unit.
-  const pillStyle = useAnimatedStyle(() => ({ transform: [{ translateX: progress.value * unit }] }), [unit]);
+  // The capsule's left and right edges, in points from the row's start. At rest it covers the tab on screen exactly: every
+  // tab before it is one unit wide, so its left edge is index × unit and it is `wide` across.
+  const leftEdge = useSharedValue(0);
+  const rightEdge = useSharedValue(0);
+  const shown = useRef(state.index);
+  // Measured, or measured again (a rotation): the capsule simply sits on the tab on screen.
+  useLayoutEffect(() => {
+    leftEdge.value = shown.current * unit;
+    rightEdge.value = shown.current * unit + wide;
+  }, [unit, wide, leftEdge, rightEdge]);
+  // A new tab: the capsule glides there from where it is (a second tap mid-glide simply redirects it). Before the frame is
+  // drawn, so it starts moving the moment the new tab lights up.
+  useLayoutEffect(() => {
+    const from = shown.current;
+    const to = state.index;
+    shown.current = to;
+    if (from === to) return;
+    const left = to * unit;
+    const right = left + wide;
+    if (reduceMotion || unit <= 0) {
+      progress.value = to;
+      leftEdge.value = left;
+      rightEdge.value = right;
+      return;
+    }
+    progress.value = withSpring(to, SPRING);
+    const forward = to > from;
+    leftEdge.value = withSpring(left, forward ? TRAIL : LEAD);
+    rightEdge.value = withSpring(right, forward ? LEAD : TRAIL);
+  }, [state.index, unit, wide, reduceMotion, progress, leftEdge, rightEdge]);
+  const pillStyle = useAnimatedStyle(() => ({
+    width: Math.max(0, rightEdge.value - leftEdge.value),
+    transform: [{ translateX: leftEdge.value }],
+  }));
 
   return (
     <View style={[styles.bar, { bottom: tabBarBottom(insets), borderColor: colors.glassEdge }]}>
@@ -58,7 +96,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
       {/* The row is measured empty first: a slot drawn before its width is known would keep a flex that overrides the widths later. */}
       <View style={styles.row} onLayout={(e) => setRowWidth(e.nativeEvent.layout.width)}>
         {/* The capsule behind the tab on screen: a faint wash of the aurora (the icon and label over it stay the text colour). */}
-        {unit > 0 ? <Animated.View pointerEvents="none" style={[styles.pill, { width: wide, experimental_backgroundImage: auroraGradient(colors.auroraWash, 110) }, pillStyle]} /> : null}
+        {unit > 0 ? <Animated.View pointerEvents="none" style={[styles.pill, { experimental_backgroundImage: auroraGradient(colors.auroraWash, 110) }, pillStyle]} /> : null}
         {unit <= 0 ? null : state.routes.map((route, index) => {
           const focused = state.index === index;
           const { options } = descriptors[route.key]!;
