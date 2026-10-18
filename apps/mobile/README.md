@@ -17,46 +17,6 @@ npx expo start --tunnel # phone anywhere with Expo Go: scan the QR code
 `.env` holds only public keys (Supabase URL + anon key, website URL). Row-level
 security protects the data, so they are safe to ship.
 
-## Design system
-
-The app's look is quiet luxury, and it lives in three files. `src/lib/theme.ts` holds what is the same in both themes:
-the corner radii (modest: 6, 10, 14, 20pt; capsules only are pills), the 4pt spacing rhythm, the type scale (Playfair
-Display, bundled in `assets/fonts` and loaded with `useFonts` in `app/_layout.tsx`, for `display`, `title`, `headline`
-and the italic `aside`: the wordmark, screen titles, big numbers and headlines; the system face for everything read and
-tapped, with `eyebrow`, a tracked small-caps label, for section and stat labels), the three shadows (`card`, `float`,
-`sheet`, faint) and the motion (one soft spring, a 0.97 press sink). `src/lib/palette.ts` holds the two palettes, every
-colour on screen: warm ivory surfaces and near-black ink by day, near-black surfaces and warm white ink at night; `brand`
-is that ink (buttons, links, selected states), `accent` the one violet (Home's underline, slide dots, hashtags), `verified`
-a bronze, `border` the hairlines that separate instead of boxes, `borderStrong` the outline of a control you tap (chips,
-outline buttons, tags, toggles), `input` the soft field fill, and the media tokens stay light over photos and video in
-both (`mediaControl` is the dark glass of a control drawn on video, such as the Campus | Global toggle over Reels).
-Readability is a rule, not a taste: every text colour clears WCAG contrast on every surface it sits on, in both themes
-(`text` above 15:1, `muted` at least 6.5:1, `faint`, the placeholders and times, at least 4.6:1), secondary text is never
-set below 12pt, the floating bottom bar is an opaque pill under its liquid glass, and reels carry a soft gradient at the
-top and bottom so white words and icons hold on the brightest frame. `src/components/ui.tsx` holds the pieces: `Button` (ink, outline, ghost, danger; it
-sinks under the finger), `Field` (eyebrow label, soft fill, an ink hairline on focus), `Chip`, `Badge`, `Card`, `Eyebrow`,
-`SectionTitle`, `Skeleton` with `FeedSkeleton` and `RowSkeleton` (lists breathe their own shape while loading), `EmptyState`
-(a serif headline) and `ErrorBanner`; `post-bits.tsx` the pieces every post is built from. Screens never pick a hex code
-or a font name: they take tokens through `useColors()` / `makeStyles()` and the `type` scale, so Light, Dark and System
-Default all hold. The mark is a serif "C" on ink (`assets/images`, drawn from the Playfair outline).
-
-On iOS the app speaks the platform's own language, after Apple's Human Interface Guidelines and Liquid Glass. Every icon
-is an SF Symbol (`src/components/icon.tsx` maps each Ionicons name used in the app to its symbol, each one checked
-against the SF Symbols catalogue, and falls back to the Ionicon on Android, the web and older iOS): the tab bar uses the
-system's own glyphs, filled when selected, verified students carry Apple's seal, and a heart, a bookmark or a tab
-answers with the system's bounce when it turns on. Liquid Glass belongs to the navigation layer only
-(`src/components/glass.tsx`): the floating tab bar (interactive glass over a 92% fill, so its labels keep at least 6:1
-over any content), the floating "+" (glass tinted with the ink), the round buttons over a profile's cover, the "Mark
-all as read" pill, and over photos and video the Back and sound buttons and the Campus | Global toggle (clear glass on
-a dark dimming layer). Content stays opaque. Rounded rectangles use iOS's continuous corners, bottom sheets float inset
-from the screen's edges with corners concentric with the phone's and a system grabber, and the segmented control
-springs its thumb like UIKit's. Haptics follow Apple's vocabulary (`src/lib/haptics.ts`): a selection tick for tabs,
-chips, segments and switches, the softest impact when a primary button commits or a list is pulled to refresh, success
-when something is published, a warning as a destructive choice is asked for, an error when something fails, and a light
-tap as a held row's menu rises. Tapping the tab you are on scrolls its list back to the top (`src/lib/tab-reselect.ts`),
-rows fade in once as they first arrive, and Reduce Motion and Reduce Transparency are honoured throughout
-(`src/lib/accessibility.ts`): animations become still and glass gives way to solid fills.
-
 ## Home and the tabs
 
 The bottom bar has five tabs: Home, Search, Explore, Messages, Profile (your own photo in a circle, ringed while
@@ -121,7 +81,7 @@ profiles once migration 21 is live, so publish this code (`npx eas-cli@latest up
 applying it. Comments open in a TikTok-style sheet: "N comments" up top with a Top / Newest sort, each comment with
 a heart and its count (a dislike stays private), Reply, replies folded behind "View N replies", the composer pinned at the
 bottom, and a hold on a comment for Reply / Report / Block / Delete (your own comment, or any comment on your post); a like on a
-post, a reel or a comment buzzes the phone through `expo-haptics` (`src/lib/haptics.ts`, with the selection tick of the Home labels too).
+post, a reel or a comment buzzes the phone through `expo-haptics` (`src/lib/haptics.ts`, with the selection tick of the Home labels too). The same file holds the rest of the vocabulary: a selection tick for the bottom tabs, chips, segments, switches and the sound buttons, the softest impact when a primary button commits or a list is pulled to refresh, success when something is published, and a warning or an error with the alerts that ask before a delete or report a failure (`alertWithHaptic`). Tapping the tab you are on scrolls its page back to the top, as on every iOS tab bar (`src/lib/tab-reselect.ts`).
 The Share button on posts, reels and listings opens a sheet of your friends, the people you follow who follow you back
 (`src/components/share-sheet.tsx`, mounted once in `src/app/_layout.tsx`): search, tap one or more faces, add an optional
 note and Send, and each friend gets a chat message with the post as a card that opens it, the note under it; "Share to…"

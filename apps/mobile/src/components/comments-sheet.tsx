@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, View, type GestureResponderHandlers } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { PostTargetType } from "@apartment-book/shared";
-import { motion, radius, sheetShape, space } from "@/lib/theme";
+import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { CommentComposer, CommentList, CommentsHeading, useCommentThread } from "./comments";
-import { Icon } from "@/components/icon";
 
 /** `focusComposer` opens the sheet straight into typing (the "Add comment…" bar under a reel), once the sheet has slid up. */
 export type CommentsTarget = { targetType: PostTargetType; targetId: string; ownerId: string; comments: number; focusComposer?: boolean };
@@ -38,9 +38,9 @@ export function CommentsSheet({ target, onClose, onCountChange }: { target: Comm
         onPanResponderMove: (_, g) => drag.setValue(Math.max(0, g.dy)),
         onPanResponderRelease: (_, g) => {
           if (g.dy > 90 || g.vy > 1.2) closeRef.current();
-          else Animated.spring(drag, { toValue: 0, ...motion.legacySpring }).start();
+          else Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
         },
-        onPanResponderTerminate: () => Animated.spring(drag, { toValue: 0, ...motion.legacySpring }).start(),
+        onPanResponderTerminate: () => Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start(),
       }),
     [drag],
   );
@@ -79,14 +79,14 @@ function SheetBody({ target, panHandlers, onClose, onCountChange }: { target: Co
       <View {...panHandlers} style={styles.header}>
         <View style={styles.handle} />
         <CommentsHeading count={count} onSort={thread.setSort} />
-        <Pressable onPress={onClose} hitSlop={10} style={({ pressed }) => [styles.close, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Close">
-          <Icon name="close" size={18} color={colors.text} />
+        <Pressable onPress={onClose} hitSlop={10} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
+          <Ionicons name="close" size={20} color={colors.text} />
         </Pressable>
       </View>
       <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.list}>
         <CommentList thread={thread} emptyText="Be the first to comment." />
       </ScrollView>
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom - sheetShape.marginBottom, space.md) }]}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         <CommentComposer thread={thread} />
       </View>
     </>
@@ -95,12 +95,10 @@ function SheetBody({ target, panHandlers, onClose, onCountChange }: { target: Co
 
 const useStyles = makeStyles((colors) => ({
   root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
-  // The sheet floats over the dimmed screen: the system's sheet shadow, and the largest corner the system allows.
-  // iOS 26: the sheet floats inset from the screen's edges, its corners concentric with the phone's, a hairline for its edge.
-  sheet: { height: "70%", backgroundColor: colors.elevated, ...sheetShape, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  header: { alignItems: "center", paddingTop: space.sm, paddingBottom: space.md, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  handle: { width: 36, height: 5, borderRadius: 2.5, backgroundColor: colors.borderStrong, marginBottom: space.md },
-  close: { position: "absolute", right: space.md, top: 18, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
-  list: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.sm },
-  footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: space.lg, paddingTop: space.md, backgroundColor: colors.elevated },
+  sheet: { height: "70%", backgroundColor: colors.elevated, borderTopLeftRadius: radius.lg + 4, borderTopRightRadius: radius.lg + 4, overflow: "hidden" },
+  header: { alignItems: "center", paddingTop: 8, paddingBottom: 10, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 10 },
+  close: { position: "absolute", right: 12, top: 16, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
+  list: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 8 },
+  footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: 14, paddingTop: 10, backgroundColor: colors.elevated },
 }));

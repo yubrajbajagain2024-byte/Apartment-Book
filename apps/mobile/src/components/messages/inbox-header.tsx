@@ -1,12 +1,12 @@
 import { type ReactNode, type Ref } from "react";
 import { Animated, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SlidingTabs } from "@/components/sliding-tabs";
 import { hapticSelect } from "@/lib/haptics";
-import { radius, space, type } from "@/lib/theme";
+import { radius, space } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import type { InboxFilter, InboxPage } from "./inbox-utils";
-import { Icon } from "@/components/icon";
 
 /** The two pages of the inbox, left to right: the order of the pager and of the labels above it. */
 export const INBOX_PAGES: { value: InboxPage; label: string }[] = [
@@ -52,7 +52,7 @@ export function InboxHeader({ signedIn, page, onPage, scrollX, pageWidth, reques
         </Text>
         {signedIn ? (
           <Pressable onPress={onNewChat} hitSlop={8} accessibilityRole="button" accessibilityLabel="New message" style={({ pressed }) => [styles.compose, pressed && { opacity: 0.6 }]}>
-            <Icon name="create-outline" size={24} color={colors.text} />
+            <Ionicons name="create-outline" size={24} color={colors.text} />
           </Pressable>
         ) : null}
       </View>
@@ -91,7 +91,7 @@ export function InboxSearchField({ value, onChangeText, placeholder = "Search", 
   return (
     <View style={styles.searchRow}>
       <View style={styles.search}>
-        <Icon name="search" size={18} color={colors.muted} />
+        <Ionicons name="search" size={18} color={colors.muted} />
         <TextInput
           ref={inputRef}
           value={value}
@@ -110,7 +110,7 @@ export function InboxSearchField({ value, onChangeText, placeholder = "Search", 
         />
         {value ? (
           <Pressable onPress={() => onChangeText("")} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear search">
-            <Icon name="close-circle" size={18} color={colors.faint} />
+            <Ionicons name="close-circle" size={18} color={colors.faint} />
           </Pressable>
         ) : null}
       </View>
@@ -130,19 +130,18 @@ const useStyles = makeStyles((colors) => ({
   // The title and the pencil share one row, so the tabs and the search box sit a row higher.
   topRow: { height: 52, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: 20, paddingRight: space.lg },
   compose: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  title: { flexShrink: 1, ...type.title, color: colors.text },
+  title: { flexShrink: 1, fontSize: 30, fontWeight: "800", letterSpacing: -0.5, color: colors.text },
   // The labels row, as tall as Home's, with the hairline the sliding underline sits on.
   tabs: { height: TABS_ROW, flexDirection: "row", marginHorizontal: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   filters: { flexDirection: "row", gap: space.sm, paddingHorizontal: 20, paddingBottom: space.sm },
-  // Hairline capsules, like the system's Chip: an ink outline and the warm wash once chosen.
-  chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 13, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: "transparent" },
-  chipSelected: { backgroundColor: colors.brandSoft, borderColor: colors.text },
-  chipText: { ...type.label, fontSize: 13, color: colors.muted },
-  chipTextSelected: { color: colors.text },
-  chipCount: { ...type.footnote, fontWeight: "700", color: colors.muted },
+  chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: colors.input },
+  chipSelected: { backgroundColor: colors.brandSoft },
+  chipText: { fontSize: 13, fontWeight: "600", color: colors.text },
+  chipTextSelected: { color: colors.brand },
+  chipCount: { fontSize: 12, fontWeight: "700", color: colors.muted },
   searchRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: 20, paddingTop: space.md, paddingBottom: space.md },
-  // The soft input fill with a hairline edge: the screen behind it is the warm ivory in light, near-black in dark.
-  search: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.input, borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, paddingHorizontal: 16, height: 44 },
+  // The input fill, not the card colour: the screen behind it is white in light and black in dark.
+  search: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 16, height: 46 },
   input: { flex: 1, fontSize: 16, color: colors.text, paddingVertical: 0 },
-  cancel: { ...type.label, fontSize: 15, color: colors.text },
+  cancel: { fontSize: 15, fontWeight: "600", color: colors.text },
 }));

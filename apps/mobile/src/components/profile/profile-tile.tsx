@@ -1,12 +1,11 @@
 import { memo, useCallback } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import type { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { compactCount, type ProfileTile, type ProfileTileType } from "@apartment-book/shared";
-import { radius, space, type } from "@/lib/theme";
+import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
-import { Icon } from "@/components/icon";
 
 /** What VoiceOver calls each kind of square: "Reel: Move-in day…". */
 export const TILE_TYPE_LABELS: Record<ProfileTileType, string> = { post: "Post", reel: "Reel", apartment: "Apartment", roommate: "Roommate post", item: "Item" };
@@ -14,7 +13,7 @@ export const TILE_TYPE_LABELS: Record<ProfileTileType, string> = { post: "Post",
 export const TILE_ASPECT = 4 / 3;
 export const REEL_ASPECT = 16 / 9;
 /** The squares' rounded corners. */
-export const TILE_RADIUS = radius.md;
+export const TILE_RADIUS = 10;
 
 type ListingType = "apartment" | "roommate" | "item";
 const LISTING_ICONS: Record<ListingType, keyof typeof Ionicons.glyphMap> = { apartment: "home", roommate: "people", item: "pricetag" };
@@ -79,25 +78,25 @@ export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspe
         </View>
       ) : (
         <View style={styles.blank}>
-          <Icon name={tile.isVideo ? "play" : "image-outline"} size={26} color={colors.faint} />
+          <Ionicons name={tile.isVideo ? "play" : "image-outline"} size={26} color={colors.faint} />
         </View>
       )}
 
       {tile.views !== null ? (
         <View style={styles.views} pointerEvents="none">
-          <Icon name={tile.isVideo ? "play" : "eye-outline"} size={13} color={ink} style={inkShadow} />
+          <Ionicons name={tile.isVideo ? "play" : "eye-outline"} size={13} color={ink} style={inkShadow} />
           <Text style={[styles.viewsText, { color: ink }, inkShadow]}>{compactCount(tile.views)}</Text>
         </View>
       ) : listing ? (
         <View style={styles.views} pointerEvents="none">
-          <Icon name={LISTING_ICONS[listing]} size={13} color={ink} style={inkShadow} />
+          <Ionicons name={LISTING_ICONS[listing]} size={13} color={ink} style={inkShadow} />
         </View>
       ) : null}
 
       {tile.pinned ? (
-        <Icon name="pin" size={16} color={ink} style={[styles.corner, inkShadow]} />
+        <Ionicons name="pin" size={16} color={ink} style={[styles.corner, inkShadow]} />
       ) : tile.multiPhoto ? (
-        <Icon name="copy" size={15} color={ink} style={[styles.corner, inkShadow]} />
+        <Ionicons name="copy" size={15} color={ink} style={[styles.corner, inkShadow]} />
       ) : null}
     </Pressable>
   );
@@ -125,19 +124,19 @@ export const ListingGridTile = memo(function ListingGridTile({ tile, width, aspe
         </>
       ) : (
         <View style={styles.listingBlank}>
-          <Icon name={LISTING_ICONS[kind]} size={28} color={colors.faint} />
+          <Ionicons name={LISTING_ICONS[kind]} size={28} color={colors.faint} />
         </View>
       )}
 
       {tile.isVideo ? (
-        <Icon name="play" size={15} color={ink} style={[styles.corner, inkShadow]} />
+        <Ionicons name="play" size={15} color={ink} style={[styles.corner, inkShadow]} />
       ) : tile.multiPhoto ? (
-        <Icon name="copy" size={15} color={ink} style={[styles.corner, inkShadow]} />
+        <Ionicons name="copy" size={15} color={ink} style={[styles.corner, inkShadow]} />
       ) : null}
 
       <View style={styles.listingText} pointerEvents="none">
         <View style={styles.listingKindRow}>
-          <Icon name={LISTING_ICONS[kind]} size={11} color={ink} style={inkShadow} />
+          <Ionicons name={LISTING_ICONS[kind]} size={11} color={ink} style={inkShadow} />
           <Text style={[styles.listingKind, { color: ink }, inkShadow]} numberOfLines={1}>
             {LISTING_KINDS[kind]}
           </Text>
@@ -152,12 +151,12 @@ export const ListingGridTile = memo(function ListingGridTile({ tile, width, aspe
 
 // The soft grey fills (words-only and blank squares) are input: bg is now the screen itself.
 const useStyles = makeStyles((colors) => ({
-  tile: { backgroundColor: colors.skeleton, overflow: "hidden", borderRadius: TILE_RADIUS, borderCurve: "continuous" },
+  tile: { backgroundColor: colors.border, overflow: "hidden", borderRadius: TILE_RADIUS },
   words: { flex: 1, backgroundColor: colors.input, padding: space.sm, justifyContent: "center" },
-  wordsText: { ...type.caption, lineHeight: 17, color: colors.text, fontWeight: "500" },
+  wordsText: { fontSize: 13, lineHeight: 17, color: colors.text, fontWeight: "500" },
   blank: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.input },
   views: { position: "absolute", left: 8, bottom: 7, flexDirection: "row", alignItems: "center", gap: 4 },
-  viewsText: { ...type.footnote, fontWeight: "700" },
+  viewsText: { fontSize: 12, fontWeight: "700" },
   iconShadow: { textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
   corner: { position: "absolute", top: 8, right: 8 },
   // The fade under a listing's kind and title: from clear to the photo-pill dark, drawn as a real gradient (no seams).

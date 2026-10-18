@@ -94,7 +94,7 @@ export function PostCard(props: PostCardProps) {
       <div className="min-w-0 flex-1 leading-tight">
         <Link href={`/profile/${poster.id}`} className={cn("flex items-center gap-1 font-semibold text-gray-900", compact ? "text-xs" : "text-sm")}>
           <span className="truncate">{poster.name}</span>
-          {poster.verified ? <BadgeCheck className={cn("shrink-0 text-verified", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-label="Verified student" /> : null}
+          {poster.verified ? <BadgeCheck className={cn("shrink-0 text-brand-600", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-label="Verified student" /> : null}
         </Link>
         {facebook ? (
           <p className="truncate text-xs text-gray-500">
@@ -162,7 +162,7 @@ export function PostCard(props: PostCardProps) {
         </PhotoCarousel>
         {compact ? (
           <div className="absolute right-2 top-2 z-20">
-            <SaveToggleButton controller={save} size="sm" className="bg-white/90 shadow-card" />
+            <SaveToggleButton controller={save} size="sm" className="bg-white/90 shadow" />
           </div>
         ) : null}
       </div>
@@ -176,7 +176,7 @@ export function PostCard(props: PostCardProps) {
 
   if (compact) {
     return (
-      <article className="flex flex-col overflow-hidden bg-white ring-1 ring-gray-200 sm:rounded-xl sm:shadow-card">
+      <article className="flex flex-col overflow-hidden bg-white ring-1 ring-gray-200 sm:rounded-xl">
         {mediaBlock}
         {header}
         {title !== undefined ? (
@@ -189,7 +189,7 @@ export function PostCard(props: PostCardProps) {
   }
 
   return (
-    <article className="flex flex-col overflow-hidden bg-white ring-1 ring-gray-200 sm:rounded-xl sm:shadow-card">
+    <article className="flex flex-col overflow-hidden bg-white ring-1 ring-gray-200 sm:rounded-xl">
       {header}
       {mediaBlock}
       <div className="flex items-center gap-1 px-1.5 pt-1">
@@ -198,7 +198,7 @@ export function PostCard(props: PostCardProps) {
           onClick={save.toggle}
           disabled={save.pending || !save.signedIn}
           aria-pressed={save.saved}
-          className={cn("ab-press inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold hover:bg-gray-100", save.saved ? "text-gray-900" : "text-gray-800")}
+          className={cn("inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold hover:bg-gray-100", save.saved ? "text-brand-700" : "text-gray-800")}
         >
           <Bookmark className={cn("h-5 w-5", save.saved && "fill-current")} /> {save.saved ? "Saved" : "Save"}
         </button>
@@ -239,15 +239,15 @@ function FacebookBody(
   }
 
   return (
-    <article className="flex flex-col overflow-hidden bg-white ring-1 ring-gray-200 sm:rounded-xl sm:shadow-card" data-testid="fb-post">
+    <article className="flex flex-col overflow-hidden bg-white ring-1 ring-gray-200 sm:rounded-xl" data-testid="fb-post">
       {header}
       <div className={cn("px-3 text-gray-900", title !== undefined || lead || description || props.details ? "pb-3" : "hidden")}>
         {title !== undefined ? (
-          <Link href={href} className="block font-display text-[19px] leading-snug tracking-tight">
+          <Link href={href} className="block text-[17px] font-semibold leading-snug">
             {title}
           </Link>
         ) : null}
-        {lead ? <p className="mt-0.5 text-sm font-semibold text-gray-900">{lead}</p> : null}
+        {lead ? <p className="mt-0.5 text-sm font-semibold text-brand-700">{lead}</p> : null}
         {description}
         {props.details ? <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-700">{props.details}</div> : null}
       </div>

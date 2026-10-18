@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
 import { Animated, Pressable, StyleSheet, View, type LayoutChangeEvent } from "react-native";
-import type { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import type { ProfileVisibility } from "@apartment-book/shared";
 import { makeStyles, useColors } from "@/lib/theme-provider";
-import { Icon } from "@/components/icon";
 
 export type ProfileTabKey = "posts" | "classes" | "reels" | "saved" | "liked" | "listings";
 
@@ -122,23 +121,23 @@ export function ProfileTabs({
                 <>
                   {/* Both looks are drawn, one over the other, and crossfade with the pager on the UI thread: nothing re-renders while the finger moves. */}
                   <Animated.View style={{ opacity: fade.off }}>
-                    <Icon name={t.icon} size={ICON_SIZE} color={colors.muted} />
+                    <Ionicons name={t.icon} size={ICON_SIZE} color={colors.muted} />
                   </Animated.View>
                   <Animated.View style={[styles.over, { opacity: fade.on }]}>
-                    <Icon name={t.activeIcon} size={ICON_SIZE} color={colors.text} />
+                    <Ionicons name={t.activeIcon} size={ICON_SIZE} color={colors.text} />
                   </Animated.View>
                   {badge ? (
                     <Animated.View style={[styles.badge, { opacity: fade.on }]}>
-                      <Icon name={VISIBILITY_ICON[badge]} size={12} color={colors.muted} />
+                      <Ionicons name={VISIBILITY_ICON[badge]} size={12} color={colors.muted} />
                     </Animated.View>
                   ) : null}
                 </>
               ) : (
                 <>
-                  <Icon name={selected ? t.activeIcon : t.icon} size={ICON_SIZE} color={selected ? colors.text : colors.muted} />
+                  <Ionicons name={selected ? t.activeIcon : t.icon} size={ICON_SIZE} color={selected ? colors.text : colors.muted} />
                   {selected && badge ? (
                     <View style={styles.badge}>
-                      <Icon name={VISIBILITY_ICON[badge]} size={12} color={colors.muted} />
+                      <Ionicons name={VISIBILITY_ICON[badge]} size={12} color={colors.muted} />
                     </View>
                   ) : null}
                 </>
@@ -169,8 +168,8 @@ const useStyles = makeStyles((colors) => ({
   over: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
   badge: { position: "absolute", right: -16, top: -2 },
   // UNDERLINE_SHARE of the tab.
-  underline: { height: 2, width: "58%", borderRadius: 1, backgroundColor: "transparent" },
+  underline: { height: 3, width: "58%", borderRadius: 2, backgroundColor: "transparent" },
   underlineActive: { backgroundColor: colors.text },
   // On the row's bottom edge, where each tab's own underline sits.
-  slider: { position: "absolute", bottom: 0, height: 2, borderRadius: 1, backgroundColor: colors.text },
+  slider: { position: "absolute", bottom: 0, height: 3, borderRadius: 2, backgroundColor: colors.text },
 }));

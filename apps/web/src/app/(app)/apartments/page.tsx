@@ -124,9 +124,8 @@ export default async function ApartmentsPage({
     })),
   ];
 
-  // List | Map: a hairline capsule pair, the chosen one filled with ink.
   const toggleClass = (active: boolean) =>
-    cn("ab-press inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors", active ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900");
+    cn("inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold", active ? "bg-brand-600 text-white" : "text-gray-700 hover:bg-gray-200");
 
   return (
     <div className="flex flex-col gap-4">
@@ -135,16 +134,16 @@ export default async function ApartmentsPage({
       <HousingSwipe section="apartments" all={values.university === "all"} className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="font-display text-2xl tracking-tight text-gray-900 sm:text-3xl">
+            <h1 className="text-2xl font-bold text-gray-900">
               {activeUniversity ? `Apartments near ${activeUniversity.name}` : "Apartments near campus"}
             </h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="text-sm text-gray-600">
               {result.count} {result.count === 1 ? "listing" : "listings"}
               {radiusMiles && universityId ? ` within ${radiusMiles} ${radiusMiles === 1 ? "mile" : "miles"} of campus` : ""}
               {profile && !profile.university_id ? (
                 <>
                   {" · "}
-                  <Link href="/settings/profile" className="font-semibold text-brand-600 underline-offset-4 hover:underline">
+                  <Link href="/settings/profile" className="text-brand-600 hover:underline">
                     Set your university
                   </Link>{" "}
                   to see places near you first.
@@ -153,16 +152,16 @@ export default async function ApartmentsPage({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex gap-0.5 rounded-full bg-white p-1 ring-1 ring-gray-200" role="group" aria-label="View">
+            <div className="flex rounded-lg bg-gray-100 p-1" role="group" aria-label="View">
               <Link href={viewHref("list")} className={toggleClass(view === "list")} aria-current={view === "list" ? "page" : undefined}>
-                <List className="h-4 w-4" strokeWidth={1.75} /> List
+                <List className="h-4 w-4" /> List
               </Link>
               <Link href={viewHref("map")} className={toggleClass(view === "map")} aria-current={view === "map" ? "page" : undefined}>
-                <MapIcon className="h-4 w-4" strokeWidth={1.75} /> Map
+                <MapIcon className="h-4 w-4" /> Map
               </Link>
             </div>
             <LinkButton href="/apartments/new">
-              <Plus className="h-4 w-4" strokeWidth={2} /> Post a listing
+              <Plus className="h-5 w-5" /> Post a listing
             </LinkButton>
           </div>
         </div>
@@ -174,7 +173,7 @@ export default async function ApartmentsPage({
         {view === "map" ? (
           <div className="flex flex-col gap-2">
             <ListingMap center={campus ?? (pins[0] ? { latitude: pins[0].latitude, longitude: pins[0].longitude } : DEFAULT_MAP_CENTER)} pins={pins} fitToPins={pins.length > 0} height={440} />
-            <p className="px-1 text-xs leading-relaxed text-gray-500">
+            <p className="text-xs text-gray-500">
               {mapListings.length} {mapListings.length === 1 ? "listing" : "listings"} with a pinned location shown on the map. Listings without a pin only appear in the list.
             </p>
           </div>

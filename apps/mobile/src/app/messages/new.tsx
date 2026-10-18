@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getOrCreateDirectConversation, listFriends, searchProfiles, type ProfileSummary } from "@apartment-book/shared";
 import { InboxSearchField } from "@/components/messages/inbox-header";
 import { InboxNote, InboxPersonRow, InboxSectionHeader } from "@/components/messages/inbox-row";
-import { Button, EmptyState, RowSkeleton } from "@/components/ui";
+import { Button, EmptyState } from "@/components/ui";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
@@ -102,7 +102,7 @@ export default function NewMessageScreen() {
         ListFooterComponent={pending && people.length > 0 ? <InboxNote loading /> : null}
         ListEmptyComponent={
           pending ? (
-            <RowSkeleton rows={6} />
+            <InboxNote loading />
           ) : typing ? (
             <View style={styles.empty}>
               <EmptyState icon="search-outline" title="No one found" body="Try a different spelling of their name." />

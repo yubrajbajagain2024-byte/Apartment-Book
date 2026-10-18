@@ -16,8 +16,8 @@ export default async function EditItemPage({ params }: { params: Promise<{ id: s
   if (!item) notFound();
   if (item.seller_id !== user.id) redirect(`/marketplace/${id}`);
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <h1 className="font-display text-3xl tracking-tight text-gray-900">Edit item</h1>
+    <div className="mx-auto flex max-w-3xl flex-col gap-4">
+      <h1 className="text-2xl font-bold">Edit item</h1>
       <ItemForm action={updateItemAction.bind(null, id)} universities={universities} userId={user.id} initial={item} />
     </div>
   );

@@ -38,9 +38,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     return (
       <div className="mx-auto flex w-full max-w-[640px] flex-col gap-4">
         <div className="flex flex-col gap-3">
-          <h1 className="font-display text-3xl tracking-tight text-gray-900">Search</h1>
+          <h1 className="text-2xl font-bold">Search</h1>
           <PhoneSearchBox />
-          <p className="text-sm text-gray-500">Find people by name, or apartments, roommates and items.</p>
+          <p className="text-sm text-gray-600">Find people by name, or apartments, roommates and items.</p>
         </div>
         <PeopleSection title={campus && profile?.university?.name ? `People at ${profile.university.name}` : "New on CampConnect"} people={people} stats={stats} viewerId={user?.id ?? null} signedIn={signedIn} testId="search-people" emptyTitle="Nobody to show yet" />
       </div>
@@ -67,8 +67,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
         <PhoneSearchBox />
-        <h1 className="font-display text-3xl tracking-tight text-gray-900">Results for &ldquo;{q}&rdquo;</h1>
-        <p className="text-sm text-gray-500">{total} {total === 1 ? "result" : "results"} across all universities</p>
+        <h1 className="text-2xl font-bold">Results for &ldquo;{q}&rdquo;</h1>
+        <p className="text-sm text-gray-600">{total} {total === 1 ? "result" : "results"} across all universities</p>
       </div>
       {total === 0 ? <EmptyState icon={Search} title="No results" description="Try different or fewer words." /> : null}
 
@@ -81,8 +81,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       {apartments.count > 0 ? (
         <section className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-xl tracking-tight text-gray-900">Apartments ({apartments.count})</h2>
-            <Link href={`/apartments?q=${encoded}&university=all`} className="text-[13px] font-semibold text-gray-900 hover:underline">
+            <h2 className="text-lg font-semibold">Apartments ({apartments.count})</h2>
+            <Link href={`/apartments?q=${encoded}&university=all`} className="text-sm font-medium text-brand-600 hover:underline">
               See all
             </Link>
           </div>
@@ -97,8 +97,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       {posts.count > 0 ? (
         <section className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-xl tracking-tight text-gray-900">Roommates ({posts.count})</h2>
-            <Link href={`/roommates?q=${encoded}&university=all`} className="text-[13px] font-semibold text-gray-900 hover:underline">
+            <h2 className="text-lg font-semibold">Roommates ({posts.count})</h2>
+            <Link href={`/roommates?q=${encoded}&university=all`} className="text-sm font-medium text-brand-600 hover:underline">
               See all
             </Link>
           </div>
@@ -113,8 +113,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       {items.count > 0 ? (
         <section className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-xl tracking-tight text-gray-900">Marketplace ({items.count})</h2>
-            <Link href={`/marketplace?q=${encoded}&university=all`} className="text-[13px] font-semibold text-gray-900 hover:underline">
+            <h2 className="text-lg font-semibold">Marketplace ({items.count})</h2>
+            <Link href={`/marketplace?q=${encoded}&university=all`} className="text-sm font-medium text-brand-600 hover:underline">
               See all
             </Link>
           </div>
@@ -142,8 +142,8 @@ function PhoneSearchBox() {
 function PeopleSection({ title, people, stats, viewerId, signedIn, testId, emptyTitle }: { title: string; people: Awaited<ReturnType<typeof searchPeople>>; stats: Record<string, FollowStats>; viewerId: string | null; signedIn: boolean; testId: string; emptyTitle?: string }) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="flex items-center gap-2 font-display text-xl tracking-tight text-gray-900">
-        <Users className="h-5 w-5 text-gray-400" strokeWidth={1.75} aria-hidden="true" /> {title}
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <Users className="h-5 w-5 text-brand-600" /> {title}
       </h2>
       {people.length === 0 ? (
         <EmptyState icon={Users} title={emptyTitle ?? "No one found"} description="Try a different spelling of their name." />

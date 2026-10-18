@@ -1,10 +1,9 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import type { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { formatFileSize, type MessageAttachment } from "@apartment-book/shared";
 import { fileExtension, openInBrowser, openMessageFile, type UploadStatus } from "@/lib/message-attachments";
-import { radius, type } from "@/lib/theme";
+import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
-import { Icon } from "@/components/icon";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -56,7 +55,7 @@ export function AttachmentFileRow({
       style={({ pressed }) => [styles.row, pressed && { opacity: 0.75 }, style]}
     >
       <View style={styles.icon}>
-        <Icon name={fileIcon(attachment)} size={22} color={colors.brand} />
+        <Ionicons name={fileIcon(attachment)} size={22} color={colors.brand} />
       </View>
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={1} ellipsizeMode="middle">
@@ -67,9 +66,9 @@ export function AttachmentFileRow({
       {status === "uploading" ? (
         <ActivityIndicator size="small" color={colors.brand} />
       ) : status === "failed" ? (
-        <Icon name="alert-circle" size={20} color={colors.red} accessibilityLabel="Not sent" />
+        <Ionicons name="alert-circle" size={20} color={colors.red} accessibilityLabel="Not sent" />
       ) : status === "waiting" ? (
-        <Icon name="time-outline" size={18} color={colors.faint} accessibilityLabel="Waiting to upload" />
+        <Ionicons name="time-outline" size={18} color={colors.faint} accessibilityLabel="Waiting to upload" />
       ) : null}
     </Pressable>
   );
@@ -82,13 +81,13 @@ const useStyles = makeStyles((colors) => ({
     gap: 10,
     paddingVertical: 10,
     paddingHorizontal: 10,
-    borderRadius: radius.lg, borderCurve: "continuous",
+    borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     backgroundColor: colors.card,
   },
-  icon: { width: 40, height: 40, borderRadius: radius.sm, borderCurve: "continuous", backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
+  icon: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
   body: { flex: 1, minWidth: 0, gap: 2 },
-  name: { ...type.label, fontSize: 14, color: colors.text },
-  meta: { ...type.footnote, color: colors.muted },
+  name: { fontSize: 14, fontWeight: "600", color: colors.text },
+  meta: { fontSize: 12, color: colors.muted },
 }));

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { AccessibilityInfo, Alert, Platform, Pressable, Text, TextInput, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { Ionicons } from "@expo/vector-icons";
 import {
   addProfileClass,
   classCodeProblem,
@@ -31,13 +32,12 @@ import {
   type Weekday,
 } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
-import { Button, EmptyState } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
-import { radius, space, type } from "@/lib/theme";
+import { radius, space } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
-import { Icon } from "@/components/icon";
 
 type UpdateClasses = (fn: (classes: ProfileClass[]) => ProfileClass[]) => void;
 /** What the form is open for: a new class, or one of yours being changed. */
@@ -143,7 +143,10 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
         own ? (
           form ? null : <Text style={styles.empty}>Add the classes you're taking so classmates can find you.</Text>
         ) : (
-          <EmptyState icon="school-outline" title="No classes listed" />
+          <View style={styles.emptyBox}>
+            <Ionicons name="school-outline" size={28} color={colors.faint} />
+            <Text style={styles.emptyTitle}>No classes listed</Text>
+          </View>
         )
       ) : (
         groups.map((g) => (
@@ -167,7 +170,7 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
                   style={({ pressed }) => [styles.classRow, own && pressed && styles.classRowPressed]}
                 >
                   <View style={styles.codeBadge}>
-                    <Icon name="book-outline" size={16} color={colors.brand} />
+                    <Ionicons name="book-outline" size={16} color={colors.brand} />
                   </View>
                   <View style={{ flex: 1, gap: 1 }}>
                     <Text style={styles.code}>{c.code}</Text>
@@ -275,7 +278,7 @@ function AddClassForm({ userId, initial, classes, onSaved, onClose }: { userId: 
       <View style={styles.formHead}>
         <Text style={styles.formTitle}>{initial ? "Edit class" : "Add a class"}</Text>
         <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close" style={styles.formClose}>
-          <Icon name="close" size={18} color={colors.text} />
+          <Ionicons name="close" size={18} color={colors.text} />
         </Pressable>
       </View>
       <View style={styles.pair}>
@@ -494,14 +497,14 @@ function MeetingsEditor({ meetings, onChange, error }: { meetings: ClassMeeting[
               {first ? (
                 slots.length < MAX_CLASS_MEETINGS ? (
                   <Pressable onPress={() => addTime(s.day)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Add another time on ${label}`} style={({ pressed }) => [styles.slotAction, pressed && { opacity: 0.6 }]}>
-                    <Icon name="add-circle-outline" size={20} color={colors.brand} />
+                    <Ionicons name="add-circle-outline" size={20} color={colors.brand} />
                   </Pressable>
                 ) : (
                   <View style={styles.slotAction} />
                 )
               ) : (
                 <Pressable onPress={() => removeSlot(index)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Remove this time on ${label}`} style={({ pressed }) => [styles.slotAction, pressed && { opacity: 0.6 }]}>
-                  <Icon name="close-circle-outline" size={20} color={colors.muted} />
+                  <Ionicons name="close-circle-outline" size={20} color={colors.muted} />
                 </Pressable>
               )}
             </View>
@@ -529,48 +532,47 @@ function toClock(d: Date): string {
 
 const useStyles = makeStyles((colors) => ({
   section: { padding: space.lg, gap: space.lg },
-  empty: { ...type.caption, fontSize: 14, color: colors.muted, textAlign: "center" },
-  group: { gap: 0 },
-  // The semester as an eyebrow over its classes.
-  term: { ...type.eyebrow, color: colors.muted, marginBottom: space.xs },
-  // Each class on a hairline, the way the app's lists go.
-  classRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  empty: { fontSize: 14, color: colors.muted, textAlign: "center" },
+  emptyBox: { alignItems: "center", gap: space.sm, paddingVertical: space.xl },
+  emptyTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
+  group: { gap: 2 },
+  term: { fontSize: 14, fontWeight: "700", color: colors.muted, marginBottom: 4 },
+  classRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: 8 },
   classRowPressed: { opacity: 0.7 },
   codeBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
-  code: { ...type.subheading, color: colors.text },
-  title: { ...type.caption, color: colors.muted },
-  details: { ...type.footnote, color: colors.faint },
-  // The form: a hairline card with a serif title, eyebrow labels and fields on the soft fill, like the system's Field.
-  form: { gap: space.md, padding: space.lg, borderRadius: radius.lg, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.card },
+  code: { fontSize: 15, fontWeight: "700", color: colors.text },
+  title: { fontSize: 13, color: colors.muted },
+  details: { fontSize: 12, color: colors.faint },
+  form: { gap: space.md, padding: space.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   formHead: { flexDirection: "row", alignItems: "center" },
-  formTitle: { flex: 1, ...type.headline, color: colors.text },
-  formClose: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center" },
-  label: { ...type.eyebrow, color: colors.muted, marginLeft: 2 },
-  input: { backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, borderCurve: "continuous", paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, lineHeight: 20, color: colors.text },
+  formTitle: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.text },
+  formClose: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
+  label: { fontSize: 13, fontWeight: "600", color: colors.muted },
+  input: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 11, fontSize: 16, color: colors.text },
   pair: { flexDirection: "row", gap: space.sm },
-  error: { ...type.footnote, color: colors.red, marginLeft: 2 },
-  added: { ...type.caption, color: colors.successText },
+  error: { color: colors.red, fontSize: 12 },
+  added: { color: colors.successText, fontSize: 13 },
   terms: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
-  termChip: { paddingHorizontal: 13, height: 32, justifyContent: "center", borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: "transparent" },
-  termChipOn: { backgroundColor: colors.brandSoft, borderColor: colors.text },
-  termText: { ...type.label, fontSize: 13, color: colors.muted },
+  termChip: { paddingHorizontal: 12, height: 34, justifyContent: "center", borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  termChipOn: { backgroundColor: colors.brandSoft, borderColor: colors.brand },
+  termText: { fontSize: 13, fontWeight: "600", color: colors.muted },
   // The days of the week to tap, then one row per day picked: its name, start – end, and + (another time) or × (drop it).
   days: { flexDirection: "row", justifyContent: "space-between" },
-  day: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "transparent", borderWidth: 1, borderColor: colors.borderStrong },
+  day: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
   dayOn: { backgroundColor: colors.brand, borderColor: colors.brand },
-  dayText: { ...type.label, fontSize: 13, color: colors.muted },
+  dayText: { fontSize: 13, fontWeight: "700", color: colors.muted },
   dayTextOn: { color: colors.onBrand },
-  hint: { ...type.footnote, color: colors.faint },
-  slot: { gap: 6, padding: space.sm, borderRadius: radius.md, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  hint: { fontSize: 13, color: colors.faint },
+  slot: { gap: 6, padding: 8, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input },
   // A second time on the same day sits tight under the first, without a day name of its own.
   slotExtra: { marginTop: -2 },
   slotRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  slotDay: { width: 40, ...type.label, fontSize: 13, color: colors.text },
+  slotDay: { width: 40, fontSize: 13, fontWeight: "700", color: colors.text },
   slotTimeWrap: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
-  slotDash: { ...type.caption, fontSize: 14, color: colors.muted },
-  time: { flex: 1, height: 38, alignItems: "center", justifyContent: "center", paddingHorizontal: 8, borderRadius: radius.md, borderCurve: "continuous", borderWidth: 1, borderColor: colors.border, backgroundColor: colors.input },
-  timeOn: { borderColor: colors.text },
-  timeValue: { ...type.label, fontSize: 14, color: colors.text },
+  slotDash: { fontSize: 14, color: colors.muted },
+  time: { flex: 1, height: 38, alignItems: "center", justifyContent: "center", paddingHorizontal: 8, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  timeOn: { borderColor: colors.brand },
+  timeValue: { fontSize: 14, fontWeight: "700", color: colors.text },
   slotAction: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
   picker: { alignSelf: "stretch", height: 180 },
 }));

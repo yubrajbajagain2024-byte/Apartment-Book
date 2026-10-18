@@ -16,7 +16,7 @@ export function SearchBox({ className }: { className?: string }) {
           name="q"
           defaultValue={params.get("q") ?? ""}
           placeholder="Search people, apartments, items"
-          className="h-10 w-full rounded-full bg-gray-100 pl-9 pr-4 text-sm text-gray-900 transition-colors placeholder:text-gray-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-gray-900"
+          className="h-10 w-full rounded-full bg-gray-100 pl-9 pr-4 text-sm text-gray-900 placeholder:text-gray-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-200"
         />
       </label>
     </form>

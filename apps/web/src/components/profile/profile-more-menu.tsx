@@ -103,13 +103,13 @@ export function ProfileMoreMenu({ profileId, name, initialBlocked }: { profileId
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        className="ab-press flex h-10 w-10 items-center justify-center rounded-[10px] bg-gray-100 text-gray-900 hover:bg-gray-200"
+        className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-900 hover:bg-gray-200"
         data-testid="profile-more"
       >
         <MoreHorizontal className="h-5 w-5" />
       </button>
       {open ? (
-        <div ref={menuRef} id={menuId} role="menu" aria-label="More options" onKeyDown={onMenuKeyDown} className="ab-fade-in absolute right-0 top-full z-30 mt-2 w-60 rounded-[14px] bg-white p-1.5 text-left shadow-float ring-1 ring-gray-200">
+        <div ref={menuRef} id={menuId} role="menu" aria-label="More options" onKeyDown={onMenuKeyDown} className="absolute right-0 top-full z-30 mt-2 w-60 rounded-xl bg-white p-1.5 text-left shadow-lg ring-1 ring-gray-200">
           <button type="button" role="menuitem" disabled={pending} onClick={toggleBlock} className={item}>
             <Ban className="h-5 w-5 text-gray-600" />
             {blocked ? `Unblock ${firstName}` : `Block ${firstName}`}

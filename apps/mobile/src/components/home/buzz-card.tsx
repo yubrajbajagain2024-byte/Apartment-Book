@@ -9,9 +9,8 @@ import { PhotoCarousel } from "@/components/photo-carousel";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { radius, space, type } from "@/lib/theme";
+import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
-import { Icon, useBounceOn } from "@/components/icon";
 import { alertWithHaptic } from "@/lib/haptics";
 
 /*
@@ -48,21 +47,21 @@ export function BuzzTag({ label, tone = "blue" }: { label: string; tone?: "blue"
   const styles = useStyles();
   return (
     <View style={[styles.tag, { backgroundColor: tone === "green" ? colors.successSoft : colors.brandSoft }]}>
-      <Text style={{ fontSize: 10, lineHeight: 14, fontWeight: "700", letterSpacing: 0.4, color: tone === "green" ? colors.successText : colors.brand }}>{label}</Text>
+      <Text style={{ fontSize: 10, fontWeight: "800", color: tone === "green" ? colors.successText : colors.brand }}>{label}</Text>
     </View>
   );
 }
 
 /** Each topic's own colour, like a community icon on Reddit: a fixed set, the same in both themes, always under a white glyph. */
 const TOPIC_LOOK: Record<BuzzTopic, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  thoughts: { icon: "bulb", color: "#C2902A" },
-  experience: { icon: "sparkles", color: "#6F5FD8" },
-  advice: { icon: "compass", color: "#2F8F62" },
-  question: { icon: "help", color: "#4F5FD8" },
-  housing: { icon: "home", color: "#C46A3A" },
-  campus: { icon: "school", color: "#2A8C8A" },
-  rant: { icon: "flame", color: "#B23A48" },
-  other: { icon: "chatbubbles", color: "#6B6B71" },
+  thoughts: { icon: "bulb", color: "#f59e0b" },
+  experience: { icon: "sparkles", color: "#8b5cf6" },
+  advice: { icon: "compass", color: "#22a06b" },
+  question: { icon: "help", color: "#1877f2" },
+  housing: { icon: "home", color: "#f97316" },
+  campus: { icon: "school", color: "#0ea5a4" },
+  rant: { icon: "flame", color: "#e41e3f" },
+  other: { icon: "chatbubbles", color: "#65676b" },
 };
 
 /** The round coloured icon that stands where Reddit shows a community icon. */
@@ -71,7 +70,7 @@ export function TopicIcon({ topic, size = 24 }: { topic: BuzzTopic; size?: numbe
   const look = TOPIC_LOOK[topic] ?? TOPIC_LOOK.other;
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: look.color, alignItems: "center", justifyContent: "center" }}>
-      <Icon name={look.icon} size={Math.round(size * 0.58)} color={colors.onBrand} />
+      <Ionicons name={look.icon} size={Math.round(size * 0.58)} color={colors.onBrand} />
     </View>
   );
 }
@@ -95,7 +94,7 @@ export function AnonAvatar({ alias, size = 28 }: { alias: string; size?: number 
   const [bg, fg] = AVATAR_COLORS[hash % AVATAR_COLORS.length];
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: bg, alignItems: "center", justifyContent: "center" }}>
-      <Icon name="person" size={Math.round(size * 0.56)} color={fg} />
+      <Ionicons name="person" size={Math.round(size * 0.56)} color={fg} />
     </View>
   );
 }
@@ -212,20 +211,17 @@ export function VotePill({ vote, onVote, bare = false, labels = ["Upvote", "Down
   const styles = useStyles();
   const filled = !bare && (up || down);
   const ink = filled ? colors.onBrand : colors.text;
-  const upBounce = useBounceOn(up);
-  const downBounce = useBounceOn(down);
   return (
     <View style={[bare ? styles.votesBare : styles.pill, !bare && { paddingHorizontal: 0, gap: 0 }, filled && { backgroundColor: up ? colors.brand : colors.downvoteFill, borderColor: up ? colors.brand : colors.downvoteFill }]}>
       <Pressable onPress={() => onVote(1)} hitSlop={bare ? 8 : { top: 8, bottom: 8, left: 8 }} style={bare ? styles.arrowBare : styles.arrowLeft} accessibilityRole="button" accessibilityLabel={labels[0]} accessibilityState={{ selected: up }}>
-        {/* Apple's arrow shapes on iOS 17+ (filled once you have voted, with the system bounce), the bold arrows elsewhere. */}
-        <Icon name="arrow-up" sf={up ? "arrowshape.up.fill" : "arrowshape.up"} size={19} weight="medium" bounce={upBounce} color={filled ? colors.onBrand : up ? colors.brand : bare ? colors.muted : colors.text} fallback={<MaterialCommunityIcons name={up ? "arrow-up-bold" : "arrow-up-bold-outline"} size={20} color={filled ? colors.onBrand : up ? colors.brand : bare ? colors.muted : colors.text} />} />
+        <MaterialCommunityIcons name={up ? "arrow-up-bold" : "arrow-up-bold-outline"} size={20} color={filled ? colors.onBrand : up ? colors.brand : bare ? colors.muted : colors.text} />
       </Pressable>
       <Text style={[styles.pillText, { color: bare ? (up ? colors.brand : down ? colors.downvote : colors.muted) : ink, minWidth: 14, textAlign: "center" }]} accessibilityLabel={`Score ${vote.score}`}>
         {compactCount(vote.score)}
       </Text>
       {bare ? null : <View style={[styles.pillDivider, filled && { backgroundColor: colors.onBrand, opacity: 0.45 }]} />}
       <Pressable onPress={() => onVote(-1)} hitSlop={bare ? 8 : { top: 8, bottom: 8, right: 8 }} style={bare ? styles.arrowBare : styles.arrowRight} accessibilityRole="button" accessibilityLabel={labels[1]} accessibilityState={{ selected: down }}>
-        <Icon name="arrow-down" sf={down ? "arrowshape.down.fill" : "arrowshape.down"} size={19} weight="medium" bounce={downBounce} color={filled ? colors.onBrand : down ? colors.downvote : bare ? colors.muted : colors.text} fallback={<MaterialCommunityIcons name={down ? "arrow-down-bold" : "arrow-down-bold-outline"} size={20} color={filled ? colors.onBrand : down ? colors.downvote : bare ? colors.muted : colors.text} />} />
+        <MaterialCommunityIcons name={down ? "arrow-down-bold" : "arrow-down-bold-outline"} size={20} color={filled ? colors.onBrand : down ? colors.downvote : bare ? colors.muted : colors.text} />
       </Pressable>
     </View>
   );
@@ -325,13 +321,13 @@ function PillRow({ post, onVote, onReplies, repliesHint, onShare }: { post: Buzz
   return (
     <View style={styles.pills}>
       <VotePill vote={vote} onVote={(d) => void cast(d)} />
-      <Pressable onPress={onReplies} style={({ pressed }) => [styles.pill, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={`${repliesLabel(post.commentCount)}. ${repliesHint}`}>
-        <Icon name="chatbubble-outline" sf="bubble.right" size={18} color={colors.text} fallback={<MaterialCommunityIcons name="comment-outline" size={17} color={colors.text} />} />
+      <Pressable onPress={onReplies} style={styles.pill} accessibilityRole="button" accessibilityLabel={`${repliesLabel(post.commentCount)}. ${repliesHint}`}>
+        <MaterialCommunityIcons name="comment-outline" size={18} color={colors.text} />
         <Text style={styles.pillText}>{compactCount(post.commentCount)}</Text>
       </Pressable>
       <View style={{ flex: 1 }} />
-      <Pressable onPress={onShare} style={({ pressed }) => [styles.pill, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Share">
-        <Icon name="arrow-redo-outline" sf="arrowshape.turn.up.right" size={19} color={colors.text} fallback={<MaterialCommunityIcons name="share-outline" size={19} color={colors.text} />} />
+      <Pressable onPress={onShare} style={styles.pill} accessibilityRole="button" accessibilityLabel="Share">
+        <MaterialCommunityIcons name="share-outline" size={20} color={colors.text} />
       </Pressable>
     </View>
   );
@@ -348,11 +344,11 @@ function Thumb({ media }: { media: FeedMedia[] }) {
       {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} /> : null}
       {first.type === "video" ? (
         <View style={styles.play}>
-          <Icon name="play" size={12} color={colors.onMedia} style={{ marginLeft: 1 }} />
+          <Ionicons name="play" size={12} color={colors.onMedia} style={{ marginLeft: 1 }} />
         </View>
       ) : media.length > 1 ? (
         <View style={styles.count}>
-          <Icon name="images" size={10} color={colors.onMedia} />
+          <Ionicons name="images" size={10} color={colors.onMedia} />
           <Text style={{ color: colors.onMedia, fontSize: 10, fontWeight: "700" }}>{media.length}</Text>
         </View>
       ) : null}
@@ -390,12 +386,12 @@ export function BuzzCard({ post, onVote, onRemoved, onMuted }: BuzzCardProps) {
           {post.isMine ? <Text style={styles.you}>You</Text> : null}
         </Pressable>
         <Pressable onPress={menu} hitSlop={10} style={styles.dots} accessibilityRole="button" accessibilityLabel="Post options">
-          <Icon name="ellipsis-horizontal" size={20} color={colors.muted} />
+          <Ionicons name="ellipsis-horizontal" size={20} color={colors.muted} />
         </Pressable>
       </View>
 
-      <Pressable onPress={open} style={({ pressed }) => [styles.main, pressed && { opacity: 0.85 }]} accessibilityRole="button" accessibilityLabel={`Anonymous post: ${post.title}`}>
-        <View style={{ flex: 1, minWidth: 0, gap: space.xs }}>
+      <Pressable onPress={open} style={styles.main} accessibilityRole="button" accessibilityLabel={`Anonymous post: ${post.title}`}>
+        <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
           <Text style={styles.title}>{post.title}</Text>
           {body ? (
             <Text style={styles.preview} numberOfLines={3}>
@@ -421,7 +417,7 @@ export function BuzzSearchRow({ post }: { post: BuzzPost }) {
   const comments = `${compactCount(post.commentCount)} ${post.commentCount === 1 ? "comment" : "comments"}`;
   return (
     <Pressable onPress={() => router.push({ pathname: "/buzz/[id]", params: { id: post.id } })} style={({ pressed }) => [styles.searchRow, pressed && { backgroundColor: colors.input }]} accessibilityRole="button" accessibilityLabel={`Anonymous post: ${post.title}. ${votes}, ${comments}. Open the thread`}>
-      <View style={{ flex: 1, minWidth: 0, gap: space.xs }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
         <View style={styles.headMain}>
           <TopicIcon topic={post.topic} size={20} />
           <Text style={[styles.topic, { color: colors.muted }]} numberOfLines={1}>
@@ -444,7 +440,7 @@ export function BuzzSearchRow({ post }: { post: BuzzPost }) {
 
 /* ---------- the thread screen's post block ---------- */
 
-/** The post at the top of the thread screen: a serif title, the words, and the photo or video in a rounded frame inside the gutter, like a post's. `active` is false while the block is off screen, so its video pauses. */
+/** The post at the top of the thread screen. Media runs edge to edge; text keeps the gutter. `active` is false while the block is off screen, so its video pauses. */
 export function BuzzPostBlock({ post, onVote, onReply, active = true }: { post: BuzzPost; onVote?: (vote: Vote) => void; onReply: () => void; active?: boolean }) {
   const { share } = useBuzzMenu(post, {});
   const styles = useStyles();
@@ -482,7 +478,7 @@ export function BuzzPostBlock({ post, onVote, onReply, active = true }: { post: 
         </Text>
       ) : null}
       {media.length > 0 ? (
-        <View style={styles.blockMedia}>
+        <View style={{ marginTop: 12 }}>
           <PhotoCarousel media={media} aspect={aspect} videoLabel={null} active={active} />
         </View>
       ) : null}
@@ -494,42 +490,38 @@ export function BuzzPostBlock({ post, onVote, onReply, active = true }: { post: 
 const useStyles = makeStyles((colors) => ({
   tag: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: radius.pill },
 
-  // Flat rows on the screen itself; the list draws a hairline between them.
-  row: { backgroundColor: colors.bg, paddingTop: space.md, paddingBottom: space.md },
-  head: { flexDirection: "row", alignItems: "center", paddingHorizontal: BUZZ_GUTTER, gap: space.sm },
-  headMain: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: space.sm },
-  topic: { ...type.label, fontSize: 13, color: colors.text, flexShrink: 1 },
-  age: { ...type.caption, color: colors.muted },
-  you: { ...type.footnote, fontWeight: "600", color: colors.successText },
+  row: { backgroundColor: colors.bg, paddingTop: 10, paddingBottom: 10 },
+  head: { flexDirection: "row", alignItems: "center", paddingHorizontal: BUZZ_GUTTER, gap: 8 },
+  headMain: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 8 },
+  topic: { fontSize: 13, fontWeight: "700", color: colors.text, flexShrink: 1 },
+  age: { fontSize: 13, color: colors.muted },
+  you: { fontSize: 12, fontWeight: "700", color: colors.successText },
   dots: { width: 32, height: 28, alignItems: "flex-end", justifyContent: "center" },
-  main: { flexDirection: "row", alignItems: "flex-start", gap: space.md, paddingHorizontal: BUZZ_GUTTER, paddingTop: 6 },
-  title: { ...type.heading, color: colors.text },
-  preview: { fontSize: 14, lineHeight: 20, color: colors.muted },
-  thumb: { width: 96, height: 72, borderRadius: radius.md, borderCurve: "continuous", overflow: "hidden", backgroundColor: colors.skeleton },
+  main: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingHorizontal: BUZZ_GUTTER, paddingTop: 6 },
+  title: { fontSize: 17, fontWeight: "700", color: colors.text, lineHeight: 22 },
+  preview: { fontSize: 14, color: colors.muted, lineHeight: 20 },
+  thumb: { width: 96, height: 72, borderRadius: 12, overflow: "hidden", backgroundColor: colors.input },
   play: { position: "absolute", left: 6, bottom: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.mediaPill, alignItems: "center", justifyContent: "center" },
-  count: { position: "absolute", right: 6, bottom: 6, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.mediaPill, borderRadius: radius.pill, paddingHorizontal: 6, paddingVertical: 2 },
+  count: { position: "absolute", right: 6, bottom: 6, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 },
 
-  // Hairline capsules, the height of a Chip; the vote pill fills with ink (up) or the downvote violet (down).
-  pills: { flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: BUZZ_GUTTER, paddingTop: space.md },
-  pill: { height: 32, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: "transparent" },
-  pillText: { ...type.label, fontSize: 13, color: colors.text },
-  pillDivider: { width: StyleSheet.hairlineWidth, height: 16, backgroundColor: colors.border, marginLeft: 10 },
-  arrowLeft: { height: 30, paddingLeft: 10, paddingRight: 6, alignItems: "center", justifyContent: "center" },
-  arrowRight: { height: 30, paddingLeft: 8, paddingRight: 10, alignItems: "center", justifyContent: "center" },
-  votesBare: { flexDirection: "row", alignItems: "center", gap: space.xs },
+  pills: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: BUZZ_GUTTER, paddingTop: 12 },
+  pill: { height: 34, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, borderRadius: 17, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" },
+  pillText: { fontSize: 13, fontWeight: "700", color: colors.text },
+  pillDivider: { width: 1, height: 16, backgroundColor: colors.border, marginLeft: 10 },
+  arrowLeft: { height: 32, paddingLeft: 10, paddingRight: 6, alignItems: "center", justifyContent: "center" },
+  arrowRight: { height: 32, paddingLeft: 8, paddingRight: 10, alignItems: "center", justifyContent: "center" },
+  votesBare: { flexDirection: "row", alignItems: "center", gap: 4 },
   arrowBare: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
 
-  searchRow: { flexDirection: "row", alignItems: "flex-start", gap: space.md, backgroundColor: colors.bg, paddingHorizontal: BUZZ_GUTTER, paddingVertical: space.md },
-  searchTitle: { ...type.body, color: colors.text },
-  searchMeta: { ...type.caption, color: colors.muted },
+  searchRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, backgroundColor: colors.bg, paddingHorizontal: BUZZ_GUTTER, paddingVertical: 12 },
+  searchTitle: { fontSize: 16, color: colors.text, lineHeight: 21 },
+  searchMeta: { fontSize: 13, color: colors.muted },
 
-  // The post at the top of the thread sits on the screen like the rows; its title is the one serif on the page.
-  block: { backgroundColor: colors.bg, paddingTop: space.sm, paddingBottom: space.md },
-  blockHead: { flexDirection: "row", alignItems: "center", gap: space.sm + space.xxs, paddingHorizontal: BUZZ_GUTTER },
-  blockTopic: { ...type.label, fontSize: 13, color: colors.muted },
-  blockAlias: { ...type.caption, color: colors.brand, flexShrink: 1 },
-  blockAge: { ...type.caption, color: colors.muted },
-  blockTitle: { ...type.headline, fontSize: 22, lineHeight: 28, color: colors.text, paddingHorizontal: BUZZ_GUTTER, paddingTop: space.md },
-  blockBody: { ...type.body, color: colors.text, paddingHorizontal: BUZZ_GUTTER, paddingTop: space.sm },
-  blockMedia: { marginTop: space.md, marginHorizontal: BUZZ_GUTTER, borderRadius: radius.lg, borderCurve: "continuous", overflow: "hidden", backgroundColor: colors.mediaBg },
+  block: { backgroundColor: colors.card, paddingTop: 8, paddingBottom: 12 },
+  blockHead: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: BUZZ_GUTTER },
+  blockTopic: { fontSize: 13, fontWeight: "700", color: colors.muted },
+  blockAlias: { fontSize: 13, color: colors.brand, flexShrink: 1 },
+  blockAge: { fontSize: 13, color: colors.muted },
+  blockTitle: { fontSize: 21, fontWeight: "700", color: colors.text, lineHeight: 27, paddingHorizontal: BUZZ_GUTTER, paddingTop: 10 },
+  blockBody: { fontSize: 16, color: colors.text, lineHeight: 23, paddingHorizontal: BUZZ_GUTTER, paddingTop: 8 },
 }));

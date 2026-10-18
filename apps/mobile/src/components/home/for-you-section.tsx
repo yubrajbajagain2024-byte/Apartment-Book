@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { listForYou, type FeedPostWithAuthor, type ForYouItem } from "@apartment-book/shared";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
-import { EmptyState, ErrorBanner, FeedSkeleton, useAppearingCells } from "@/components/ui";
+import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
 import { useTabBarInset } from "@/lib/tab-bar";
@@ -12,14 +12,13 @@ import { errorText } from "@/lib/hooks";
 import { emitPostRemoved, onPostRemoved, takeForYouStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { CaughtUp } from "./caught-up";
 import { InstaPost } from "./insta-post";
 import { markReelsStale } from "./reels-section";
-import { refreshWithHaptic } from "@/lib/haptics";
 import { useTabReselect } from "@/lib/tab-reselect";
+import { refreshWithHaptic } from "@/lib/haptics";
 
 /** The list's key: posts and reels share one table, so the id alone tells rows apart. */
 const keyOf = (post: ForYouItem) => post.id;
@@ -125,7 +124,6 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
   // Coming back to For you keeps the list and the scroll position. It reloads only when something new was published
   // while another page was showing: a post or a reel by this person.
   const listRef = useRef<FlatList<ForYouItem>>(null);
-  const appearCells = useAppearingCells();
   // Tapping Home again while For you is on screen: back to the top, as on every iOS tab (the bar slides back with it).
   useTabReselect(() => listRef.current?.scrollToOffset({ offset: inset.topOffset, animated: true }), active);
   const wasActive = useRef(active);
@@ -167,7 +165,6 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
             </View>
           ) : null
         }
-        CellRendererComponent={appearCells}
         renderItem={({ item }) => (
           <InstaPost
             post={item}
@@ -188,7 +185,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
         )}
         ListEmptyComponent={
           loading ? (
-            <FeedSkeleton />
+            <Loading />
           ) : error ? (
             <View style={styles.banner}>
               <ErrorBanner message={error} onRetry={refresh} />
@@ -199,9 +196,9 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
         }
         ListFooterComponent={
           loadingMore ? (
-            <ActivityIndicator color={colors.muted} style={{ paddingVertical: space.lg }} />
+            <ActivityIndicator color={colors.brand} style={{ paddingVertical: 12 }} />
           ) : moreError ? (
-            <Pressable onPress={fetchMore} accessibilityRole="button" style={({ pressed }) => [{ paddingVertical: space.md }, pressed && { opacity: 0.7 }]}>
+            <Pressable onPress={fetchMore} accessibilityRole="button" style={{ paddingVertical: 12 }}>
               <Text style={styles.retry}>Could not load more. Tap to try again.</Text>
             </Pressable>
           ) : !hasMore && items.length > 0 ? (
@@ -220,6 +217,6 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
 }
 
 const useStyles = makeStyles((colors) => ({
-  banner: { paddingHorizontal: FEED_HEADER_PADDING, paddingTop: space.sm },
-  retry: { ...type.label, fontSize: 13, textAlign: "center", color: colors.muted },
+  banner: { paddingHorizontal: FEED_HEADER_PADDING, paddingTop: 10 },
+  retry: { textAlign: "center", color: colors.brand, fontSize: 13, fontWeight: "600" },
 }));

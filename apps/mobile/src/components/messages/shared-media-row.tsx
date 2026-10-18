@@ -1,12 +1,12 @@
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import type { SharedItem } from "@apartment-book/shared";
 import { formatDuration } from "@/lib/message-attachments";
 import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useVideoFrame } from "./shared-video-thumb";
-import { Icon } from "@/components/icon";
 
 /**
  * One row of a chat's Media grid: up to three squares, `gap` apart, `start` being the first one's place in the whole tab
@@ -71,12 +71,12 @@ const SharedMediaTile = memo(function SharedMediaTile({ item, index, size, url, 
       {source ? <Image source={source} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} autoplay={false} recyclingKey={path ?? item.legacyImageUrl ?? null} accessible={false} /> : null}
       {video && !frame ? (
         <View style={styles.center} pointerEvents="none">
-          <Icon name="videocam" size={26} color={colors.faint} />
+          <Ionicons name="videocam" size={26} color={colors.faint} />
         </View>
       ) : null}
       {video ? (
         <View style={styles.badge} pointerEvents="none">
-          <Icon name="play" size={10} color={colors.onMedia} />
+          <Ionicons name="play" size={10} color={colors.onMedia} />
           {duration ? <Text style={styles.duration}>{duration}</Text> : null}
         </View>
       ) : null}

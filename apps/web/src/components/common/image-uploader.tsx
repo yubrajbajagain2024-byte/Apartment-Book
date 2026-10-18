@@ -129,7 +129,7 @@ export function ImageUploader({
         }}
         onDragLeave={() => setOver(false)}
         onDrop={onDrop}
-        className={cn("rounded-[14px] border border-dashed p-3 transition-colors", over ? "border-gray-900 bg-gray-50" : "border-gray-300")}
+        className={cn("rounded-xl border-2 border-dashed p-3 transition-colors", over ? "border-brand-500 bg-brand-50" : "border-gray-300")}
       >
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
           {items.map((item, index) => (
@@ -148,7 +148,7 @@ export function ImageUploader({
                 </div>
               ) : null}
               {item.status === "error" ? (
-                <div className="absolute inset-0 flex items-end bg-black/60 p-1.5 text-[10px] font-medium leading-tight text-white">{item.error}</div>
+                <div className="absolute inset-0 flex items-end bg-gradient-to-t from-red-900/80 to-transparent p-1.5 text-[10px] font-medium leading-tight text-white">{item.error}</div>
               ) : null}
 
               {index === 0 && item.status === "done" ? (
@@ -168,15 +168,15 @@ export function ImageUploader({
 
               {item.status === "done" ? (
                 <div className="absolute inset-x-1 bottom-1 flex items-center justify-between gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-                  <button type="button" onClick={() => move(index, index - 1)} disabled={index === 0} className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-card disabled:opacity-0" aria-label="Move photo left">
+                  <button type="button" onClick={() => move(index, index - 1)} disabled={index === 0} className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow disabled:opacity-0" aria-label="Move photo left">
                     <ArrowLeft className="h-3.5 w-3.5" />
                   </button>
                   {index > 0 ? (
-                    <button type="button" onClick={() => move(index, 0)} className="rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-gray-800 shadow-card">
+                    <button type="button" onClick={() => move(index, 0)} className="rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-gray-800 shadow">
                       Make cover
                     </button>
                   ) : null}
-                  <button type="button" onClick={() => move(index, index + 1)} disabled={index === items.length - 1} className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-card disabled:opacity-0" aria-label="Move photo right">
+                  <button type="button" onClick={() => move(index, index + 1)} disabled={index === items.length - 1} className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow disabled:opacity-0" aria-label="Move photo right">
                     <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -185,8 +185,8 @@ export function ImageUploader({
           ))}
 
           {items.filter((i) => i.status !== "error").length < max ? (
-            <label className="ab-press flex aspect-square cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 bg-gray-50 text-xs font-semibold text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900 has-[:focus-visible]:border-gray-900">
-              <ImagePlus className="h-6 w-6" strokeWidth={1.5} />
+            <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-300 bg-white text-xs font-medium text-gray-600 hover:border-brand-500 hover:text-brand-600">
+              <ImagePlus className="h-6 w-6" />
               Add photos
               <input ref={inputRef} type="file" accept={ACCEPT} multiple className="sr-only" onChange={(e) => addFiles(e.target.files)} />
             </label>
@@ -199,7 +199,7 @@ export function ImageUploader({
         <span>
           Originals are kept at full quality (JPG, PNG, WEBP or HEIC, up to 25 MB each). The first photo is the cover; hover a photo to reorder.
         </span>
-        <span className="font-semibold tabular-nums text-gray-700">
+        <span className="font-medium text-gray-700">
           {done.length}/{max} added{uploading ? ` · ${uploading} uploading` : ""}
         </span>
       </div>

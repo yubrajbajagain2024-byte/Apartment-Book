@@ -1,11 +1,11 @@
-import { Children, Fragment, isValidElement, type ReactNode, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import type { Ionicons } from "@expo/vector-icons";
+import { type ReactNode, useRef, useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { getOrCreateDirectConversation, getPostEngagement, recordContact, recordView, reportContent, REPORT_REASONS, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { space, type } from "@/lib/theme";
+import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "./action-sheet";
 import { Avatar } from "./avatar";
@@ -14,14 +14,9 @@ import { EngagementBar, EngagementSummary, useLike, useSave } from "./engagement
 import { PhotoCarousel } from "./photo-carousel";
 import { firstImageOf, useShareSheet } from "./share-sheet";
 import { useQuery } from "@/lib/hooks";
-import { Button, Eyebrow, Skeleton } from "./ui";
-import { Icon } from "@/components/icon";
+import { Button } from "./ui";
 
-/**
- * Shared detail layout, one continuous surface with hairlines between its parts: the photos, then the title and price in
- * the serif with the facts in a hairline grid under them and the screen's own words, the poster with a small Message
- * button, and the likes, the action row and the comment thread.
- */
+/** Shared detail layout: media, title, facts, body, poster card, like/comment/message, comments. */
 export function ListingDetail({
   targetType,
   targetId,
@@ -115,41 +110,38 @@ export function ListingDetail({
 
   const comments = commentCount ?? engagement?.comments ?? 0;
   return (
-    <ScrollView ref={scroll} contentContainerStyle={{ paddingBottom: space.xxl + space.sm }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+    <ScrollView ref={scroll} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
       {media.length > 0 ? <PhotoCarousel media={media} aspect={4 / 5} /> : null}
       <View style={styles.section}>
-        <View style={styles.titleRow}>
-          <View style={{ flex: 1, gap: space.xs }}>
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+          <View style={{ flex: 1 }}>
             <Text style={styles.title}>{title}</Text>
             {lead ? <Text style={styles.lead}>{lead}</Text> : null}
           </View>
-          <Pressable onPress={menu} hitSlop={8} accessibilityRole="button" accessibilityLabel="Options" style={({ pressed }) => [styles.dots, pressed && { opacity: 0.7 }]}>
-            <Icon name="ellipsis-horizontal" size={22} color={colors.muted} />
+          <Pressable onPress={menu} hitSlop={8} accessibilityRole="button" accessibilityLabel="Options" style={styles.dots}>
+            <Ionicons name="ellipsis-horizontal" size={22} color={colors.muted} />
           </Pressable>
         </View>
-        {facts ? <FactGrid>{facts}</FactGrid> : null}
+        {facts ? <View style={styles.facts}>{facts}</View> : null}
         {children}
       </View>
 
-      <View style={styles.section}>
-        <Pressable onPress={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })} style={({ pressed }) => [styles.poster, pressed && { opacity: 0.7 }]}>
-          <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.id} ringColor={colors.bg} />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.posterName} numberOfLines={1}>
-              {poster.name}
-            </Text>
-            <Text style={styles.posterMeta}>Posted {new Date(createdAt).toLocaleDateString()}</Text>
+      <View style={[styles.section, { paddingVertical: 12 }]}>
+        <Pressable onPress={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.id} ringColor={colors.card} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontWeight: "700", color: colors.text }}>{poster.name}</Text>
+            <Text style={{ fontSize: 12, color: colors.muted }}>Posted {new Date(createdAt).toLocaleDateString()}</Text>
           </View>
-          {!own ? <Button title="Message" icon="chatbubble-ellipses-outline" size="sm" onPress={() => void message()} /> : null}
+          {!own ? <Button title="Message" icon="chatbubble-ellipses-outline" onPress={() => void message()} style={{ minHeight: 38 }} /> : null}
         </Pressable>
-        {/* Your own listing: its quiet actions (Mark as sold, Delete) side by side under your name. */}
-        {own && ownerActions ? <View style={styles.ownerActions}>{ownerActions}</View> : null}
+        {own && ownerActions ? <View style={{ marginTop: 12 }}>{ownerActions}</View> : null}
       </View>
 
-      <View onLayout={(e) => (engagementY.current = e.nativeEvent.layout.y)}>
+      <View style={[styles.section, { paddingHorizontal: 0, paddingVertical: 0 }]} onLayout={(e) => (engagementY.current = e.nativeEvent.layout.y)}>
         <EngagementSummary likes={like.likes} comments={comments} />
         <EngagementBar liked={like.liked} likes={like.likes} onLike={() => void like.toggle()} onComment={showThread} onMessage={() => void message()} messageLabel={own ? "Inbox" : "Message"} />
-        <View style={{ padding: space.lg }}>
+        <View style={{ padding: 16 }}>
           <Comments
             targetType={targetType}
             targetId={targetId}
@@ -167,107 +159,26 @@ export function ListingDetail({
   );
 }
 
-/**
- * A listing's facts two to a row in a hairline grid: a rule above, one between the rows, a vertical hairline between the
- * columns. Children that render nothing are dropped before the rows are made, so a missing fact never leaves a hole.
- */
-export function FactGrid({ children }: { children: ReactNode }) {
-  const styles = useDetailStyles();
-  const cells = flattenCells(children);
-  const rows: ReactNode[][] = [];
-  for (let i = 0; i < cells.length; i += 2) rows.push(cells.slice(i, i + 2));
-  if (rows.length === 0) return null;
-  return (
-    <View style={styles.grid}>
-      {rows.map((row, i) => (
-        <View key={i} style={styles.gridRow}>
-          {row.map((cell, j) => (
-            <View key={j} style={[styles.gridCell, j > 0 && styles.gridCellRight]}>
-              {cell}
-            </View>
-          ))}
-          {row.length === 1 ? <View style={[styles.gridCell, styles.gridCellRight]} /> : null}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-/** The grid's cells: callers hand the facts over inside a fragment (`<>…</>`), so fragments are opened up and nulls dropped. */
-function flattenCells(children: ReactNode): ReactNode[] {
-  return Children.toArray(children).flatMap((child) => (isValidElement<{ children?: ReactNode }>(child) && child.type === Fragment ? flattenCells(child.props.children) : [child]));
-}
-
-/** The shape of a listing while it loads: the photo's frame and the first lines of words as grey blocks, no spinner. */
-export function DetailSkeleton() {
-  const { width } = useWindowDimensions();
-  return (
-    <View accessibilityLabel="Loading" style={{ flex: 1 }}>
-      <Skeleton height={Math.round((width * 5) / 4)} style={{ borderRadius: 0 }} />
-      <View style={{ padding: space.lg, gap: space.md }}>
-        <Skeleton width="72%" height={22} />
-        <Skeleton width="38%" height={18} />
-        <View style={{ flexDirection: "row", gap: space.lg, marginTop: space.sm }}>
-          <View style={{ flex: 1, gap: 6 }}>
-            <Skeleton width="40%" height={10} />
-            <Skeleton width="70%" height={14} />
-          </View>
-          <View style={{ flex: 1, gap: 6 }}>
-            <Skeleton width="40%" height={10} />
-            <Skeleton width="60%" height={14} />
-          </View>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-/**
- * One cell of the facts grid. With an `eyebrow` ("Bedrooms", "Condition") the fact reads as a tracked label over its
- * value, the editorial way; without one the icon stands in for the label beside the value.
- */
-export function Fact({ icon, label, eyebrow }: { icon: keyof typeof Ionicons.glyphMap; label: string; eyebrow?: string }) {
-  const styles = useDetailStyles();
+export function Fact({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
   const colors = useColors();
   return (
-    <View style={{ gap: space.xxs }}>
-      {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-        {eyebrow ? null : <Icon name={icon} size={16} color={colors.muted} />}
-        <Text style={[styles.cellValue, { flexShrink: 1 }]} numberOfLines={2}>
-          {label}
-        </Text>
-      </View>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+      <Ionicons name={icon} size={16} color={colors.muted} />
+      <Text style={{ color: colors.text, fontSize: 14 }}>{label}</Text>
     </View>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
-  // Each part of the screen on the screen's own surface, a hairline under it; the words keep the posts' gutter.
-  section: { paddingHorizontal: space.lg, paddingVertical: space.lg, gap: space.md, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  titleRow: { flexDirection: "row", alignItems: "flex-start", gap: space.sm },
-  // The title and the price in the serif of titles and big numbers, the price a step smaller.
-  title: { ...type.title, color: colors.text },
-  lead: { ...type.headline, color: colors.text },
-  dots: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", marginTop: -6, marginRight: -8 },
-  poster: { flexDirection: "row", alignItems: "center", gap: space.md },
-  posterName: { ...type.subheading, color: colors.text },
-  posterMeta: { ...type.footnote, color: colors.muted, marginTop: 2 },
-  ownerActions: { flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: space.xs },
+  // Hairline top and bottom: on the white light background the 8px gap alone would not separate the sections.
+  section: { backgroundColor: colors.card, marginTop: 8, padding: 16, gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  title: { fontSize: 22, fontWeight: "800", color: colors.text },
+  lead: { fontSize: 17, fontWeight: "700", color: colors.brand, marginTop: 2 },
+  dots: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  facts: { flexDirection: "row", flexWrap: "wrap", gap: 14, paddingVertical: 4 },
 }));
-
 /**
- * Body text, the serif section headlines and the facts grid for a detail screen's own content: `const detailStyles =
- * useDetailStyles();` at the top of the screen. `cellLabel` is a sentence-case label over a `cellValue` where the words
- * already exist ("Roommate gender"); Fact's eyebrow is the tracked version for the grid's own labels.
+ * Body text, headings and inset boxes for a detail screen's own content: `const detailStyles = useDetailStyles();` at the top of the screen.
+ * The inset box is the grey fill (`input`): the screen background is white in the light theme, so `bg` would hide it on a white section.
  */
-export const useDetailStyles = makeStyles((colors) => ({
-  body: { ...type.bodySmall, lineHeight: 22, color: colors.text },
-  h2: { ...type.headline, fontSize: 18, lineHeight: 24, color: colors.text, marginTop: space.sm },
-  grid: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border, marginTop: space.xs },
-  gridRow: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  gridCell: { flex: 1, paddingVertical: space.md, paddingRight: space.md, justifyContent: "center" },
-  gridCellRight: { paddingLeft: space.md, paddingRight: 0, borderLeftWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  cellLabel: { ...type.footnote, color: colors.muted },
-  cellValue: { ...type.subheading, color: colors.text },
-}));
+export const useDetailStyles = makeStyles((colors) => ({ body: { fontSize: 15, lineHeight: 22, color: colors.text }, h2: { fontSize: 16, fontWeight: "700", color: colors.text, marginTop: 6 }, card: { backgroundColor: colors.input, borderRadius: radius.md, padding: 10 } }));

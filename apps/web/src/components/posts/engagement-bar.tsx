@@ -11,7 +11,7 @@ import { actionButtonClasses, LikeButton, type LikeController } from "./like-but
 export function EngagementSummary({ likes, comments, onComments, className }: { likes: number; comments: number; onComments?: () => void; className?: string }) {
   if (likes === 0 && comments === 0) return null;
   return (
-    <div className={cn("flex items-center justify-between gap-3 px-3 py-1.5 text-xs text-gray-500", className)}>
+    <div className={cn("flex items-center justify-between gap-3 px-3 py-1.5 text-xs text-gray-600", className)}>
       <span className="inline-flex items-center gap-1.5">
         {likes > 0 ? (
           <>

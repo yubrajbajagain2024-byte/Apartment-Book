@@ -48,7 +48,7 @@ function Dropdown({
         <div
           role="menu"
           className={cn(
-            "ab-fade-in absolute top-full z-50 mt-2 w-60 overflow-hidden rounded-[14px] bg-white p-1.5 shadow-float ring-1 ring-gray-200",
+            "absolute top-full z-50 mt-2 w-60 overflow-hidden rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200",
             align === "right" ? "right-0" : "left-0",
           )}
         >
@@ -65,9 +65,9 @@ function MenuLink({ href, icon: Icon, children, onClick }: { href: string; icon:
       href={href}
       role="menuitem"
       onClick={onClick}
-      className="flex items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-100"
+      className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-100"
     >
-      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-800">
+      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-700">
         <Icon className="h-4 w-4" />
       </span>
       {children}
@@ -80,7 +80,7 @@ export function CreateMenu() {
     <Dropdown
       label="Create"
       trigger={() => (
-        <span className="ab-press inline-flex h-10 items-center gap-1.5 rounded-[10px] bg-gray-100 px-3 text-sm font-semibold text-gray-900 hover:bg-gray-200">
+        <span className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-gray-200 px-3 text-sm font-semibold text-gray-900 hover:bg-gray-300">
           <Plus className="h-5 w-5" />
           <span className="hidden lg:inline">Create</span>
           <ChevronDown className="hidden h-4 w-4 lg:inline" />
@@ -89,7 +89,7 @@ export function CreateMenu() {
     >
       {(close) => (
         <>
-          <p className="px-3 pb-1 pt-2 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">Create</p>
+          <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Create</p>
           <MenuLink href="/posts/new" icon={PenSquare} onClick={close}>
             Post
           </MenuLink>
@@ -126,7 +126,7 @@ export function UserMenu({ userId, name, avatarUrl }: { userId: string; name: st
           <Link
             href={`/profile/${userId}`}
             onClick={close}
-            className="flex items-center gap-3 rounded-[10px] px-3 py-2 hover:bg-gray-100"
+            className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-gray-100"
           >
             <Avatar name={name} src={avatarUrl} size="md" />
             <span className="min-w-0">
@@ -150,9 +150,9 @@ export function UserMenu({ userId, name, avatarUrl }: { userId: string; name: st
             <button
               type="submit"
               role="menuitem"
-              className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-100"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-100"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-800">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-700">
                 <LogOut className="h-4 w-4" />
               </span>
               Log out

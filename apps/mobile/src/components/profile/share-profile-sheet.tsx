@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Platform, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { qrMatrix } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { Button } from "@/components/ui";
 import { hapticSuccess } from "@/lib/haptics";
 import { SITE_URL } from "@/lib/supabase";
-import { radius, sheetShape, shadows, space, type } from "@/lib/theme";
+import { radius, space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
-import { Icon } from "@/components/icon";
 
 /** Blank modules around the code: scanners need four. */
 const QUIET_ZONE = 4;
@@ -84,14 +84,14 @@ export function ShareProfileSheet({ visible, onClose, profileId, name, username,
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.root}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close share profile" />
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom - sheetShape.marginBottom, space.lg) + space.sm }]}>
+        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space.lg) + space.sm }]}>
           <View style={styles.header}>
             <View style={styles.grabber} />
             <Text style={styles.title} accessibilityRole="header">
               Share profile
             </Text>
             <Pressable onPress={onClose} hitSlop={10} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
-              <Icon name="close" size={20} color={colors.text} />
+              <Ionicons name="close" size={20} color={colors.text} />
             </Pressable>
           </View>
           <View style={styles.body}>
@@ -158,19 +158,18 @@ function QrCode({ matrix, size, label }: { matrix: boolean[][]; size: number; la
 
 const useStyles = makeStyles((colors) => ({
   root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
-  // iOS 26: the sheet floats inset from the screen's edges, its corners concentric with the phone's, a hairline for its edge.
-  sheet: { backgroundColor: colors.elevated, ...sheetShape, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  sheet: { backgroundColor: colors.elevated, borderTopLeftRadius: radius.lg + 4, borderTopRightRadius: radius.lg + 4, overflow: "hidden" },
   header: { alignItems: "center", paddingTop: space.sm, paddingBottom: 10, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  grabber: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: 10 },
-  title: { ...type.headline, color: colors.text },
-  close: { position: "absolute", right: 12, top: 16, width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center" },
+  grabber: { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 10 },
+  title: { fontSize: 16, fontWeight: "700", color: colors.text },
+  close: { position: "absolute", right: 12, top: 16, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
   body: { alignItems: "center", paddingHorizontal: space.lg, paddingTop: space.xl, gap: space.lg },
   // The hairline outline keeps the card apart from the sheet in dark mode, where the shadow does not show.
-  card: { alignItems: "center", gap: space.md, padding: space.lg, borderRadius: radius.lg, borderCurve: "continuous", backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: colors.shadow, ...shadows.card },
+  card: { alignItems: "center", gap: space.md, padding: space.lg, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: colors.shadow, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
   qr: { backgroundColor: QR_LIGHT },
   who: { flexDirection: "row", alignItems: "center", gap: 10, maxWidth: 260 },
-  name: { ...type.heading, color: colors.text },
-  handle: { ...type.caption, fontSize: 14, color: colors.muted },
-  hint: { ...type.caption, color: colors.muted, textAlign: "center" },
+  name: { fontSize: 16, fontWeight: "800", color: colors.text },
+  handle: { fontSize: 14, color: colors.muted },
+  hint: { fontSize: 13, color: colors.muted, textAlign: "center" },
   actions: { flexDirection: "row", gap: space.sm, alignSelf: "stretch" },
 }));

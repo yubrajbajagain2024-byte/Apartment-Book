@@ -8,9 +8,9 @@ export function ApartmentOwnerActions({ apartment }: { apartment: Apartment }) {
   const nextStatus = apartment.status === "active" ? "rented" : "active";
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">Manage your listing</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Manage your listing</p>
       <LinkButton href={`/apartments/${apartment.id}/edit`} variant="secondary">
-        <Pencil className="h-4 w-4" strokeWidth={1.75} /> Edit listing
+        <Pencil className="h-4 w-4" /> Edit listing
       </LinkButton>
       <ConfirmButton variant="outline" action={setApartmentStatusAction.bind(null, apartment.id, nextStatus)}>
         {apartment.status === "active" ? "Mark as rented" : "Mark as available"}

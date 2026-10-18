@@ -1,11 +1,11 @@
 import { memo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { ConversationSummary, MessageWithSender, ProfileSummary } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
-import { radius, space, type } from "@/lib/theme";
+import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { highlightParts, inboxTime } from "./inbox-utils";
-import { Icon } from "@/components/icon";
 
 /** Inbox rows' photo size. */
 export const INBOX_AVATAR = 56;
@@ -39,7 +39,7 @@ export function InboxAvatar({ conversation: c, size = INBOX_AVATAR }: { conversa
   }
   return (
     <View style={[styles.groupIcon, { width: size, height: size, borderRadius: size / 2 }]}>
-      <Icon name="people" size={Math.round(size * 0.42)} color={colors.brand} />
+      <Ionicons name="people" size={Math.round(size * 0.42)} color={colors.brand} />
     </View>
   );
 }
@@ -80,12 +80,12 @@ export const InboxRow = memo(function InboxRow({ conversation: c, muted = false,
           </Text>
           {c.type === "group" ? (
             <View style={styles.tag} accessibilityLabel="Group chat">
-              <Icon name="people" size={11} color={colors.accent} />
+              <Ionicons name="people" size={11} color={colors.accent} />
             </View>
           ) : null}
-          {muted ? <Icon name="notifications-off-outline" size={14} color={colors.muted} accessibilityLabel="Muted" /> : null}
+          {muted ? <Ionicons name="notifications-off-outline" size={14} color={colors.muted} accessibilityLabel="Muted" /> : null}
           <View style={{ flex: 1 }} />
-          {time ? <Text style={[styles.time, unread && styles.timeUnread]}>{time}</Text> : null}
+          {time ? <Text style={styles.time}>{time}</Text> : null}
         </View>
         <View style={styles.previewLine}>
           <Text style={[styles.preview, unread && styles.previewUnread]} numberOfLines={1}>
@@ -196,26 +196,22 @@ const useStyles = makeStyles((colors) => ({
   personBody: { paddingVertical: 10 },
   topLine: { flexDirection: "row", alignItems: "center", gap: 6 },
   // Shrinks first, so a long name ends in "…" while the mark, the bell and the time keep their place.
-  name: { flexShrink: 1, ...type.subheading, fontSize: 16, color: colors.text },
-  // Unread is told by weight and ink, not colour: the name a step bolder, the preview and the time in the text colour.
-  nameUnread: { fontWeight: "700" },
-  tag: { width: 20, height: 20, borderRadius: radius.sm, borderCurve: "continuous", backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
-  time: { flexShrink: 0, ...type.caption, color: colors.muted },
-  timeUnread: { color: colors.text },
+  name: { flexShrink: 1, fontSize: 16, fontWeight: "700", color: colors.text },
+  nameUnread: { fontWeight: "800" },
+  tag: { width: 20, height: 20, borderRadius: 6, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
+  time: { flexShrink: 0, fontSize: 13, color: colors.muted },
   previewLine: { flexDirection: "row", alignItems: "center", gap: 10 },
   preview: { flex: 1, fontSize: 14, lineHeight: 19, color: colors.muted },
-  previewUnread: { color: colors.text, fontWeight: "500" },
-  match: { fontWeight: "700", color: colors.text },
-  // The count, small and in ink.
-  badge: { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-  badgeText: { color: colors.onBrand, fontSize: 11, fontWeight: "700" },
+  previewUnread: { color: colors.text, fontWeight: "600" },
+  match: { fontWeight: "800", color: colors.text },
+  badge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  badgeText: { color: colors.onBrand, fontSize: 11, fontWeight: "800" },
   // The back member sits top right; the front one bottom left with a ring of the screen colour, so the two read apart.
   groupBack: { position: "absolute", top: 0, right: 0 },
   groupFront: { position: "absolute", left: 0, bottom: 0, padding: 2, backgroundColor: colors.bg },
   groupIcon: { backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
-  // An eyebrow over a run of rows: "Chats", "Messages", "Suggested".
-  section: { ...type.eyebrow, color: colors.muted, paddingHorizontal: GUTTER, paddingTop: space.lg, paddingBottom: space.sm },
+  section: { fontSize: 17, fontWeight: "800", color: colors.text, paddingHorizontal: GUTTER, paddingTop: space.lg, paddingBottom: space.xs },
   note: { flexDirection: "row", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: space.sm, paddingHorizontal: GUTTER, paddingVertical: space.md },
-  noteText: { ...type.caption, fontSize: 14, color: colors.muted, textAlign: "center" },
-  noteAction: { ...type.label, fontSize: 14, color: colors.brand },
+  noteText: { fontSize: 14, color: colors.muted, textAlign: "center" },
+  noteAction: { fontSize: 14, fontWeight: "700", color: colors.brand },
 }));

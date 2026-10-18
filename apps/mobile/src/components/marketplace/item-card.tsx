@@ -1,12 +1,10 @@
 import { memo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import type { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { formatPrice, ITEM_CONDITIONS, labelFor, photosFor, type ItemCategoryValue, type ItemWithSeller } from "@apartment-book/shared";
-import { usePressScale } from "@/components/ui";
-import { motion, radius, space, type } from "@/lib/theme";
+import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
-import { Icon } from "@/components/icon";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -60,21 +58,18 @@ const FADE_RAMP = 36;
 const ICON_MARGIN = 12;
 
 /**
- * One card of the Marketplace grid, as large as `width` and square, in a hairline frame with a modest corner: the first
- * photo fills it, and at its foot sit the price in a quiet serif, the title (two lines at most), a line with the condition
- * and the campus code (`campus`), and the pickup location on its own line when the seller gave one (items have no
- * coordinates, so there is no distance). The photo darkens behind those words however many lines there are, from a short
- * fade above them to the photo-pill dark under the last line, and decides their colours: white in both themes. An item
- * without photos shows its category's icon on the card surface instead, centred in the space above the words and never
- * bigger than that space, with the theme's own colours for the words and the heart. Top right, the heart is a small mark
- * drawn straight on the photo (a soft shadow keeps it readable) that likes the item; it is a sibling of the card's own
- * button, not inside it, so screen readers reach both. The whole card sinks a touch under the finger, like every control
- * in the design system. Memoized: a like re-renders only its own card.
+ * One card of the Marketplace grid, as large as `width` and square: the first photo fills it, and at its foot sit the price
+ * pill, the title (two lines at most), a line with the condition and the campus code (`campus`), and the pickup location
+ * on its own line when the seller gave one (items have no coordinates, so there is no distance). The photo darkens behind
+ * those words however many lines there are, from a short fade above them to the photo-pill dark under the last line, and
+ * decides their colours: white in both themes. An item without photos shows its category's icon on the theme's soft fill
+ * instead, centred in the space above the words and never bigger than that space, with the theme's own colours for the
+ * words and the heart. Top right, the heart in a round button likes it; it is a sibling of the card's own button, not
+ * inside it, so screen readers reach both. Memoized: a like re-renders only its own card.
  */
 export const MarketItemCard = memo(function MarketItemCard({ item, width, campus, liked, onOpen, onToggleLike }: { item: ItemWithSeller; width: number; campus: string; liked: boolean; onOpen: (item: ItemWithSeller) => void; onToggleLike: (id: string) => boolean | null }) {
   const styles = useStyles();
   const colors = useColors();
-  const press = usePressScale();
   const pop = useRef(new Animated.Value(1)).current;
   // The height left above the words on a card without photos, measured, so its icon fits there at any text size.
   const [room, setRoom] = useState(0);
@@ -101,19 +96,21 @@ export const MarketItemCard = memo(function MarketItemCard({ item, width, campus
   const metaColor = onPhoto ? colors.onMediaMuted : colors.muted;
   const pinStyle = [styles.pin, onPhoto ? styles.pinOnPhoto : null];
   return (
-    <Animated.View style={[styles.card, onPhoto && styles.cardWithPhoto, { width, height: width, transform: [{ scale: press.scale }] }]}>
-      <Pressable onPress={() => onOpen(item)} onPressIn={press.onPressIn} onPressOut={press.onPressOut} accessibilityRole="button" accessibilityLabel={itemCardLabel(item)} style={styles.fill}>
-        {photo ? <Image source={{ uri: photo.url }} placeholder={photo.blur ? { uri: photo.blur } : undefined} style={StyleSheet.absoluteFill} contentFit="cover" transition={motion.base} recyclingKey={item.id} /> : null}
+    <View style={[styles.card, { width, height: width }]}>
+      <Pressable onPress={() => onOpen(item)} accessibilityRole="button" accessibilityLabel={itemCardLabel(item)} style={({ pressed }) => [styles.fill, pressed && styles.pressed]}>
+        {photo ? <Image source={{ uri: photo.url }} placeholder={photo.blur ? { uri: photo.blur } : undefined} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} recyclingKey={item.id} /> : null}
         {/* The space above the words: the photo shows through it, or the category icon sits in its middle. */}
         <View style={styles.room} onLayout={onPhoto ? undefined : (e) => setRoom(e.nativeEvent.layout.height)}>
-          {!onPhoto && iconSize >= 16 ? <Icon name={categoryIcon(item.category)} size={iconSize} color={colors.faint} /> : null}
+          {!onPhoto && iconSize >= 16 ? <Ionicons name={categoryIcon(item.category)} size={iconSize} color={colors.faint} /> : null}
         </View>
         <View style={[styles.words, onPhoto && styles.wordsOnPhoto]}>
           {onPhoto ? <View style={styles.fadeRamp} /> : null}
           {price ? (
-            <Text style={[styles.price, onPhoto ? styles.onPhoto : styles.onFill]} numberOfLines={1}>
-              {price}
-            </Text>
+            <View style={styles.pricePill}>
+              <Text style={styles.price} numberOfLines={1}>
+                {price}
+              </Text>
+            </View>
           ) : null}
           <Text style={[styles.title, onPhoto ? styles.onPhoto : styles.onFill]} numberOfLines={2}>
             {item.title}
@@ -130,7 +127,7 @@ export const MarketItemCard = memo(function MarketItemCard({ item, width, campus
               ) : null}
               {campus ? (
                 <>
-                  <Icon name="location" size={11} color={metaColor} style={pinStyle} />
+                  <Ionicons name="location" size={11} color={metaColor} style={pinStyle} />
                   <Text style={metaStyle} numberOfLines={1}>
                     {campus}
                   </Text>
@@ -140,7 +137,7 @@ export const MarketItemCard = memo(function MarketItemCard({ item, width, campus
           ) : null}
           {pickup ? (
             <View style={styles.metaRow}>
-              <Icon name="location" size={11} color={metaColor} style={pinStyle} />
+              <Ionicons name="location" size={11} color={metaColor} style={pinStyle} />
               <Text style={[metaStyle, styles.shrink]} numberOfLines={1}>
                 {pickup}
               </Text>
@@ -148,47 +145,49 @@ export const MarketItemCard = memo(function MarketItemCard({ item, width, campus
           ) : null}
         </View>
       </Pressable>
-      <Pressable onPress={like} hitSlop={8} accessibilityRole="button" accessibilityLabel={liked ? "Unlike" : "Like"} accessibilityState={{ selected: liked }} style={({ pressed }) => [styles.heart, pressed && styles.heartPressed]}>
+      <Pressable onPress={like} hitSlop={8} accessibilityRole="button" accessibilityLabel={liked ? "Unlike" : "Like"} accessibilityState={{ selected: liked }} style={({ pressed }) => [styles.heart, !onPhoto && styles.heartOnFill, pressed && styles.heartPressed]}>
         <Animated.View style={{ transform: [{ scale: pop }] }}>
-          <Icon name={liked ? "heart" : "heart-outline"} size={22} color={liked ? colors.like : onPhoto ? colors.onMedia : colors.text} style={onPhoto ? styles.markOnPhoto : undefined} />
+          <Ionicons name={liked ? "heart" : "heart-outline"} size={20} color={liked ? colors.like : onPhoto ? colors.onMedia : colors.text} />
         </Animated.View>
       </Pressable>
-    </Animated.View>
+    </View>
   );
 });
 
 const useStyles = makeStyles((colors) => {
   const textShadow = { textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 };
   return {
-    // A card surface in a hairline frame; behind a photo the skeleton tone shows while it loads.
-    card: { borderRadius: radius.md, borderCurve: "continuous", overflow: "hidden", backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-    cardWithPhoto: { backgroundColor: colors.skeleton },
+    // The soft fill shows while the photo loads, and behind the icon of an item without photos.
+    card: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.input },
     // The card's button covers it: the words stack at the foot, the room above them takes what is left. Words too tall
     // for the card (very large text) run off the top, so the price goes before the pickup line does.
     fill: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "flex-end" },
+    pressed: { opacity: 0.9 },
     room: { flex: 1, alignItems: "center", justifyContent: "center" },
-    words: { paddingHorizontal: space.md, paddingBottom: space.md, alignItems: "flex-start" },
+    words: { paddingHorizontal: 10, paddingBottom: 10, alignItems: "flex-start" },
     // Behind the words on a photo: dark enough for white text on the brightest photo, darkest under the small meta lines.
     // Drawn as real gradients (no seams), as on profile listing squares.
     wordsOnPhoto: { experimental_backgroundImage: `linear-gradient(to bottom, ${colors.mediaScrim}, ${colors.mediaPill} 55%)` },
     // Right above the words, the photo fades from clear into that dark. A fixed offset, not `bottom: "100%"`: the phone's
     // layout resolves percentages against the box minus its padding, which would sink the fade into the words.
     fadeRamp: { position: "absolute", left: 0, right: 0, top: -FADE_RAMP, height: FADE_RAMP, experimental_backgroundImage: `linear-gradient(to bottom, transparent, ${colors.mediaScrim})` },
-    // The price leads, in the serif of titles and big numbers; the title follows in the sans, a step smaller.
-    price: { ...type.headline, fontSize: 18, lineHeight: 22, marginBottom: 2 },
-    title: { fontSize: 14, lineHeight: 18, fontWeight: "600" },
+    pricePill: { backgroundColor: colors.mediaPill, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 6 },
+    price: { color: colors.onMedia, fontSize: 14, fontWeight: "800" },
+    title: { fontSize: 15, lineHeight: 19, fontWeight: "700" },
     onPhoto: { color: colors.onMedia, ...textShadow },
     onFill: { color: colors.text },
     metaRow: { alignSelf: "stretch", flexDirection: "row", alignItems: "center", marginTop: 3 },
-    meta: { ...type.footnote, lineHeight: META_LINE, fontWeight: "500" },
+    meta: { fontSize: 12, lineHeight: META_LINE, fontWeight: "500" },
     shrink: { flexShrink: 1 },
     pin: { marginRight: 2 },
     pinOnPhoto: { ...textShadow },
     metaOnPhoto: { color: colors.onMediaMuted, ...textShadow },
     metaOnFill: { color: colors.muted },
-    // A bare mark in the corner, no disc: on a photo its soft shadow keeps it readable on the brightest picture.
-    heart: { position: "absolute", top: space.xs, right: space.xs, width: 36, height: 36, alignItems: "center", justifyContent: "center" },
-    markOnPhoto: { ...textShadow, textShadowRadius: 4 },
-    heartPressed: { opacity: 0.7 },
+    // The same dark as the price pill, so a red heart still stands out on a bright photo.
+    heart: { position: "absolute", top: 8, right: 8, width: 34, height: 34, borderRadius: 17, backgroundColor: colors.mediaPill, alignItems: "center", justifyContent: "center" },
+    // Without a photo the card is the theme's soft fill, where a dark circle would swallow a red heart in light mode: the
+    // theme's own raised surface with a hairline instead.
+    heartOnFill: { backgroundColor: colors.elevated, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+    heartPressed: { opacity: 0.75 },
   };
 });

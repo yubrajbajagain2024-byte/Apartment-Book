@@ -45,8 +45,7 @@ function frameAspect(media: FeedMedia[], reel: boolean): string {
   return `${Math.round(ratio * 1000)} / 1000`;
 }
 
-/** An action under the picture: a thin ink icon that sinks a touch under the finger and greys on hover. */
-const icon = "ab-press flex h-9 items-center gap-1.5 rounded-lg text-gray-900 hover:text-gray-500";
+const icon = "flex h-9 items-center gap-1.5 rounded-lg text-gray-900 transition-transform hover:text-gray-500 active:scale-90";
 
 /**
  * Instagram-style post: avatar and name → photo or video → heart, comment, share and bookmark → "Liked by …" → caption → comments → age.
@@ -98,7 +97,7 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
     <>
       {captionParts(shown).map((part, i) =>
         part.tag ? (
-          <span key={i} className="text-accent">
+          <span key={i} className="text-[#00376b]">
             {part.text}
           </span>
         ) : (
@@ -114,17 +113,17 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
   );
 
   return (
-    <article className="flex flex-col bg-white pb-3 sm:overflow-hidden sm:rounded-xl sm:shadow-card sm:ring-1 sm:ring-gray-200" data-testid="insta-post">
-      <header className="flex items-center gap-2.5 px-3 py-2.5">
+    <article className="flex flex-col bg-white pb-3 sm:overflow-hidden sm:rounded-xl sm:ring-1 sm:ring-gray-200" data-testid="insta-post">
+      <header className="flex items-center gap-2.5 px-3 py-2">
         <Link href={`/profile/${author.id}`} className="shrink-0">
           <Avatar name={author.full_name} src={author.avatar_url} size="sm" />
         </Link>
         <div className="min-w-0 flex-1 leading-tight">
           <Link href={`/profile/${author.id}`} className="flex items-center gap-1 text-sm font-semibold text-gray-900">
             <span className="truncate">{author.full_name}</span>
-            {isVerifiedPoster(author) ? <BadgeCheck className="h-4 w-4 shrink-0 text-verified" aria-label="Verified student" /> : null}
+            {isVerifiedPoster(author) ? <BadgeCheck className="h-4 w-4 shrink-0 text-brand-600" aria-label="Verified student" /> : null}
           </Link>
-          {subtitle ? <p className="truncate text-xs text-gray-500">{subtitle}</p> : null}
+          {subtitle ? <p className="truncate text-xs text-gray-700">{subtitle}</p> : null}
         </div>
         <PostMenu
           save={save}
@@ -166,31 +165,31 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
       {media.length > 1 ? (
         <div className="flex justify-center gap-1 pt-2.5" aria-label={`${slide + 1} of ${media.length}`}>
           {media.slice(0, 12).map((_, i) => (
-            <span key={i} className={cn("h-1.5 w-1.5 rounded-full transition-colors", i === slide ? "bg-gray-900" : "bg-gray-300")} />
+            <span key={i} className={cn("h-1.5 w-1.5 rounded-full", i === slide ? "bg-brand-600" : "bg-gray-300")} />
           ))}
         </div>
       ) : null}
 
       <div className={cn("flex items-center gap-[18px] px-3", media.length > 1 ? "pt-1" : "pt-1.5")}>
-        <button type="button" onClick={like.toggle} disabled={like.pending} aria-pressed={like.liked} aria-label={like.liked ? "Unlike" : "Like"} className={cn(icon, like.liked && "text-like hover:text-like")}>
-          <Heart className={cn("h-7 w-7", like.liked && "fill-current")} strokeWidth={1.75} />
+        <button type="button" onClick={like.toggle} disabled={like.pending} aria-pressed={like.liked} aria-label={like.liked ? "Unlike" : "Like"} className={cn(icon, like.liked && "text-[#ed4956] hover:text-[#ed4956]")}>
+          <Heart className={cn("h-7 w-7", like.liked && "fill-current")} />
           {like.likes > 0 ? <span className="text-sm font-semibold tabular-nums text-gray-900">{compactCount(like.likes)}</span> : null}
         </button>
         <button type="button" onClick={openComments} aria-label="Comment" className={icon}>
-          <MessageCircle className="h-[26px] w-[26px] -scale-x-100" strokeWidth={1.75} />
+          <MessageCircle className="h-[26px] w-[26px] -scale-x-100" />
           {commentCount > 0 ? <span className="text-sm font-semibold tabular-nums">{compactCount(commentCount)}</span> : null}
         </button>
         <button type="button" onClick={shareDialog.show} aria-label="Share" className={icon}>
-          <Send className="h-[26px] w-[26px]" strokeWidth={1.75} />
+          <Send className="h-[26px] w-[26px]" />
         </button>
         <span className="flex-1" />
         {save.signedIn ? (
           <button type="button" onClick={save.toggle} disabled={save.pending} aria-pressed={save.saved} aria-label={save.saved ? "Unsave" : "Save"} className={icon}>
-            <Bookmark className={cn("h-[26px] w-[26px]", save.saved && "fill-current")} strokeWidth={1.75} />
+            <Bookmark className={cn("h-[26px] w-[26px]", save.saved && "fill-current")} />
           </button>
         ) : (
           <a href={`/login?next=${encodeURIComponent(href)}`} aria-label="Save" className={icon}>
-            <Bookmark className="h-[26px] w-[26px]" strokeWidth={1.75} />
+            <Bookmark className="h-[26px] w-[26px]" />
           </a>
         )}
       </div>
@@ -243,7 +242,7 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
           </p>
         ) : null}
 
-        <Link href={href} className="self-start text-xs tracking-[0.01em] text-gray-500 hover:text-gray-900 hover:underline" suppressHydrationWarning>
+        <Link href={href} className="self-start text-xs text-gray-500 hover:underline" suppressHydrationWarning>
           {timeAgo(post.created_at)}
         </Link>
       </div>

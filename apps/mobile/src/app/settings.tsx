@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deleteMyAccount, isProfileVisibility, listUniversities, normalizeUsername, PROFILE_VISIBILITY_COLUMNS, setShowActiveStatus, updateProfile, USERNAME_RULES, usernameProblem, type ProfileSection, type ProfileVisibility, type ProfileWithUniversity } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { VisibilityPicker } from "@/components/profile/visibility-row";
-import { Button, Chip, Eyebrow, Field } from "@/components/ui";
+import { Button, Card, Chip, Field } from "@/components/ui";
 import { errorText, useQuery } from "@/lib/hooks";
 import { THEME_PREFERENCES } from "@/lib/palette";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { radius, space, type } from "@/lib/theme";
+import { radius } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { useChangeAvatar } from "@/lib/use-change-avatar";
-import { Icon } from "@/components/icon";
 import { hapticSelect, alertWithHaptic } from "@/lib/haptics";
 
 /** The database's defaults, for a profile read before these settings existed. */
@@ -136,15 +136,15 @@ export default function SettingsScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={styles.photo}>
+    <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} keyboardShouldPersistTaps="handled">
+      <Card style={{ alignItems: "center" }}>
         <Avatar name={fullName} url={avatarUrl} size="xl" />
-        <Button title="Change photo" variant="secondary" size="sm" icon="image-outline" onPress={() => void changeAvatar()} loading={avatar.busy} />
-      </View>
-      <View style={styles.group}>
+        <Button title="Change photo" variant="secondary" icon="image-outline" onPress={() => void changeAvatar()} loading={avatar.busy} />
+      </Card>
+      <Card>
         <Field label="Full name" value={fullName} onChangeText={setFullName} />
         <View style={{ gap: 6 }}>
-          <Eyebrow style={styles.label}>Username</Eyebrow>
+          <Text style={styles.label}>Username</Text>
           <View style={[styles.handleBox, usernameError ? { borderColor: colors.red } : null]}>
             <Text style={styles.at}>@</Text>
             <TextInput
@@ -169,47 +169,38 @@ export default function SettingsScreen() {
         </View>
         <Field label="Program" value={program} onChangeText={setProgram} placeholder="Computer Science" />
         <Field label="Bio" value={bio} onChangeText={setBio} multiline placeholder="A line or two about you" />
-        <View style={{ gap: 6 }}>
-          <Eyebrow style={styles.label}>University</Eyebrow>
-          <View style={styles.chips}>
-            {(universities ?? []).slice(0, 12).map((u) => (
-              <Chip key={u.id} label={u.name} active={universityId === u.id} onPress={() => setUniversityId(u.id)} />
-            ))}
-          </View>
-        </View>
-      </View>
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel} accessibilityRole="header">
-          Privacy
-        </Text>
-        <View style={styles.group}>
-          {SECTIONS.map((section) => (
-            <VisibilityPicker key={section} section={section} value={visibility[section]} onChange={(v) => setVisibility((prev) => ({ ...prev, [section]: v }))} />
+        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.muted }}>University</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {(universities ?? []).slice(0, 12).map((u) => (
+            <Chip key={u.id} label={u.name} active={universityId === u.id} onPress={() => setUniversityId(u.id)} />
           ))}
         </View>
-      </View>
-      <View style={[styles.group, styles.rows]}>
+      </Card>
+      <Card>
+        <Text style={styles.cardTitle} accessibilityRole="header">
+          Privacy
+        </Text>
+        {SECTIONS.map((section) => (
+          <VisibilityPicker key={section} section={section} value={visibility[section]} onChange={(v) => setVisibility((prev) => ({ ...prev, [section]: v }))} />
+        ))}
+      </Card>
+      <Card>
         <ToggleRow label="Notify me about new places within 2 miles of campus" value={notify} onChange={setNotify} />
         <ToggleRow
           label="Show your activity status"
           hint="Others see when you're active, and people you've messaged see when you were last active. Turn it off and you won't see theirs, and messages to you show Seen but not Delivered."
           value={active}
           onChange={setActive}
-          divider
         />
-      </View>
-      {message ? <Text style={[styles.message, { color: message === "Saved." ? colors.successText : colors.red }]}>{message}</Text> : null}
+      </Card>
+      {message ? <Text style={{ color: message === "Saved." ? colors.successText : colors.red }}>{message}</Text> : null}
       <Button title="Save changes" onPress={() => void save()} loading={busy} />
       <ThemeCard />
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel} accessibilityRole="header">
-          Danger zone
-        </Text>
-        <View style={styles.group}>
-          <Text style={styles.body}>Deleting your account removes your profile, posts, messages and saved items for good.</Text>
-          <Button title="Delete my account" variant="danger" icon="trash-outline" onPress={deleteAccount} />
-        </View>
-      </View>
+      <Card>
+        <Text style={{ fontWeight: "700", color: colors.text }}>Danger zone</Text>
+        <Text style={{ color: colors.muted, fontSize: 13 }}>Deleting your account removes your profile, posts, messages and saved items for good.</Text>
+        <Button title="Delete my account" variant="danger" icon="trash-outline" onPress={deleteAccount} />
+      </Card>
     </ScrollView>
   );
 }
@@ -219,11 +210,11 @@ function ThemeCard() {
   const styles = useStyles();
   const { colors, preference, setPreference } = useAppTheme();
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionLabel} accessibilityRole="header">
+    <Card>
+      <Text style={styles.cardTitle} accessibilityRole="header">
         Theme
       </Text>
-      <View style={[styles.group, styles.rows]} accessibilityRole="radiogroup">
+      <View accessibilityRole="radiogroup">
         {THEME_PREFERENCES.map((option, i) => {
           const checked = option.value === preference;
           const hint = option.value === "system" ? SYSTEM_THEME_HINT : undefined;
@@ -241,34 +232,32 @@ function ThemeCard() {
                 <Text style={styles.themeLabel}>{option.label}</Text>
                 {hint ? <Text style={styles.hint}>{hint}</Text> : null}
               </View>
-              {checked ? <Icon name="checkmark" size={20} color={colors.brand} /> : null}
+              {checked ? <Ionicons name="checkmark" size={22} color={colors.brand} /> : null}
             </Pressable>
           );
         })}
       </View>
-    </View>
+    </Card>
   );
 }
 
 /** A setting that is on or off, with an optional line under it saying what it does. */
-function ToggleRow({ label, hint, value, onChange, divider = false }: { label: string; hint?: string; value: boolean; onChange: (v: boolean) => void; divider?: boolean }) {
+function ToggleRow({ label, hint, value, onChange }: { label: string; hint?: string; value: boolean; onChange: (v: boolean) => void }) {
   const styles = useStyles();
   const colors = useColors();
   return (
-    <View style={[styles.toggleRow, divider && styles.rowDivider]}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={{ color: colors.text }}>{label}</Text>
         {hint ? <Text style={styles.hint}>{hint}</Text> : null}
       </View>
-      {/* The system switch (Liquid Glass on iOS 26), tinted with the ink, a selection tick as it flips. */}
       <Switch
         value={value}
         onValueChange={(next) => {
           hapticSelect();
           onChange(next);
         }}
-        trackColor={{ true: colors.brand, false: colors.borderStrong }}
-        ios_backgroundColor={colors.borderStrong}
+        trackColor={{ true: colors.brand }}
         accessibilityLabel={label}
         accessibilityHint={hint}
       />
@@ -277,29 +266,14 @@ function ToggleRow({ label, hint, value, onChange, divider = false }: { label: s
 }
 
 const useStyles = makeStyles((colors) => ({
-  content: { padding: space.lg, gap: space.lg, paddingBottom: space.xxl },
-  photo: { alignItems: "center", gap: space.md, paddingVertical: space.sm },
-  // A section: its eyebrow, then the group of rows under it.
-  section: { gap: space.sm },
-  sectionLabel: { ...type.eyebrow, color: colors.muted, marginLeft: space.xs },
-  // Groups are hairline outlines on the card surface, no shadow: nothing here floats.
-  group: { backgroundColor: colors.card, borderRadius: radius.lg, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, padding: space.lg, gap: space.lg },
-  // A group of rows draws its own hairlines between them instead of a gap.
-  rows: { paddingVertical: space.xs, gap: 0 },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-  toggleRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md },
-  rowLabel: { ...type.bodySmall, color: colors.text },
-  label: { marginLeft: 2 },
-  // The same soft fill and hairline as a Field, with the "@" fixed at the start.
-  handleBox: { flexDirection: "row", alignItems: "center", backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, borderCurve: "continuous", paddingLeft: 14 },
-  at: { fontSize: 16, lineHeight: 20, color: colors.muted, fontWeight: "600" },
-  handleInput: { flex: 1, paddingLeft: 2, paddingRight: 14, paddingVertical: 13, fontSize: 16, lineHeight: 20, color: colors.text },
-  hint: { ...type.footnote, color: colors.muted, marginLeft: 2 },
-  error: { ...type.footnote, color: colors.red, marginLeft: 2 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
-  body: { ...type.caption, color: colors.muted },
-  message: { ...type.caption, fontSize: 14, marginLeft: space.xs },
-  themeRow: { flexDirection: "row", alignItems: "center", gap: space.md, minHeight: 48, paddingVertical: space.sm },
+  label: { fontSize: 13, fontWeight: "600", color: colors.muted },
+  handleBox: { flexDirection: "row", alignItems: "center", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingLeft: 12 },
+  at: { fontSize: 16, color: colors.muted, fontWeight: "600" },
+  handleInput: { flex: 1, paddingLeft: 2, paddingRight: 12, paddingVertical: 11, fontSize: 16, color: colors.text },
+  hint: { color: colors.muted, fontSize: 12 },
+  error: { color: colors.red, fontSize: 12 },
+  cardTitle: { fontWeight: "700", color: colors.text, fontSize: 16 },
+  themeRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 48, paddingVertical: 8 },
   themeDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-  themeLabel: { ...type.body, color: colors.text },
+  themeLabel: { fontSize: 16, color: colors.text },
 }));

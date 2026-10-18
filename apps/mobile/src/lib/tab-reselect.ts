@@ -13,8 +13,7 @@ export function useTabReselect(onReselect: () => void, enabled = true) {
   latest.current = onReselect;
   useEffect(() => {
     if (!enabled) return;
-    // The nearest navigator that sends tabPress: the tab screen's own navigation, or its parent's for a nested stack.
-    const target = (navigation as unknown as { addListener: (e: "tabPress", cb: () => void) => () => void; isFocused: () => boolean });
+    const target = navigation as unknown as { addListener: (e: "tabPress", cb: () => void) => () => void; isFocused: () => boolean };
     return target.addListener("tabPress", () => {
       if (target.isFocused()) requestAnimationFrame(() => latest.current());
     });

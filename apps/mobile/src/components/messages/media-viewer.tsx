@@ -17,11 +17,11 @@ import {
   type NativeSyntheticEvent,
 } from "react-native";
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { makeStyles, useColors } from "@/lib/theme-provider";
-import { Icon } from "@/components/icon";
 
 /** One photo or video in the viewer. `cacheKey` (the storage path) lets a fresh signed URL reuse the cached photo. */
 export type MediaViewerItem = { kind: "image" | "video"; uri: string; cacheKey?: string };
@@ -102,7 +102,7 @@ function ViewerBody({ items, index, onClose }: { items: MediaViewerItem[]; index
       />
       <View style={[styles.top, { paddingTop: insets.top + 6, pointerEvents: "box-none" }]}>
         <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close" style={styles.round}>
-          <Icon name="close" size={24} color={colors.onMedia} />
+          <Ionicons name="close" size={24} color={colors.onMedia} />
         </Pressable>
         {items.length > 1 ? (
           <View style={styles.counter} accessibilityLabel={`${current + 1} of ${items.length}`}>

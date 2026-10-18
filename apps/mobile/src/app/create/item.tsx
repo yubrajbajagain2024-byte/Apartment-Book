@@ -7,9 +7,8 @@ import { MediaPicker } from "@/components/photo-picker";
 import { Button, Chip, Field } from "@/components/ui";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { space, type } from "@/lib/theme";
 import { useColors } from "@/lib/theme-provider";
-import { alertWithHaptic, hapticSuccess } from "@/lib/haptics";
+import { hapticSuccess, alertWithHaptic } from "@/lib/haptics";
 
 export default function CreateItemScreen() {
   const colors = useColors();
@@ -44,27 +43,26 @@ export default function CreateItemScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: space.xxxl }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={{ padding: 12, gap: 12, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
       <FormSection title="Photos">
         <MediaPicker kind="items" userId={user.id} photos={photos} onPhotos={setPhotos} />
       </FormSection>
       <FormSection title="What are you selling?">
         <Field label="Title" value={f.title} onChangeText={(v) => set("title", v)} placeholder="Queen mattress, 1 year old" error={errors.title} />
         <Field label="Price (USD, 0 = free)" value={f.price} onChangeText={(v) => set("price", v)} keyboardType="decimal-pad" placeholder="80" error={errors.price} />
-        {/* The same small grey label as a Field's, in the form's own words (so no small caps). */}
-        <Text style={{ ...type.caption, fontWeight: "600", color: colors.muted, marginLeft: 2 }}>Category</Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.muted }}>Category</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {ITEM_CATEGORIES.map((c) => (
             <Chip key={c.value} label={c.label} active={f.category === c.value} onPress={() => set("category", c.value)} />
           ))}
         </View>
-        {errors.category ? <Text style={{ ...type.footnote, color: colors.red, marginLeft: 2 }}>{errors.category}</Text> : null}
-        <Text style={{ ...type.caption, fontWeight: "600", color: colors.muted, marginLeft: 2 }}>Condition</Text>
+        {errors.category ? <Text style={{ color: colors.red, fontSize: 12 }}>{errors.category}</Text> : null}
+        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.muted }}>Condition</Text>
         <Segmented options={ITEM_CONDITIONS.map((c) => ({ value: c.value, label: c.label }))} value={f.condition} onChange={(v) => set("condition", v)} />
         <Field label="Description" value={f.description} onChangeText={(v) => set("description", v)} multiline placeholder="Size, brand, any wear, why you're selling" error={errors.description} />
         <Field label="Pickup location" value={f.pickupLocation} onChangeText={(v) => set("pickupLocation", v)} placeholder="Near campus" />
       </FormSection>
-      <Button title="Post item" onPress={() => void submit()} loading={busy} style={{ marginTop: space.sm }} />
+      <Button title="Post item" onPress={() => void submit()} loading={busy} />
     </ScrollView>
   );
 }

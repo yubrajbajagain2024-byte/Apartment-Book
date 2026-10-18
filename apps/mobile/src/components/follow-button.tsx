@@ -75,7 +75,6 @@ export function FollowButton({ targetId, stats, userId, onNeedLogin, compact, on
     <Button
       title={label}
       variant={follow.followedByMe ? "secondary" : "primary"}
-      size={compact ? "sm" : "md"}
       icon={compact ? undefined : follow.followedByMe ? "checkmark" : "person-add-outline"}
       accessibilityLabel={label}
       accessibilityState={{ selected: follow.followedByMe }}
@@ -87,5 +86,5 @@ export function FollowButton({ targetId, stats, userId, onNeedLogin, compact, on
 }
 
 const styles = StyleSheet.create({
-  compact: { minWidth: 104 },
+  compact: { minHeight: 32, paddingHorizontal: 14, minWidth: 104 },
 });

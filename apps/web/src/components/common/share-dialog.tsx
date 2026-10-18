@@ -236,11 +236,11 @@ function ShareSheet({ sharedPost, url, onClose, currentUser }: Omit<ShareDialogP
     <div role="dialog" aria-modal="true" aria-label="Share" onKeyDown={onKeyDown} className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4">
       <div aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-black/40" />
       {/* Focusable but not a Tab stop: a click anywhere on the sheet keeps the focus, and with it the keys, inside. */}
-      <div ref={panelRef} tabIndex={-1} className="ab-fade-in relative flex max-h-[85dvh] w-full flex-col rounded-t-[20px] bg-white pb-[env(safe-area-inset-bottom)] shadow-float ring-1 ring-gray-200 focus:outline-none sm:max-h-[min(44rem,90dvh)] sm:w-[420px] sm:rounded-[14px]" data-testid="share-dialog">
+      <div ref={panelRef} tabIndex={-1} className="ab-fade-in relative flex max-h-[85dvh] w-full flex-col rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl focus:outline-none sm:max-h-[min(44rem,90dvh)] sm:w-[420px] sm:rounded-2xl" data-testid="share-dialog">
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
-          <h2 className="font-display text-xl tracking-tight text-gray-900">Share</h2>
-          <button type="button" onClick={onClose} aria-label="Close" data-autofocus={signedIn ? undefined : ""} className="ab-press flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">
-            <X className="h-5 w-5" strokeWidth={1.75} />
+          <h2 className="text-base font-semibold text-gray-900">Share</h2>
+          <button type="button" onClick={onClose} aria-label="Close" data-autofocus={signedIn ? undefined : ""} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">
+            <X className="h-5 w-5" />
           </button>
         </header>
 
@@ -274,7 +274,7 @@ function ShareSheet({ sharedPost, url, onClose, currentUser }: Omit<ShareDialogP
                 aria-label="Search friends"
                 autoComplete="off"
                 data-autofocus=""
-                className="h-10 w-full rounded-full bg-gray-100 pl-9 pr-9 text-sm text-gray-900 transition-colors placeholder:text-gray-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-gray-900"
+                className="h-10 w-full rounded-full bg-gray-100 pl-9 pr-9 text-sm text-gray-900 placeholder:text-gray-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-200"
               />
               {searching && friends !== null ? <Spinner className="absolute right-7 top-[calc(50%+0.375rem)] h-4 w-4 -translate-y-1/2 text-gray-400" /> : null}
             </div>
@@ -298,10 +298,10 @@ function ShareSheet({ sharedPost, url, onClose, currentUser }: Omit<ShareDialogP
                 </ul>
               ) : friends.list.length === 0 && friends.q === "" ? (
                 <div className="flex flex-col items-center gap-3 py-8 text-center">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full text-gray-900 ring-1 ring-gray-200">
-                    <Users className="h-5 w-5" strokeWidth={1.75} />
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+                    <Users className="h-6 w-6" />
                   </span>
-                  <p className="text-sm text-gray-500">Friends you follow back show up here.</p>
+                  <p className="text-sm text-gray-600">Friends you follow back show up here.</p>
                   <button
                     type="button"
                     onClick={() => {
@@ -327,12 +327,12 @@ function ShareSheet({ sharedPost, url, onClose, currentUser }: Omit<ShareDialogP
                           aria-label={friend.full_name}
                           aria-pressed={on}
                           aria-disabled={busy || undefined}
-                          className="ab-press flex w-full flex-col items-center gap-1.5 rounded-xl p-1 text-center hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 aria-disabled:cursor-default aria-disabled:opacity-60 aria-disabled:hover:bg-transparent"
+                          className="flex w-full flex-col items-center gap-1.5 rounded-xl p-1 text-center hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 aria-disabled:cursor-default aria-disabled:opacity-60 aria-disabled:hover:bg-transparent"
                         >
                           <span className="relative">
-                            <Avatar name={friend.full_name} src={friend.avatar_url} size="lg" className={cn("h-16 w-16 text-lg ring-2 ring-offset-2 ring-offset-white transition-shadow", on ? "ring-gray-900" : "ring-transparent")} />
+                            <Avatar name={friend.full_name} src={friend.avatar_url} size="lg" className={cn("h-16 w-16 text-lg ring-2 ring-offset-2 transition-shadow", on ? "ring-brand-600" : "ring-transparent")} />
                             {on ? (
-                              <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-gray-900 text-white ring-2 ring-white">
+                              <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-white ring-2 ring-white">
                                 <Check className="h-3.5 w-3.5" strokeWidth={3} />
                               </span>
                             ) : null}
@@ -360,7 +360,7 @@ function ShareSheet({ sharedPost, url, onClose, currentUser }: Omit<ShareDialogP
                     placeholder="Write a message…"
                     aria-label="Write a message"
                     disabled={status !== "idle"}
-                    className="mb-2 max-h-24 min-h-10 w-full resize-none rounded-[14px] bg-gray-100 px-4 py-2.5 text-sm text-gray-900 transition-colors placeholder:text-gray-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:opacity-60"
+                    className="mb-2 max-h-24 min-h-10 w-full resize-none rounded-2xl bg-gray-100 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-200 disabled:opacity-60"
                   />
                 </>
               ) : null}
@@ -370,7 +370,7 @@ function ShareSheet({ sharedPost, url, onClose, currentUser }: Omit<ShareDialogP
                 disabled={picked.length === 0}
                 // Not disabled while sending: a focused button that turns disabled drops the focus out of the sheet. send() ignores the presses.
                 aria-disabled={busy || undefined}
-                className={cn(buttonClasses({ className: "h-11 w-full aria-disabled:pointer-events-none" }), status === "sending" && "opacity-50")}
+                className={cn(buttonClasses({ className: "h-11 w-full rounded-xl aria-disabled:pointer-events-none" }), status === "sending" && "opacity-50")}
               >
                 {status === "sending" ? <Spinner className="h-4 w-4" /> : status === "sent" ? <Check className="h-4 w-4" strokeWidth={3} /> : null}
                 {sendLabel}
@@ -389,10 +389,10 @@ function ShareSheet({ sharedPost, url, onClose, currentUser }: Omit<ShareDialogP
         ) : (
           <div className="px-4 py-3">
             <div className="flex flex-col items-center gap-3 py-6 text-center">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full text-gray-900 ring-1 ring-gray-200">
-                <Users className="h-5 w-5" strokeWidth={1.75} />
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+                <Users className="h-6 w-6" />
               </span>
-              <p className="text-sm text-gray-500">Send posts, reels and listings straight to friends you follow back.</p>
+              <p className="text-sm text-gray-600">Send posts, reels and listings straight to friends you follow back.</p>
               <Link href={`/login?next=${encodeURIComponent(nextPath)}`} className={buttonClasses({ size: "sm" })}>
                 Log in to share with friends
               </Link>
@@ -412,16 +412,16 @@ function ShareSheet({ sharedPost, url, onClose, currentUser }: Omit<ShareDialogP
 
 /** The row under Send: copying the link and, where the browser has a system share sheet (phones, Safari), "Share to…". */
 function SecondaryActions({ copied, onCopy, onShare }: { copied: boolean; onCopy: () => void; onShare?: () => void }) {
-  const item = "ab-press inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-100";
+  const item = "inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-gray-800 hover:bg-gray-100";
   return (
     <div className="mt-2 flex flex-wrap items-center justify-center gap-1">
       <button type="button" onClick={onCopy} className={item}>
-        {copied ? <Check className="h-4 w-4 text-green-600" /> : <Link2 className="h-4 w-4" strokeWidth={1.75} />}
+        {copied ? <Check className="h-4 w-4 text-brand-600" /> : <Link2 className="h-4 w-4" />}
         {copied ? "Link copied" : "Copy link"}
       </button>
       {onShare ? (
         <button type="button" onClick={onShare} className={item}>
-          <Share className="h-4 w-4" strokeWidth={1.75} />
+          <Share className="h-4 w-4" />
           Share to…
         </button>
       ) : null}

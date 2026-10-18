@@ -3,17 +3,16 @@ import { RefreshControl, Text, View, type FlatList, type NativeScrollEvent, type
 import { formatDistance, formatPrice, isVerifiedPoster, KM_PER_MILE, listApartments, listingMedia, type ApartmentWithOwner } from "@apartment-book/shared";
 import type { RoomFilters } from "@/components/housing/filter-sheet";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
-import { EmptyState, ErrorBanner, FeedSkeleton, Tag, useAppearingCells } from "@/components/ui";
+import { Badge, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useTabBarInset } from "@/lib/tab-bar";
-import { space, type } from "@/lib/theme";
 import { useColors } from "@/lib/theme-provider";
 import { useEngagement } from "@/lib/use-engagement";
-import { refreshWithHaptic } from "@/lib/haptics";
 import { useTabReselect } from "@/lib/tab-reselect";
+import { refreshWithHaptic } from "@/lib/haptics";
 
 /**
  * The Apartments half of the Explore tab: the listings feed, starting `topInset` under the floating labels and pills and
@@ -32,11 +31,10 @@ export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filt
   );
   const { savedIds, engagement } = useEngagement("apartment", feed.items, user?.id ?? null);
   const inset = useMemo(() => listInset(topInset), [topInset]);
-  const tabBar = useTabBarInset();
   // Tapping Explore again while Room is on screen: back to the top.
   const listRef = useRef<FlatList<ApartmentWithOwner>>(null);
-  const appearCells = useAppearingCells();
   useTabReselect(() => listRef.current?.scrollToOffset({ offset: inset.topOffset, animated: true }), active);
+  const tabBar = useTabBarInset();
 
   return (
     <View style={{ flex: 1 }}>
@@ -48,7 +46,6 @@ export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filt
         onScroll={onScroll}
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: 90 + tabBar, paddingTop: inset.paddingTop }}
-        CellRendererComponent={appearCells}
         renderItem={({ item: a }) => (
           <PostCard
             targetType="apartment"
@@ -63,19 +60,17 @@ export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filt
             createdAt={a.created_at}
             saved={savedIds.has(a.id)}
             engagement={engagement[a.id]}
-            // The listing's facts as quiet hairline capsules under its words.
             details={
               <>
-                {a.furnished ? <Tag label="Furnished" /> : null}
-                {a.utilities_included ? <Tag label="Utilities included" /> : null}
-                {a.pets_allowed ? <Tag label="Pets OK" /> : null}
+                {a.furnished ? <Badge label="Furnished" tone="blue" /> : null}
+                {a.utilities_included ? <Badge label="Utilities included" tone="green" /> : null}
+                {a.pets_allowed ? <Badge label="Pets OK" /> : null}
               </>
             }
           />
         )}
-        // While the first page loads the feed keeps its shape: two posts drawn as grey blocks, no spinner.
-        ListEmptyComponent={feed.loading ? <FeedSkeleton rows={2} /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon={filtered || q ? "search-outline" : "home-outline"} title={filtered || q ? "No apartments match" : "No apartments yet"} body={filtered ? "Try fewer filters." : q ? "Try another word." : "Be the first to list a place."} />}
-        ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ ...type.caption, textAlign: "center", color: colors.faint, paddingVertical: space.md }}>Loading more…</Text> : null}
+        ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon={filtered || q ? "search-outline" : "home-outline"} title={filtered || q ? "No apartments match" : "No apartments yet"} body={filtered ? "Try fewer filters." : q ? "Try another word." : "Be the first to list a place."} />}
+        ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : null}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
         refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={refreshWithHaptic(feed.refresh)} progressViewOffset={inset.progressViewOffset} />}

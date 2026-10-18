@@ -11,7 +11,7 @@ export default async function NotificationsPage() {
   const notifications = await listNotifications(await createClient(), { limit: 30 }).catch(() => []);
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
-      <h1 className="font-display text-3xl tracking-tight text-gray-900">Notifications</h1>
+      <h1 className="text-2xl font-bold">Notifications</h1>
       <NotificationList initial={notifications} />
     </div>
   );

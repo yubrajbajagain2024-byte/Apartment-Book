@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View, type LayoutRectangle, type StyleProp, type TextStyle } from "react-native";
-import { Icon } from "@/components/icon";
+import { Ionicons } from "@expo/vector-icons";
 
 /**
  * The sliding underline is laid out this wide and scaled to each label: the native driver animates transforms but not
@@ -151,7 +151,7 @@ export function SlidingTabs<T extends string>({
                   <Text style={[styles.label, { fontSize }, styles.text, { color: active ? labelColor : dimColor }, active && styles.bold, textStyle]} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>{s.label}</Text>
                 )}
               </View>
-              {(Array.isArray(caret) ? (caret as readonly T[]).includes(s.value) : caret === s.value) ? <Icon name="chevron-down" size={14} color={active ? labelColor : dimColor} style={[styles.caret, textStyle]} /> : null}
+              {(Array.isArray(caret) ? (caret as readonly T[]).includes(s.value) : caret === s.value) ? <Ionicons name="chevron-down" size={14} color={active ? labelColor : dimColor} style={[styles.caret, textStyle]} /> : null}
             </View>
             {slide ? null : <View style={[styles.underline, styles.staticUnderline, { backgroundColor: active ? tint : "transparent" }]} />}
           </Pressable>
@@ -171,12 +171,12 @@ const styles = StyleSheet.create({
   // The label and, for one section, the chevron after it: what the underline is measured against.
   labelBox: { flexDirection: "row", alignItems: "center", gap: 1 },
   caret: { marginTop: 1 },
-  label: { fontSize: 15, fontWeight: "500", letterSpacing: -0.1 },
-  bold: { fontWeight: "700" },
+  label: { fontSize: 15, fontWeight: "600" },
+  bold: { fontWeight: "800" },
   ghost: { opacity: 0 },
   text: { position: "absolute", top: 0, left: 0, right: 0, textAlign: "center" },
   // The same bottom edge for the static underline (spanning its label) and the sliding one (scaled to the label), so nothing jumps when one replaces the other.
-  underline: { position: "absolute", bottom: 0, height: 2, borderRadius: 1 },
+  underline: { position: "absolute", bottom: 0, height: 3, borderRadius: 2 },
   staticUnderline: { left: 0, right: 0 },
   slidingUnderline: { left: 0, width: BASE_WIDTH },
 });

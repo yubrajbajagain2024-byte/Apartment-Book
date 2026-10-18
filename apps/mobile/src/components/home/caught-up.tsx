@@ -1,7 +1,6 @@
 import { Text, View } from "react-native";
-import { type } from "@/lib/theme";
+import { Ionicons } from "@expo/vector-icons";
 import { makeStyles, useColors } from "@/lib/theme-provider";
-import { Icon } from "@/components/icon";
 
 /** The end of a Home feed: a small mark and "You're all caught up.", centred under the last post. */
 export function CaughtUp() {
@@ -9,13 +8,13 @@ export function CaughtUp() {
   const colors = useColors();
   return (
     <View style={styles.row}>
-      <Icon name="ellipse-outline" size={14} color={colors.faint} />
+      <Ionicons name="disc-outline" size={18} color={colors.muted} />
       <Text style={styles.text}>You're all caught up.</Text>
     </View>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
-  row: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingTop: 32, paddingBottom: 24 },
-  text: { ...type.aside, color: colors.muted },
+  row: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, paddingTop: 28, paddingBottom: 20 },
+  text: { fontSize: 14, color: colors.muted },
 }));

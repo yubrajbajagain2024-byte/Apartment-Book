@@ -48,15 +48,15 @@ export function NavTabs({ unread, userId }: { unread: number; userId: string | n
             key={tab.href}
             href={tab.href}
             className={cn(
-              "relative flex w-20 flex-col items-center justify-center gap-0.5 border-b-2 text-[11px] font-semibold tracking-[0.02em] transition-colors lg:w-24 xl:w-28",
+              "relative flex w-20 flex-col items-center justify-center gap-0.5 border-b-[3px] text-xs font-medium transition-colors lg:w-24 xl:w-28",
               active
-                ? "border-gray-900 text-gray-900"
-                : "border-transparent text-gray-500 hover:text-gray-900",
+                ? "border-brand-600 text-brand-600"
+                : "border-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800",
             )}
             aria-current={active ? "page" : undefined}
           >
             <span className="relative">
-              <Icon className="h-6 w-6" strokeWidth={active ? 2.25 : 2} />
+              <Icon className="h-6 w-6" />
               {tab.href === "/messages" && userId ? <UnreadBadge initial={unread} userId={userId} /> : null}
             </span>
             {tab.label}

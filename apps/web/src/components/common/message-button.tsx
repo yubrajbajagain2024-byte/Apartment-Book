@@ -44,7 +44,7 @@ export function MessageButton({
   if (currentUserId === userId) return null;
   const listing = target && target.type !== "post" ? { type: target.type, id: target.id } : null;
 
-  const actionClasses = "ab-press inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-100 disabled:opacity-60";
+  const actionClasses = "inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-gray-800 hover:bg-gray-100 disabled:opacity-60";
 
   if (!currentUserId) {
     const href = `/login?next=${encodeURIComponent(returnTo)}`;

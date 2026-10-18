@@ -104,7 +104,7 @@ export function BuzzImageUploader({ name = "images", metaName = "imageMeta", max
         }}
         onDragLeave={() => setOver(false)}
         onDrop={onDrop}
-        className={cn("rounded-xl border border-dashed p-3 transition-colors", over ? "border-gray-900 bg-brand-50" : "border-gray-300")}
+        className={cn("rounded-xl border-2 border-dashed p-3 transition-colors", over ? "border-brand-500 bg-brand-50" : "border-gray-300")}
       >
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {items.map((item, index) => (
@@ -118,7 +118,7 @@ export function BuzzImageUploader({ name = "images", metaName = "imageMeta", max
                   <span className="text-[10px] font-medium">Removing details…</span>
                 </div>
               ) : null}
-              {item.status === "error" ? <div className="absolute inset-0 flex items-end bg-black/60 p-1.5 text-[10px] font-medium leading-tight text-white">{item.error}</div> : null}
+              {item.status === "error" ? <div className="absolute inset-0 flex items-end bg-gradient-to-t from-red-900/80 to-transparent p-1.5 text-[10px] font-medium leading-tight text-white">{item.error}</div> : null}
 
               <button
                 type="button"
@@ -131,10 +131,10 @@ export function BuzzImageUploader({ name = "images", metaName = "imageMeta", max
 
               {item.status === "done" && items.length > 1 ? (
                 <div className="absolute inset-x-1 bottom-1 flex items-center justify-between gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-                  <button type="button" onClick={() => move(index, index - 1)} disabled={index === 0} className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-gray-800 disabled:opacity-0" aria-label="Move photo left">
+                  <button type="button" onClick={() => move(index, index - 1)} disabled={index === 0} className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow disabled:opacity-0" aria-label="Move photo left">
                     <ArrowLeft className="h-3.5 w-3.5" />
                   </button>
-                  <button type="button" onClick={() => move(index, index + 1)} disabled={index === items.length - 1} className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-gray-800 disabled:opacity-0" aria-label="Move photo right">
+                  <button type="button" onClick={() => move(index, index + 1)} disabled={index === items.length - 1} className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow disabled:opacity-0" aria-label="Move photo right">
                     <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -143,8 +143,8 @@ export function BuzzImageUploader({ name = "images", metaName = "imageMeta", max
           ))}
 
           {used < max ? (
-            <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 bg-white text-xs font-medium text-gray-600 transition-colors hover:border-gray-900 hover:text-gray-900">
-              <ImagePlus className="h-6 w-6" strokeWidth={1.75} />
+            <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-300 bg-white text-xs font-medium text-gray-600 hover:border-brand-500 hover:text-brand-600">
+              <ImagePlus className="h-6 w-6" />
               Add photos
               <input ref={inputRef} type="file" accept={ACCEPT} multiple className="sr-only" onChange={(e) => addFiles(e.target.files)} />
             </label>
@@ -154,7 +154,7 @@ export function BuzzImageUploader({ name = "images", metaName = "imageMeta", max
 
       <div className="flex flex-wrap items-start justify-between gap-2 text-xs text-gray-500">
         <span className="inline-flex items-start gap-1.5">
-          <ShieldCheck className="mt-px h-4 w-4 shrink-0 text-gray-500" strokeWidth={1.75} />
+          <ShieldCheck className="mt-px h-4 w-4 shrink-0 text-brand-600" />
           Location and camera details are removed from every photo before it is uploaded. Check that nothing in the picture itself shows who you are.
         </span>
         <span className="font-medium text-gray-700">

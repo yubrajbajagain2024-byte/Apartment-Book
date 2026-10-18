@@ -100,7 +100,7 @@ export function ProfileGrid({
         ))}
       </ul>
       {state.tiles.length === 0 && !state.hasMore && !error && emptyText ? (
-        <p className="px-6 py-14 text-center font-display text-xl tracking-tight text-gray-900" data-testid="profile-empty">
+        <p className="px-6 py-14 text-center text-base font-semibold text-gray-900" data-testid="profile-empty">
           {emptyText}
         </p>
       ) : null}
@@ -117,7 +117,7 @@ export function ProfileGrid({
               onClick={() => void loadMore()}
               // Not disabled while loading: a focused button that turns disabled drops the focus. loadMore ignores the extra presses.
               aria-disabled={loading || undefined}
-              className="ab-press inline-flex h-9 items-center gap-2 rounded-full bg-gray-100 px-5 text-sm font-semibold text-gray-900 hover:bg-gray-200 aria-disabled:opacity-60"
+              className="inline-flex h-9 items-center gap-2 rounded-full bg-gray-100 px-5 text-sm font-semibold text-gray-900 hover:bg-gray-200 aria-disabled:opacity-60"
               data-testid="profile-grid-more"
             >
               {loading ? <Spinner className="h-4 w-4" /> : null}
@@ -141,8 +141,8 @@ function tileLabel(tile: ProfileTile): string {
 /** One square: the cover (or the words of a text post), views bottom-left, a pin or the several-photos mark top-right. */
 export function GridTile({ tile, eager }: { tile: ProfileTile; eager?: boolean }) {
   const picture = Boolean(tile.imageUrl);
-  // White with a soft shadow over pictures; grey on the quiet panel behind a text post.
-  const ink = picture ? "text-white drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.65)]" : "text-gray-500";
+  // White with a soft shadow over pictures; dark grey on the pale card behind a text post.
+  const ink = picture ? "text-white drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.65)]" : "text-gray-600";
   const badge = LISTING_BADGE[tile.type];
   const BadgeIcon = badge?.icon;
   const CountIcon = tile.isVideo ? Play : Eye;
@@ -150,15 +150,14 @@ export function GridTile({ tile, eager }: { tile: ProfileTile; eager?: boolean }
     <Link
       href={tile.href}
       aria-label={tileLabel(tile)}
-      className="group relative block aspect-[3/4] overflow-hidden bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-400"
+      className="group relative block aspect-[3/4] overflow-hidden bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
       data-testid="profile-tile"
     >
       {tile.imageUrl ? (
         <TileImage src={tile.imageUrl} sizes={TILE_SIZES} eager={eager} className="transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none" />
       ) : (
-        // A post of words only reads like a pull quote: the serif on the quiet panel colour.
-        <span className="absolute inset-0 flex items-center justify-center bg-gray-50 px-3 pb-7 pt-3">
-          <span className="line-clamp-6 whitespace-pre-line break-words text-center font-display text-[15px] leading-snug tracking-tight text-gray-900">{tile.text ?? ""}</span>
+        <span className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-brand-100 via-brand-50 to-gray-100 px-3 pb-7 pt-3">
+          <span className="line-clamp-6 whitespace-pre-line break-words text-center text-[13px] font-medium leading-snug text-gray-800">{tile.text ?? ""}</span>
         </span>
       )}
       {picture ? <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent" /> : null}

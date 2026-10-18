@@ -4,7 +4,7 @@ import { getOrCreateDirectConversation } from "@apartment-book/shared";
 import { useOnlineUsers } from "@/lib/presence";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { radius, space, type } from "@/lib/theme";
+import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Avatar } from "./avatar";
 
@@ -20,11 +20,11 @@ export function OnlineStrip() {
   return (
     <View style={styles.wrap} accessibilityLabel="Online now">
       <Text style={styles.heading}>Online now</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.md, paddingHorizontal: space.md, paddingBottom: space.md }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingHorizontal: 12, paddingBottom: 10 }}>
         {people.map((p) => (
           <Pressable
             key={p.id}
-            style={({ pressed }) => [{ width: 60, alignItems: "center", gap: space.xs }, pressed && { opacity: 0.7 }]}
+            style={{ width: 60, alignItems: "center", gap: 4 }}
             accessibilityRole="button" accessibilityLabel={`Message ${p.full_name}`}
             onPress={async () => {
               const id = await getOrCreateDirectConversation(supabase, p.id).catch(() => null);
@@ -44,7 +44,7 @@ export function OnlineStrip() {
 
 const useStyles = makeStyles((colors) => ({
   // Outlined like Card, so the strip still stands apart from the feed in both themes.
-  wrap: { backgroundColor: colors.card, borderRadius: radius.lg, borderCurve: "continuous", paddingTop: space.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  heading: { ...type.label, fontSize: 13, color: colors.muted, paddingHorizontal: space.md, paddingBottom: space.sm },
-  name: { ...type.footnote, fontSize: 11, color: colors.text },
+  wrap: { backgroundColor: colors.card, borderRadius: radius.lg, paddingTop: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  heading: { fontSize: 13, fontWeight: "700", color: colors.muted, paddingHorizontal: 12, paddingBottom: 8 },
+  name: { fontSize: 11, color: colors.text },
 }));

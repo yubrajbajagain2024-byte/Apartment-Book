@@ -6,19 +6,11 @@ import { GraduationCap, Plus, X } from "lucide-react";
 import { classCodeProblem, classDetails, classSectionProblem, classSubjectProblem, CLASS_LOCATION_MAX, courseNumberProblem, expandMeetings, joinClassCode, locationProblem, MAX_CLASS_MEETINGS, meetingsProblem, mergeMeetingSlots, shiftClockTime, weekdayLabel, WEEKDAYS, type ClassMeeting, type MeetingSlot, type ProfileClass, type Weekday } from "@apartment-book/shared";
 import { addClassAction, removeClassAction } from "@/lib/actions/profile-page";
 import { cn } from "@/lib/utils";
-import { buttonClasses } from "@/components/ui/button";
-import { inputClasses } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 
 export type ClassGroup = { term: string; current: boolean; classes: ProfileClass[] };
 
 const CLASS_TITLE_MAX = 80;
-/** The form's fields: the site's soft-fill input, a little shorter; class codes are typed in capitals. */
-const FIELD = cn(inputClasses, "h-10 px-3");
-const CODE_FIELD = cn(FIELD, "uppercase placeholder:normal-case");
-/** The label over each field, the same eyebrow Field draws. */
-const LABEL = "flex flex-col gap-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500";
-const LEGEND = "mb-2 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500";
 
 /**
  * The Classes tab: classes grouped by semester, this one first. The owner adds them (subject and course number, kept as
@@ -145,9 +137,9 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
     <div className="flex flex-col gap-4 px-4 py-4" data-testid="profile-classes">
       {isOwner ? (
         adding ? (
-          <form onSubmit={submit} className="flex flex-col gap-4 rounded-xl bg-gray-50 p-4 ring-1 ring-gray-200" aria-label="Add a class" data-testid="profile-class-form">
+          <form onSubmit={submit} className="flex flex-col gap-3 rounded-xl bg-gray-50 p-3.5 ring-1 ring-gray-100" aria-label="Add a class" data-testid="profile-class-form">
             <div className="grid gap-3 sm:grid-cols-[6rem_7rem_6rem_1fr_1fr]">
-              <label className={LABEL}>
+              <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
                 Subject
                 <input
                   ref={subjectRef}
@@ -162,10 +154,10 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                   required
                   title="The letters of the class code, like CS or MATH"
                   aria-invalid={formError ? true : undefined}
-                  className={CODE_FIELD}
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm uppercase text-gray-900 placeholder:normal-case placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 aria-[invalid=true]:border-red-500"
                 />
               </label>
-              <label className={LABEL}>
+              <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
                 Course number
                 <input
                   ref={numberRef}
@@ -179,10 +171,10 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                   spellCheck={false}
                   required
                   title="The number of the class code, like 3358"
-                  className={CODE_FIELD}
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm uppercase text-gray-900 placeholder:normal-case placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 />
               </label>
-              <label className={LABEL}>
+              <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
                 Section
                 <input
                   ref={sectionRef}
@@ -196,10 +188,10 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                   spellCheck={false}
                   required
                   title="Classmates in the same section share a group chat"
-                  className={CODE_FIELD}
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm uppercase text-gray-900 placeholder:normal-case placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 />
               </label>
-              <label className={LABEL}>
+              <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
                 Location (optional)
                 <input
                   name="location"
@@ -208,10 +200,10 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                   placeholder="Derrick Hall 240"
                   maxLength={CLASS_LOCATION_MAX}
                   autoComplete="off"
-                  className={FIELD}
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 />
               </label>
-              <label className={LABEL}>
+              <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
                 Class name (optional)
                 <input
                   name="title"
@@ -220,20 +212,20 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                   placeholder="Data Structures"
                   maxLength={CLASS_TITLE_MAX}
                   autoComplete="off"
-                  className={FIELD}
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 />
               </label>
             </div>
             <MeetingsEditor meetings={meetings} onChange={setMeetings} />
             <fieldset className="flex flex-col gap-1.5">
-              <legend className={LEGEND}>Semester</legend>
+              <legend className="mb-1.5 text-sm font-medium text-gray-800">Semester</legend>
               <div className="flex flex-wrap gap-2">
                 {terms.map((t, i) => (
                   <label
                     key={t}
                     className={cn(
-                      "ab-press inline-flex h-8 cursor-pointer items-center rounded-full px-3 text-[13px] font-semibold ring-1 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gray-400",
-                      term === t ? "bg-gray-900 text-white ring-gray-900" : "bg-white text-gray-800 ring-gray-200 hover:bg-gray-50",
+                      "inline-flex h-8 cursor-pointer items-center rounded-full px-3 text-[13px] font-semibold ring-1 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-500",
+                      term === t ? "bg-gray-900 text-white ring-gray-900" : "bg-white text-gray-800 ring-gray-300 hover:bg-gray-100",
                     )}
                   >
                     <input type="radio" name="term" value={t} checked={term === t} onChange={() => setTerm(t)} className="sr-only" />
@@ -249,17 +241,17 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
               </p>
             ) : null}
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={closeForm} className={buttonClasses({ variant: "ghost", size: "sm" })}>
+              <button type="button" onClick={closeForm} className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-gray-700 hover:bg-gray-200">
                 Done
               </button>
-              <button type="submit" aria-disabled={saving || undefined} className={buttonClasses({ size: "sm", className: "aria-disabled:opacity-60" })}>
+              <button type="submit" aria-disabled={saving || undefined} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 aria-disabled:opacity-60">
                 {saving ? <Spinner className="h-4 w-4" /> : null}
                 Add
               </button>
             </div>
           </form>
         ) : (
-          <div className={cn("flex items-center gap-3", empty && "flex-col py-8 text-center")}>
+          <div className={cn("flex items-center gap-3", empty && "flex-col py-6 text-center")}>
             {notice ? (
               <p role="status" className="text-sm text-green-700" data-testid="profile-class-added">
                 {notice}
@@ -267,12 +259,12 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
             ) : null}
             {empty ? (
               <>
-                <span className="flex h-12 w-12 items-center justify-center rounded-full text-gray-900 ring-1 ring-gray-200">
-                  <GraduationCap className="h-5 w-5" strokeWidth={1.75} />
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-700">
+                  <GraduationCap className="h-6 w-6" />
                 </span>
                 <div>
-                  <p className="font-display text-xl tracking-tight text-gray-900">Add your classes</p>
-                  <p className="mt-1 text-sm text-gray-500">Show classmates which classes you are taking this semester.</p>
+                  <p className="text-sm font-semibold text-gray-900">Add your classes</p>
+                  <p className="mt-0.5 text-sm text-gray-500">Show classmates which classes you are taking this semester.</p>
                 </div>
               </>
             ) : null}
@@ -280,7 +272,7 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
               ref={addButtonRef}
               type="button"
               onClick={openForm}
-              className={buttonClasses({ variant: "secondary", size: "sm", className: cn(!empty && "ml-auto") })}
+              className={cn("inline-flex h-9 items-center gap-1.5 rounded-lg bg-gray-100 px-3.5 text-sm font-semibold text-gray-900 hover:bg-gray-200", !empty && "ml-auto")}
               data-testid="profile-add-class"
             >
               <Plus className="h-4 w-4" /> Add class
@@ -297,28 +289,28 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
 
       {empty ? (
         isOwner ? null : (
-          <div className="flex flex-col items-center gap-3 py-12 text-center">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full text-gray-900 ring-1 ring-gray-200">
-              <GraduationCap className="h-5 w-5" strokeWidth={1.75} />
+          <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-700">
+              <GraduationCap className="h-6 w-6" />
             </span>
-            <p className="font-display text-xl tracking-tight text-gray-900">No classes listed</p>
+            <p className="text-sm font-semibold text-gray-900">No classes listed</p>
           </div>
         )
       ) : (
         visible.map((group) => (
           <section key={group.term} aria-label={group.term} className="flex flex-col gap-2">
-            <h3 className="font-display text-base tracking-tight text-gray-900">
+            <h3 className="text-sm font-semibold text-gray-900">
               {group.term}
               {group.current ? <span className="font-normal text-gray-500"> · This semester</span> : null}
             </h3>
             <ul className="grid gap-2 sm:grid-cols-2">
               {group.classes.map((item) => (
-                <li key={item.id} className="flex items-center gap-3 rounded-xl bg-white px-3 py-2.5 ring-1 ring-gray-200" data-testid="profile-class">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-900 ring-1 ring-gray-200">
-                    <GraduationCap className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                <li key={item.id} className="flex items-center gap-3 rounded-xl bg-gray-50 px-3 py-2.5 ring-1 ring-gray-100" data-testid="profile-class">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-gray-700 ring-1 ring-gray-200">
+                    <GraduationCap className="h-4 w-4" aria-hidden="true" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-gray-900">{item.code}</span>
+                    <span className="block text-sm font-bold text-gray-900">{item.code}</span>
                     {item.title ? <span className="block truncate text-xs text-gray-500">{item.title}</span> : null}
                     {classDetails(item) ? <span className="block truncate text-xs text-gray-500">{classDetails(item)}</span> : null}
                   </span>
@@ -327,7 +319,7 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                       type="button"
                       onClick={() => remove(item)}
                       aria-label={`Remove ${item.code}`}
-                      className="ab-press flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-900"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -369,10 +361,10 @@ function MeetingsEditor({ meetings, onChange }: { meetings: ClassMeeting[]; onCh
     commit([...slots, { day, start, end: shiftClockTime(start, 50) }]);
   }
 
-  const timeClass = cn(inputClasses, "h-9 px-2");
+  const timeClass = "h-9 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100";
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className={LEGEND}>Meeting days and times (optional)</legend>
+      <legend className="mb-1.5 text-sm font-medium text-gray-800">Meeting days and times (optional)</legend>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Days the class meets">
         {WEEKDAYS.map((d) => {
           const on = chosen.has(d.value);
@@ -383,7 +375,7 @@ function MeetingsEditor({ meetings, onChange }: { meetings: ClassMeeting[]; onCh
               onClick={() => toggleDay(d.value)}
               aria-pressed={on}
               aria-label={d.label}
-              className={cn("ab-press h-9 min-w-9 rounded-full px-2.5 text-xs font-bold ring-1", on ? "bg-gray-900 text-white ring-gray-900" : "bg-white text-gray-600 ring-gray-200 hover:bg-gray-50")}
+              className={cn("h-9 min-w-9 rounded-full px-2.5 text-xs font-bold ring-1 transition-colors", on ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-gray-600 ring-gray-300 hover:bg-gray-100")}
             >
               {d.letter}
             </button>
@@ -399,20 +391,20 @@ function MeetingsEditor({ meetings, onChange }: { meetings: ClassMeeting[]; onCh
             const label = weekdayLabel(s.day);
             return (
               <li key={`${s.day}-${index}`} className="grid grid-cols-[3rem_1fr_auto_1fr_2rem] items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 ring-1 ring-gray-200" data-testid="profile-class-meeting">
-                <span className="text-[13px] font-semibold text-gray-800">{first ? shortDay(s.day) : ""}</span>
+                <span className="text-sm font-semibold text-gray-800">{first ? shortDay(s.day) : ""}</span>
                 <input type="time" aria-label={`${label} starts`} value={s.start} onChange={(e) => update(index, { start: e.target.value })} step={300} required className={timeClass} />
                 <span className="text-gray-400">–</span>
                 <input type="time" aria-label={`${label} ends`} value={s.end} onChange={(e) => update(index, { end: e.target.value })} step={300} required className={timeClass} />
                 {first ? (
                   slots.length < MAX_CLASS_MEETINGS ? (
-                    <button type="button" onClick={() => addTime(s.day)} aria-label={`Add another time on ${label}`} className="ab-press flex h-8 w-8 items-center justify-center rounded-full text-gray-900 hover:bg-gray-100">
+                    <button type="button" onClick={() => addTime(s.day)} aria-label={`Add another time on ${label}`} className="flex h-8 w-8 items-center justify-center rounded-full text-brand-600 hover:bg-brand-50">
                       <Plus className="h-4 w-4" />
                     </button>
                   ) : (
                     <span />
                   )
                 ) : (
-                  <button type="button" onClick={() => commit(slots.filter((_, i) => i !== index))} aria-label={`Remove this time on ${label}`} className="ab-press flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-900">
+                  <button type="button" onClick={() => commit(slots.filter((_, i) => i !== index))} aria-label={`Remove this time on ${label}`} className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 hover:text-gray-900">
                     <X className="h-4 w-4" />
                   </button>
                 )}

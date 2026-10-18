@@ -1,40 +1,26 @@
 import { Tabs } from "expo-router";
 import { StyleSheet, View, type ColorValue } from "react-native";
-import type { SFSymbol } from "expo-symbols";
+import { Ionicons } from "@expo/vector-icons";
 import { Avatar } from "@/components/avatar";
 import { FloatingTabBar } from "@/components/floating-tab-bar";
 import { HeaderActions } from "@/components/header-actions";
 import { useSession } from "@/lib/session";
-import { fonts } from "@/lib/theme";
 import { useAppTheme } from "@/lib/theme-provider";
 import { useUnreadCount } from "@/lib/use-unread";
-import { Icon, useBounceOn, type IconName } from "@/components/icon";
 
-/**
- * Each tab's icon, outlined at rest and filled while it is the tab on screen: on iOS the system's own tab glyphs (the
- * SF Symbols Apple's apps use for the same places), elsewhere the Ionicons.
- */
-const ICONS: Record<string, { on: IconName; off: IconName; sfOn: SFSymbol; sfOff: SFSymbol }> = {
-  index: { on: "home", off: "home-outline", sfOn: "house.fill", sfOff: "house" },
-  search: { on: "search", off: "search-outline", sfOn: "magnifyingglass", sfOff: "magnifyingglass" },
-  housing: { on: "compass", off: "compass-outline", sfOn: "safari.fill", sfOff: "safari" },
-  messages: { on: "chatbubble", off: "chatbubble-outline", sfOn: "message.fill", sfOff: "message" },
-  profile: { on: "person-circle", off: "person-circle-outline", sfOn: "person.crop.circle.fill", sfOff: "person.crop.circle" },
+/** Each tab's icon, outlined at rest and filled while it is the tab on screen. */
+const ICONS: Record<string, { on: keyof typeof Ionicons.glyphMap; off: keyof typeof Ionicons.glyphMap }> = {
+  index: { on: "home", off: "home-outline" },
+  search: { on: "search", off: "search-outline" },
+  housing: { on: "compass", off: "compass-outline" },
+  messages: { on: "chatbubble", off: "chatbubble-outline" },
+  profile: { on: "person-circle", off: "person-circle-outline" },
 };
 
-/** The tab's symbol bounces when you pick it, not when the app opens. */
-const useSelectBounce = useBounceOn;
-
-/** A tab's icon as a component of its own (the bar calls tabBarIcon during its render: hooks must not run there). */
-function TabIcon({ route, focused, color, size }: { route: string; focused: boolean; color: ColorValue; size: number }) {
-  const names = ICONS[route] ?? ICONS.index!;
-  const bounce = useSelectBounce(focused);
-  return <Icon name={focused ? names.on : names.off} sf={focused ? names.sfOn : names.sfOff} size={size} color={color} weight={focused ? "semibold" : "regular"} bounce={bounce} />;
-}
-
 function icon(route: string) {
-  return function renderTabIcon(p: { focused: boolean; color: ColorValue; size: number }) {
-    return <TabIcon route={route} {...p} />;
+  const names = ICONS[route] ?? ICONS.index!;
+  return function TabIcon({ focused, color, size }: { focused: boolean; color: ColorValue; size: number }) {
+    return <Ionicons name={focused ? names.on : names.off} size={size} color={color} />;
   };
 }
 
@@ -44,8 +30,7 @@ function icon(route: string) {
  */
 function ProfileTabIcon({ focused, color, size }: { focused: boolean; color: ColorValue; size: number }) {
   const { profile } = useSession();
-  const bounce = useSelectBounce(focused);
-  if (!profile) return <Icon name={focused ? ICONS.profile!.on : ICONS.profile!.off} sf={focused ? ICONS.profile!.sfOn : ICONS.profile!.sfOff} size={size} color={color} weight={focused ? "semibold" : "regular"} bounce={bounce} />;
+  if (!profile) return <Ionicons name={focused ? ICONS.profile!.on : ICONS.profile!.off} size={size} color={color} />;
   // The ring takes 2pt on each side, so the photo inside stays the size of the other icons' ink.
   const photo = size - 4;
   return (
@@ -73,8 +58,7 @@ export default function TabsLayout() {
       tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
         headerStyle,
-        headerTitleStyle: { fontFamily: fonts.display, fontSize: 19, color: colors.text },
-        headerShadowVisible: false,
+        headerTitleStyle: { fontWeight: "700", color: colors.text },
         sceneStyle: { backgroundColor: colors.bg },
         headerRight: () => <HeaderActions inHeader />,
       }}

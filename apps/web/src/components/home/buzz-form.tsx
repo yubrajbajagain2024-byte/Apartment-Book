@@ -20,8 +20,8 @@ export function BuzzForm({ action }: { action: (prev: FormState, formData: FormD
 
   return (
     <form action={formAction} className="flex flex-col gap-5" data-testid="buzz-form">
-      <div className="flex items-start gap-3 rounded-xl bg-brand-50 px-4 py-3.5 text-sm leading-relaxed text-gray-800 ring-1 ring-brand-200" role="note">
-        <VenetianMask className="mt-0.5 h-5 w-5 shrink-0 text-accent" strokeWidth={1.75} />
+      <div className="flex items-start gap-3 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-900 ring-1 ring-brand-100" role="note">
+        <VenetianMask className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />
         <ul className="flex list-disc flex-col gap-0.5 pl-4">
           <li>This thread is anonymous. Your name and profile are never shown, only a random name like &quot;Student 48213&quot;.</li>
           <li>Be kind. Share thoughts, experiences and advice, not attacks.</li>
@@ -35,14 +35,14 @@ export function BuzzForm({ action }: { action: (prev: FormState, formData: FormD
       <Card>
         <CardBody className="flex flex-col gap-4">
           <fieldset className="flex flex-col gap-1.5">
-            <legend className="mb-2 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">
+            <legend className="mb-1.5 text-sm font-medium text-gray-800">
               Topic<span className="text-red-500"> *</span>
             </legend>
             <div className="flex flex-wrap gap-1.5">
               {BUZZ_TOPICS.map((t) => (
                 <label key={t.value} className="cursor-pointer">
                   <input type="radio" name="topic" value={t.value} defaultChecked={values?.topic === t.value} required className="peer sr-only" />
-                  <span className={cn("ab-press inline-flex h-8 items-center rounded-full bg-gray-100 px-3.5 text-[13px] font-semibold text-gray-800 hover:bg-gray-200", "peer-checked:bg-gray-900 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-gray-400 peer-focus-visible:ring-offset-2")}>
+                  <span className={cn("inline-flex h-8 items-center rounded-full bg-brand-50 px-3.5 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-100", "peer-checked:bg-brand-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500 peer-focus-visible:ring-offset-1")}>
                     {t.label}
                   </span>
                 </label>
@@ -78,7 +78,7 @@ export function BuzzForm({ action }: { action: (prev: FormState, formData: FormD
       <Card>
         <CardHeader>
           <CardTitle>Video (optional)</CardTitle>
-          <p className="mt-1 text-sm text-gray-500">Add one video and wait for &quot;Ready&quot; before you post. People can recognise a voice or a face, so check what the video shows.</p>
+          <p className="mt-1 text-sm text-gray-600">Add one video and wait for &quot;Ready&quot; before you post. People can recognise a voice or a face, so check what the video shows.</p>
         </CardHeader>
         <CardBody>
           <VideoUploader tour={false} max={1} />

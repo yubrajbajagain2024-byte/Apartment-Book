@@ -8,9 +8,9 @@ export function ItemOwnerActions({ item }: { item: Item }) {
   const nextStatus = item.status === "available" ? "sold" : "available";
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">Manage your item</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Manage your item</p>
       <LinkButton href={`/marketplace/${item.id}/edit`} variant="secondary">
-        <Pencil className="h-4 w-4" strokeWidth={1.75} /> Edit item
+        <Pencil className="h-4 w-4" /> Edit item
       </LinkButton>
       <ConfirmButton variant="outline" action={setItemStatusAction.bind(null, item.id, nextStatus)}>
         {item.status === "available" ? "Mark as sold" : "Mark as available"}

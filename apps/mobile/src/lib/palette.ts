@@ -2,31 +2,22 @@
  * The two CampConnect palettes. Every colour on screen comes from one of these through useColors() / makeStyles(),
  * so a theme switch repaints the whole app at once. Same keys in both; screens never pick a hex code themselves.
  *
- * Quiet luxury in both: warm ivory surfaces and near-black ink in light, near-black surfaces and warm white ink in dark.
- * Ink is the primary colour (buttons, links, selected things), one violet accent is used sparingly for what moves
- * (Home's underline, the feed dots, hashtags), and a bronze marks the verified. Hairlines separate; nothing is boxed.
- *
- * Every text colour clears WCAG contrast on every surface it sits on (bg, card, input, panel, elevated), in both themes:
- * `text` above 15:1, `muted` at least 6.5:1 (AAA on the screen), `faint` at least 4.6:1 (AA, even placeholders on a
- * field's fill). Hairlines (`border`) are about 1.3:1 so they read as a crisp line, not a smudge, and the outlines of
- * controls you tap (`borderStrong`) about 1.6:1 or more so a chip or an outline button reads as one shape. The floating
- * bar's `glass` fill lets a breath of the content through its Liquid Glass at 92%: even over pure black or white
- * content its grey labels keep at least 6:1.
+ * Light: white background, black text, light grey borders, blue accents.
+ * Dark: pure black background and bars, white text, dark grey cards and borders, the same blue accents.
  */
 export type ThemeColors = {
-  /** CampConnect's primary: ink. Buttons, links, selected tabs and chips; white ink in dark. */
+  /** The CampConnect blue: buttons, links, active tabs, accents. The same in both themes. */
   brand: string;
   brandDark: string;
-  /** A faint warm wash behind icons, selected chips and avatar initials. */
+  /** A faint blue wash behind brand icons and selected chips. */
   brandSoft: string;
-  /** Text and icons drawn on a brand fill. */
+  /** Text and icons drawn on a brand-blue fill. */
   onBrand: string;
-  /** The verified mark beside a name: bronze, the one warm metal in the palette. */
-  verified: string;
-  /** The one accent, a deep violet: Home's sliding underline, the slide dots under a photo, hashtags, selection. */
+  /** The violet accent of the Home feed: the active label's underline, the slide dots under a photo and where the "New post" button's gradient starts. */
   accent: string;
-  /** A second violet, close to `accent`, for the quiet duotone of the few gradients left (the ring around your photo). */
+  /** The blue the "New post" button's gradient ends in. */
   accentBlue: string;
+  /** The teal the ring around your photo in the Home bar starts from (it ends in `accent`). */
   accentTeal: string;
   /** The floating bottom bar where there is no liquid glass (Android, iOS before 26): a translucent fill, and the hairline around the pill everywhere. */
   glass: string;
@@ -43,14 +34,12 @@ export type ThemeColors = {
   elevated: string;
   /** Main text and icons. */
   text: string;
-  /** Secondary text: inactive tabs, captions, labels, metadata. At least 6.5:1 everywhere. */
+  /** Secondary text: times, captions, labels. */
   muted: string;
-  /** Tertiary text: placeholders, times, hints, disabled icons. Still at least 4.6:1 everywhere, so it is never washed out. */
+  /** Hints, placeholders, disabled icons. */
   faint: string;
   /** Hairlines, dividers, card outlines. */
   border: string;
-  /** The outline of a control you tap: chips, outline buttons, tags, toggles, round icon buttons. Stronger than `border`. */
-  borderStrong: string;
   /** Text fields, search boxes, pills. */
   input: string;
   /** Placeholder shapes while content loads. */
@@ -96,10 +85,6 @@ export type ThemeColors = {
   mediaTextShadow: string;
   /** The verified tick over video: lighter than `brand`, so it stays clear on dark footage. */
   verifiedOnMedia: string;
-  /** A control drawn on video (a segmented toggle): a dark glass fill, its light edge, and the brighter thumb on the chosen part. Theme-independent. */
-  mediaControl: string;
-  mediaControlEdge: string;
-  mediaControlActive: string;
   /** Behind photos and videos while they load, and the Reels page. */
   mediaBg: string;
   /** The dimmed screen behind sheets and dialogs. */
@@ -112,114 +97,104 @@ export type ColorScheme = "light" | "dark";
 export type ThemePreference = "system" | "light" | "dark";
 
 export const lightColors: ThemeColors = {
-  brand: "#121214",
-  brandDark: "#000000",
-  brandSoft: "#ECEAE4",
-  onBrand: "#FFFFFF",
-  verified: "#A8884A",
-  accent: "#5B4BDB",
-  accentBlue: "#4F5FD8",
-  accentTeal: "#7C6EE6",
-  glass: "rgba(247,246,243,0.92)",
-  glassEdge: "rgba(18,18,20,0.12)",
-  glassHighlight: "rgba(18,18,20,0.08)",
-  bg: "#F7F6F3",
-  card: "#FFFFFF",
-  bar: "#F7F6F3",
-  elevated: "#FFFFFF",
-  text: "#121214",
-  muted: "#525257",
-  faint: "#68686D",
-  border: "#DBD9D3",
-  borderStrong: "#C4C2BC",
-  input: "#EDEBE6",
-  skeleton: "#ECEAE4",
-  panel: "#F1EFEA",
-  coverTop: "#ECEAE4",
-  coverGlowA: "rgba(91,75,219,0.16)",
-  coverGlowB: "rgba(168,136,74,0.14)",
-  coverButton: "rgba(18,18,20,0.06)",
-  green: "#2F9E5B",
-  red: "#D23B4B",
-  amber: "#C79A2E",
-  dangerFill: "#C8323F",
-  successFill: "#2F9E5B",
-  like: "#D8405A",
-  hashtag: "#5B4BDB",
-  downvote: "#5B4BDB",
-  downvoteFill: "#5B4BDB",
-  dangerSoft: "#FBECEC",
-  dangerText: "#8E2430",
-  successSoft: "#E8F4EC",
-  successText: "#1F6B3B",
-  warningSoft: "#FBF3DF",
-  warningText: "#7A5614",
-  onMedia: "#FFFFFF",
-  onMediaMuted: "rgba(255,255,255,0.88)",
+  brand: "#1877f2",
+  brandDark: "#166fe5",
+  brandSoft: "#e7f0fd",
+  onBrand: "#ffffff",
+  accent: "#6a4df0",
+  accentBlue: "#3b82f6",
+  accentTeal: "#14b8a6",
+  glass: "rgba(255,255,255,0.72)",
+  glassEdge: "rgba(0,0,0,0.1)",
+  glassHighlight: "rgba(0,0,0,0.08)",
+  bg: "#ffffff",
+  card: "#ffffff",
+  bar: "#ffffff",
+  elevated: "#ffffff",
+  text: "#050505",
+  muted: "#65676b",
+  faint: "#8a8d91",
+  border: "#e4e6eb",
+  input: "#f0f2f5",
+  skeleton: "#e4e6eb",
+  panel: "#f0f2f5",
+  coverTop: "#e4e8f4",
+  coverGlowA: "rgba(124,92,255,0.34)",
+  coverGlowB: "rgba(32,196,160,0.28)",
+  coverButton: "rgba(0,0,0,0.07)",
+  green: "#31a24c",
+  red: "#e41e3f",
+  amber: "#f7b928",
+  dangerFill: "#e41e3f",
+  successFill: "#31a24c",
+  like: "#ed4956",
+  hashtag: "#00376b",
+  downvote: "#6a5cff",
+  downvoteFill: "#6a5cff",
+  dangerSoft: "#fdecec",
+  dangerText: "#8a1c1c",
+  successSoft: "#e6f6ea",
+  successText: "#1f7a37",
+  warningSoft: "#fff4d6",
+  warningText: "#7a5200",
+  onMedia: "#ffffff",
+  onMediaMuted: "rgba(255,255,255,0.75)",
   mediaScrim: "rgba(0,0,0,0.45)",
-  mediaPill: "rgba(0,0,0,0.62)",
+  mediaPill: "rgba(0,0,0,0.65)",
   mediaTextShadow: "rgba(0,0,0,0.6)",
-  verifiedOnMedia: "#E6CB85",
-  mediaControl: "rgba(18,18,20,0.58)",
-  mediaControlEdge: "rgba(255,255,255,0.24)",
-  mediaControlActive: "rgba(255,255,255,0.28)",
+  verifiedOnMedia: "#4da3ff",
   mediaBg: "#000000",
-  backdrop: "rgba(18,18,20,0.32)",
-  shadow: "#121214",
+  backdrop: "rgba(0,0,0,0.25)",
+  shadow: "#000000",
 };
 
 export const darkColors: ThemeColors = {
-  brand: "#F3F2EE",
-  brandDark: "#FFFFFF",
-  brandSoft: "#232326",
-  onBrand: "#0B0B0C",
-  verified: "#D4B36A",
-  accent: "#9A8CFF",
-  accentBlue: "#8F9BFF",
-  accentTeal: "#B3A7FF",
-  glass: "rgba(21,21,23,0.92)",
+  brand: "#1877f2",
+  brandDark: "#166fe5",
+  brandSoft: "#0f2747",
+  onBrand: "#ffffff",
+  accent: "#8b7cff",
+  accentBlue: "#5b9bff",
+  accentTeal: "#2dd4bf",
+  glass: "rgba(22,22,24,0.72)",
   glassEdge: "rgba(255,255,255,0.14)",
-  glassHighlight: "rgba(255,255,255,0.14)",
-  bg: "#0B0B0C",
-  card: "#151517",
-  bar: "#0B0B0C",
-  elevated: "#1A1A1D",
-  text: "#F3F2EE",
-  muted: "#A8A8AD",
-  faint: "#8A8A8F",
-  border: "#2E2E32",
-  borderStrong: "#424246",
-  input: "#1E1E21",
-  skeleton: "#202023",
-  panel: "#151517",
-  coverTop: "#141418",
-  coverGlowA: "rgba(154,140,255,0.22)",
-  coverGlowB: "rgba(212,179,106,0.14)",
-  coverButton: "rgba(255,255,255,0.12)",
-  green: "#4CC273",
-  red: "#FF5563",
-  amber: "#E6B84A",
-  dangerFill: "#C8323F",
-  successFill: "#2F9E5B",
-  like: "#FF5A73",
-  hashtag: "#B9AEFF",
-  downvote: "#9A8CFF",
-  downvoteFill: "#5B4BDB",
-  dangerSoft: "#3A1A1E",
-  dangerText: "#FFB3BB",
-  successSoft: "#143022",
-  successText: "#8CE0A8",
-  warningSoft: "#3A2E12",
-  warningText: "#F2D27A",
-  onMedia: "#FFFFFF",
-  onMediaMuted: "rgba(255,255,255,0.88)",
+  glassHighlight: "rgba(255,255,255,0.16)",
+  bg: "#000000",
+  card: "#1c1c1e",
+  bar: "#000000",
+  elevated: "#1c1c1e",
+  text: "#ffffff",
+  muted: "#a8abaf",
+  faint: "#7c7f84",
+  border: "#38383a",
+  input: "#2c2c2e",
+  skeleton: "#2c2c2e",
+  panel: "#1c1c1e",
+  coverTop: "#18163a",
+  coverGlowA: "rgba(118,84,240,0.55)",
+  coverGlowB: "rgba(36,200,160,0.34)",
+  coverButton: "rgba(255,255,255,0.14)",
+  green: "#3fbf5f",
+  red: "#ff453a",
+  amber: "#ffd60a",
+  dangerFill: "#d70015",
+  successFill: "#1f7a37",
+  like: "#ff4d67",
+  hashtag: "#e0f1ff",
+  downvote: "#8b7fff",
+  downvoteFill: "#6a5cff",
+  dangerSoft: "#3b1518",
+  dangerText: "#ffb4b4",
+  successSoft: "#10301b",
+  successText: "#7ee2a0",
+  warningSoft: "#3a2f0b",
+  warningText: "#ffd66b",
+  onMedia: "#ffffff",
+  onMediaMuted: "rgba(255,255,255,0.75)",
   mediaScrim: "rgba(0,0,0,0.45)",
-  mediaPill: "rgba(0,0,0,0.62)",
+  mediaPill: "rgba(0,0,0,0.65)",
   mediaTextShadow: "rgba(0,0,0,0.6)",
-  verifiedOnMedia: "#E6CB85",
-  mediaControl: "rgba(18,18,20,0.58)",
-  mediaControlEdge: "rgba(255,255,255,0.24)",
-  mediaControlActive: "rgba(255,255,255,0.28)",
+  verifiedOnMedia: "#4da3ff",
   mediaBg: "#000000",
   backdrop: "rgba(0,0,0,0.6)",
   shadow: "#000000",

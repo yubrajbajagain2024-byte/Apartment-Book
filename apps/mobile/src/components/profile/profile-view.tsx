@@ -16,7 +16,7 @@ import {
   type NativeSyntheticEvent,
   type ScrollView,
 } from "react-native";
-import type { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -62,7 +62,7 @@ import { emitPostPinned, onPostPinned, onPostRemoved } from "@/lib/posts-events"
 import { useSession } from "@/lib/session";
 import { tabBarInset } from "@/lib/tab-bar";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { radius, space, type } from "@/lib/theme";
+import { radius, space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useChangeAvatar } from "@/lib/use-change-avatar";
 import { ClassesSection } from "./classes-section";
@@ -72,7 +72,6 @@ import { ListingGridTile, ProfileGridTile, REEL_ASPECT, TILE_ASPECT, useOpenTile
 import { ShareProfileSheet } from "./share-profile-sheet";
 import { useTileGrid, type GridCursor, type GridPage, type TileGrid } from "./use-tile-grid";
 import { LockedNotice, VisibilityRow } from "./visibility-row";
-import { Icon } from "@/components/icon";
 import { useTabReselect } from "@/lib/tab-reselect";
 
 /** Space between the squares of the grid, across and down, and from the grid to the screen's edges. */
@@ -539,7 +538,7 @@ const TilesPage = memo(function TilesPage(props: TilesPageProps) {
     </>
   );
 
-  const spinner = <ActivityIndicator style={styles.spinner} color={colors.muted} />;
+  const spinner = <ActivityIndicator style={styles.spinner} color={colors.brand} />;
   let footer: ReactElement | null = null;
   if (gate === "error") footer = <ErrorLine message={gateMessage} onRetry={onRetryGate} />;
   else if (gate === "loading") footer = spinner;
@@ -608,10 +607,10 @@ const ClassesPage = memo(function ClassesPage(props: ClassesPageProps) {
   const colors = useColors();
   const scroller = useRef<ScrollView>(null);
   const scrollTo = useCallback((y: number, animated: boolean) => scroller.current?.scrollTo({ y, animated }), []);
-  useTabReselect(() => scrollTo(0, true), active);
   const scroll = usePageScroll(props, scrollTo);
+  useTabReselect(() => scrollTo(0, true), active);
 
-  const spinner = <ActivityIndicator style={styles.spinner} color={colors.muted} />;
+  const spinner = <ActivityIndicator style={styles.spinner} color={colors.brand} />;
   let body: ReactElement;
   if (gate === "error") body = <ErrorLine message={gateMessage} onRetry={onRetryGate} />;
   else if (gate === "loading") body = spinner;
@@ -1220,7 +1219,7 @@ function TabEmpty({ tab, own }: { tab: GridTab; own: boolean }) {
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIcon}>
-        <Icon name={icon} size={26} color={colors.text} />
+        <Ionicons name={icon} size={26} color={colors.text} />
       </View>
       <Text style={styles.emptyTitle}>{title}</Text>
       {action ? <Button title={action.title} icon="add" onPress={() => router.push(action.href)} style={styles.emptyAction} /> : null}
@@ -1248,9 +1247,8 @@ const useStyles = makeStyles((colors) => ({
   follow: { flexShrink: 1, minHeight: PROFILE_BUTTON_HEIGHT, height: PROFILE_BUTTON_HEIGHT, borderRadius: radius.pill, paddingHorizontal: 18, gap: 6 },
   spinner: { paddingVertical: space.xl },
   errorLine: { padding: space.lg },
-  // An empty tab, drawn like the system's EmptyState: a thin ring, a serif headline, the one thing to do about it.
   empty: { alignItems: "center", gap: space.md, paddingHorizontal: space.xl, paddingVertical: 40 },
-  emptyIcon: { width: 56, height: 56, borderRadius: 28, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
-  emptyTitle: { ...type.headline, color: colors.text, textAlign: "center" },
+  emptyIcon: { width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, borderColor: colors.text, alignItems: "center", justifyContent: "center" },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: colors.text, textAlign: "center" },
   emptyAction: { minWidth: 160 },
 }));

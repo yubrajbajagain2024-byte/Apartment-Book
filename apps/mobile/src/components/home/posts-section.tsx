@@ -5,7 +5,7 @@ import { listFeedPosts, type FeedPostWithAuthor } from "@apartment-book/shared";
 import { CaughtUp } from "@/components/home/caught-up";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
-import { EmptyState, ErrorBanner, FeedSkeleton, useAppearingCells } from "@/components/ui";
+import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
 import { useTabBarInset } from "@/lib/tab-bar";
@@ -13,12 +13,11 @@ import { useFeed } from "@/lib/hooks";
 import { emitPostRemoved, onPostRemoved, takePostsStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { space, type } from "@/lib/theme";
 import { useColors } from "@/lib/theme-provider";
 import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { InstaPost } from "./insta-post";
-import { refreshWithHaptic } from "@/lib/haptics";
 import { useTabReselect } from "@/lib/tab-reselect";
+import { refreshWithHaptic } from "@/lib/haptics";
 
 /** Home → Posts: photo-first posts from students, newest first. The campus and "Following" (only the people you follow) are chosen from the menu under your photo in the top bar; new posts are made with the "+" badge on your photo in the top bar. */
 export function PostsSection({ active, topInset, onScroll }: { active: boolean; topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
@@ -50,7 +49,6 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
 
   // Coming back to Posts keeps the list and the scroll position. It only reloads when this person has just published a post.
   const listRef = useRef<FlatList<FeedPostWithAuthor>>(null);
-  const appearCells = useAppearingCells();
   // Tapping Home again while Posts is on screen: back to the top.
   useTabReselect(() => listRef.current?.scrollToOffset({ offset: inset.topOffset, animated: true }), active);
   const wasActive = useRef(active);
@@ -86,7 +84,6 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
         scrollEventThrottle={16}
         // Room under the last post for the floating bottom bar.
         contentContainerStyle={{ paddingBottom: 96 + tabBar, paddingTop: inset.paddingTop }}
-        CellRendererComponent={appearCells}
         renderItem={({ item: p }) => (
           <InstaPost
             post={p}
@@ -104,7 +101,7 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
         )}
         ListEmptyComponent={
           feed.loading ? (
-            <FeedSkeleton />
+            <Loading />
           ) : feed.error ? (
             <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View>
           ) : following ? (
@@ -113,7 +110,7 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
             <EmptyState icon="newspaper-outline" title="No posts yet" body={following ? "Posts from people you follow show up here." : campusId ? "Say hello to your campus, or switch to all universities." : "Be the first to share something."} />
           )
         }
-        ListFooterComponent={feed.items.length === 0 ? null : feed.hasMore ? <Text style={{ ...type.caption, textAlign: "center", color: colors.faint, padding: space.lg }}>Loading more…</Text> : <CaughtUp />}
+        ListFooterComponent={feed.items.length === 0 ? null : feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : <CaughtUp />}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
         onViewableItemsChanged={onViewable}
