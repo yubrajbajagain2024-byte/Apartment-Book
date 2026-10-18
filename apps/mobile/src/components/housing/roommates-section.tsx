@@ -4,7 +4,7 @@ import { budgetLabel, formatDate, formatDistance, isVerifiedPoster, KM_PER_MILE,
 import type { RoommateFilters } from "@/components/housing/filter-sheet";
 import { OnlineStrip } from "@/components/online-strip";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
-import { Badge, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { Badge, EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -37,6 +37,8 @@ export function RoommatesSection({ topInset, onScroll, q, campus, type, filters,
   const inset = useMemo(() => listInset(topInset), [topInset]);
   // Tapping Explore again while Roommate is on screen: back to the top.
   const listRef = useRef<FlatList<RoommatePostWithAuthor>>(null);
+  // Rows fade in once as they first arrive (not when scrolled back into view).
+  const appearCells = useAppearingCells();
   useTabReselect(() => listRef.current?.scrollToOffset({ offset: inset.topOffset, animated: true }), active);
   const tabBar = useTabBarInset();
 
@@ -55,6 +57,7 @@ export function RoommatesSection({ topInset, onScroll, q, campus, type, filters,
             <OnlineStrip />
           </View>
         }
+        CellRendererComponent={appearCells}
         renderItem={({ item: p }) => {
           const budget = budgetLabel(p);
           return (

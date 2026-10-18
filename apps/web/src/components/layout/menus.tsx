@@ -48,8 +48,8 @@ function Dropdown({
         <div
           role="menu"
           className={cn(
-            "absolute top-full z-50 mt-2 w-60 overflow-hidden rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200",
-            align === "right" ? "right-0" : "left-0",
+            "ab-menu-in absolute top-full z-50 mt-2 w-60 overflow-hidden rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200",
+            align === "right" ? "right-0 origin-top-right" : "left-0 origin-top-left",
           )}
         >
           {children(() => setOpen(false))}

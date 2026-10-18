@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { deleteMyAccount, isProfileVisibility, listUniversities, normalizeUsername, PROFILE_VISIBILITY_COLUMNS, setShowActiveStatus, updateProfile, USERNAME_RULES, usernameProblem, type ProfileSection, type ProfileVisibility, type ProfileWithUniversity } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
@@ -14,6 +13,7 @@ import { radius } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { useChangeAvatar } from "@/lib/use-change-avatar";
 import { hapticSelect, alertWithHaptic } from "@/lib/haptics";
+import { Icon } from "@/components/icon";
 
 /** The database's defaults, for a profile read before these settings existed. */
 const DEFAULT_VISIBILITY: Record<ProfileSection, ProfileVisibility> = { classes: "friends", saved: "private", liked: "public" };
@@ -232,7 +232,7 @@ function ThemeCard() {
                 <Text style={styles.themeLabel}>{option.label}</Text>
                 {hint ? <Text style={styles.hint}>{hint}</Text> : null}
               </View>
-              {checked ? <Ionicons name="checkmark" size={22} color={colors.brand} /> : null}
+              {checked ? <Icon name="checkmark" size={22} color={colors.brand} /> : null}
             </Pressable>
           );
         })}
@@ -267,7 +267,7 @@ function ToggleRow({ label, hint, value, onChange }: { label: string; hint?: str
 
 const useStyles = makeStyles((colors) => ({
   label: { fontSize: 13, fontWeight: "600", color: colors.muted },
-  handleBox: { flexDirection: "row", alignItems: "center", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingLeft: 12 },
+  handleBox: { flexDirection: "row", alignItems: "center", backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, borderCurve: "continuous", paddingLeft: 12 },
   at: { fontSize: 16, color: colors.muted, fontWeight: "600" },
   handleInput: { flex: 1, paddingLeft: 2, paddingRight: 12, paddingVertical: 11, fontSize: 16, color: colors.text },
   hint: { color: colors.muted, fontSize: 12 },

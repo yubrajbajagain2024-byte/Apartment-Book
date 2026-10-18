@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { ActionSheetIOS, Modal, Platform, Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { radius } from "@/lib/theme";
+import type { Ionicons } from "@expo/vector-icons";
+import { radius, sheetShape } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 export type SheetOption = { label: string; icon?: keyof typeof Ionicons.glyphMap; destructive?: boolean; onPress: () => void };
 type Show = (options: SheetOption[], title?: string) => void;
@@ -41,7 +42,7 @@ export function ActionSheetProvider({ children }: { children: ReactNode }) {
                   o.onPress();
                 }}
               >
-                {o.icon ? <Ionicons name={o.icon} size={20} color={o.destructive ? colors.red : colors.text} /> : null}
+                {o.icon ? <Icon name={o.icon} size={20} color={o.destructive ? colors.red : colors.text} /> : null}
                 <Text style={[styles.itemText, o.destructive && { color: colors.red }]}>{o.label}</Text>
               </Pressable>
             ))}
@@ -61,8 +62,8 @@ export function useActionSheet(): Show {
 
 const useStyles = makeStyles((colors) => ({
   backdrop: { flex: 1, backgroundColor: colors.backdrop, justifyContent: "flex-end" },
-  sheet: { backgroundColor: colors.elevated, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: 8, paddingBottom: 24, gap: 2 },
+  sheet: { backgroundColor: colors.elevated, ...sheetShape, padding: 8, paddingBottom: 16, gap: 2 },
   title: { textAlign: "center", color: colors.muted, fontSize: 13, paddingVertical: 8 },
-  item: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, paddingHorizontal: 12, borderRadius: radius.md },
+  item: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, paddingHorizontal: 12, borderRadius: radius.md, borderCurve: "continuous" },
   itemText: { fontSize: 16, fontWeight: "600", color: colors.text },
 }));

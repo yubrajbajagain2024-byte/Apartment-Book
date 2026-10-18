@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { listForYou, type FeedPostWithAuthor, type ForYouItem } from "@apartment-book/shared";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
-import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
 import { useTabBarInset } from "@/lib/tab-bar";
@@ -124,6 +124,8 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
   // Coming back to For you keeps the list and the scroll position. It reloads only when something new was published
   // while another page was showing: a post or a reel by this person.
   const listRef = useRef<FlatList<ForYouItem>>(null);
+  // Rows fade in once as they first arrive (not when scrolled back into view).
+  const appearCells = useAppearingCells();
   // Tapping Home again while For you is on screen: back to the top, as on every iOS tab (the bar slides back with it).
   useTabReselect(() => listRef.current?.scrollToOffset({ offset: inset.topOffset, animated: true }), active);
   const wasActive = useRef(active);
@@ -165,6 +167,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
             </View>
           ) : null
         }
+        CellRendererComponent={appearCells}
         renderItem={({ item }) => (
           <InstaPost
             post={item}

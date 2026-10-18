@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { APP_NAME, captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reelFromFeedPost, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromFeedPost, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
 import { hapticTap, alertWithHaptic } from "@/lib/haptics";
@@ -18,6 +17,7 @@ import { ExpandableText } from "../expandable-text";
 import { PhotoCarousel } from "../photo-carousel";
 import { POST_GUTTER, POST_TEXT, PostActions, PostFrame, PostHeader } from "../post-bits";
 import { useShareSheet } from "../share-sheet";
+import { Icon } from "@/components/icon";
 
 export type InstaPostProps = {
   post: FeedPostWithAuthor;
@@ -216,7 +216,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
         <PostFrame>
           <PhotoCarousel media={media} aspect={frameAspect(media, reel)} active={active} videoLabel={null} dots={false} onIndexChange={setSlide} onPress={reel && !detail ? openViewer : undefined} onDoubleTap={doubleTap} />
           <Animated.View pointerEvents="none" style={[styles.heart, { opacity: heart, transform: [{ scale: heart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
-            <Ionicons name="heart" size={96} color={colors.onMedia} />
+            <Icon name="heart" size={96} color={colors.onMedia} />
           </Animated.View>
         </PostFrame>
       ) : null}

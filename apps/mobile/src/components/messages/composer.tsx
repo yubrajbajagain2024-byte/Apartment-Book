@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Alert, Keyboard, LayoutAnimation, Platform, Pressable, StyleSheet, Text, TextInput, View, type KeyboardEvent } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MESSAGE_ATTACHMENT_LIMITS } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
@@ -9,6 +8,7 @@ import { errorText } from "@/lib/hooks";
 import { ATTACHMENT_LIMIT_TEXT, captureMedia, pickDocuments, pickLibraryMedia, type PendingAttachment, type PickResult } from "@/lib/message-attachments";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { AttachmentStrip } from "./attachment-strip";
+import { Icon } from "@/components/icon";
 
 const SHOW_EVENT = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
 const HIDE_EVENT = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
@@ -111,7 +111,7 @@ export function Composer({
       {items.length > 0 ? <AttachmentStrip items={items} onRemove={onRemoveItem} /> : null}
       <View style={styles.row}>
         <Pressable onPress={attach} disabled={busy} hitSlop={6} style={styles.attach} accessibilityRole="button" accessibilityLabel="Attach a photo, video or file">
-          {busy ? <ActivityIndicator color={colors.brand} /> : <Ionicons name="add-circle" size={32} color={colors.brand} />}
+          {busy ? <ActivityIndicator color={colors.brand} /> : <Icon name="add-circle" size={32} color={colors.brand} />}
         </Pressable>
         <TextInput
           value={value}
@@ -127,7 +127,7 @@ export function Composer({
           accessibilityLabel="Message"
         />
         <Pressable onPress={onSend} disabled={!canSend} hitSlop={6} style={[styles.send, !canSend && { opacity: 0.4 }]} accessibilityRole="button" accessibilityLabel="Send" accessibilityState={{ disabled: !canSend }}>
-          <Ionicons name="send" size={17} color={colors.onBrand} />
+          <Icon name="send" size={17} color={colors.onBrand} />
         </Pressable>
       </View>
     </BottomBar>

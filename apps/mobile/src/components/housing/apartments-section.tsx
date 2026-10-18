@@ -3,7 +3,7 @@ import { RefreshControl, Text, View, type FlatList, type NativeScrollEvent, type
 import { formatDistance, formatPrice, isVerifiedPoster, KM_PER_MILE, listApartments, listingMedia, type ApartmentWithOwner } from "@apartment-book/shared";
 import type { RoomFilters } from "@/components/housing/filter-sheet";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
-import { Badge, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { Badge, EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -33,6 +33,8 @@ export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filt
   const inset = useMemo(() => listInset(topInset), [topInset]);
   // Tapping Explore again while Room is on screen: back to the top.
   const listRef = useRef<FlatList<ApartmentWithOwner>>(null);
+  // Rows fade in once as they first arrive (not when scrolled back into view).
+  const appearCells = useAppearingCells();
   useTabReselect(() => listRef.current?.scrollToOffset({ offset: inset.topOffset, animated: true }), active);
   const tabBar = useTabBarInset();
 
@@ -46,6 +48,7 @@ export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filt
         onScroll={onScroll}
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: 90 + tabBar, paddingTop: inset.paddingTop }}
+        CellRendererComponent={appearCells}
         renderItem={({ item: a }) => (
           <PostCard
             targetType="apartment"

@@ -32,11 +32,11 @@ export function ItemTile({ item }: { item: ItemWithSeller }) {
 }
 
 const useStyles = makeStyles((colors) => ({
-  tile: { flex: 1, maxWidth: "49%", backgroundColor: colors.card, borderRadius: radius.md, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  tile: { flex: 1, maxWidth: "49%", backgroundColor: colors.card, borderRadius: radius.md, borderCurve: "continuous", overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   photo: { aspectRatio: 1, backgroundColor: colors.border },
   price: { position: "absolute", left: 8, bottom: 8, backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   priceText: { color: colors.onMedia, fontWeight: "700", fontSize: 13 },
   title: { fontSize: 14, fontWeight: "600", color: colors.text },
   meta: { fontSize: 12, color: colors.muted },
-  time: { fontSize: 11, color: colors.faint },
+  time: { fontSize: 12, color: colors.faint },
 }));

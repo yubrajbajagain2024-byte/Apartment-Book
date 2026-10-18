@@ -234,9 +234,9 @@ function ShareSheet({ sharedPost, url, onClose, currentUser }: Omit<ShareDialogP
 
   return (
     <div role="dialog" aria-modal="true" aria-label="Share" onKeyDown={onKeyDown} className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4">
-      <div aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-black/40" />
+      <div aria-hidden="true" onClick={onClose} className="ab-scrim-in absolute inset-0 bg-black/40" />
       {/* Focusable but not a Tab stop: a click anywhere on the sheet keeps the focus, and with it the keys, inside. */}
-      <div ref={panelRef} tabIndex={-1} className="ab-fade-in relative flex max-h-[85dvh] w-full flex-col rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl focus:outline-none sm:max-h-[min(44rem,90dvh)] sm:w-[420px] sm:rounded-2xl" data-testid="share-dialog">
+      <div ref={panelRef} tabIndex={-1} className="ab-sheet-in relative flex max-h-[85dvh] w-full flex-col rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl focus:outline-none sm:max-h-[min(44rem,90dvh)] sm:w-[420px] sm:rounded-2xl" data-testid="share-dialog">
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
           <h2 className="text-base font-semibold text-gray-900">Share</h2>
           <button type="button" onClick={onClose} aria-label="Close" data-autofocus={signedIn ? undefined : ""} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">

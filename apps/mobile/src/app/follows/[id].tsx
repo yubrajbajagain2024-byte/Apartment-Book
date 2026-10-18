@@ -1,6 +1,5 @@
 import { useLayoutEffect, useState, type ReactElement } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import {
   compactCount,
@@ -25,6 +24,7 @@ import { supabase } from "@/lib/supabase";
 import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { refreshWithHaptic } from "@/lib/haptics";
+import { Icon } from "@/components/icon";
 
 type Kind = "followers" | "following";
 /** Which people a list holds: one of the owner's own two lists, or the friends the viewer has in common with the owner. */
@@ -71,7 +71,7 @@ export default function FollowsScreen() {
         <>
           {/* In place of the tabs on your own lists: why theirs are not shown. */}
           <View style={styles.note} accessible accessibilityLabel={note}>
-            <Ionicons name="lock-closed-outline" size={14} color={colors.muted} />
+            <Icon name="lock-closed-outline" size={14} color={colors.muted} />
             <Text style={styles.noteText}>{note}</Text>
           </View>
           {/* Keyed by the viewer: someone else signing in here starts on the spinner, never on the last person's rows. */}

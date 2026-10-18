@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, View, type GestureResponderHandlers } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { PostTargetType } from "@apartment-book/shared";
-import { radius } from "@/lib/theme";
+import { radius, sheetShape } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { CommentComposer, CommentList, CommentsHeading, useCommentThread } from "./comments";
+import { Icon } from "@/components/icon";
 
 /** `focusComposer` opens the sheet straight into typing (the "Add comment…" bar under a reel), once the sheet has slid up. */
 export type CommentsTarget = { targetType: PostTargetType; targetId: string; ownerId: string; comments: number; focusComposer?: boolean };
@@ -80,13 +80,13 @@ function SheetBody({ target, panHandlers, onClose, onCountChange }: { target: Co
         <View style={styles.handle} />
         <CommentsHeading count={count} onSort={thread.setSort} />
         <Pressable onPress={onClose} hitSlop={10} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
-          <Ionicons name="close" size={20} color={colors.text} />
+          <Icon name="close" size={20} color={colors.text} />
         </Pressable>
       </View>
       <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.list}>
         <CommentList thread={thread} emptyText="Be the first to comment." />
       </ScrollView>
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom - sheetShape.marginBottom, 12) }]}>
         <CommentComposer thread={thread} />
       </View>
     </>
@@ -95,7 +95,8 @@ function SheetBody({ target, panHandlers, onClose, onCountChange }: { target: Co
 
 const useStyles = makeStyles((colors) => ({
   root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
-  sheet: { height: "70%", backgroundColor: colors.elevated, borderTopLeftRadius: radius.lg + 4, borderTopRightRadius: radius.lg + 4, overflow: "hidden" },
+  // iOS 26: the sheet floats inset from the screen's edges, its corners concentric with the phone's; a hairline marks its edge.
+  sheet: { height: "70%", backgroundColor: colors.elevated, ...sheetShape, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   header: { alignItems: "center", paddingTop: 8, paddingBottom: 10, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 10 },
   close: { position: "absolute", right: 12, top: 16, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },

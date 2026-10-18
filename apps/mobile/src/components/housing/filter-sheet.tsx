@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { APARTMENT_SORTS, GENDER_PREFERENCES, ITEM_CONDITIONS, ITEM_SORTS, RADIUS_OPTIONS_MILES, type ApartmentSort, type GenderPref, type HousingSection, type ItemCondition, type ItemSort } from "@apartment-book/shared";
 import { Button } from "@/components/ui";
-import { radius, space } from "@/lib/theme";
+import { radius, space, sheetShape } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 /** What narrows each page of Explore beyond its search box and pills. Toggles are `true` or left out, never false. */
 export type RoomFilters = { sort: ApartmentSort; minBedrooms?: number; minPrice?: number; maxPrice?: number; radiusMiles?: number; furnished?: true; petsAllowed?: true; videoOnly?: true };
@@ -134,7 +134,7 @@ export function FilterSheet({ section, open, filters, onApply, onClose }: { sect
               </Pressable>
             ) : null}
             <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close" style={styles.close}>
-              <Ionicons name="close" size={18} color={colors.text} />
+              <Icon name="close" size={18} color={colors.text} />
             </Pressable>
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
@@ -192,7 +192,7 @@ export function FilterSheet({ section, open, filters, onApply, onClose }: { sect
               </>
             )}
           </ScrollView>
-          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom - sheetShape.marginBottom, 12) }]}>
             <Button title="Show results" onPress={() => onApply(tidyAll(apply(section, filters, d)))} />
           </View>
         </View>
@@ -209,7 +209,8 @@ const useStyles = makeStyles((colors, scheme) => ({
   root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
   backdrop: { flex: 1 },
   // A shadow cannot be seen on black, so in the dark theme a hairline edge keeps the sheet apart from the page.
-  sheet: { maxHeight: "86%", backgroundColor: colors.elevated, borderTopLeftRadius: radius.lg + 4, borderTopRightRadius: radius.lg + 4, borderTopWidth: scheme === "dark" ? 1 : 0, borderColor: colors.border, alignItems: "stretch" },
+  // iOS 26: the sheet floats inset from the screen's edges, its corners concentric with the phone's; a hairline marks its edge.
+  sheet: { maxHeight: "86%", backgroundColor: colors.elevated, ...sheetShape, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, alignItems: "stretch" },
   handle: { alignSelf: "center", width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginTop: 8, marginBottom: 6 },
   head: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: 20, paddingVertical: 8 },
   title: { flex: 1, fontSize: 18, fontWeight: "800", letterSpacing: -0.3, color: colors.text },
@@ -226,7 +227,7 @@ const useStyles = makeStyles((colors, scheme) => ({
   pair: { flexDirection: "row", gap: space.sm },
   money: { flex: 1, gap: 6 },
   moneyLabel: { fontSize: 12, fontWeight: "600", color: colors.muted },
-  moneyBox: { flexDirection: "row", alignItems: "center", gap: 6, height: 44, paddingHorizontal: 12, borderRadius: radius.md, backgroundColor: colors.input },
+  moneyBox: { flexDirection: "row", alignItems: "center", gap: 6, height: 44, paddingHorizontal: 12, borderRadius: radius.md, borderCurve: "continuous", backgroundColor: colors.input },
   moneySign: { fontSize: 16, fontWeight: "700", color: colors.muted },
   moneyInput: { flex: 1, fontSize: 16, color: colors.text, paddingVertical: 0 },
   footer: { paddingHorizontal: 20, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: colors.border },

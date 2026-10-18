@@ -23,7 +23,7 @@ The bottom bar has five tabs: Home, Search, Explore, Messages, Profile (your own
 the tab is on screen; the person icon signed out). It floats over the content as a rounded
 glass pill (`src/app/(tabs)/_layout.tsx`, its size in `src/lib/tab-bar.ts`): on iOS 26 real liquid glass, with what scrolls
 under it blurred through, elsewhere a translucent fill; the tab on screen sits in a lighter capsule with its icon filled, and the capsule slides to
-the tab you tap on a soft spring while the tabs make room for it, GroupMe style, with no haptic
+the tab you tap on a soft spring while the tabs make room for it, GroupMe style, with a selection tick and the new tab's symbol bouncing once
 (`src/components/floating-tab-bar.tsx`, on Reanimated); every tab's list and floating button keeps `tabBarInset` clear
 under it. Search (find accounts by name and follow them) is the second tab, under its own "Search" title
 (`src/app/(tabs)/search.tsx`; the share sheet's Find people and a profile's Find friends push the same screen with the box
@@ -154,6 +154,29 @@ SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data 
 The flows that like, vote or post (01 to 03) only ever act as a seeded `ui-sim-…` account and
 stop if someone else is signed in on the simulator (they read the email on the account sheet behind your name on the
 Profile tab, which shows "Edit profile" when you are signed in); 00 and 04 only look.
+
+## Look and feel on iPhone
+
+The app keeps its own look (Facebook blue, white or black surfaces, the system font) and adds what makes an iPhone app
+feel native:
+
+- **Icons.** On iOS every icon is the matching SF Symbol (`src/components/icon.tsx`), in Apple's weights and optical
+  alignment: filled when on, outlined when off. A like, a save, a vote and a newly chosen tab bounce once. Android keeps Ionicons.
+- **Glass on the navigation layer only.** The tab bar, the floating Create button, the buttons over photos and video
+  (sound, Back over a reel, Back and the menu over a profile cover), the Campus | Global toggle over a reel and the
+  Mark all read pill are Liquid Glass on iOS 26 (`src/components/glass.tsx`). Content stays opaque, and Reduce
+  Transparency swaps every glass surface for a solid fill.
+- **Shapes.** Rounded rectangles use Apple's continuous corner curve (the radius scale is in `src/lib/theme.ts`). The
+  comments, share, filter and menu sheets float 8pt in from the screen edges with the 34pt corners of the system's sheets.
+- **Motion.** Buttons and glass controls dip under the finger on a spring, the blue thumb of a segmented control slides
+  to the chosen option, and the rows of every feed and list fade in once as they first arrive. Reduce Motion turns the
+  scaling, sliding, fading and bouncing off (`src/lib/accessibility.ts`).
+- **Readability.** Secondary and faint text pass WCAG AA contrast (4.5:1) on the page and on cards in both themes
+  (light placeholders sit at about 4.1:1 on the grey input fill). Text follows Apple's type sizes, with nothing under
+  11pt apart from the counts and tags on small badges, and the shades at the top and bottom of a reel keep its white
+  words readable even on a white frame.
+
+Haptics and tap-to-top are covered with the comments above.
 
 ## Project state
 

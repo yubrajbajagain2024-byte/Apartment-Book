@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { BUZZ_PAGE_SIZE, BUZZ_SORTS, BUZZ_TOPICS, labelFor, listBuzz, type BuzzPost, type BuzzSort, type BuzzTopic } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
-import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
 import { useTabBarInset } from "@/lib/tab-bar";
@@ -15,6 +15,7 @@ import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { BUZZ_GUTTER, BuzzCard, BuzzSearchRow, emitBuzzEvent, onBuzzEvent } from "./buzz-card";
 import { useTabReselect } from "@/lib/tab-reselect";
 import { refreshWithHaptic } from "@/lib/haptics";
+import { Icon } from "@/components/icon";
 
 const SORT_ICONS: Record<BuzzSort, keyof typeof Ionicons.glyphMap> = { hot: "flame-outline", new: "time-outline", top: "trending-up-outline" };
 
@@ -25,9 +26,9 @@ function FilterPill({ label, icon, active, caret, onPress, accessibilityLabel }:
   const ink = active ? colors.brand : colors.text;
   return (
     <Pressable onPress={onPress} style={[styles.filter, active && { backgroundColor: colors.brandSoft }]} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} accessibilityState={{ selected: Boolean(active) }}>
-      {icon ? <Ionicons name={icon} size={15} color={ink} /> : null}
+      {icon ? <Icon name={icon} size={15} color={ink} /> : null}
       <Text style={[styles.filterText, { color: ink }]}>{label}</Text>
-      {caret ? <Ionicons name="chevron-down" size={14} color={ink} /> : null}
+      {caret ? <Icon name="chevron-down" size={14} color={ink} /> : null}
     </Pressable>
   );
 }
@@ -147,6 +148,8 @@ export function BuzzSection({ active, topInset, onScroll }: { active: boolean; t
   const startOffset = useMemo(() => ({ x: 0, y: -topInset }), [topInset]);
   // Tapping Home again while Buzz is on screen: back to the top.
   const listRef = useRef<FlatList<BuzzPost>>(null);
+  // Rows fade in once as they first arrive (not when scrolled back into view).
+  const appearCells = useAppearingCells();
   useTabReselect(() => listRef.current?.scrollToOffset({ offset: ios ? -topInset : 0, animated: true }), active);
 
   return (
@@ -170,11 +173,11 @@ export function BuzzSection({ active, topInset, onScroll }: { active: boolean; t
           <View style={styles.header}>
             <View style={styles.searchRow}>
               <View style={styles.search}>
-                <Ionicons name="search" size={18} color={colors.muted} />
+                <Icon name="search" size={18} color={colors.muted} />
                 <TextInput value={search} onChangeText={setSearch} placeholder="Search Buzz" placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} returnKeyType="search" clearButtonMode="while-editing" autoCorrect={false} style={styles.searchInput} accessibilityLabel="Search Buzz" />
               </View>
               <Pressable onPress={create} style={styles.plus} accessibilityRole="button" accessibilityLabel="Post anonymously on Buzz">
-                <Ionicons name="add" size={26} color={colors.text} />
+                <Icon name="add" size={26} color={colors.text} />
               </Pressable>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -BUZZ_GUTTER }} contentContainerStyle={{ gap: 8, paddingHorizontal: BUZZ_GUTTER }} keyboardShouldPersistTaps="handled">
@@ -184,12 +187,13 @@ export function BuzzSection({ active, topInset, onScroll }: { active: boolean; t
               ))}
             </ScrollView>
             <View style={styles.notice}>
-              <Ionicons name="eye-off-outline" size={12} color={colors.faint} />
+              <Icon name="eye-off-outline" size={13} color={colors.muted} />
               <Text style={styles.noticeText}>Buzz is anonymous. Nobody sees who wrote a post or a reply.</Text>
             </View>
             {error && items.length > 0 ? <ErrorBanner message={error} onRetry={refresh} /> : null}
           </View>
         }
+        CellRendererComponent={appearCells}
         renderItem={({ item }) =>
           searching ? (
             <BuzzSearchRow post={item} />
@@ -251,7 +255,7 @@ const useStyles = makeStyles((colors) => ({
   filterText: { fontSize: 13, fontWeight: "600" },
   hairline: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
   notice: { flexDirection: "row", alignItems: "center", gap: 5 },
-  noticeText: { flex: 1, fontSize: 11, color: colors.faint },
+  noticeText: { flex: 1, fontSize: 12, lineHeight: 16, color: colors.muted },
   retry: { textAlign: "center", color: colors.brand, fontSize: 13, fontWeight: "600" },
   end: { textAlign: "center", color: colors.faint, fontSize: 12, paddingVertical: 12 },
 }));

@@ -115,7 +115,7 @@ export function BuzzMenu({
         <MoreHorizontal className="h-5 w-5" />
       </button>
       {open && pos ? (
-        <div id={menuId} role="menu" aria-label={label} style={{ top: pos.top, right: pos.right }} className="fixed z-50 w-60 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200">
+        <div id={menuId} role="menu" aria-label={label} style={{ top: pos.top, right: pos.right }} className="ab-menu-in fixed z-50 w-60 origin-top-right rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200">
           {report ? (
             !signedIn ? (
               <a role="menuitem" href={login} className={item}>

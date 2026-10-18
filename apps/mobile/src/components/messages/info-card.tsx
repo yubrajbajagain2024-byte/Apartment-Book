@@ -1,10 +1,11 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import type { ProfileSummary } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { hapticTap } from "@/lib/haptics";
 import { radius, space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -54,7 +55,7 @@ export function InfoGroupCard({ name, memberCount }: { name: string; memberCount
   return (
     <View style={styles.card}>
       <View style={styles.groupMark}>
-        <Ionicons name="people" size={44} color={colors.brand} />
+        <Icon name="people" size={44} color={colors.brand} />
       </View>
       <Text style={styles.name} numberOfLines={2}>
         {name}
@@ -87,7 +88,7 @@ export function InfoButtons({ buttons }: { buttons: InfoButton[] }) {
           {({ pressed }) => (
             <>
               <View style={[styles.circle, pressed && { backgroundColor: colors.border }]}>
-                <Ionicons name={b.icon} size={22} color={colors.text} />
+                <Icon name={b.icon} size={22} color={colors.text} />
               </View>
               <Text style={styles.buttonLabel} numberOfLines={1}>
                 {b.label}
@@ -128,7 +129,7 @@ export function InfoMemberRow({ member, isMe, onPress }: { member: ProfileSummar
         {member.full_name}
       </Text>
       {isMe ? <Text style={styles.memberTag}>You</Text> : null}
-      <Ionicons name="chevron-forward" size={18} color={colors.faint} />
+      <Icon name="chevron-forward" size={18} color={colors.faint} />
     </Pressable>
   );
 }
@@ -158,7 +159,7 @@ export function InfoActionList({ actions }: { actions: InfoListAction[] }) {
             accessibilityState={{ disabled: off, busy: Boolean(a.busy) }}
             style={({ pressed }) => [styles.listRow, i > 0 && styles.listDivider, pressed && { backgroundColor: colors.input }, a.disabled && !a.busy && { opacity: 0.5 }]}
           >
-            <View style={styles.listIcon}>{a.busy ? <ActivityIndicator size="small" color={tint} /> : <Ionicons name={a.icon} size={21} color={tint} />}</View>
+            <View style={styles.listIcon}>{a.busy ? <ActivityIndicator size="small" color={tint} /> : <Icon name={a.icon} size={21} color={tint} />}</View>
             <Text style={[styles.listLabel, { color: tint }]} numberOfLines={1}>
               {a.label}
             </Text>
@@ -184,7 +185,7 @@ const useStyles = makeStyles((colors) => ({
   member: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: 8 },
   memberName: { flex: 1, fontSize: 15, fontWeight: "600", color: colors.text },
   memberTag: { fontSize: 13, color: colors.muted },
-  list: { marginHorizontal: space.lg, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, overflow: "hidden" },
+  list: { marginHorizontal: space.lg, borderRadius: radius.lg, borderCurve: "continuous", backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, overflow: "hidden" },
   listRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, minHeight: 52 },
   listDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   listIcon: { width: 24, alignItems: "center" },

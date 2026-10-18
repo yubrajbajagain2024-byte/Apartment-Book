@@ -1,9 +1,9 @@
 import { Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSession } from "@/lib/session";
 import { useColors } from "@/lib/theme-provider";
 import { useUnreadNotifications } from "@/lib/use-unread";
+import { Icon } from "@/components/icon";
 
 /**
  * The top-right corner of Home: the Notifications bell, which opens the notifications screen, with a badge of how many
@@ -17,7 +17,7 @@ export function HeaderActions({ color, inHeader = false, iconStyle }: { color?: 
   const unread = useUnreadNotifications(user?.id ?? null);
   return (
     <Pressable onPress={() => router.push("/notifications")} hitSlop={6} accessibilityRole="button" accessibilityLabel={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"} style={[styles.button, inHeader && styles.inHeader]}>
-      <Ionicons name="notifications-outline" size={26} color={color ?? colors.text} style={iconStyle} />
+      <Icon name="notifications-outline" size={26} color={color ?? colors.text} style={iconStyle} />
       {unread > 0 ? (
         <View style={[styles.badge, { backgroundColor: colors.dangerFill, borderColor: colors.bar }]}>
           <Text style={[styles.badgeText, { color: colors.onBrand }]} numberOfLines={1}>

@@ -134,7 +134,7 @@ export function PostMenu({
         <MoreHorizontal className="h-5 w-5" />
       </button>
       {open && pos ? (
-        <div id={menuId} role="menu" aria-label="Post options" style={{ top: pos.top, right: pos.right }} className="fixed z-50 w-52 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200">
+        <div id={menuId} role="menu" aria-label="Post options" style={{ top: pos.top, right: pos.right }} className="ab-menu-in fixed z-50 w-52 origin-top-right rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200">
           {save.signedIn ? (
             <button
               type="button"

@@ -1,10 +1,10 @@
 import { Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { isVerifiedPoster, type FollowStats, type PosterSummary } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { FollowButton } from "@/components/follow-button";
 import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 /**
  * One person in a list (followers, following, search): avatar, name and university domain (verified people only) open
@@ -21,7 +21,7 @@ export function PersonRow({ person: p, stats, userId, onNeedLogin, onChange, onP
           <Text numberOfLines={1} style={styles.personName}>{p.full_name}</Text>
           {isVerifiedPoster(p) ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <Ionicons name="checkmark-circle" size={13} color={colors.brand} />
+              <Icon name="checkmark-circle" sf="checkmark.seal.fill" size={14} color={colors.brand} />
               <Text numberOfLines={1} style={styles.domain}>{p.university?.email_domain}</Text>
             </View>
           ) : null}

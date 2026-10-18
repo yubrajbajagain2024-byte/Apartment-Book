@@ -5,7 +5,7 @@ import { listFeedPosts, type FeedPostWithAuthor } from "@apartment-book/shared";
 import { CaughtUp } from "@/components/home/caught-up";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
-import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
 import { useTabBarInset } from "@/lib/tab-bar";
@@ -49,6 +49,8 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
 
   // Coming back to Posts keeps the list and the scroll position. It only reloads when this person has just published a post.
   const listRef = useRef<FlatList<FeedPostWithAuthor>>(null);
+  // Rows fade in once as they first arrive (not when scrolled back into view).
+  const appearCells = useAppearingCells();
   // Tapping Home again while Posts is on screen: back to the top.
   useTabReselect(() => listRef.current?.scrollToOffset({ offset: inset.topOffset, animated: true }), active);
   const wasActive = useRef(active);
@@ -84,6 +86,7 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
         scrollEventThrottle={16}
         // Room under the last post for the floating bottom bar.
         contentContainerStyle={{ paddingBottom: 96 + tabBar, paddingTop: inset.paddingTop }}
+        CellRendererComponent={appearCells}
         renderItem={({ item: p }) => (
           <InstaPost
             post={p}

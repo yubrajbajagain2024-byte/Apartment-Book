@@ -27,7 +27,8 @@ export async function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white shadow-sm">
+      {/* Frosted like an iOS bar: nearly opaque white, with whatever scrolls under it softly blurred. */}
+      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 shadow-sm backdrop-blur-xl backdrop-saturate-150">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-3 sm:px-4">
           <div className="flex min-w-0 flex-1 items-center gap-3 md:flex-none md:basis-72 2xl:basis-[30rem]">
             <Link href="/" className="flex shrink-0 items-center gap-2 text-brand-600" aria-label={APP_NAME}>
@@ -47,7 +48,7 @@ export async function Navbar() {
           </div>
 
           <div className="flex shrink-0 items-center justify-end gap-2 md:basis-72 2xl:basis-[30rem]">
-            <Link href="/search" aria-label="Search" className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-gray-800 hover:bg-gray-300 md:hidden">
+            <Link href="/search" aria-label="Search" className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-gray-800 transition-[background-color,scale] duration-150 hover:bg-gray-300 motion-safe:active:scale-95 md:hidden">
               <Search className="h-5 w-5" />
             </Link>
             {user ? (

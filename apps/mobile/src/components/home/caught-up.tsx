@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 /** The end of a Home feed: a small mark and "You're all caught up.", centred under the last post. */
 export function CaughtUp() {
@@ -8,7 +8,7 @@ export function CaughtUp() {
   const colors = useColors();
   return (
     <View style={styles.row}>
-      <Ionicons name="disc-outline" size={18} color={colors.muted} />
+      <Icon name="disc-outline" size={18} color={colors.muted} />
       <Text style={styles.text}>You're all caught up.</Text>
     </View>
   );

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View, type ViewToken } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { listReels, REELS_PAGE_SIZE, type Reel } from "@apartment-book/shared";
 import { errorText } from "@/lib/hooks";
@@ -14,6 +13,7 @@ import { ReelCommentsSheet } from "./reel-comments-sheet";
 import { ReelItem, reelKey } from "./reel-item";
 import { useTabReselect } from "@/lib/tab-reselect";
 import { refreshWithHaptic } from "@/lib/haptics";
+import { Icon } from "@/components/icon";
 
 /** Set after someone posts a reel, so the feed reloads the next time it is on screen. */
 let reelsStale = false;
@@ -201,7 +201,7 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
   if (error && (!reels || reels.length === 0)) {
     body = (
       <View style={[styles.fill, styles.centered, { paddingTop: topInset }]}>
-        <Ionicons name="cloud-offline-outline" size={44} color={colors.onMediaMuted} />
+        <Icon name="cloud-offline-outline" size={44} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>Reels did not load</Text>
         <Text style={styles.stateBody}>{error}</Text>
         <Pressable onPress={() => void loadFirst("initial")} style={styles.stateButton} accessibilityRole="button">
@@ -219,11 +219,11 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
   } else if (reels.length === 0) {
     body = (
       <View style={[styles.fill, styles.centered, { paddingTop: topInset }]}>
-        <Ionicons name="film-outline" size={48} color={colors.onMediaMuted} />
+        <Icon name="film-outline" size={48} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>No reels yet</Text>
         <Text style={styles.stateBody}>Share a quick video of campus life, your place or a room tour.</Text>
         <Pressable onPress={create} style={styles.stateButton} accessibilityRole="button">
-          <Ionicons name="add" size={18} color={colors.onBrand} />
+          <Icon name="add" size={18} color={colors.onBrand} />
           <Text style={styles.stateButtonText}>Post the first reel</Text>
         </Pressable>
         <Pressable onPress={() => void loadFirst("refresh")} hitSlop={8} style={{ marginTop: 14 }} accessibilityRole="button">

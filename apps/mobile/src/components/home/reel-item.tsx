@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Alert, Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { APP_NAME, deleteFeedPost, getFeedPost, getOrCreateDirectConversation, likePost, muxPlaybackUrl, muxPosterUrl, reelPath, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromReel, toggleSaved, unlikePost, type Reel, type ReportReason } from "@apartment-book/shared";
@@ -13,6 +13,8 @@ import { SITE_URL, supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "../action-sheet";
 import { useShareSheet } from "../share-sheet";
+import { Icon, useBounceOn } from "@/components/icon";
+import { GlassBackdrop, GlassIconButton } from "@/components/glass";
 
 /** Sound is one switch for the whole Reels feed (starts muted, like every other feed video in the app). */
 let reelsMuted = true;
@@ -32,10 +34,33 @@ function useReelsMuted(): boolean {
 }
 
 /**
- * No gradient library in the app, so the bottom shade is a stack of thin bands that get darker. Each band is
- * colors.mediaScrim at a growing share of its strength (the band's opacity), so the bottom one is nearly the full scrim.
+ * The shades over a reel are true gradients of a media colour (the same in both themes), each stop that colour at a
+ * share of its strength along an eased ramp, so nothing bands even on a blown-out white frame. `share(t)` runs top (0)
+ * to bottom (1).
  */
-const SHADE_STEPS = [0.07, 0.13, 0.22, 0.31, 0.4, 0.51, 0.62, 0.73, 0.84, 0.93];
+function scrimGradient(scrim: string, share: (t: number) => number, stops = 10): string {
+  const m = /rgba?\(([^)]+)\)/.exec(scrim);
+  const [r = "0", g = "0", b = "0", a = "1"] = m ? m[1]!.split(",").map((x) => x.trim()) : [];
+  const list = Array.from({ length: stops + 1 }, (_, i) => {
+    const t = i / stops;
+    return `rgba(${r},${g},${b},${(Number(a) * share(t)).toFixed(3)}) ${(t * 100).toFixed(1)}%`;
+  });
+  return `linear-gradient(to bottom, ${list.join(", ")})`;
+}
+/** Bottom shade: from nothing at its top edge, already a light tint behind the rail's first counts, nearly the full scrim at the bottom. */
+const bottomShare = (t: number) => 0.96 * Math.pow(t, 0.7);
+/**
+ * Top shade: holds nearly its full strength behind whatever is drawn over the top (Home's wordmark and tabs, the
+ * viewer's row), then eases out below it, so the dimmed tab names stay readable even on a blown-out white frame.
+ */
+const topShare = (t: number) => {
+  const x = Math.min(Math.max((t - 0.42) / 0.58, 0), 1);
+  return 0.92 * (1 - x * x * (3 - 2 * x));
+};
+const TOP_SHADE_MIN = 170;
+const TOP_SHADE_EXTRA = 96;
+/** Tall enough to sit under the whole rail (like, comments, share, save, "…") with room to fade in above the like. */
+const SHADE_HEIGHT = 540;
 
 /** How long "…" waits for your reel's pin state when the read-ahead has not answered yet. */
 const PIN_READ_WAIT_MS = 1200;
@@ -312,25 +337,20 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
         {userPaused ? (
           <View style={styles.center} pointerEvents="none">
             <View style={styles.playBadge}>
-              <Ionicons name="play" size={44} color={colors.onMedia} style={{ marginLeft: 5 }} />
+              <Icon name="play" size={44} color={colors.onMedia} style={{ marginLeft: 5 }} />
             </View>
           </View>
         ) : null}
         <Animated.View pointerEvents="none" style={[styles.center, styles.bigHeart, { opacity: bigHeart, transform: [{ scale: bigHeart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
-          <Ionicons name="heart" size={110} color={colors.onMedia} />
+          <Icon name="heart" size={110} color={colors.onMedia} />
         </Animated.View>
       </Pressable>
 
-      {/* Soft shade so white text stays readable over bright video. */}
-      <View pointerEvents="none" style={styles.shade}>
-        {SHADE_STEPS.map((opacity) => (
-          <View key={opacity} style={{ flex: 1, backgroundColor: colors.mediaScrim, opacity }} />
-        ))}
-      </View>
+      {/* Soft shades so white words and icons stay readable over bright video: at the top under the bar, at the bottom under the name and the rail. */}
+      <View pointerEvents="none" style={[styles.topShade, { height: Math.max(TOP_SHADE_MIN, topInset + TOP_SHADE_EXTRA) }]} />
+      <View pointerEvents="none" style={styles.shade} />
 
-      <Pressable onPress={() => { hapticSelect(); setReelsMuted(!muted); }} hitSlop={8} style={[styles.mute, { top: topInset + 10 }]} accessibilityRole="button" accessibilityLabel={muted ? "Turn sound on" : "Turn sound off"}>
-        <Ionicons name={muted ? "volume-mute" : "volume-high"} size={18} color={colors.onMedia} />
-      </Pressable>
+      <GlassIconButton icon={muted ? "volume-mute" : "volume-high"} label={muted ? "Turn sound on" : "Turn sound off"} onPress={() => setReelsMuted(!muted)} variant="media" size={36} iconSize={17} haptic="select" hitSlop={8} style={[styles.mute, { top: topInset + 10 }]} />
 
       <View style={[styles.overlay, { paddingBottom: 31 + bottomInset }]} pointerEvents="box-none">
         <View style={styles.info} pointerEvents="box-none">
@@ -338,7 +358,7 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
             <Text style={styles.author} numberOfLines={1}>
               {reel.author.name}
             </Text>
-            {reel.author.verified ? <Ionicons name="checkmark-circle" size={15} color={colors.verifiedOnMedia} accessibilityLabel="Verified student" /> : null}
+            {reel.author.verified ? <Icon name="checkmark-circle" sf="checkmark.seal.fill" size={16} color={colors.verifiedOnMedia} accessibilityLabel="Verified student" /> : null}
           </Pressable>
           {/* Short by default, like TikTok: one line of title and one of caption, "… more" opens the rest. */}
           {oneLine ? (
@@ -393,10 +413,12 @@ export const ReelItem = memo(function ReelItem({ reel, width, height, topInset, 
 function RailButton({ icon, label, color, onPress, a11y, selected, small, scale }: { icon: keyof typeof Ionicons.glyphMap; label?: string; color?: string; onPress: () => void; a11y: string; selected?: boolean; small?: boolean; scale?: Animated.Value }) {
   const colors = useColors();
   const styles = useStyles();
+  // A heart or a bookmark that turns on bounces like the system's symbols.
+  const bounce = useBounceOn(Boolean(selected));
   return (
     <Pressable onPress={onPress} hitSlop={6} style={({ pressed }) => [styles.railButton, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={a11y} accessibilityState={selected === undefined ? undefined : { selected }}>
       <Animated.View style={scale ? { transform: [{ scale }] } : undefined}>
-        <Ionicons name={icon} size={small ? 30 : 34} color={color ?? colors.onMedia} style={styles.iconShadow} />
+        <Icon name={icon} size={small ? 30 : 34} color={color ?? colors.onMedia} style={styles.iconShadow} bounce={bounce} />
       </Animated.View>
       {label ? <Text style={styles.railLabel}>{label}</Text> : null}
     </Pressable>
@@ -429,13 +451,16 @@ function ReelVideo({ playbackId, poster, playing, muted }: { playbackId: string;
 /** Everything here sits over video, so it uses the media colours (light text, dark scrims) in both themes. */
 const useStyles = makeStyles((colors) => {
   // Under the white name, caption and labels: darker than mediaScrim, so the text stays sharp on bright footage.
+  // A tight halo: a wide, soft one fades to nothing around thin 12pt digits on a bright frame.
   const shadow = { textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 } as const;
   return {
     center: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
     playBadge: { width: 84, height: 84, borderRadius: 42, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
     bigHeart: { shadowColor: colors.shadow, shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 3 } },
-    shade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 260 },
-    mute: { position: "absolute", right: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
+    shade: { position: "absolute", left: 0, right: 0, bottom: 0, height: SHADE_HEIGHT, experimental_backgroundImage: scrimGradient(colors.mediaScrim, bottomShare) },
+    // Drawn from the darker text-shadow colour: the top carries smaller, dimmer words than the bottom does.
+    topShade: { position: "absolute", left: 0, right: 0, top: 0, experimental_backgroundImage: scrimGradient(colors.mediaTextShadow, topShare, 14) },
+    mute: { position: "absolute", right: 12 },
     // Instagram's geometry on an iPhone: the "…" centre 46pt above the tab bar, then save, share, comment and like every 73pt or so; the caption line level with "…".
     overlay: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "flex-end", paddingLeft: 14, paddingRight: 8, paddingBottom: 31, gap: 10 },
     info: { flex: 1, gap: 6, paddingBottom: 2 },
@@ -446,6 +471,7 @@ const useStyles = makeStyles((colors) => {
     rail: { width: 60, alignItems: "center", gap: 21 },
     railButton: { alignItems: "center", gap: 3, minWidth: 48 },
     railLabel: { color: colors.onMedia, fontSize: 12, fontWeight: "700", ...shadow },
-    iconShadow: { textShadowColor: colors.mediaScrim, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+    // A wider, darker halo than the words get: the rail's white strokes are thin, and bright footage would swallow them.
+    iconShadow: { textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6 },
   };
 });

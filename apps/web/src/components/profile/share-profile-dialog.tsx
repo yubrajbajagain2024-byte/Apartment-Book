@@ -147,8 +147,8 @@ function ShareProfileSheet({ onClose, target }: { onClose: () => void; target: S
 
   return (
     <div role="dialog" aria-modal="true" aria-label="Share profile" onKeyDown={onKeyDown} className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4" data-testid="share-profile-dialog">
-      <div aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-black/40" />
-      <div ref={panelRef} tabIndex={-1} className="ab-fade-in relative flex max-h-[90dvh] w-full flex-col overflow-y-auto rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl focus:outline-none sm:w-[380px] sm:rounded-2xl">
+      <div aria-hidden="true" onClick={onClose} className="ab-scrim-in absolute inset-0 bg-black/40" />
+      <div ref={panelRef} tabIndex={-1} className="ab-sheet-in relative flex max-h-[90dvh] w-full flex-col overflow-y-auto rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl focus:outline-none sm:w-[380px] sm:rounded-2xl">
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
           <h2 className="text-base font-semibold text-gray-900">Share profile</h2>
           <button type="button" onClick={onClose} aria-label="Close" data-autofocus="" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">

@@ -1,6 +1,6 @@
 import { type ReactNode, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { getOrCreateDirectConversation, getPostEngagement, recordContact, recordView, reportContent, REPORT_REASONS, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
@@ -15,6 +15,7 @@ import { PhotoCarousel } from "./photo-carousel";
 import { firstImageOf, useShareSheet } from "./share-sheet";
 import { useQuery } from "@/lib/hooks";
 import { Button } from "./ui";
+import { Icon } from "@/components/icon";
 
 /** Shared detail layout: media, title, facts, body, poster card, like/comment/message, comments. */
 export function ListingDetail({
@@ -119,7 +120,7 @@ export function ListingDetail({
             {lead ? <Text style={styles.lead}>{lead}</Text> : null}
           </View>
           <Pressable onPress={menu} hitSlop={8} accessibilityRole="button" accessibilityLabel="Options" style={styles.dots}>
-            <Ionicons name="ellipsis-horizontal" size={22} color={colors.muted} />
+            <Icon name="ellipsis-horizontal" size={22} color={colors.muted} />
           </Pressable>
         </View>
         {facts ? <View style={styles.facts}>{facts}</View> : null}
@@ -163,7 +164,7 @@ export function Fact({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; la
   const colors = useColors();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-      <Ionicons name={icon} size={16} color={colors.muted} />
+      <Icon name={icon} size={16} color={colors.muted} />
       <Text style={{ color: colors.text, fontSize: 14 }}>{label}</Text>
     </View>
   );
@@ -181,4 +182,4 @@ const useStyles = makeStyles((colors) => ({
  * Body text, headings and inset boxes for a detail screen's own content: `const detailStyles = useDetailStyles();` at the top of the screen.
  * The inset box is the grey fill (`input`): the screen background is white in the light theme, so `bg` would hide it on a white section.
  */
-export const useDetailStyles = makeStyles((colors) => ({ body: { fontSize: 15, lineHeight: 22, color: colors.text }, h2: { fontSize: 16, fontWeight: "700", color: colors.text, marginTop: 6 }, card: { backgroundColor: colors.input, borderRadius: radius.md, padding: 10 } }));
+export const useDetailStyles = makeStyles((colors) => ({ body: { fontSize: 15, lineHeight: 22, color: colors.text }, h2: { fontSize: 16, fontWeight: "700", color: colors.text, marginTop: 6 }, card: { backgroundColor: colors.input, borderRadius: radius.md, borderCurve: "continuous", padding: 10 } }));

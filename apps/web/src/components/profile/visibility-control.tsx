@@ -110,7 +110,7 @@ export function VisibilityControl({ section, value }: { section: ProfileSection;
               role="menu"
               aria-label={`Who can see your ${noun}`}
               onKeyDown={onMenuKeyDown}
-              className="absolute right-0 top-full z-30 mt-1.5 w-64 rounded-xl bg-white p-1.5 text-left shadow-lg ring-1 ring-gray-200"
+              className="ab-menu-in absolute right-0 top-full z-30 mt-1.5 w-64 origin-top-right rounded-xl bg-white p-1.5 text-left shadow-lg ring-1 ring-gray-200"
             >
               <p className="px-2.5 pb-1 pt-1 text-xs font-semibold text-gray-500">Who can see your {noun}</p>
               {PROFILE_VISIBILITY_OPTIONS.map((option) => {

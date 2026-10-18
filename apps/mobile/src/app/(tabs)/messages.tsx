@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, BackHandler, FlatList, Keyboard, Platform, Pressable, RefreshControl, StyleSheet, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView, type TextInput } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useIsFocused, useRouter } from "expo-router";
 import { listConversations, listFriends, markConversationRead, markConversationsRead, MUTE_DURATIONS, muteLabel, type ConversationSummary, type MessageWithSender, type MuteDuration, type MuteScope, type ProfileSummary } from "@apartment-book/shared";
 import { useActionSheet, type SheetOption } from "@/components/action-sheet";
@@ -8,7 +7,7 @@ import { INBOX_PAGES, InboxHeader, InboxSearchField } from "@/components/message
 import { InboxMessageRow, InboxNote, InboxRow, InboxSectionHeader } from "@/components/messages/inbox-row";
 import { inInbox, matchConversations, useMessageSearch, useNow, useUsernames, type InboxFilter, type InboxPage } from "@/components/messages/inbox-utils";
 import { InboxOnlineFriends, useOpenFriendChat } from "@/components/messages/online-friends";
-import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { Button, EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { hapticSwipe, hapticTap, refreshWithHaptic } from "@/lib/haptics";
 import { useQuery } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -20,6 +19,8 @@ import { useMessageRequests } from "@/lib/use-message-requests";
 import { useMutes } from "@/lib/use-mutes";
 import { reportMessagesRead } from "@/lib/use-unread";
 import { useTabReselect } from "@/lib/tab-reselect";
+import { Icon } from "@/components/icon";
+import { GlassBackdrop } from "@/components/glass";
 
 /** One line of a list: a chat, or while searching also section titles, found messages and status lines. */
 type Item =
@@ -53,6 +54,8 @@ const NOT_SCROLLED: Record<InboxPage, boolean> = { chats: false, groups: false }
  * (migration 27), the counts and the Messages badge clearing at once; a long press on a row still marks that one chat.
  */
 export default function MessagesScreen() {
+  // Rows fade in once as they first arrive (not when scrolled back into view).
+  const appearCells = useAppearingCells();
   const styles = useStyles();
   const tabBar = useTabBarInset();
   const colors = useColors();
@@ -419,6 +422,7 @@ export default function MessagesScreen() {
                 key={`${p}:${listKey}`}
                 data={lists[i]}
                 keyExtractor={(item) => item.key}
+                CellRendererComponent={appearCells}
                 renderItem={renderItem}
                 onScroll={(e) => onListScroll(p, e)}
                 scrollEventThrottle={16}
@@ -443,7 +447,9 @@ export default function MessagesScreen() {
       {user && showMarkAll ? (
         <View pointerEvents="box-none" style={[styles.markAllWrap, { bottom: tabBar + space.lg }]}>
           <Pressable onPress={markAllRead} accessibilityRole="button" accessibilityLabel="Mark all as read" style={({ pressed }) => [styles.markAll, pressed && { opacity: 0.75 }]}>
-            <Ionicons name="checkmark-done-outline" size={18} color={colors.text} />
+            {/* A floating control over the list: Liquid Glass on the bar's fill, so its words stay readable. */}
+            <GlassBackdrop variant="bar" radius={22} interactive />
+            <Icon name="checkmark-done-outline" size={18} color={colors.text} />
             <Text style={styles.markAllText}>Mark all as read</Text>
           </Pressable>
         </View>
@@ -460,6 +466,6 @@ const useStyles = makeStyles((colors) => ({
   pad: { padding: space.lg },
   // The pill floats over the list, centred above the bottom bar; the list keeps room under it (its bottom padding).
   markAllWrap: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 2 },
-  markAll: { flexDirection: "row", alignItems: "center", gap: 8, height: 44, paddingHorizontal: 20, borderRadius: radius.pill, backgroundColor: colors.elevated, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: colors.shadow, shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  markAll: { flexDirection: "row", alignItems: "center", gap: 8, height: 44, paddingHorizontal: 20, borderRadius: 22, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassEdge, shadowColor: colors.shadow, shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   markAllText: { fontSize: 15, fontWeight: "600", color: colors.text },
 }));

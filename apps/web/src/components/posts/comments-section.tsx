@@ -654,7 +654,7 @@ export function CommentsSection({
               <ListFilter className="h-4 w-4" />
             </button>
             {sortOpen ? (
-              <div role="menu" aria-label="Sort comments" className="absolute left-1/2 top-full z-30 mt-1 w-36 -translate-x-1/2 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200">
+              <div role="menu" aria-label="Sort comments" className="ab-menu-in absolute left-1/2 top-full z-30 mt-1 w-36 origin-top -translate-x-1/2 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200">
                 {COMMENT_SORTS.map((o) => (
                   <button
                     key={o.value}

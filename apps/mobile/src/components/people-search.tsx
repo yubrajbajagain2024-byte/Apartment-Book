@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { FlatList, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { searchPeople, type PosterSummary } from "@apartment-book/shared";
 import { useFollowStatsMany } from "@/components/follow-button";
 import { PersonRow } from "@/components/person-row";
-import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { radius, space } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { useTabReselect } from "@/lib/tab-reselect";
+import { Icon } from "@/components/icon";
 
 /** Same array on every render while nothing has loaded, so the stats hook does not refetch for a fresh empty list. */
 const NOBODY: PosterSummary[] = [];
@@ -26,6 +26,8 @@ const NOBODY: PosterSummary[] = [];
 export function PeopleSearch({ autoFocus = false, bottomInset = 0 }: { autoFocus?: boolean; bottomInset?: number }) {
   // On the Search tab, tapping Search again scrolls the list back to the top, as on every iOS tab.
   const listRef = useRef<FlatList<PosterSummary>>(null);
+  // Rows fade in once as they first arrive (not when scrolled back into view).
+  const appearCells = useAppearingCells();
   useTabReselect(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }));
   const { user, profile } = useSession();
   const router = useRouter();
@@ -53,7 +55,7 @@ export function PeopleSearch({ autoFocus = false, bottomInset = 0 }: { autoFocus
     <View style={styles.screen}>
       <View style={styles.header}>
         <View style={styles.search}>
-          <Ionicons name="search" size={18} color={colors.muted} />
+          <Icon name="search" size={18} color={colors.muted} />
           <TextInput autoFocus={autoFocus} value={text} onChangeText={setText} placeholder="Search people" placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} accessibilityLabel="Search people" returnKeyType="search" autoCorrect={false} autoCapitalize="words" clearButtonMode="while-editing" style={styles.input} />
         </View>
       </View>
@@ -69,6 +71,7 @@ export function PeopleSearch({ autoFocus = false, bottomInset = 0 }: { autoFocus
         keyboardDismissMode="on-drag"
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 + bottomInset }}
         ListHeaderComponent={people.length > 0 ? <Text style={styles.section}>{section}</Text> : null}
+        CellRendererComponent={appearCells}
         renderItem={({ item }) => <PersonRow person={item} stats={stats[item.id]} userId={me ?? null} onNeedLogin={needLogin} onPress={() => router.push({ pathname: "/profile/[id]", params: { id: item.id } })} />}
         ListEmptyComponent={
           loading && !data ? (

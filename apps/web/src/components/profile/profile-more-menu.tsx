@@ -109,7 +109,7 @@ export function ProfileMoreMenu({ profileId, name, initialBlocked }: { profileId
         <MoreHorizontal className="h-5 w-5" />
       </button>
       {open ? (
-        <div ref={menuRef} id={menuId} role="menu" aria-label="More options" onKeyDown={onMenuKeyDown} className="absolute right-0 top-full z-30 mt-2 w-60 rounded-xl bg-white p-1.5 text-left shadow-lg ring-1 ring-gray-200">
+        <div ref={menuRef} id={menuId} role="menu" aria-label="More options" onKeyDown={onMenuKeyDown} className="ab-menu-in absolute right-0 top-full z-30 mt-2 w-60 origin-top-right rounded-xl bg-white p-1.5 text-left shadow-lg ring-1 ring-gray-200">
           <button type="button" role="menuitem" disabled={pending} onClick={toggleBlock} className={item}>
             <Ban className="h-5 w-5 text-gray-600" />
             {blocked ? `Unblock ${firstName}` : `Block ${firstName}`}

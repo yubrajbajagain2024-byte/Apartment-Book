@@ -1,6 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, View, useWindowDimensions, type ListRenderItem } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { Stack, useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { HeaderHeightContext } from "expo-router/react-navigation";
 import {
@@ -41,6 +40,7 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { useChatActivity } from "@/lib/use-activity-status";
+import { Icon } from "@/components/icon";
 
 /** Messages from one person this close together form one run: hugging bubbles, one avatar, one time. */
 const RUN_GAP_MS = 5 * 60 * 1000;
@@ -743,7 +743,7 @@ function Chat({
         >
           {isGroup ? (
             <View style={styles.groupAvatar}>
-              <Ionicons name="people" size={17} color={colors.brand} />
+              <Icon name="people" size={17} color={colors.brand} />
             </View>
           ) : (
             <Avatar name={other?.full_name} url={other?.avatar_url} size="sm" userId={other?.id} ringColor={colors.bar} />
@@ -769,10 +769,10 @@ function Chat({
       headerRight: () => (
         <View style={styles.headerButtons}>
           <Pressable onPress={openSearch} hitSlop={8} accessibilityRole="button" accessibilityLabel="Search in this chat" style={styles.headerButton}>
-            <Ionicons name="search" size={22} color={colors.brand} />
+            <Icon name="search" size={22} color={colors.brand} />
           </Pressable>
           <Pressable onPress={openInfo} hitSlop={8} accessibilityRole="button" accessibilityLabel="Chat details" style={styles.headerButton}>
-            <Ionicons name="information-circle-outline" size={26} color={colors.brand} />
+            <Icon name="information-circle-outline" size={26} color={colors.brand} />
           </Pressable>
         </View>
       ),
@@ -849,7 +849,7 @@ const useStyles = makeStyles((colors) => ({
   headerText: { flexShrink: 1 },
   headerName: { fontWeight: "700", fontSize: 16, color: colors.text },
   headerSubRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  headerSub: { flexShrink: 1, fontSize: 11, color: colors.muted },
+  headerSub: { flexShrink: 1, fontSize: 12, color: colors.muted },
   activeDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.green },
   headerButtons: { flexDirection: "row", alignItems: "center", gap: 14 },
   headerButton: { paddingHorizontal: 2 },

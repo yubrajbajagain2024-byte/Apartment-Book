@@ -14,6 +14,8 @@
 
 html {
   color-scheme: light;
+  /* Every control draws its own pressed state, so Safari's grey tap flash would only double it. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -21,6 +23,20 @@ body {
   color: #1c1e21;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* In the base layer, so any component's own classes still win over these defaults. */
+@layer base {
+  ::selection {
+    background: var(--color-brand-100);
+  }
+  /* Keyboard focus on links and menu rows gets the brand ring the buttons already have. */
+  :where(a, summary, [role="menuitem"], [role="tab"], [role="option"]):focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
 }
 
 /* Thin scrollbars for the chat panes */
@@ -74,16 +90,45 @@ body {
   animation: ab-burst 900ms ease-out forwards;
 }
 
+/* Apple's curve for things that arrive: off the mark at once, then a long, gentle settle. */
 @keyframes ab-fade-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .ab-fade-in {
-  animation: ab-fade-in 320ms ease-out both;
+  animation: ab-fade-in 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* A sheet or dialog rises into place over a backdrop that fades in under it. */
+@keyframes ab-sheet-in {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ab-sheet-in {
+  animation: ab-sheet-in 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes ab-scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.ab-scrim-in {
+  animation: ab-scrim-in 240ms ease-out both;
+}
+
+/*
+ * A menu grows out of its button. The corner it grows from comes from an origin-* class on the menu: this rule sits
+ * outside Tailwind's layers, so a transform-origin set here would override those classes.
+ */
+@keyframes ab-menu-in {
+  from { opacity: 0; scale: 0.95; }
+  to { opacity: 1; scale: 1; }
+}
+.ab-menu-in {
+  animation: ab-menu-in 180ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ab-skeleton, .ab-burst, .ab-pop, .ab-fade-in { animation: none; }
+  .ab-skeleton, .ab-burst, .ab-pop, .ab-fade-in, .ab-sheet-in, .ab-scrim-in, .ab-menu-in { animation: none; }
   /* Without its animation the burst heart would sit over the video for good. */
   .ab-burst { display: none; }
 }

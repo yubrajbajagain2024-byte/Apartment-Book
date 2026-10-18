@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, Share, Text, useWindowDimensions, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -42,6 +42,7 @@ import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 /** Squares per row in the Media grid, and the hairline between them (Instagram's grid). */
 const COLUMNS = 3;
@@ -417,7 +418,7 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
     const empty = EMPTY_TEXT[tab];
     return (
       <View style={styles.empty}>
-        <Ionicons name={empty.icon} size={30} color={colors.faint} />
+        <Icon name={empty.icon} size={30} color={colors.faint} />
         <Text style={styles.emptyTitle}>{empty.title}</Text>
         <Text style={styles.emptyBody}>{empty.body}</Text>
       </View>
@@ -467,7 +468,7 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
             menu.length > 0
               ? () => (
                   <Pressable onPress={openMenu} hitSlop={8} accessibilityRole="button" accessibilityLabel="More options" style={styles.headerButton}>
-                    <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
+                    <Icon name="ellipsis-horizontal" size={22} color={colors.text} />
                   </Pressable>
                 )
               : undefined,

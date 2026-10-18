@@ -36,7 +36,10 @@ export type ThemeColors = {
   text: string;
   /** Secondary text: times, captions, labels. */
   muted: string;
-  /** Hints, placeholders, disabled icons. */
+  /**
+   * Hints, placeholders, disabled icons. At least 4.5:1 on the page and on cards in both themes, and on the input fill
+   * in dark; light placeholders sit at about 4.1:1 on the grey input fill, so they stay a step lighter than `muted`.
+   */
   faint: string;
   /** Hairlines, dividers, card outlines. */
   border: string;
@@ -85,6 +88,14 @@ export type ThemeColors = {
   mediaTextShadow: string;
   /** The verified tick over video: lighter than `brand`, so it stays clear on dark footage. */
   verifiedOnMedia: string;
+  /**
+   * A control drawn on video (the Campus | Global toggle over Reels, the viewer's Back and sound buttons): a dark glass
+   * fill, its light edge and the brighter thumb on the chosen part. The same in both themes, so white words always have
+   * something dark behind them (white stays above 4.5:1 even on a white frame).
+   */
+  mediaControl: string;
+  mediaControlEdge: string;
+  mediaControlActive: string;
   /** Behind photos and videos while they load, and the Reels page. */
   mediaBg: string;
   /** The dimmed screen behind sheets and dialogs. */
@@ -104,7 +115,7 @@ export const lightColors: ThemeColors = {
   accent: "#6a4df0",
   accentBlue: "#3b82f6",
   accentTeal: "#14b8a6",
-  glass: "rgba(255,255,255,0.72)",
+  glass: "rgba(255,255,255,0.92)",
   glassEdge: "rgba(0,0,0,0.1)",
   glassHighlight: "rgba(0,0,0,0.08)",
   bg: "#ffffff",
@@ -113,7 +124,7 @@ export const lightColors: ThemeColors = {
   elevated: "#ffffff",
   text: "#050505",
   muted: "#65676b",
-  faint: "#8a8d91",
+  faint: "#737679",
   border: "#e4e6eb",
   input: "#f0f2f5",
   skeleton: "#e4e6eb",
@@ -143,6 +154,9 @@ export const lightColors: ThemeColors = {
   mediaPill: "rgba(0,0,0,0.65)",
   mediaTextShadow: "rgba(0,0,0,0.6)",
   verifiedOnMedia: "#4da3ff",
+  mediaControl: "rgba(18,18,20,0.58)",
+  mediaControlEdge: "rgba(255,255,255,0.24)",
+  mediaControlActive: "rgba(255,255,255,0.28)",
   mediaBg: "#000000",
   backdrop: "rgba(0,0,0,0.25)",
   shadow: "#000000",
@@ -156,7 +170,7 @@ export const darkColors: ThemeColors = {
   accent: "#8b7cff",
   accentBlue: "#5b9bff",
   accentTeal: "#2dd4bf",
-  glass: "rgba(22,22,24,0.72)",
+  glass: "rgba(22,22,24,0.92)",
   glassEdge: "rgba(255,255,255,0.14)",
   glassHighlight: "rgba(255,255,255,0.16)",
   bg: "#000000",
@@ -165,7 +179,7 @@ export const darkColors: ThemeColors = {
   elevated: "#1c1c1e",
   text: "#ffffff",
   muted: "#a8abaf",
-  faint: "#7c7f84",
+  faint: "#929599",
   border: "#38383a",
   input: "#2c2c2e",
   skeleton: "#2c2c2e",
@@ -195,6 +209,9 @@ export const darkColors: ThemeColors = {
   mediaPill: "rgba(0,0,0,0.65)",
   mediaTextShadow: "rgba(0,0,0,0.6)",
   verifiedOnMedia: "#4da3ff",
+  mediaControl: "rgba(18,18,20,0.58)",
+  mediaControlEdge: "rgba(255,255,255,0.24)",
+  mediaControlActive: "rgba(255,255,255,0.28)",
   mediaBg: "#000000",
   backdrop: "rgba(0,0,0,0.6)",
   shadow: "#000000",

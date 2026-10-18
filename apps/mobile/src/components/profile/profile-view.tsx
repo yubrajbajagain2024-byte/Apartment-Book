@@ -16,7 +16,7 @@ import {
   type NativeSyntheticEvent,
   type ScrollView,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -73,6 +73,7 @@ import { ShareProfileSheet } from "./share-profile-sheet";
 import { useTileGrid, type GridCursor, type GridPage, type TileGrid } from "./use-tile-grid";
 import { LockedNotice, VisibilityRow } from "./visibility-row";
 import { useTabReselect } from "@/lib/tab-reselect";
+import { Icon } from "@/components/icon";
 
 /** Space between the squares of the grid, across and down, and from the grid to the screen's edges. */
 const GAP = 6;
@@ -1219,7 +1220,7 @@ function TabEmpty({ tab, own }: { tab: GridTab; own: boolean }) {
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIcon}>
-        <Ionicons name={icon} size={26} color={colors.text} />
+        <Icon name={icon} size={26} color={colors.text} />
       </View>
       <Text style={styles.emptyTitle}>{title}</Text>
       {action ? <Button title={action.title} icon="add" onPress={() => router.push(action.href)} style={styles.emptyAction} /> : null}

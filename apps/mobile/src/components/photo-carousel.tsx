@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from "expo-video";
 import type { FeedMedia } from "@apartment-book/shared";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { hapticSelect } from "@/lib/haptics";
+import { Icon } from "@/components/icon";
+import { GlassBackdrop, GlassIconButton } from "@/components/glass";
 
 const DOUBLE_TAP_MS = 260;
 
@@ -110,7 +111,7 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
       ) : null}
       {videoLabel && media[0]?.type === "video" ? (
         <View style={styles.videoBadge}>
-          <Ionicons name="videocam" size={13} color={colors.onMedia} />
+          <Icon name="videocam" size={13} color={colors.onMedia} />
           <Text style={styles.videoBadgeText}>{videoLabel}</Text>
         </View>
       ) : null}
@@ -141,17 +142,19 @@ function VideoSlide({ media, width, height, playing }: { media: Extract<FeedMedi
       <VideoView player={player} style={{ width, height }} contentFit="cover" nativeControls={false} onFirstFrameRender={() => setHasFrame(true)} />
       {/* Poster stays on top until the first video frame is painted, so the slide is never a black box. */}
       {media.poster && !hasFrame ? <Image source={{ uri: media.poster }} style={StyleSheet.absoluteFill} contentFit="cover" pointerEvents="none" /> : null}
-      <Pressable
+      <GlassIconButton
+        icon={muted ? "volume-mute" : "volume-high"}
+        label={muted ? "Unmute" : "Mute"}
         onPress={() => {
-          hapticSelect();
           soundOn = muted;
           setMuted(!muted);
         }}
-        accessibilityRole="button" accessibilityLabel={muted ? "Unmute" : "Mute"}
+        variant="media"
+        size={32}
+        iconSize={15}
+        haptic="select"
         style={styles.mute}
-      >
-        <Ionicons name={muted ? "volume-mute" : "volume-high"} size={16} color={colors.onMedia} />
-      </Pressable>
+      />
     </View>
   );
 }
@@ -165,5 +168,5 @@ const useStyles = makeStyles((colors) => ({
   dotActive: { width: 18, backgroundColor: colors.onMedia },
   videoBadge: { position: "absolute", top: 10, left: 10, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   videoBadgeText: { color: colors.onMedia, fontSize: 12, fontWeight: "700" },
-  mute: { position: "absolute", right: 10, bottom: 28, width: 32, height: 32, borderRadius: 16, backgroundColor: colors.mediaPill, alignItems: "center", justifyContent: "center" },
+  mute: { position: "absolute", right: 10, bottom: 28 },
 }));

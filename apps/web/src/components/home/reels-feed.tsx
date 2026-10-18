@@ -249,8 +249,8 @@ function CommentsDrawer({
 
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Comments">
-      <button type="button" aria-label="Close comments" onClick={onClose} className="absolute inset-0 h-full w-full cursor-default bg-black/40 md:bg-black/20" />
-      <div className="ab-fade-in absolute inset-x-0 bottom-0 flex max-h-[75dvh] min-h-[50dvh] flex-col rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[400px] md:rounded-none md:rounded-l-2xl">
+      <button type="button" aria-label="Close comments" onClick={onClose} className="ab-scrim-in absolute inset-0 h-full w-full cursor-default bg-black/40 md:bg-black/20" />
+      <div className="ab-sheet-in absolute inset-x-0 bottom-0 flex max-h-[75dvh] min-h-[50dvh] flex-col rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[400px] md:rounded-none md:rounded-l-2xl">
         {/* The thread's own "N comments" line, which stays put under this bar while the comments scroll, is the title; this bar only says which reel and closes the sheet. */}
         <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-2.5">
           <p className="min-w-0 truncate text-xs text-gray-500">

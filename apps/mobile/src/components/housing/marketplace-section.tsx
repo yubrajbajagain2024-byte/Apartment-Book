@@ -6,7 +6,7 @@ import type { MarketFilters } from "@/components/housing/filter-sheet";
 import type { CampusChoice } from "@/components/marketplace/campus-menu";
 import { categoryIcon, MarketItemCard } from "@/components/marketplace/item-card";
 import { useItemLikes } from "@/components/marketplace/use-item-likes";
-import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { Button, EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -102,6 +102,8 @@ export function MarketplaceSection({
 
   // Another campus, category or search starts the grid from the top.
   const list = useRef<FlatList<ItemWithSeller>>(null);
+  // Rows fade in once as they first arrive (not when scrolled back into view).
+  const appearCells = useAppearingCells();
   // Tapping Explore again while the Marketplace is on screen: back to the top.
   useTabReselect(() => list.current?.scrollToOffset({ offset: inset.topOffset, animated: true }), active);
   useEffect(() => {
@@ -193,6 +195,7 @@ export function MarketplaceSection({
         onScroll={onScroll}
         scrollEventThrottle={16}
         contentContainerStyle={[styles.grid, { paddingTop: 2 + inset.paddingTop, paddingBottom: 24 + tabBar }, feed.items.length === 0 && styles.gridEmpty]}
+        CellRendererComponent={appearCells}
         renderItem={renderItem}
         ListEmptyComponent={empty()}
         ListFooterComponent={footer()}

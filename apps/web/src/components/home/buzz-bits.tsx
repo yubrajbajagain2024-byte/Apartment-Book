@@ -140,7 +140,7 @@ export function BuzzSortMenu({ label, value, options, onSelect, variant = "quiet
       {open ? (
         <>
           <button type="button" aria-hidden="true" tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default" />
-          <div role="menu" aria-label={label} className={cn("absolute top-full z-50 mt-1 w-40 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200", align === "left" ? "left-0" : "right-0")}>
+          <div role="menu" aria-label={label} className={cn("ab-menu-in absolute top-full z-50 mt-1 w-40 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200", align === "left" ? "left-0 origin-top-left" : "right-0 origin-top-right")}>
             <p className="px-3 pb-1 pt-1.5 text-xs font-semibold text-gray-500">{label}</p>
             {options.map((o) => {
               const active = o.value === current.value;

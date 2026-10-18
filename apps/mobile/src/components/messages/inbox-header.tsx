@@ -1,12 +1,12 @@
 import { type ReactNode, type Ref } from "react";
 import { Animated, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SlidingTabs } from "@/components/sliding-tabs";
 import { hapticSelect } from "@/lib/haptics";
 import { radius, space } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import type { InboxFilter, InboxPage } from "./inbox-utils";
+import { Icon } from "@/components/icon";
 
 /** The two pages of the inbox, left to right: the order of the pager and of the labels above it. */
 export const INBOX_PAGES: { value: InboxPage; label: string }[] = [
@@ -52,7 +52,7 @@ export function InboxHeader({ signedIn, page, onPage, scrollX, pageWidth, reques
         </Text>
         {signedIn ? (
           <Pressable onPress={onNewChat} hitSlop={8} accessibilityRole="button" accessibilityLabel="New message" style={({ pressed }) => [styles.compose, pressed && { opacity: 0.6 }]}>
-            <Ionicons name="create-outline" size={24} color={colors.text} />
+            <Icon name="create-outline" size={24} color={colors.text} />
           </Pressable>
         ) : null}
       </View>
@@ -91,7 +91,7 @@ export function InboxSearchField({ value, onChangeText, placeholder = "Search", 
   return (
     <View style={styles.searchRow}>
       <View style={styles.search}>
-        <Ionicons name="search" size={18} color={colors.muted} />
+        <Icon name="search" size={18} color={colors.muted} />
         <TextInput
           ref={inputRef}
           value={value}
@@ -110,7 +110,7 @@ export function InboxSearchField({ value, onChangeText, placeholder = "Search", 
         />
         {value ? (
           <Pressable onPress={() => onChangeText("")} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear search">
-            <Ionicons name="close-circle" size={18} color={colors.faint} />
+            <Icon name="close-circle" size={18} color={colors.faint} />
           </Pressable>
         ) : null}
       </View>

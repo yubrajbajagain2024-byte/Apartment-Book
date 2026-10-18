@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { getPostEngagement, likePost, toggleSaved, unlikePost, type PostEngagement, type PostTargetType } from "@apartment-book/shared";
 import { hapticLike, hapticSelect } from "@/lib/haptics";
 import { onPostEngagement } from "@/lib/posts-events";
 import { supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 export function useLike(targetType: PostTargetType, targetId: string, initial: PostEngagement | undefined, userId: string | null, onNeedLogin: () => void) {
   const [state, setState] = useState({ liked: initial?.likedByMe ?? false, likes: initial?.likes ?? 0 });
@@ -93,7 +93,7 @@ export function EngagementSummary({ likes, comments, onComments }: { likes: numb
       {likes > 0 ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
           <View style={styles.likePill}>
-            <Ionicons name="thumbs-up" size={9} color={colors.onBrand} />
+            <Icon name="thumbs-up" size={9} color={colors.onBrand} />
           </View>
           <Text style={styles.summaryText}>{likes}</Text>
         </View>
@@ -118,16 +118,16 @@ export function EngagementBar({ liked, likes, onLike, onComment, onMessage, mess
   return (
     <View style={styles.bar}>
       <Pressable style={styles.action} onPress={onLike} accessibilityRole="button" accessibilityLabel={liked ? "Unlike" : "Like"} accessibilityState={{ selected: liked }}>
-        <Ionicons name={liked ? "thumbs-up" : "thumbs-up-outline"} size={20} color={liked ? colors.brand : colors.text} />
+        <Icon name={liked ? "thumbs-up" : "thumbs-up-outline"} size={20} color={liked ? colors.brand : colors.text} />
         <Text style={[styles.actionText, liked && { color: colors.brand }]}>{liked ? "Liked" : "Like"}</Text>
         {likes > 0 ? <Text style={styles.count}>{likes}</Text> : null}
       </Pressable>
       <Pressable style={styles.action} onPress={onComment} accessibilityRole="button" accessibilityLabel="Comment">
-        <Ionicons name="chatbox-outline" size={20} color={colors.text} />
+        <Icon name="chatbox-outline" size={20} color={colors.text} />
         <Text style={styles.actionText}>Comment</Text>
       </Pressable>
       <Pressable style={styles.action} onPress={onMessage} accessibilityRole="button" accessibilityLabel={messageLabel}>
-        <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+        <Icon name="chatbubble-ellipses-outline" size={20} color={colors.text} />
         <Text style={styles.actionText}>{messageLabel}</Text>
       </Pressable>
     </View>

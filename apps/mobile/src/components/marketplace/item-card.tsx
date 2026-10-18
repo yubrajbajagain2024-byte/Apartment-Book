@@ -1,10 +1,11 @@
 import { memo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { formatPrice, ITEM_CONDITIONS, labelFor, photosFor, type ItemCategoryValue, type ItemWithSeller } from "@apartment-book/shared";
 import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -101,7 +102,7 @@ export const MarketItemCard = memo(function MarketItemCard({ item, width, campus
         {photo ? <Image source={{ uri: photo.url }} placeholder={photo.blur ? { uri: photo.blur } : undefined} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} recyclingKey={item.id} /> : null}
         {/* The space above the words: the photo shows through it, or the category icon sits in its middle. */}
         <View style={styles.room} onLayout={onPhoto ? undefined : (e) => setRoom(e.nativeEvent.layout.height)}>
-          {!onPhoto && iconSize >= 16 ? <Ionicons name={categoryIcon(item.category)} size={iconSize} color={colors.faint} /> : null}
+          {!onPhoto && iconSize >= 16 ? <Icon name={categoryIcon(item.category)} size={iconSize} color={colors.faint} /> : null}
         </View>
         <View style={[styles.words, onPhoto && styles.wordsOnPhoto]}>
           {onPhoto ? <View style={styles.fadeRamp} /> : null}
@@ -127,7 +128,7 @@ export const MarketItemCard = memo(function MarketItemCard({ item, width, campus
               ) : null}
               {campus ? (
                 <>
-                  <Ionicons name="location" size={11} color={metaColor} style={pinStyle} />
+                  <Icon name="location" size={11} color={metaColor} style={pinStyle} />
                   <Text style={metaStyle} numberOfLines={1}>
                     {campus}
                   </Text>
@@ -137,7 +138,7 @@ export const MarketItemCard = memo(function MarketItemCard({ item, width, campus
           ) : null}
           {pickup ? (
             <View style={styles.metaRow}>
-              <Ionicons name="location" size={11} color={metaColor} style={pinStyle} />
+              <Icon name="location" size={11} color={metaColor} style={pinStyle} />
               <Text style={[metaStyle, styles.shrink]} numberOfLines={1}>
                 {pickup}
               </Text>
@@ -147,7 +148,7 @@ export const MarketItemCard = memo(function MarketItemCard({ item, width, campus
       </Pressable>
       <Pressable onPress={like} hitSlop={8} accessibilityRole="button" accessibilityLabel={liked ? "Unlike" : "Like"} accessibilityState={{ selected: liked }} style={({ pressed }) => [styles.heart, !onPhoto && styles.heartOnFill, pressed && styles.heartPressed]}>
         <Animated.View style={{ transform: [{ scale: pop }] }}>
-          <Ionicons name={liked ? "heart" : "heart-outline"} size={20} color={liked ? colors.like : onPhoto ? colors.onMedia : colors.text} />
+          <Icon name={liked ? "heart" : "heart-outline"} size={20} color={liked ? colors.like : onPhoto ? colors.onMedia : colors.text} />
         </Animated.View>
       </Pressable>
     </View>
@@ -158,7 +159,7 @@ const useStyles = makeStyles((colors) => {
   const textShadow = { textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 };
   return {
     // The soft fill shows while the photo loads, and behind the icon of an item without photos.
-    card: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.input },
+    card: { borderRadius: radius.lg, borderCurve: "continuous", overflow: "hidden", backgroundColor: colors.input },
     // The card's button covers it: the words stack at the foot, the room above them takes what is left. Words too tall
     // for the card (very large text) run off the top, so the price goes before the pickup line does.
     fill: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "flex-end" },

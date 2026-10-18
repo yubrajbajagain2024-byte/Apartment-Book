@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View, type ViewToken } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused, useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,6 +16,8 @@ import { dropHandedReel, peekHandedReel } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
+import { GlassBackdrop, GlassIconButton } from "@/components/glass";
 
 /** Breathing room between the status bar and the top row, as on Home's bar. */
 const TOP_GAP = 8;
@@ -274,7 +275,7 @@ export default function ReelViewerScreen() {
     // The only reel here was deleted.
     body = (
       <View style={styles.centered}>
-        <Ionicons name="film-outline" size={48} color={colors.onMediaMuted} />
+        <Icon name="film-outline" size={48} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>No more reels</Text>
         <Pressable onPress={leave} style={styles.stateButton} accessibilityRole="button">
           <Text style={styles.stateButtonText}>Back</Text>
@@ -284,7 +285,7 @@ export default function ReelViewerScreen() {
   } else if (gone) {
     body = (
       <View style={styles.centered}>
-        <Ionicons name="film-outline" size={48} color={colors.onMediaMuted} />
+        <Icon name="film-outline" size={48} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>This reel is no longer available</Text>
         <Pressable onPress={leave} style={styles.stateButton} accessibilityRole="button">
           <Text style={styles.stateButtonText}>Back</Text>
@@ -294,7 +295,7 @@ export default function ReelViewerScreen() {
   } else if (error) {
     body = (
       <View style={styles.centered}>
-        <Ionicons name="cloud-offline-outline" size={44} color={colors.onMediaMuted} />
+        <Icon name="cloud-offline-outline" size={44} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>The reel did not load</Text>
         <Text style={styles.stateBody}>{error}</Text>
         <Pressable onPress={() => setRetry((n) => n + 1)} style={styles.stateButton} accessibilityRole="button">
@@ -319,9 +320,8 @@ export default function ReelViewerScreen() {
       {/* One row floating over the video: Back at the left, the toggle in the middle (the reel's own sound button takes the right end); touches between them go through to the reel. */}
       <View pointerEvents="box-none" style={[styles.top, { paddingTop: rowTop }]}>
         <View pointerEvents="box-none" style={styles.row}>
-          <Pressable onPress={leave} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back" style={({ pressed }) => [styles.back, pressed && { opacity: 0.6 }]}>
-            <Ionicons name="chevron-back" size={30} color={colors.onMedia} style={styles.shadow} />
-          </Pressable>
+          {/* Back on clear glass over the video, as the system draws its bar buttons over media. */}
+          <GlassIconButton icon="chevron-back" label="Back" onPress={leave} variant="media" size={40} iconSize={19} haptic={false} hitSlop={8} style={styles.back} />
           {segments.length > 1 ? <ScopeToggle segments={segments} value={chosen} onChange={choose} overVideo shadow={styles.shadow} /> : null}
         </View>
       </View>
@@ -354,7 +354,7 @@ const useStyles = makeStyles((colors) => ({
   top: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 },
   // The toggle is centred on the screen; Back keeps to the left edge, level with it.
   row: { height: ROW, alignItems: "center", justifyContent: "center" },
-  back: { position: "absolute", left: 8, top: 0, width: ROW, height: ROW, alignItems: "center", justifyContent: "center" },
+  back: { position: "absolute", left: 12, top: (ROW - 40) / 2 },
   // A dark, see-through pill in the screen's gutters, the same in both themes since it sits on video.
   commentBar: { position: "absolute", left: 0, right: 0, paddingHorizontal: 16 },
   commentInput: { height: COMMENT_BAR, borderRadius: 999, justifyContent: "center", paddingHorizontal: 20, backgroundColor: colors.mediaPill, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.onMediaMuted },

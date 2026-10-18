@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { Animated, Pressable, StyleSheet, Text, View, type LayoutChangeEvent, type StyleProp, type TextStyle } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HOME_BRAND, HOME_TABS, type HomeSection } from "@apartment-book/shared";
@@ -13,6 +13,8 @@ import { useSession } from "@/lib/session";
 import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useCreateMenu } from "./create-menu";
+import { Icon } from "@/components/icon";
+import { GlassBackdrop } from "@/components/glass";
 
 /** Height of each of the bar's first two rows: the wordmark row, then the labels row. */
 const ROW = 44;
@@ -158,18 +160,18 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
       <View style={styles.row}>
         {overVideo ? (
           <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" style={styles.side}>
-            <Ionicons name="add-circle-outline" size={30} color={fg} style={styles.shadow} />
+            <Icon name="add-circle-outline" size={30} color={fg} style={styles.shadow} />
           </Pressable>
         ) : (
           <View style={styles.side}>
             <Pressable onPress={() => router.push("/(tabs)/profile")} hitSlop={4} accessibilityRole="button" accessibilityLabel="Your profile" style={styles.ring}>
               <View style={styles.ringGap}>
-                {profile ? <Avatar name={profile.full_name} url={profile.avatar_url} size={PHOTO} online={false} transition={0} /> : <Ionicons name="person-circle" size={PHOTO} color={colors.faint} />}
+                {profile ? <Avatar name={profile.full_name} url={profile.avatar_url} size={PHOTO} online={false} transition={0} /> : <Icon name="person-circle" size={PHOTO} color={colors.faint} />}
               </View>
             </Pressable>
             {/* The create badge, labelled "Create" like the "+" over Reels: the end-to-end flows start from it. */}
             <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" accessibilityHint="A post, a reel or a Buzz thread" style={styles.plus}>
-              <Ionicons name="add" size={13} color={colors.onBrand} />
+              <Icon name="add" size={13} color={colors.onBrand} />
             </Pressable>
           </View>
         )}
@@ -214,12 +216,14 @@ export function ScopeToggle({ segments, value, onChange, overVideo, shadow }: { 
   const off = overVideo ? colors.onMediaMuted : colors.muted;
   return (
     <View style={[styles.toggle, overVideo && styles.toggleOverVideo]} accessibilityRole="radiogroup" accessibilityLabel="Whose posts to show">
+      {/* Over video the pill is clear Liquid Glass on a dark dimming layer, in both themes, so its white words always read. */}
+      {overVideo ? <GlassBackdrop variant="media" radius={TOGGLE_HEIGHT / 2} /> : null}
       <Animated.View pointerEvents="none" style={[styles.thumb, overVideo && styles.thumbOverVideo, { transform: [{ translateX: x }] }]} />
       {segments.map((s) => {
         const active = s.key === value;
         return (
           <Pressable key={s.key} onPress={() => onChange(s.key)} accessibilityRole="radio" accessibilityLabel={s.label} accessibilityHint={s.hint} accessibilityState={{ checked: active }} hitSlop={{ top: 6, bottom: 6 }} style={styles.segment}>
-            <Ionicons name={s.icon} size={14} color={active ? on : off} style={shadow} />
+            <Icon name={s.icon} size={14} color={active ? on : off} style={shadow} />
             <Text style={[styles.segmentText, { color: active ? on : off }, active && styles.segmentTextOn, shadow]} numberOfLines={1} maxFontSizeMultiplier={1.2}>
               {s.label}
             </Text>
@@ -245,14 +249,15 @@ const useStyles = makeStyles((colors, scheme) => ({
   ringGap: { width: PHOTO + 2 * PHOTO_GAP, height: PHOTO + 2 * PHOTO_GAP, borderRadius: PHOTO / 2 + PHOTO_GAP, backgroundColor: colors.bar, alignItems: "center", justifyContent: "center" },
   // Instagram's "+" on the photo's bottom-right corner: a small blue disc with a ring of the bar's colour, so it reads apart from the photo.
   plus: { position: "absolute", right: 0, bottom: 2, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.brand, borderWidth: 2, borderColor: colors.bar, alignItems: "center", justifyContent: "center" },
-  shadow: { textShadowColor: colors.mediaScrim, textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
+  // Under the white words and icons over Reels: dark and soft enough to hold them on a bright frame.
+  shadow: { textShadowColor: colors.mediaTextShadow, textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 } },
   // The toggle sits centred in its row, just under the labels' hairline.
   toggleRow: { height: TOGGLE_ROW, alignItems: "center", justifyContent: "center" },
   // The pill on the input fill; over video a glass fill instead. The thumb is a card with a whisper of shadow in light.
   toggle: { flexDirection: "row", padding: TOGGLE_PAD, borderRadius: radius.pill, backgroundColor: colors.input },
-  toggleOverVideo: { backgroundColor: colors.glass, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassEdge },
+  toggleOverVideo: { backgroundColor: "transparent", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.mediaControlEdge },
   thumb: { position: "absolute", top: TOGGLE_PAD, bottom: TOGGLE_PAD, left: TOGGLE_PAD, width: SEGMENT, borderRadius: radius.pill, backgroundColor: colors.card, shadowColor: colors.shadow, shadowOpacity: scheme === "dark" ? 0 : 0.12, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: scheme === "dark" ? 0 : 2 },
-  thumbOverVideo: { backgroundColor: colors.glassHighlight, shadowOpacity: 0, elevation: 0 },
+  thumbOverVideo: { backgroundColor: colors.mediaControlActive, shadowOpacity: 0, elevation: 0 },
   segment: { width: SEGMENT, height: TOGGLE_HEIGHT - 2 * TOGGLE_PAD, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   segmentText: { fontSize: 13, fontWeight: "600" },
   segmentTextOn: { fontWeight: "700" },
