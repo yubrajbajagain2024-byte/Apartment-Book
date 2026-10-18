@@ -5,7 +5,7 @@ import { APP_NAME, captionParts, compactCount, deleteFeedPost, getOrCreateDirect
 import { hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
-import { entryOf, openViewer as openFullScreen, viewerItemFromPost } from "@/lib/reel-viewer";
+import { entryOf, measureOrigin, openViewer as openFullScreen, viewerItemFromPost, type ViewerOrigin } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { shortDate } from "@/lib/short-date";
 import { SITE_URL, supabase } from "@/lib/supabase";
@@ -15,7 +15,7 @@ import { Avatar } from "../avatar";
 import { useLike, useSave } from "../engagement";
 import { ExpandableText } from "../expandable-text";
 import { PhotoCarousel } from "../photo-carousel";
-import { POST_GUTTER, POST_TEXT, PostActions, PostFrame, PostHeader } from "../post-bits";
+import { POST_FRAME_RADIUS, POST_GUTTER, POST_TEXT, PostActions, PostFrame, PostHeader } from "../post-bits";
 import { useShareSheet } from "../share-sheet";
 import { Icon } from "@/components/icon";
 
@@ -39,7 +39,7 @@ export type InstaPostProps = {
    * Opens the post full screen in the viewer, given the row's own live counts: a feed passes its own, which hands over
    * the pages around this one. Without it the post opens alone (and the Reels feed follows it).
    */
-  onOpen?: (live: { engagement: PostEngagement; saved: boolean; slide: number }) => void;
+  onOpen?: (live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin }) => void;
 };
 
 const TALLEST = 4 / 5;
@@ -76,6 +76,8 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   useEffect(() => onPostPinned((id, next) => id === post.id && setPinned(next)), [post.id]);
   const heart = useRef(new Animated.Value(0)).current;
   const lastTextTap = useRef(0);
+  /** The picture's frame, measured when it is tapped so the viewer can zoom open from it. */
+  const frame = useRef<View>(null);
 
   const author = post.author;
   const own = user?.id === author.id;
@@ -105,11 +107,13 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
    * swipe up moves on. A words-only post has nothing to open.
    */
   function openViewer() {
-    // The viewer opens on the photo or video showing here.
-    const live = { engagement: { likes: like.likes, comments, likedByMe: like.liked }, saved: save.saved, slide };
-    if (props.onOpen) return props.onOpen(live);
-    const item = viewerItemFromPost(post, live.engagement, live.saved);
-    if (item) openFullScreen(router, { entries: [entryOf(item, slide)], index: 0, then: "reels" });
+    // The viewer opens on the photo or video showing here, zooming open from the picture's own frame.
+    void measureOrigin(frame.current, POST_FRAME_RADIUS).then((origin) => {
+      const live = { engagement: { likes: like.likes, comments, likedByMe: like.liked }, saved: save.saved, slide, origin };
+      if (props.onOpen) return props.onOpen(live);
+      const item = viewerItemFromPost(post, live.engagement, live.saved);
+      if (item) openFullScreen(router, { entries: [entryOf(item, slide)], index: 0, then: "reels", origin });
+    });
   }
 
   /** A words-only post has no photo to double tap, so the text takes the gesture (its heart is the one in the row below). */
@@ -222,7 +226,9 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
 
       {media.length > 0 ? (
         <PostFrame>
-          <PhotoCarousel media={media} aspect={frameAspect(media, reel)} active={active} videoLabel={null} dots={false} onIndexChange={setSlide} onPress={openViewer} onDoubleTap={doubleTap} />
+          <View ref={frame} collapsable={false}>
+            <PhotoCarousel media={media} aspect={frameAspect(media, reel)} active={active} videoLabel={null} dots={false} onIndexChange={setSlide} onPress={openViewer} onDoubleTap={doubleTap} />
+          </View>
           <Animated.View pointerEvents="none" style={[styles.heart, { opacity: heart, transform: [{ scale: heart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
             <Icon name="heart" size={96} color={colors.onMedia} />
           </Animated.View>

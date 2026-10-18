@@ -1,10 +1,10 @@
-import { memo, useCallback } from "react";
+import { memo, useCallback, useRef } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { compactCount, type ProfileTile, type ProfileTileType } from "@apartment-book/shared";
-import { entryForPost, openViewer } from "@/lib/reel-viewer";
+import { entryForPost, measureOrigin, openViewer, type ViewerOrigin } from "@/lib/reel-viewer";
 import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
@@ -44,11 +44,11 @@ function opensFullScreen(tile: ProfileTile): boolean {
 export function useOpenTile() {
   const router = useRouter();
   return useCallback(
-    (tile: ProfileTile, tiles?: readonly ProfileTile[]) => {
+    (tile: ProfileTile, tiles?: readonly ProfileTile[], origin?: ViewerOrigin) => {
       if (opensFullScreen(tile)) {
         const list = (tiles ?? [tile]).filter(opensFullScreen);
         const index = Math.max(0, list.findIndex((t) => t.key === tile.key));
-        openViewer(router, { entries: list.map((t) => entryForPost(t.id, t.imageUrl)), index, then: "end" });
+        openViewer(router, { entries: list.map((t) => entryForPost(t.id, t.imageUrl)), index, then: "end", origin });
       } else if (tile.type === "post" || tile.type === "reel") router.push({ pathname: "/posts/[id]", params: { id: tile.id } });
       else if (tile.type === "apartment") router.push({ pathname: "/apartments/[id]", params: { id: tile.id } });
       else if (tile.type === "roommate") router.push({ pathname: "/roommates/[id]", params: { id: tile.id } });
@@ -64,8 +64,10 @@ export function useOpenTile() {
  * stack icon of several photos. A words-only post, or a listing without photos, shows its words on a soft background.
  * `onLongPress` is only given for your own posts and reels (Pin to profile).
  */
-export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspect = TILE_ASPECT, onOpen, onLongPress }: { tile: ProfileTile; width: number; aspect?: number; onOpen: (tile: ProfileTile) => void; onLongPress?: (tile: ProfileTile) => void }) {
+export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspect = TILE_ASPECT, onOpen, onLongPress }: { tile: ProfileTile; width: number; aspect?: number; onOpen: (tile: ProfileTile, origin?: ViewerOrigin) => void; onLongPress?: (tile: ProfileTile) => void }) {
   const styles = useStyles();
+  /** The square's frame, measured when it is tapped so the viewer can zoom open from it. */
+  const self = useRef<View>(null);
   const colors = useColors();
   const listing = isListing(tile.type) ? tile.type : null;
   const pinLabel = tile.pinned ? "Unpin from profile" : "Pin to profile";
@@ -74,7 +76,8 @@ export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspe
   const inkShadow = tile.imageUrl ? styles.iconShadow : null;
   return (
     <Pressable
-      onPress={() => onOpen(tile)}
+      ref={self}
+      onPress={() => void measureOrigin(self.current, TILE_RADIUS).then((origin) => onOpen(tile, origin))}
       onLongPress={onLongPress ? () => onLongPress(tile) : undefined}
       delayLongPress={350}
       accessibilityRole="button"

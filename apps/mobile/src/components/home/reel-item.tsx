@@ -1,9 +1,10 @@
-import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { memo, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Alert, Animated, Easing, FlatList, Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { Image } from "expo-image";
 import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
+import Reanimated, { useAnimatedStyle } from "react-native-reanimated";
 import { APP_NAME, deleteFeedPost, getFeedPost, getOrCreateDirectConversation, likePost, reelPath, reportContent, REPORT_REASONS, setPostPinned, sharedPostPath, toggleSaved, unlikePost, type FeedMedia, type Reel, type ReportReason } from "@apartment-book/shared";
 import { hapticLike, hapticSelect, hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
@@ -15,7 +16,8 @@ import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "../action-sheet";
 import { useShareSheet } from "../share-sheet";
 import { Icon, useBounceOn } from "@/components/icon";
-import { GlassIconButton } from "@/components/glass";
+import { ProgressiveBlur } from "@/components/progressive-blur";
+import { ViewerChromeContext } from "@/lib/viewer-chrome";
 
 /** Sound is one switch for the whole Reels feed (starts muted, like every other feed video in the app). */
 let reelsMuted = true;
@@ -62,6 +64,10 @@ const TOP_SHADE_MIN = 170;
 const TOP_SHADE_EXTRA = 96;
 /** Tall enough to sit under the whole rail (like, comments, share, save, "…") with room to fade in above the like. */
 const SHADE_HEIGHT = 540;
+/** How far above the bottom inset (the comment bar or the tab bar) the frosted blur reaches: past the name and the words. */
+const BLUR_REACH = 230;
+/** The sound button sits this far above the play button's centre, Instagram style: its 44pt disc, then a gap. */
+const SOUND_ABOVE = 44 + 26;
 
 /** How long "…" waits for your reel's pin state when the read-ahead has not answered yet. */
 const PIN_READ_WAIT_MS = 1200;
@@ -172,6 +178,15 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   }, [playing]);
   // A new slide starts playing (if it is a video) whatever the last one was doing.
   useEffect(() => setUserPaused(false), [slide]);
+  /** The paused controls (play, and sound above it): shown only while a video is paused, faded in and out. */
+  const showControls = userPaused && slideIsVideo;
+  const controls = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(controls, { toValue: showControls ? 1 : 0, duration: showControls ? 160 : 220, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
+  }, [showControls, controls]);
+  /** The viewer's chrome fade while a page zooms open or closed (none on the Reels tab). */
+  const chrome = useContext(ViewerChromeContext);
+  const chromeStyle = useAnimatedStyle(() => ({ opacity: chrome ? chrome.value : 1 }));
 
   /** The heart jumps when it fills and dips when it empties, so the tap is felt even before the count moves. */
   function animateHeart(liked: boolean) {
@@ -372,23 +387,17 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
       ) : (
         <MediaPager media={media} width={width} height={height} near={near} playing={playing && !userPaused} muted={muted} start={slide} onSlide={setSlide} onTap={onVideoTap} />
       )}
-      {userPaused && slideIsVideo ? (
-        <View style={styles.center} pointerEvents="none">
-          <View style={styles.playBadge}>
-            <Icon name="play" size={44} color={colors.onMedia} style={{ marginLeft: 5 }} />
-          </View>
-        </View>
-      ) : null}
       <Animated.View pointerEvents="none" style={[styles.center, styles.bigHeart, { opacity: bigHeart, transform: [{ scale: bigHeart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
         <Icon name="heart" size={110} color={colors.onMedia} />
       </Animated.View>
 
+      {/* Behind the words and the comment bar, the picture frosts over gradually towards the bottom, as under an iOS bar. */}
+      {near ? <ProgressiveBlur height={bottomInset + BLUR_REACH} /> : null}
       {/* Soft shades so white words and icons stay readable over bright video: at the top under the bar, at the bottom under the name and the rail. */}
       <View pointerEvents="none" style={[styles.topShade, { height: Math.max(TOP_SHADE_MIN, topInset + TOP_SHADE_EXTRA) }]} />
       <View pointerEvents="none" style={styles.shade} />
 
-      {/* Sound is for a video: a photo on screen has no button. */}
-      {slideIsVideo ? <GlassIconButton icon={muted ? "volume-mute" : "volume-high"} label={muted ? "Turn sound on" : "Turn sound off"} onPress={() => setReelsMuted(!muted)} variant="media" size={36} iconSize={17} haptic="select" hitSlop={8} style={[styles.mute, { top: topInset + 10 }]} /> : null}
+      <Reanimated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, chromeStyle]}>
       {/* Several photos or videos: where you are, under the top row, as on a photo carousel. */}
       {media.length > 1 ? (
         <View pointerEvents="none" style={[styles.dots, { top: topInset + 62 }]} accessibilityLabel={`${slide + 1} of ${media.length}`}>
@@ -452,6 +461,22 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
           <RailButton icon="ellipsis-horizontal" onPress={() => void more()} a11y="More options" small />
         </View>
       </View>
+
+      {/* Paused: the play button in the middle and the sound button just above it, Instagram style. Both fade away the
+          moment the video plays again (a tap on play, or anywhere); the sound button keeps the video paused. */}
+      {slideIsVideo ? (
+        <Animated.View pointerEvents={showControls ? "box-none" : "none"} style={[styles.center, { opacity: controls, transform: [{ scale: controls.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }] }]}>
+          <View style={styles.controls}>
+            <Pressable onPress={() => setReelsMuted(!muted)} hitSlop={10} accessibilityRole="button" accessibilityLabel={muted ? "Turn sound on" : "Turn sound off"} style={({ pressed }) => [styles.soundBadge, pressed && { opacity: 0.75 }]}>
+              <Icon name={muted ? "volume-mute" : "volume-high"} size={20} color={colors.onMedia} />
+            </Pressable>
+            <Pressable onPress={() => setUserPaused(false)} accessibilityRole="button" accessibilityLabel="Play" style={({ pressed }) => [styles.playBadge, pressed && { opacity: 0.85 }]}>
+              <Icon name="play" size={44} color={colors.onMedia} style={{ marginLeft: 5 }} />
+            </Pressable>
+          </View>
+        </Animated.View>
+      ) : null}
+      </Reanimated.View>
     </View>
   );
 });
@@ -583,11 +608,13 @@ const useStyles = makeStyles((colors) => {
   return {
     center: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
     playBadge: { width: 84, height: 84, borderRadius: 42, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
+    // The sound button above the play button: the play button stays dead centre, so the pair is lifted by half the sound button's share.
+    controls: { alignItems: "center", gap: SOUND_ABOVE - 44, transform: [{ translateY: -SOUND_ABOVE / 2 }] },
+    soundBadge: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
     bigHeart: { shadowColor: colors.shadow, shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 3 } },
     shade: { position: "absolute", left: 0, right: 0, bottom: 0, height: SHADE_HEIGHT, experimental_backgroundImage: scrimGradient(colors.mediaScrim, bottomShare) },
     // Drawn from the darker text-shadow colour: the top carries smaller, dimmer words than the bottom does.
     topShade: { position: "absolute", left: 0, right: 0, top: 0, experimental_backgroundImage: scrimGradient(colors.mediaTextShadow, topShare, 14) },
-    mute: { position: "absolute", right: 12 },
     // Behind a picture that does not fill the screen: its own blur, dimmed so the words over it stay readable.
     backdropDim: { backgroundColor: "rgba(0,0,0,0.38)" },
     dots: { position: "absolute", left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 5 },

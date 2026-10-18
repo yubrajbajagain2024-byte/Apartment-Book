@@ -45,13 +45,20 @@ toggle, a small segmented pill whose thumb slides to the choice: Campus is your 
 only while Posts has a tab, Following: the posts of people you follow, which switches to Posts); the choice scopes For you,
 Buzz, Posts and Reels alike (`src/lib/home-scope.ts`). Someone without a university has nothing to choose, so the row is not drawn.
 Tapping any reel, or the photo or video of any post (photos, videos or both), anywhere in the app opens it full screen in
-the viewer (`src/app/reels/[id].tsx`), like Instagram: the picture fills the screen edge to edge (a picture wider than the
-screen sits whole over a soft, dimmed blur of itself) under one top row with Back at the left, the Campus | Global toggle
-in the middle (for reels and For you) and a video's sound button at the right; the creator's name, the words and the heart,
-comments, share, save and "…" rail sit at the bottom (`src/components/home/reel-item.tsx`, as on the Reels page), and under
-them an "Add comment…" bar on every page opens the comments sheet straight into typing. A post with several photos or videos
-swipes sideways on its page, with dots under the top row, and opens on the one that was showing in the feed; a video plays
-while its page and slide are on screen, a tap pauses it and a double tap anywhere likes. A swipe up moves on: a reel goes on
+the viewer (`src/app/reels/[id].tsx`), like Instagram. It does not slide in: the tapped picture itself grows out of its
+place in the feed, the grid or the chat to fill the screen while the screen behind darkens (a see-through modal with no
+system animation; the page stays full size inside the growing frame, scaled so the picture keeps its size), and on the way
+out (Back, Android's back, or a swipe in from the left edge) it shrinks back into the same place; opened from a link or a
+page other than the tapped one, it fades and scales out instead. Screens opened from the viewer (a profile, a chat) come up
+as cards over it. The picture fills the screen edge to edge (a picture wider than the screen sits whole over a soft, dimmed
+blur of itself) under one top row with Back at the left and the Campus | Global toggle in the middle (for reels and For
+you); the creator's name, the words and the heart, comments, share, save and "…" rail sit at the bottom
+(`src/components/home/reel-item.tsx`, as on the Reels page) over a gradual frost (`src/components/progressive-blur.tsx`:
+expo-blur through a gradient mask, left out on a build without them), and under them an "Add comment…" bar on every page
+opens the comments sheet straight into typing. A tap pauses a video: a play button appears in the middle with the sound
+button just above it, both fading away again the moment it plays (the sound button keeps it paused). A post with several
+photos or videos swipes sideways on its page, with dots under the top row, and opens on the one that was showing in the
+feed; a video plays while its page and slide are on screen, and a double tap anywhere likes. A swipe up moves on: a reel goes on
 into the Reels feed (only reels, page by page, the other campus choice keeping the page on screen while what follows comes
 from the new choice); a post in For you goes on down For you, its next pages loading as needed; a square in a profile grid
 (Posts, Reels, Saved, Liked) goes on through that grid; a saved post through your saved posts; a post's own screen and a
@@ -191,8 +198,8 @@ feel native:
   scrolls) pulls it down on the UI thread, and a flick or a long pull closes it. Every sheet has the same grabber,
   centred title and close button, floats 8pt in from the screen edges with 34pt continuous corners, and keeps its text
   fields above the keyboard. Menus stay the system's own action sheet.
-- **Glass only where it does a job.** The tab bar and the controls over photos and video (sound, Back over a reel, the
-  Campus | Global toggle over a reel, Back and the menu over a profile cover) are Liquid Glass on iOS 26
+- **Glass only where it does a job.** The tab bar and the controls over photos and video (Back over a reel, the Campus |
+  Global toggle over a reel, Back and the menu over a profile cover) are Liquid Glass on iOS 26
   (`src/components/glass.tsx`). Everything else is solid, including the floating Create button and the Mark all as read
   pill. Reduce Transparency swaps every glass surface for a solid fill.
 - **Scrolling.** The For you, Buzz, Room and Roommate feeds draw each row through a memoised component with stable

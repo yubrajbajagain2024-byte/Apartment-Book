@@ -48,8 +48,11 @@ function ThemedStack() {
         <Stack.Screen name="roommates/[id]" options={{ title: "Roommate post" }} />
         <Stack.Screen name="marketplace/[id]" options={{ title: "Item" }} />
         <Stack.Screen name="posts/[id]" options={{ title: "Post" }} />
-        {/* The Reels viewer is video edge to edge, black behind it in both themes, with its own Back over the video. */}
-        <Stack.Screen name="reels/[id]" options={{ headerShown: false, contentStyle: { backgroundColor: colors.mediaBg } }} />
+        {/* The full-screen viewer zooms open out of the picture that was tapped and back into it on the way out (see
+            app/reels/[id].tsx), so it is a see-through screen with no slide of its own: the screen behind stays in view
+            while the page grows over it and the backdrop darkens. It draws its own Back and closes on a swipe from the
+            left edge. */}
+        <Stack.Screen name="reels/[id]" options={{ headerShown: false, presentation: "transparentModal", animation: "none", gestureEnabled: false, contentStyle: { backgroundColor: "transparent" } }} />
         <Stack.Screen name="buzz/[id]" options={{ headerShown: false, contentStyle: content }} />
         <Stack.Screen name="messages/[id]" options={{ title: "Chat" }} />
         <Stack.Screen name="messages/new" options={{ title: "New message" }} />

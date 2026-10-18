@@ -49,10 +49,23 @@ export type ViewerEntry = { key: string; id: string; item: ViewerItem | null; th
 export type ViewerSource = {
   entries: ViewerEntry[];
   index: number;
+  /** Where the tapped picture sits on screen: the viewer zooms open from it, and back into it on the way out. */
+  origin?: ViewerOrigin;
   then: "reels" | "end" | { more: () => Promise<ViewerEntry[]>; rescope?: (universityId: string | undefined, seen: Set<string>) => () => Promise<ViewerEntry[]> };
 };
 
 const NO_ENGAGEMENT: PostEngagement = { likes: 0, comments: 0, likedByMe: false };
+
+/** A tapped picture's frame in window points, and its corner radius. */
+export type ViewerOrigin = { x: number; y: number; width: number; height: number; radius: number };
+
+/** Measures where a tapped view sits on screen (undefined when it cannot be measured), for the viewer to zoom open from. */
+export function measureOrigin(view: { measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => void } | null, radius = 0): Promise<ViewerOrigin | undefined> {
+  return new Promise((resolve) => {
+    if (!view) return resolve(undefined);
+    view.measureInWindow((x, y, width, height) => resolve(width > 0 && height > 0 ? { x, y, width, height, radius } : undefined));
+  });
+}
 
 export const viewerKey = (item: Pick<ViewerItem, "sourceType" | "sourceId">) => `${item.sourceType}:${item.sourceId}`;
 
@@ -182,8 +195,8 @@ export function openViewer(router: Router, source: ViewerSource) {
 }
 
 /** A reel tapped in a feed: that reel, then the Reels feed behind it (only reels, like Instagram). */
-export function openReel(router: Router, reel: Reel) {
-  openViewer(router, { entries: [entryOf(viewerItemFromReel(reel))], index: 0, then: "reels" });
+export function openReel(router: Router, reel: Reel, origin?: ViewerOrigin) {
+  openViewer(router, { entries: [entryOf(viewerItemFromReel(reel))], index: 0, then: "reels", origin });
 }
 
 /** What was handed over for this id, if that is what was handed over last. Left in place until `dropHanded`, so a render that runs twice reads the same thing. */

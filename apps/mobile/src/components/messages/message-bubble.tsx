@@ -14,7 +14,7 @@ import {
 } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { openChatLink, sharedPostHref, type ChatMessage, type OutgoingFiles, type UploadStatus } from "@/lib/message-attachments";
-import { entryForPost, openViewer } from "@/lib/reel-viewer";
+import { entryForPost, measureOrigin, openViewer } from "@/lib/reel-viewer";
 import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { AttachmentFileRow } from "./attachment-file-row";
@@ -260,8 +260,10 @@ function SharedPostCard({ shared, dimmed, onLongPress }: { shared: SharedPost; d
   const styles = useStyles();
   const router = useRouter();
   const label = sharedPostLabel(shared);
+  /** The card's picture, measured when it is tapped so the viewer can zoom open from it. */
+  const picture = useRef<View>(null);
   const open = () => {
-    if (shared.target_type === "post" && shared.image_url) openViewer(router, { entries: [entryForPost(shared.target_id, shared.image_url)], index: 0, then: "reels" });
+    if (shared.target_type === "post" && shared.image_url) void measureOrigin(picture.current, radius.lg).then((origin) => openViewer(router, { entries: [entryForPost(shared.target_id, shared.image_url)], index: 0, then: "reels", origin }));
     else router.push(sharedPostHref(shared));
   };
   return (
@@ -272,7 +274,11 @@ function SharedPostCard({ shared, dimmed, onLongPress }: { shared: SharedPost; d
       accessibilityLabel={`${label}: ${shared.title ?? shared.caption ?? shared.author.name}`}
       style={({ pressed }) => [styles.card, dimmed && styles.dim, pressed && { opacity: 0.8 }]}
     >
-      {shared.image_url ? <Image source={{ uri: shared.image_url }} style={styles.cardImage} contentFit="cover" transition={150} accessibilityLabel={shared.title ?? shared.caption ?? "Shared picture"} /> : null}
+      {shared.image_url ? (
+        <View ref={picture} collapsable={false}>
+          <Image source={{ uri: shared.image_url }} style={styles.cardImage} contentFit="cover" transition={150} accessibilityLabel={shared.title ?? shared.caption ?? "Shared picture"} />
+        </View>
+      ) : null}
       <View style={styles.cardBody}>
         <View style={styles.cardAuthor}>
           <Avatar name={shared.author.name} url={shared.author.avatar_url} size="xs" online={false} />

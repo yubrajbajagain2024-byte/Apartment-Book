@@ -10,7 +10,7 @@ import { useHomeScope } from "@/lib/home-scope";
 import { useTabBarInset } from "@/lib/tab-bar";
 import { errorText } from "@/lib/hooks";
 import { emitPostRemoved, onPostRemoved, takeForYouStale } from "@/lib/posts-events";
-import { entryOf, forYouAfter, openReel, openViewer, viewerItemFromPost, type ViewerEntry } from "@/lib/reel-viewer";
+import { entryOf, forYouAfter, openReel, openViewer, viewerItemFromPost, type ViewerEntry, type ViewerOrigin } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
@@ -55,7 +55,7 @@ const ForYouRow = memo(function ForYouRow({
   active: boolean;
   onOpenComments: (item: ForYouItem) => void;
   onRemoved: (item: ForYouItem) => void;
-  onOpenViewer: (item: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number }) => void;
+  onOpenViewer: (item: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin }) => void;
 }) {
   return (
     <InstaPost
@@ -209,10 +209,10 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
    * Reels feed, as it always has.
    */
   const openInViewer = useCallback(
-    (tapped: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number }) => {
+    (tapped: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin }) => {
       if (tapped.kind === "reel") {
         const reel = reelFromFeedPost(tapped, live.engagement, live.saved);
-        if (reel) openReel(router, reel);
+        if (reel) openReel(router, reel, live.origin);
         return;
       }
       const { items: list, engagement: counts, savedIds: saved, commentsOf: commentCount, hasMore: more } = latest.current;
@@ -230,6 +230,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
       openViewer(router, {
         entries,
         index,
+        origin: live.origin,
         then: {
           more: forYouAfter({ universityId, userId, page: page.current, hasMore: more, seen: new Set(list.map((p) => p.id)) }),
           // The other campus choice in the viewer: For you's feed for it, from its first page.

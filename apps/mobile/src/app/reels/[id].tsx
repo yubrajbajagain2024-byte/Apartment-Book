@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View, type ViewToken } from "react-native";
 import { Image } from "expo-image";
-import { useIsFocused, useLocalSearchParams, useRouter } from "expo-router";
+import { useIsFocused, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSpring, withTiming } from "react-native-reanimated";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getFeedPost, getPostEngagement, isSaved, listReels, REELS_PAGE_SIZE, type PostEngagement, type PostTargetType, type Reel } from "@apartment-book/shared";
@@ -13,7 +15,9 @@ import { hapticTap } from "@/lib/haptics";
 import { useHomeScope } from "@/lib/home-scope";
 import { errorText } from "@/lib/hooks";
 import { emitPostEngagement, emitPostRemoved } from "@/lib/posts-events";
-import { dropHanded, entryOf, loadViewerItems, peekHanded, viewerItemFromPost, viewerItemFromReel, viewerKey, type ViewerEntry, type ViewerItem, type ViewerSource } from "@/lib/reel-viewer";
+import { dropHanded, entryOf, loadViewerItems, peekHanded, viewerItemFromPost, viewerItemFromReel, viewerKey, type ViewerEntry, type ViewerItem, type ViewerOrigin, type ViewerSource } from "@/lib/reel-viewer";
+import { useReduceMotion } from "@/lib/accessibility";
+import { ViewerChromeContext } from "@/lib/viewer-chrome";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { auroraGradient, textStyle } from "@/lib/theme";
@@ -34,6 +38,13 @@ const COMMENT_BAR_GAP = 10;
 const COMMENT_BAR_BOTTOM = 12;
 /** How many pages ahead (and one behind) a post known only by its id is loaded. */
 const LOAD_AHEAD = 3;
+/** The zoom open: critically damped (it never overshoots the screen's edges), about 0.4s. */
+const ZOOM_IN = { damping: 32, stiffness: 270, mass: 1, overshootClamping: true };
+/** The zoom closed: quick off the mark, landing softly on the picture it came from. */
+const ZOOM_OUT_MS = 330;
+/** A swipe in from the left edge further than this, or faster, closes the viewer (it has no system back gesture). */
+const EDGE_CLOSE_DISTANCE = 80;
+const EDGE_CLOSE_VELOCITY = 650;
 const NO_ENGAGEMENT: PostEngagement = { likes: 0, comments: 0, likedByMe: false };
 
 function mergeUnique(current: ViewerEntry[], incoming: ViewerEntry[]): ViewerEntry[] {
@@ -66,7 +77,7 @@ export default function ReelViewerScreen() {
   const router = useRouter();
   const focused = useIsFocused();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height: windowHeight } = useWindowDimensions();
   const { user, profile } = useSession();
   const colors = useColors();
   const styles = useStyles();
@@ -90,7 +101,9 @@ export default function ReelViewerScreen() {
   const listMore = useRef(typeof then === "object" ? then.more : null);
   const startIndex = handed ? Math.max(0, Math.min(handed.index, handed.entries.length - 1)) : 0;
 
-  const [height, setHeight] = useState(0);
+  // The window's height from the first frame (the viewer fills it), so the page is drawn before the zoom starts; the
+  // layout below corrects it if the screen turns out different.
+  const [height, setHeight] = useState(() => Math.round(windowHeight));
   /** The pages: what was handed over, then whatever follows. Null until the first one is known. */
   const [entries, setEntries] = useState<ViewerEntry[] | null>(() => (handed ? handed.entries : null));
   /** The post opened from a link is not there any more (deleted, or nothing to show full screen). */
@@ -266,7 +279,110 @@ export default function ReelViewerScreen() {
     }
   }).current;
 
-  const leave = () => (router.canGoBack() ? router.back() : router.replace("/(tabs)"));
+  const leave = useCallback(() => (router.canGoBack() ? router.back() : router.replace("/(tabs)")), [router]);
+
+  /*
+   * The zoom: the page grows out of the picture that was tapped (its frame on screen, `origin`) to fill the screen, the
+   * screen behind darkening as it goes, and shrinks back into it on the way out. Without an origin (a link, a saved row)
+   * it opens from a slightly smaller, faded copy of itself in the middle. The page stays full size inside the opening,
+   * scaled so its picture matches the tapped one, so what grows is the same picture, never a stretched one. The words,
+   * the rail and the buttons fade in once it has opened (ViewerChromeContext) and out before it closes.
+   */
+  const reduceMotion = useReduceMotion();
+  const { width: screenW, height: screenH } = useWindowDimensions();
+  const [origin] = useState<ViewerOrigin | null>(() => handed?.origin ?? null);
+  const fallback = useMemo<ViewerOrigin>(() => ({ x: screenW * 0.06, y: screenH * 0.06, width: screenW * 0.88, height: screenH * 0.88, radius: 28 }), [screenW, screenH]);
+  /** 0 at the tapped picture (or the faded copy), 1 full screen. */
+  const open = useSharedValue(reduceMotion ? 1 : 0);
+  /** 1 while the zoom runs to or from the tapped picture, 0 for the faded copy. */
+  const toOrigin = useSharedValue(origin ? 1 : 0);
+  /** How far a swipe from the left edge has pulled the page, in points. */
+  const drag = useSharedValue(0);
+  const chrome = useSharedValue(reduceMotion ? 1 : 0);
+  useEffect(() => {
+    if (reduceMotion) return;
+    // A frame after the page is first drawn, so the zoom starts from the picture itself, never from an empty frame.
+    const frame = requestAnimationFrame(() => {
+      open.value = withSpring(1, ZOOM_IN);
+      chrome.value = withDelay(170, withTiming(1, { duration: 200 }));
+    });
+    return () => cancelAnimationFrame(frame);
+    // Once, as it opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const frameStyle = useAnimatedStyle(() => {
+    const t = open.value;
+    const zoomed = toOrigin.value === 1 && origin !== null;
+    const from = zoomed ? origin! : fallback;
+    const pulled = Math.min(drag.value / screenW, 1);
+    return {
+      left: from.x * (1 - t),
+      top: from.y * (1 - t),
+      width: from.width + (screenW - from.width) * t,
+      height: from.height + (screenH - from.height) * t,
+      borderRadius: from.radius * (1 - t) + pulled * 40,
+      opacity: zoomed ? 1 : t,
+      transform: [{ translateX: drag.value * 0.55 }, { scale: 1 - pulled * 0.18 }],
+    };
+  });
+  const pageStyle = useAnimatedStyle(() => {
+    const t = open.value;
+    const from = toOrigin.value === 1 && origin !== null ? origin : fallback;
+    const w = from.width + (screenW - from.width) * t;
+    const h = from.height + (screenH - from.height) * t;
+    // Scaled so the page's width matches the opening's: the tapped picture keeps its size while the opening grows round it.
+    const scale = w / screenW;
+    return { transform: [{ translateX: (w - screenW) / 2 }, { translateY: (h - screenH) / 2 }, { scale }] };
+  });
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: open.value * (1 - Math.min(drag.value / screenW, 1) * 0.7) }));
+  const chromeStyle = useAnimatedStyle(() => ({ opacity: chrome.value }));
+
+  /** Zooms closed (into the tapped picture when that page is still the one on screen), then runs `done`. */
+  const closing = useRef(false);
+  const closeThen = useCallback(
+    (done: () => void) => {
+      if (closing.current) return;
+      closing.current = true;
+      if (reduceMotion) return done();
+      toOrigin.value = origin !== null && visibleRef.current === startIndex ? 1 : 0;
+      chrome.value = withTiming(0, { duration: 110 });
+      drag.value = withTiming(0, { duration: ZOOM_OUT_MS });
+      open.value = withTiming(0, { duration: ZOOM_OUT_MS, easing: Easing.bezier(0.32, 0.72, 0, 1) }, (finished) => {
+        if (finished) runOnJS(done)();
+      });
+    },
+    [reduceMotion, origin, startIndex, toOrigin, chrome, drag, open],
+  );
+  // Every way out (Back, a link elsewhere, Android's back button) zooms closed first, then really leaves.
+  const navigation = useNavigation();
+  const leaving = useRef(false);
+  useEffect(
+    () =>
+      navigation.addListener("beforeRemove", (e) => {
+        if (leaving.current) return;
+        e.preventDefault();
+        closeThen(() => {
+          leaving.current = true;
+          navigation.dispatch(e.data.action);
+        });
+      }),
+    [navigation, closeThen],
+  );
+  // The modal has no system back swipe: a swipe in from the left edge pulls the page aside and, let go far enough or fast enough, closes it.
+  const edgeSwipe = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX(10)
+        .failOffsetY([-24, 24])
+        .onUpdate((e) => {
+          drag.value = Math.max(0, e.translationX);
+        })
+        .onEnd((e) => {
+          if (e.translationX > EDGE_CLOSE_DISTANCE || e.velocityX > EDGE_CLOSE_VELOCITY) runOnJS(leave)();
+          else drag.value = withSpring(0, { damping: 26, stiffness: 320 });
+        }),
+    [drag, leave],
+  );
 
   // Campus (when the person has a university) and Global; one choice alone is no toggle. Only the campus is chosen here:
   // Following belongs to Posts and is left as it is. Only for the Reels feed and For you: a list (a profile's posts) is what it is.
@@ -300,11 +416,11 @@ export default function ReelViewerScreen() {
               <>
                 <ReelItem reel={entry.item} width={width} height={height} topInset={muteInset} bottomInset={barHeight} near={Math.abs(index - visible) <= 1} playing={focused && index === visible} onPatch={onPatch} onOpenComments={onOpenComments} onRemoved={onRemoved} initialSlide={entry.slide} />
                 {/* "Add comment…" under the name and the rail, like Instagram's: a tap opens the comments with the keyboard up. */}
-                <View pointerEvents="box-none" style={[styles.commentBar, { bottom: barBottom }]}>
+                <Animated.View pointerEvents="box-none" style={[styles.commentBar, { bottom: barBottom }, chromeStyle]}>
                   <Pressable onPress={() => onOpenComments(entry.item!, true)} style={({ pressed }) => [styles.commentInput, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Add comment" accessibilityHint="Opens the comments, ready to type">
                     <Text style={styles.commentPlaceholder}>Add comment…</Text>
                   </Pressable>
-                </View>
+                </Animated.View>
               </>
             ) : (
               <PendingPage entry={entry} width={width} height={height} />
@@ -371,18 +487,25 @@ export default function ReelViewerScreen() {
 
   const onLast = entries !== null && visible >= entries.length - 1;
   return (
-    <View style={styles.root} onLayout={(e) => setHeight(Math.round(e.nativeEvent.layout.height))}>
+    <GestureHandlerRootView style={styles.fill}>
       {focused ? <StatusBar style="light" /> : null}
+      {/* The screen behind darkens as the page opens over it. */}
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]} />
+      {/* The opening the page grows through, and the full-size page inside it. */}
+      <Animated.View style={[styles.opening, frameStyle]}>
+        <Animated.View style={[{ width: screenW, height: screenH }, pageStyle]}>
+    <ViewerChromeContext.Provider value={chrome}>
+    <View style={styles.root} onLayout={(e) => setHeight(Math.round(e.nativeEvent.layout.height))}>
       {body}
 
-      {/* One row floating over the picture: Back at the left, the toggle in the middle (a video's own sound button takes the right end); touches between them go through to the page. */}
-      <View pointerEvents="box-none" style={[styles.top, { paddingTop: rowTop }]}>
+      {/* One row floating over the picture: Back at the left, the toggle in the middle; touches between them go through to the page. */}
+      <Animated.View pointerEvents="box-none" style={[styles.top, { paddingTop: rowTop }, chromeStyle]}>
         <View pointerEvents="box-none" style={styles.row}>
           {/* Back on clear glass over the picture, as the system draws its bar buttons over media. */}
           <GlassIconButton icon="chevron-back" label="Back" onPress={leave} variant="media" size={40} iconSize={19} haptic={false} hitSlop={8} style={styles.back} />
           {scoped && segments.length > 1 ? <ScopeToggle segments={segments} value={chosen} onChange={choose} overVideo shadow={styles.shadow} /> : null}
         </View>
-      </View>
+      </Animated.View>
 
       {loadingMore && onLast ? (
         <View style={[styles.foot, { bottom: barHeight + 6 }]} pointerEvents="none">
@@ -398,6 +521,14 @@ export default function ReelViewerScreen() {
 
       <ReelCommentsSheet reel={commentsItem} focusComposer={commentsTyping} onClose={() => setCommentsKey(null)} onCountChange={onCommentCount} />
     </View>
+    </ViewerChromeContext.Provider>
+        </Animated.View>
+      </Animated.View>
+      {/* The left edge, between the top row and the words: a swipe in from here closes the viewer. */}
+      <GestureDetector gesture={edgeSwipe}>
+        <View style={[styles.edge, { top: rowTop + ROW + 8, bottom: barHeight + 140 }]} />
+      </GestureDetector>
+    </GestureHandlerRootView>
   );
 }
 
@@ -444,4 +575,9 @@ const useStyles = makeStyles((colors) => ({
   retry: { backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
   retryText: { color: colors.onMedia, fontSize: 13, fontWeight: "700" },
   pendingDim: { backgroundColor: "rgba(0,0,0,0.35)" },
+  fill: { flex: 1 },
+  backdrop: { backgroundColor: colors.mediaBg },
+  // Clips the page to the growing frame, with the tapped picture's rounded corners at the start.
+  opening: { position: "absolute", overflow: "hidden", borderCurve: "continuous" },
+  edge: { position: "absolute", left: 0, width: 18 },
 }));

@@ -63,6 +63,7 @@ import { useSession } from "@/lib/session";
 import { tabBarInset } from "@/lib/tab-bar";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { radius, space } from "@/lib/theme";
+import type { ViewerOrigin } from "@/lib/reel-viewer";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useChangeAvatar } from "@/lib/use-change-avatar";
 import { ClassesSection } from "./classes-section";
@@ -498,7 +499,7 @@ type TilesPageProps = PageFrame & {
   grid: TileGrid;
   own: boolean;
   tileWidth: number;
-  onOpen: (tile: ProfileTile, tiles?: readonly ProfileTile[]) => void;
+  onOpen: (tile: ProfileTile, tiles?: readonly ProfileTile[], origin?: ViewerOrigin) => void;
   /** Your own Posts and Reels: hold a square for Pin to profile. */
   onPin?: (tile: ProfileTile) => void;
   gate: Gate;
@@ -529,7 +530,7 @@ const TilesPage = memo(function TilesPage(props: TilesPageProps) {
   // grid is read when a square is tapped, so the squares do not all draw again each time a page of them arrives.
   const tiles = useRef(grid.tiles);
   tiles.current = grid.tiles;
-  const openInGrid = useCallback((tile: ProfileTile) => onOpen(tile, tiles.current), [onOpen]);
+  const openInGrid = useCallback((tile: ProfileTile, origin?: ViewerOrigin) => onOpen(tile, tiles.current, origin), [onOpen]);
   const renderTile = useCallback<ListRenderItem<ProfileTile>>(
     ({ item }) => (tab === "listings" ? <ListingGridTile tile={item} width={tileWidth} onOpen={onOpen} /> : <ProfileGridTile tile={item} width={tileWidth} aspect={tab === "reels" ? REEL_ASPECT : TILE_ASPECT} onOpen={openInGrid} onLongPress={onPin} />),
     [tab, tileWidth, onOpen, openInGrid, onPin],
