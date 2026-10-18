@@ -62,7 +62,7 @@ export default function CreateItemScreen() {
         <Field label="Description" value={f.description} onChangeText={(v) => set("description", v)} multiline placeholder="Size, brand, any wear, why you're selling" error={errors.description} />
         <Field label="Pickup location" value={f.pickupLocation} onChangeText={(v) => set("pickupLocation", v)} placeholder="Near campus" />
       </FormSection>
-      <Button title="Post item" onPress={() => void submit()} loading={busy} />
+      <Button title="Post item" size="large" onPress={() => void submit()} loading={busy} />
     </ScrollView>
   );
 }

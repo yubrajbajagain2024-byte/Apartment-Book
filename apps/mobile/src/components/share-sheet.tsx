@@ -2,10 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import {
   ActivityIndicator,
   Alert,
-  Animated,
-  KeyboardAvoidingView,
-  Modal,
-  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -15,19 +11,18 @@ import {
   TextInput,
   View,
   useWindowDimensions,
-  type GestureResponderHandlers,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { APP_NAME, listFriends, sendSharedPost, type FeedMedia, type ProfileSummary, type SharedPost } from "@apartment-book/shared";
 import { hapticSuccess, hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { radius, sheetShape } from "@/lib/theme";
+import { radius } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { Avatar } from "./avatar";
 import { Icon } from "@/components/icon";
+import { Sheet, SheetFooter, SheetHeader } from "./sheet";
 
 /** Besides the snapshot, the sheet needs the website link for "Share to…" and, optionally, the words that go before it. */
 export type ShareOptions = { url: string; label?: string };
@@ -74,9 +69,6 @@ export function useShareSheet(): ShareSheetApi {
 }
 
 function ShareSheet({ request, onClose }: { request: ShareRequest | null; onClose: (seq?: number) => void }) {
-  const styles = useStyles();
-  const drag = useRef(new Animated.Value(0)).current;
-  const closeRef = useRef(onClose);
   // Keep showing the last request while the sheet slides away, so it does not go blank mid-animation.
   const [shown, setShown] = useState<ShareRequest | null>(request);
   const open = request !== null;
@@ -85,14 +77,8 @@ function ShareSheet({ request, onClose }: { request: ShareRequest | null; onClos
   const fallback = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    closeRef.current = onClose;
-  }, [onClose]);
-  useEffect(() => {
     if (request) setShown(request);
   }, [request]);
-  useEffect(() => {
-    if (open) drag.setValue(0);
-  }, [open, drag]);
   useEffect(() => () => void (fallback.current && clearTimeout(fallback.current)), []);
 
   const runAfterDismiss = useCallback(() => {
@@ -109,48 +95,25 @@ function ShareSheet({ request, onClose }: { request: ShareRequest | null; onClos
       onClose();
       if (Platform.OS !== "ios") return fn();
       afterDismiss.current = fn;
-      fallback.current = setTimeout(runAfterDismiss, 600);
+      // The sheet animates out first (about a quarter second), then the modal goes: allow for both.
+      fallback.current = setTimeout(runAfterDismiss, 900);
     },
     [onClose, runAfterDismiss],
   );
 
-  // Pull the handle down to close, like every other sheet on the phone.
-  const pan = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
-        onPanResponderMove: (_, g) => drag.setValue(Math.max(0, g.dy)),
-        onPanResponderRelease: (_, g) => {
-          if (g.dy > 90 || g.vy > 1.2) closeRef.current();
-          else Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
-        },
-        onPanResponderTerminate: () => Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start(),
-      }),
-    [drag],
-  );
-
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={() => onClose()} onDismiss={runAfterDismiss} statusBarTranslucent>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <View style={styles.root}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => onClose()} accessibilityRole="button" accessibilityLabel="Close share sheet" />
-          <Animated.View style={[styles.sheet, { transform: [{ translateY: drag }] }]}>
-            {shown ? <SheetBody key={shown.seq} shared={shown.shared} options={shown.options} panHandlers={pan.panHandlers} onClose={() => onClose(shown.seq)} closeThen={closeThen} /> : null}
-          </Animated.View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    <Sheet visible={open} onClose={() => onClose()} onDismiss={runAfterDismiss} closeLabel="Close share sheet" height="72%" keyboard>
+      {shown ? <SheetBody key={shown.seq} shared={shown.shared} options={shown.options} onClose={() => onClose(shown.seq)} closeThen={closeThen} /> : null}
+    </Sheet>
   );
 }
 
 type SendStatus = "idle" | "sending" | "sent";
 
 /** One opening of the sheet: remounted (fresh search, selection and note) each time it opens. */
-function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { shared: SharedPost; options: ShareOptions; panHandlers: GestureResponderHandlers; onClose: () => void; closeThen: (fn: () => void) => void }) {
+function SheetBody({ shared, options, onClose, closeThen }: { shared: SharedPost; options: ShareOptions; onClose: () => void; closeThen: (fn: () => void) => void }) {
   const styles = useStyles();
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useSession();
   const { width } = useWindowDimensions();
@@ -331,15 +294,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
 
   return (
     <>
-      <View {...panHandlers} style={styles.header}>
-        <View style={styles.handle} />
-        <Text style={styles.title} accessibilityRole="header">
-          Share
-        </Text>
-        <Pressable onPress={onClose} hitSlop={10} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
-          <Icon name="close" size={20} color={colors.text} />
-        </Pressable>
-      </View>
+      <SheetHeader title="Share" onClose={onClose} />
       {user ? (
         <View style={styles.search}>
           <Icon name="search-outline" size={18} color={colors.muted} />
@@ -372,7 +327,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
         ) : null}
         {body}
       </ScrollView>
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom - sheetShape.marginBottom, 12) }]}>
+      <SheetFooter style={styles.footer}>
         {user && picked.size > 0 ? (
           <View style={styles.composer}>
             <Text style={styles.to} numberOfLines={1}>
@@ -412,19 +367,12 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
           <Text style={styles.secondaryText}>Share to…</Text>
           <Icon name="chevron-forward" size={16} color={colors.faint} />
         </Pressable>
-      </View>
+      </SheetFooter>
     </>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
-  root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
-  // iOS 26: the sheet floats inset from the screen's edges, its corners concentric with the phone's; a hairline marks its edge.
-  sheet: { height: "72%", backgroundColor: colors.elevated, ...sheetShape, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  header: { alignItems: "center", paddingTop: 8, paddingBottom: 10, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 10 },
-  title: { fontSize: 16, fontWeight: "700", color: colors.text },
-  close: { position: "absolute", right: 12, top: 16, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
   search: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 12, marginTop: 12, paddingHorizontal: 12, height: 40, borderRadius: radius.md, borderCurve: "continuous", backgroundColor: colors.input },
   searchInput: { flex: 1, fontSize: 15, color: colors.text, paddingVertical: 0 },
   list: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8, flexGrow: 1 },
@@ -444,7 +392,7 @@ const useStyles = makeStyles((colors) => ({
   bannerRetry: { fontSize: 14, fontWeight: "700", color: colors.dangerText },
   ghostButton: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: radius.pill, backgroundColor: colors.brandSoft },
   ghostButtonText: { fontSize: 14, fontWeight: "700", color: colors.brand },
-  footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: 12, paddingTop: 8, backgroundColor: colors.elevated },
+  footer: { paddingHorizontal: 12, paddingTop: 8 },
   composer: { gap: 6, paddingBottom: 8 },
   to: { fontSize: 12, color: colors.muted, marginLeft: 2 },
   composerRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },

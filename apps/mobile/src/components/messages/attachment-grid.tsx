@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { formatDuration, type UploadStatus } from "@/lib/message-attachments";
-import { radius } from "@/lib/theme";
+import { radius, textStyle } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { VideoPoster } from "./attachment-thumb";
 import { Icon } from "@/components/icon";
@@ -157,5 +157,5 @@ const useStyles = makeStyles((colors) => ({
   play: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
   duration: { position: "absolute", left: 6, bottom: 6, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, backgroundColor: colors.mediaPill },
   durationText: { color: colors.onMedia, fontSize: 11, fontWeight: "700" },
-  more: { color: colors.onMedia, fontSize: 24, fontWeight: "800" },
+  more: { color: colors.onMedia, ...textStyle.title2 },
 }));

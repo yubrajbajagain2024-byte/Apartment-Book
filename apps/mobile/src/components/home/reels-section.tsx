@@ -8,6 +8,7 @@ import { useHomeScope } from "@/lib/home-scope";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useTabBarInset } from "@/lib/tab-bar";
+import { textStyle } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { ReelCommentsSheet } from "./reel-comments-sheet";
 import { ReelItem, reelKey } from "./reel-item";
@@ -279,7 +280,7 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
 const useStyles = makeStyles((colors) => ({
   fill: { flex: 1, backgroundColor: colors.mediaBg },
   centered: { alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 8 },
-  stateTitle: { color: colors.onMedia, fontSize: 20, fontWeight: "800", marginTop: 6 },
+  stateTitle: { color: colors.onMedia, ...textStyle.title3, marginTop: 6 },
   stateBody: { color: colors.onMediaMuted, fontSize: 14, textAlign: "center", lineHeight: 20 },
   stateButton: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 12, marginTop: 12 },
   stateButtonText: { color: colors.onBrand, fontSize: 15, fontWeight: "700" },

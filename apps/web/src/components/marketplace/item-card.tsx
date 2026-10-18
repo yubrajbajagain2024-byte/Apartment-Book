@@ -59,7 +59,7 @@ export function ItemCard({
           <p className="truncate text-xs text-gray-500">
             {labelFor(ITEM_CONDITIONS, item.condition)} · {item.pickup_location || item.university?.name || item.seller.full_name}
           </p>
-          <p className="truncate text-xs text-gray-400" suppressHydrationWarning>
+          <p className="truncate text-xs text-gray-500" suppressHydrationWarning>
             {timeAgo(item.created_at)}
           </p>
         </Link>

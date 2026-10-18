@@ -240,7 +240,7 @@ const useStyles = makeStyles((colors) => ({
   name: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.text },
   date: { fontSize: 12, color: colors.muted },
   text: { fontSize: 14, lineHeight: 19, color: colors.muted },
-  match: { fontWeight: "800", color: colors.text },
+  match: { fontWeight: "700", color: colors.text },
   loading: { paddingTop: space.xl, alignItems: "center" },
   hint: { alignItems: "center", paddingHorizontal: space.xl, paddingTop: 48, gap: space.sm },
   hintIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },

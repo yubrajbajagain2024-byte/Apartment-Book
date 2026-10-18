@@ -147,7 +147,7 @@ export default function CreateReelScreen() {
 
       <Text style={styles.hint}>Your reel is posted with your name and shows up in Home → Reels for other students.</Text>
 
-      <Button title={upload ? "Waiting for your video…" : "Post reel"} onPress={() => void submit()} loading={busy} disabled={upload !== null} />
+      <Button title={upload ? "Waiting for your video…" : "Post reel"} size="large" onPress={() => void submit()} loading={busy} disabled={upload !== null} />
     </ScrollView>
   );
 }

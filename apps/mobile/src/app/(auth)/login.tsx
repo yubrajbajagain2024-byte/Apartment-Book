@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { signInSchema } from "@apartment-book/shared";
 import { Button, Field, Screen } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
+import { textStyle } from "@/lib/theme";
 import { useColors } from "@/lib/theme-provider";
 
 export default function LoginScreen() {
@@ -30,12 +31,12 @@ export default function LoginScreen() {
   return (
     <Screen scroll>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ gap: 16, paddingTop: 12 }}>
-        <Text style={{ fontSize: 26, fontWeight: "800", color: colors.text }}>Welcome back</Text>
+        <Text style={{ ...textStyle.title1, color: colors.text }}>Welcome back</Text>
         <Text style={{ color: colors.muted }}>Log in with your university email.</Text>
         <Field label="University email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" textContentType="emailAddress" placeholder="you@txstate.edu" />
         <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete="password" textContentType="password" placeholder="••••••••" onSubmitEditing={submit} />
         {error ? <Text style={{ color: colors.red }}>{error}</Text> : null}
-        <Button title="Log in" onPress={submit} loading={busy} />
+        <Button title="Log in" size="large" onPress={submit} loading={busy} />
         <Pressable onPress={() => router.replace("/(auth)/signup")}>
           <Text style={{ textAlign: "center", color: colors.brand, fontWeight: "600" }}>New here? Create an account</Text>
         </Pressable>

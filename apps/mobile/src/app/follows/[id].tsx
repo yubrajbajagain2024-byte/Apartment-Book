@@ -161,7 +161,7 @@ const useStyles = makeStyles((colors) => ({
   segments: { flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   segment: { flex: 1, alignItems: "center", paddingTop: space.md, gap: space.sm },
   segmentText: { fontSize: 15, fontWeight: "600", color: colors.muted },
-  segmentTextActive: { color: colors.text, fontWeight: "800" },
+  segmentTextActive: { color: colors.text, fontWeight: "700" },
   underline: { height: 2, alignSelf: "stretch", backgroundColor: "transparent" },
   note: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: space.lg, paddingVertical: space.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   noteText: { flexShrink: 1, fontSize: 13, color: colors.muted, textAlign: "center" },

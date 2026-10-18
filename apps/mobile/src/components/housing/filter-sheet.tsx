@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View, StyleSheet } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { APARTMENT_SORTS, GENDER_PREFERENCES, ITEM_CONDITIONS, ITEM_SORTS, RADIUS_OPTIONS_MILES, type ApartmentSort, type GenderPref, type HousingSection, type ItemCondition, type ItemSort } from "@apartment-book/shared";
 import { Button } from "@/components/ui";
-import { radius, space, sheetShape } from "@/lib/theme";
+import { radius, space } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
-import { Icon } from "@/components/icon";
+import { Sheet, SheetFooter, SheetHeader } from "@/components/sheet";
 
 /** What narrows each page of Explore beyond its search box and pills. Toggles are `true` or left out, never false. */
 export type RoomFilters = { sort: ApartmentSort; minBedrooms?: number; minPrice?: number; maxPrice?: number; radiusMiles?: number; furnished?: true; petsAllowed?: true; videoOnly?: true };
@@ -87,7 +86,6 @@ function tidy<T extends object>(o: T): T {
 export function FilterSheet({ section, open, filters, onApply, onClose }: { section: HousingSection; open: boolean; filters: ExploreFilters; onApply: (next: ExploreFilters) => void; onClose: () => void }) {
   const styles = useStyles();
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
   const [d, setD] = useState<Draft>(() => draftOf(section, filters));
   // A fresh draft each time the sheet opens, for the page it opens on.
   useEffect(() => {
@@ -119,85 +117,76 @@ export function FilterSheet({ section, open, filters, onApply, onClose }: { sect
   );
 
   return (
-    <Modal visible={open} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
-      <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close filters" />
-        <View style={styles.sheet}>
-          <View style={styles.handle} />
-          <View style={styles.head}>
-            <Text style={styles.title} accessibilityRole="header">
-              {TITLES[section]}
-            </Text>
-            {changed ? (
-              <Pressable onPress={() => setD(defaults)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Reset filters" style={({ pressed }) => pressed && { opacity: 0.6 }}>
-                <Text style={styles.reset}>Reset</Text>
-              </Pressable>
-            ) : null}
-            <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close" style={styles.close}>
-              <Icon name="close" size={18} color={colors.text} />
+    <Sheet visible={open} onClose={onClose} closeLabel="Close filters" maxHeight="86%" keyboard>
+      <SheetHeader
+        title={TITLES[section]}
+        leading={
+          changed ? (
+            <Pressable onPress={() => setD(defaults)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Reset filters" style={({ pressed }) => pressed && { opacity: 0.6 }}>
+              <Text style={styles.reset}>Reset</Text>
             </Pressable>
-          </View>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-            {section === "apartments" ? (
-              <>
-                <Text style={styles.group}>Sort by</Text>
-                <View style={styles.chips}>{APARTMENT_SORTS.map((s) => chip(s.label, d.sort === s.value, () => set({ sort: s.value }), s.value))}</View>
-                <Text style={styles.group}>Bedrooms</Text>
-                <View style={styles.chips}>
-                  {chip("Any", d.minBedrooms === undefined, () => set({ minBedrooms: undefined }))}
-                  {[1, 2, 3, 4].map((n) => chip(`${n}+`, d.minBedrooms === n, () => set({ minBedrooms: n }), String(n)))}
-                </View>
-                <Text style={styles.group}>Rent per month</Text>
-                <View style={styles.pair}>
-                  {money("Min", d.minPrice, (t) => set({ minPrice: t }))}
-                  {money("Max", d.maxPrice, (t) => set({ maxPrice: t }))}
-                </View>
-                <Text style={styles.group}>Distance from campus</Text>
-                {radiusChips}
-                <Text style={styles.group}>Only show</Text>
-                <View style={styles.chips}>
-                  {chip("Furnished", d.furnished, () => set({ furnished: !d.furnished }))}
-                  {chip("Pets OK", d.petsAllowed, () => set({ petsAllowed: !d.petsAllowed }))}
-                  {chip("Video tour", d.videoOnly, () => set({ videoOnly: !d.videoOnly }))}
-                </View>
-              </>
-            ) : section === "roommates" ? (
-              <>
-                <Text style={styles.group}>Budget per month</Text>
-                <View style={styles.pair}>{money("Up to", d.maxBudget, (t) => set({ maxBudget: t }))}</View>
-                <Text style={styles.group}>Open to</Text>
-                <View style={styles.chips}>
-                  {chip("Everyone", d.genderPreference === undefined, () => set({ genderPreference: undefined }))}
-                  {GENDER_PREFERENCES.map((g) => chip(g.label, d.genderPreference === g.value, () => set({ genderPreference: g.value as GenderPref }), g.value))}
-                </View>
-                <Text style={styles.group}>Distance from campus</Text>
-                {radiusChips}
-                <Text style={styles.group}>Only show</Text>
-                <View style={styles.chips}>{chip("With a video", d.videoOnly, () => set({ videoOnly: !d.videoOnly }))}</View>
-              </>
-            ) : (
-              <>
-                <Text style={styles.group}>Sort by</Text>
-                <View style={styles.chips}>{ITEM_SORTS.map((s) => chip(s.label, d.sort === s.value, () => set({ sort: s.value }), s.value))}</View>
-                <Text style={styles.group}>Condition</Text>
-                <View style={styles.chips}>
-                  {chip("Any", d.condition === undefined, () => set({ condition: undefined }))}
-                  {ITEM_CONDITIONS.map((c) => chip(c.label, d.condition === c.value, () => set({ condition: c.value as ItemCondition }), c.value))}
-                </View>
-                <Text style={styles.group}>Price</Text>
-                <View style={styles.pair}>
-                  {money("Min", d.minPrice, (t) => set({ minPrice: t }))}
-                  {money("Max", d.maxPrice, (t) => set({ maxPrice: t }))}
-                </View>
-              </>
-            )}
-          </ScrollView>
-          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom - sheetShape.marginBottom, 12) }]}>
-            <Button title="Show results" onPress={() => onApply(tidyAll(apply(section, filters, d)))} />
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+          ) : null
+        }
+      />
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {section === "apartments" ? (
+          <>
+            <Text style={styles.group}>Sort by</Text>
+            <View style={styles.chips}>{APARTMENT_SORTS.map((s) => chip(s.label, d.sort === s.value, () => set({ sort: s.value }), s.value))}</View>
+            <Text style={styles.group}>Bedrooms</Text>
+            <View style={styles.chips}>
+              {chip("Any", d.minBedrooms === undefined, () => set({ minBedrooms: undefined }))}
+              {[1, 2, 3, 4].map((n) => chip(`${n}+`, d.minBedrooms === n, () => set({ minBedrooms: n }), String(n)))}
+            </View>
+            <Text style={styles.group}>Rent per month</Text>
+            <View style={styles.pair}>
+              {money("Min", d.minPrice, (t) => set({ minPrice: t }))}
+              {money("Max", d.maxPrice, (t) => set({ maxPrice: t }))}
+            </View>
+            <Text style={styles.group}>Distance from campus</Text>
+            {radiusChips}
+            <Text style={styles.group}>Only show</Text>
+            <View style={styles.chips}>
+              {chip("Furnished", d.furnished, () => set({ furnished: !d.furnished }))}
+              {chip("Pets OK", d.petsAllowed, () => set({ petsAllowed: !d.petsAllowed }))}
+              {chip("Video tour", d.videoOnly, () => set({ videoOnly: !d.videoOnly }))}
+            </View>
+          </>
+        ) : section === "roommates" ? (
+          <>
+            <Text style={styles.group}>Budget per month</Text>
+            <View style={styles.pair}>{money("Up to", d.maxBudget, (t) => set({ maxBudget: t }))}</View>
+            <Text style={styles.group}>Open to</Text>
+            <View style={styles.chips}>
+              {chip("Everyone", d.genderPreference === undefined, () => set({ genderPreference: undefined }))}
+              {GENDER_PREFERENCES.map((g) => chip(g.label, d.genderPreference === g.value, () => set({ genderPreference: g.value as GenderPref }), g.value))}
+            </View>
+            <Text style={styles.group}>Distance from campus</Text>
+            {radiusChips}
+            <Text style={styles.group}>Only show</Text>
+            <View style={styles.chips}>{chip("With a video", d.videoOnly, () => set({ videoOnly: !d.videoOnly }))}</View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.group}>Sort by</Text>
+            <View style={styles.chips}>{ITEM_SORTS.map((s) => chip(s.label, d.sort === s.value, () => set({ sort: s.value }), s.value))}</View>
+            <Text style={styles.group}>Condition</Text>
+            <View style={styles.chips}>
+              {chip("Any", d.condition === undefined, () => set({ condition: undefined }))}
+              {ITEM_CONDITIONS.map((c) => chip(c.label, d.condition === c.value, () => set({ condition: c.value as ItemCondition }), c.value))}
+            </View>
+            <Text style={styles.group}>Price</Text>
+            <View style={styles.pair}>
+              {money("Min", d.minPrice, (t) => set({ minPrice: t }))}
+              {money("Max", d.maxPrice, (t) => set({ maxPrice: t }))}
+            </View>
+          </>
+        )}
+      </ScrollView>
+      <SheetFooter style={styles.footer}>
+        <Button title="Show results" size="large" onPress={() => onApply(tidyAll(apply(section, filters, d)))} />
+      </SheetFooter>
+    </Sheet>
   );
 }
 
@@ -206,18 +195,10 @@ function tidyAll(f: ExploreFilters): ExploreFilters {
 }
 
 const useStyles = makeStyles((colors, scheme) => ({
-  root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
-  backdrop: { flex: 1 },
-  // A shadow cannot be seen on black, so in the dark theme a hairline edge keeps the sheet apart from the page.
-  // iOS 26: the sheet floats inset from the screen's edges, its corners concentric with the phone's; a hairline marks its edge.
-  sheet: { maxHeight: "86%", backgroundColor: colors.elevated, ...sheetShape, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, alignItems: "stretch" },
-  handle: { alignSelf: "center", width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginTop: 8, marginBottom: 6 },
-  head: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: 20, paddingVertical: 8 },
-  title: { flex: 1, fontSize: 18, fontWeight: "800", letterSpacing: -0.3, color: colors.text },
   reset: { fontSize: 15, fontWeight: "600", color: colors.brand },
-  close: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
+  footer: { paddingHorizontal: 20 },
   body: { paddingHorizontal: 20, paddingBottom: space.md },
-  group: { fontSize: 13, fontWeight: "700", color: colors.muted, marginTop: space.md, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.4 },
+  group: { fontSize: 13, fontWeight: "600", color: colors.muted, marginTop: space.md, marginBottom: 8, textTransform: "uppercase" },
   // The same pills as the row under the search box.
   chips: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   chip: { height: 34, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
@@ -230,5 +211,4 @@ const useStyles = makeStyles((colors, scheme) => ({
   moneyBox: { flexDirection: "row", alignItems: "center", gap: 6, height: 44, paddingHorizontal: 12, borderRadius: radius.md, borderCurve: "continuous", backgroundColor: colors.input },
   moneySign: { fontSize: 16, fontWeight: "700", color: colors.muted },
   moneyInput: { flex: 1, fontSize: 16, color: colors.text, paddingVertical: 0 },
-  footer: { paddingHorizontal: 20, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: colors.border },
 }));

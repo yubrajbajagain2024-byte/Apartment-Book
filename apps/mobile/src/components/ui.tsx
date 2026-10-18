@@ -67,15 +67,21 @@ export function useAppearingCells() {
   }, []);
 }
 
+/**
+ * The app's one button, an iOS 26 capsule in every size: `regular` (44pt, the minimum touch target) for most actions,
+ * `compact` (34pt) inside list rows, `large` (50pt) for the full-width action that ends a form or a sheet. Primary is
+ * the brand fill, secondary the quiet grey fill, ghost brand-coloured words, danger the red fill.
+ */
 export function Button({
   title,
   variant = "primary",
+  size = "regular",
   loading,
   icon,
   style,
   disabled,
   ...props
-}: PressableProps & { title: string; variant?: "primary" | "secondary" | "ghost" | "danger"; loading?: boolean; icon?: keyof typeof Ionicons.glyphMap; style?: StyleProp<ViewStyle>; ref?: Ref<View> }) {
+}: PressableProps & { title: string; variant?: "primary" | "secondary" | "ghost" | "danger"; size?: "compact" | "regular" | "large"; loading?: boolean; icon?: keyof typeof Ionicons.glyphMap; style?: StyleProp<ViewStyle>; ref?: Ref<View> }) {
   const styles = useStyles();
   const colors = useColors();
   const bg = variant === "primary" ? colors.brand : variant === "danger" ? colors.dangerFill : variant === "secondary" ? colors.border : "transparent";
@@ -86,7 +92,7 @@ export function Button({
     <AnimatedPressable
       accessibilityRole="button"
       disabled={disabled || loading}
-      style={[styles.button, { backgroundColor: bg, opacity: disabled ? 0.5 : press.opacity, transform: [{ scale: press.scale }] }, style]}
+      style={[styles.button, size === "compact" ? styles.buttonCompact : size === "large" ? styles.buttonLarge : null, { backgroundColor: bg, opacity: disabled ? 0.5 : press.opacity, transform: [{ scale: press.scale }] }, style]}
       {...props}
       onPressIn={(e) => {
         press.onPressIn();
@@ -102,8 +108,10 @@ export function Button({
         props.onPress?.(e);
       }}
     >
-      {loading ? <ActivityIndicator color={fg} /> : icon ? <Icon name={icon} size={18} color={fg} /> : null}
-      <Text style={[styles.buttonText, { color: fg }]}>{title}</Text>
+      {loading ? <ActivityIndicator color={fg} /> : icon ? <Icon name={icon} size={size === "compact" ? 16 : 18} weight="semibold" color={fg} /> : null}
+      <Text style={[styles.buttonText, size === "compact" ? styles.buttonTextCompact : size === "large" ? styles.buttonTextLarge : null, { color: fg }]} numberOfLines={1}>
+        {title}
+      </Text>
     </AnimatedPressable>
   );
 }
@@ -208,8 +216,12 @@ export function Row({ children, style, gap = space.sm }: { children: ReactNode; 
 const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   screenInner: { flex: 1 },
-  button: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44, paddingHorizontal: 16, borderRadius: radius.md, borderCurve: "continuous" },
-  buttonText: { fontSize: 15, fontWeight: "700" },
+  button: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, minHeight: 44, paddingHorizontal: 20, borderRadius: radius.pill },
+  buttonCompact: { minHeight: 34, paddingHorizontal: 14, gap: 5 },
+  buttonLarge: { minHeight: 50, paddingHorizontal: 24 },
+  buttonText: { fontSize: 15, fontWeight: "600" },
+  buttonTextCompact: { fontSize: 14 },
+  buttonTextLarge: { fontSize: 17 },
   label: { fontSize: 13, fontWeight: "600", color: colors.muted },
   input: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, borderCurve: "continuous", paddingHorizontal: 12, paddingVertical: 11, fontSize: 16, color: colors.text },
   error: { color: colors.red, fontSize: 12 },

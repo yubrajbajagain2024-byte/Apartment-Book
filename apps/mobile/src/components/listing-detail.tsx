@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { getOrCreateDirectConversation, getPostEngagement, recordContact, recordView, reportContent, REPORT_REASONS, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { radius } from "@/lib/theme";
+import { radius, textStyle } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "./action-sheet";
 import { Avatar } from "./avatar";
@@ -134,7 +134,7 @@ export function ListingDetail({
             <Text style={{ fontWeight: "700", color: colors.text }}>{poster.name}</Text>
             <Text style={{ fontSize: 12, color: colors.muted }}>Posted {new Date(createdAt).toLocaleDateString()}</Text>
           </View>
-          {!own ? <Button title="Message" icon="chatbubble-ellipses-outline" onPress={() => void message()} style={{ minHeight: 38 }} /> : null}
+          {!own ? <Button title="Message" size="compact" icon="chatbubble-ellipses-outline" onPress={() => void message()} /> : null}
         </Pressable>
         {own && ownerActions ? <View style={{ marginTop: 12 }}>{ownerActions}</View> : null}
       </View>
@@ -173,7 +173,7 @@ export function Fact({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; la
 const useStyles = makeStyles((colors) => ({
   // Hairline top and bottom: on the white light background the 8px gap alone would not separate the sections.
   section: { backgroundColor: colors.card, marginTop: 8, padding: 16, gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  title: { fontSize: 22, fontWeight: "800", color: colors.text },
+  title: { ...textStyle.title2, color: colors.text },
   lead: { fontSize: 17, fontWeight: "700", color: colors.brand, marginTop: 2 },
   dots: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   facts: { flexDirection: "row", flexWrap: "wrap", gap: 14, paddingVertical: 4 },

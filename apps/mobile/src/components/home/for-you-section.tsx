@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
 import { useRouter } from "expo-router";
-import { listForYou, type FeedPostWithAuthor, type ForYouItem } from "@apartment-book/shared";
+import { listForYou, type FeedPostWithAuthor, type ForYouItem, type PostEngagement } from "@apartment-book/shared";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
 import { EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
@@ -22,6 +22,52 @@ import { refreshWithHaptic } from "@/lib/haptics";
 
 /** The list's key: posts and reels share one table, so the id alone tells rows apart. */
 const keyOf = (post: ForYouItem) => post.id;
+
+/**
+ * How much of the feed stays mounted around the screen: a post is nearly a screen tall and carries photos or a video,
+ * so four screens each way (not FlatList's ten) keeps memory and the JS thread free while a fling still never shows a gap.
+ */
+const WINDOW = { windowSize: 9, initialNumToRender: 3, maxToRenderPerBatch: 4, updateCellsBatchingPeriod: 40 } as const;
+
+/**
+ * One row, memoised: scrolling changes which posts are on screen (and so which videos play), and only the rows whose
+ * own props changed draw again, not every post in the window. The callbacks take the post, so they stay the same.
+ */
+const ForYouRow = memo(function ForYouRow({
+  item,
+  saved,
+  engagement,
+  preview,
+  comments,
+  subtitle,
+  active,
+  onOpenComments,
+  onRemoved,
+}: {
+  item: ForYouItem;
+  saved: boolean;
+  engagement: PostEngagement | undefined;
+  preview: ReturnType<typeof usePostPreviews>["previews"][string] | undefined;
+  comments: number;
+  subtitle: string | undefined;
+  active: boolean;
+  onOpenComments: (item: ForYouItem) => void;
+  onRemoved: (item: ForYouItem) => void;
+}) {
+  return (
+    <InstaPost
+      post={item}
+      saved={saved}
+      engagement={engagement}
+      preview={preview}
+      comments={comments}
+      subtitle={subtitle}
+      active={active}
+      onComments={() => onOpenComments(item)}
+      onDeleted={() => onRemoved(item)}
+    />
+  );
+});
 
 /**
  * Home → For you, the landing page: posts and reels blended into one list (listForYou). Rows reuse the Instagram-style
@@ -143,6 +189,13 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
   // A post deleted on its own screen disappears here without a reload.
   useEffect(() => onPostRemoved((id) => setItems((prev) => prev.filter((p) => p.id !== id))), []);
 
+  const openComments = useCallback((item: ForYouItem) => (user ? setCommenting(item) : router.push("/(auth)/login")), [user, router]);
+  // Posts and Reels list the same row: the event drops it here (see onPostRemoved) and there.
+  const removeRow = useCallback((item: ForYouItem) => {
+    if (item.kind === "reel") markReelsStale();
+    emitPostRemoved(item.id);
+  }, []);
+
   function closeComments() {
     // The line under the post shows the newest comment: reload it for the post that was open.
     if (commenting) refreshPreview(commenting.id);
@@ -168,9 +221,10 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
           ) : null
         }
         CellRendererComponent={appearCells}
+        {...WINDOW}
         renderItem={({ item }) => (
-          <InstaPost
-            post={item}
+          <ForYouRow
+            item={item}
             saved={savedIds.has(item.id)}
             engagement={engagement[item.id]}
             preview={previews[item.id]}
@@ -178,12 +232,8 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
             // Browsing every campus: say which university the post is from.
             subtitle={universityId ? undefined : (item.university?.name ?? undefined)}
             active={active && visible.has(item.id)}
-            onComments={() => (user ? setCommenting(item) : router.push("/(auth)/login"))}
-            // Posts and Reels list the same row: the event drops it here (see onPostRemoved) and there.
-            onDeleted={() => {
-              if (item.kind === "reel") markReelsStale();
-              emitPostRemoved(item.id);
-            }}
+            onOpenComments={openComments}
+            onRemoved={removeRow}
           />
         )}
         ListEmptyComponent={

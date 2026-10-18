@@ -6,7 +6,7 @@ import type { FeedMedia } from "@apartment-book/shared";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { hapticSelect } from "@/lib/haptics";
 import { Icon } from "@/components/icon";
-import { GlassBackdrop, GlassIconButton } from "@/components/glass";
+import { GlassIconButton } from "@/components/glass";
 
 const DOUBLE_TAP_MS = 260;
 
@@ -83,7 +83,8 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
           renderItem={({ item, index: i }) => (
             <Pressable onPress={tap} style={{ width, height }}>
               {item.type === "photo" ? (
-                <Image source={{ uri: item.url }} style={{ width, height }} contentFit="cover" transition={200} accessibilityLabel={`Photo ${i + 1} of ${count}`} />
+                // The tiny blurred preview saved at upload shows at once, and the full photo fades in over it: no blank frames.
+                <Image source={{ uri: item.url }} placeholder={item.blur ? { uri: item.blur } : undefined} placeholderContentFit="cover" style={{ width, height }} contentFit="cover" transition={250} accessibilityLabel={`Photo ${i + 1} of ${count}`} />
               ) : (
                 <VideoSlide media={item} width={width} height={height} playing={active && i === index} />
               )}

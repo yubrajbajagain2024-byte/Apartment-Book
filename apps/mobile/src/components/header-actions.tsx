@@ -34,5 +34,5 @@ const styles = StyleSheet.create({
   inHeader: { marginRight: 8 },
   // The same badge as the bottom bar's, on the bell's top-right corner.
   badge: { position: "absolute", top: 0, right: -4, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
-  badgeText: { fontSize: 10, fontWeight: "800" },
+  badgeText: { fontSize: 10, fontWeight: "700", fontVariant: ["tabular-nums"] },
 });

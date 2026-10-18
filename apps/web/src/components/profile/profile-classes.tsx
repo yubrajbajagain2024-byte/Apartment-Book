@@ -154,7 +154,7 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                   required
                   title="The letters of the class code, like CS or MATH"
                   aria-invalid={formError ? true : undefined}
-                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm uppercase text-gray-900 placeholder:normal-case placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 aria-[invalid=true]:border-red-500"
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm uppercase text-gray-900 placeholder:normal-case placeholder:text-gray-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100 aria-[invalid=true]:border-red-500"
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
@@ -171,7 +171,7 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                   spellCheck={false}
                   required
                   title="The number of the class code, like 3358"
-                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm uppercase text-gray-900 placeholder:normal-case placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm uppercase text-gray-900 placeholder:normal-case placeholder:text-gray-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
@@ -188,7 +188,7 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                   spellCheck={false}
                   required
                   title="Classmates in the same section share a group chat"
-                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm uppercase text-gray-900 placeholder:normal-case placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm uppercase text-gray-900 placeholder:normal-case placeholder:text-gray-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
@@ -200,7 +200,7 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                   placeholder="Derrick Hall 240"
                   maxLength={CLASS_LOCATION_MAX}
                   autoComplete="off"
-                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm font-medium text-gray-800">
@@ -212,7 +212,7 @@ export function ProfileClasses({ isOwner, groups, terms }: { isOwner: boolean; g
                   placeholder="Data Structures"
                   maxLength={CLASS_TITLE_MAX}
                   autoComplete="off"
-                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                  className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 />
               </label>
             </div>

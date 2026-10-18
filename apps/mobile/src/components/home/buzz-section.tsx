@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -12,7 +12,7 @@ import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
-import { BUZZ_GUTTER, BuzzCard, BuzzSearchRow, emitBuzzEvent, onBuzzEvent } from "./buzz-card";
+import { BUZZ_GUTTER, BuzzCard, BuzzSearchRow, emitBuzzEvent, onBuzzEvent, type BuzzCardProps } from "./buzz-card";
 import { useTabReselect } from "@/lib/tab-reselect";
 import { refreshWithHaptic } from "@/lib/haptics";
 import { Icon } from "@/components/icon";
@@ -34,6 +34,20 @@ function FilterPill({ label, icon, active, caret, onPress, accessibilityLabel }:
 }
 
 /** Home → Buzz: anonymous Reddit-style threads. `topInset` is the height of the floating Home bar above the list, which `onScroll` reports its scroll to (the bar slides away with it). */
+type Vote = Parameters<NonNullable<BuzzCardProps["onVote"]>>[0];
+
+/**
+ * One thread, memoised: a vote, a new page or the bar sliding away redraws only the rows that changed. The handlers
+ * are the list's own stable functions; the per-thread ones are made here, once per drawing of this row.
+ */
+const BuzzRow = memo(function BuzzRow({ post, onVoteFor, onMuted }: { post: BuzzCardProps["post"]; onVoteFor: (id: string, vote: Vote) => void; onMuted: () => void }) {
+  return <BuzzCard post={post} onVote={(v) => onVoteFor(post.id, v)} onRemoved={removeThread} onMuted={onMuted} />;
+});
+
+// The thread and create screens report through the same event bus, so every change takes one path, which this list listens to.
+const voteThread = (id: string, vote: Vote) => emitBuzzEvent({ type: "vote", id, vote });
+const removeThread = (id: string) => emitBuzzEvent({ type: "remove", id });
+
 export function BuzzSection({ active, topInset, onScroll }: { active: boolean; topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
   const router = useRouter();
   const show = useActionSheet();
@@ -150,6 +164,11 @@ export function BuzzSection({ active, topInset, onScroll }: { active: boolean; t
   const listRef = useRef<FlatList<BuzzPost>>(null);
   // Rows fade in once as they first arrive (not when scrolled back into view).
   const appearCells = useAppearingCells();
+  // Muting a topic or a poster from a card reloads the feed without them.
+  const reloadAfterMute = useCallback(() => {
+    setRefreshing(true);
+    emitBuzzEvent({ type: "reload" });
+  }, []);
   useTabReselect(() => listRef.current?.scrollToOffset({ offset: ios ? -topInset : 0, animated: true }), active);
 
   return (
@@ -194,20 +213,13 @@ export function BuzzSection({ active, topInset, onScroll }: { active: boolean; t
           </View>
         }
         CellRendererComponent={appearCells}
+        windowSize={11}
+        maxToRenderPerBatch={8}
         renderItem={({ item }) =>
           searching ? (
             <BuzzSearchRow post={item} />
           ) : (
-            <BuzzCard
-              post={item}
-              // The thread and create screens report through the same event bus, so every change takes one path, which this list listens to.
-              onVote={(v) => emitBuzzEvent({ type: "vote", id: item.id, vote: v })}
-              onRemoved={(id) => emitBuzzEvent({ type: "remove", id })}
-              onMuted={() => {
-                setRefreshing(true);
-                emitBuzzEvent({ type: "reload" });
-              }}
-            />
+            <BuzzRow post={item} onVoteFor={voteThread} onMuted={reloadAfterMute} />
           )
         }
         ListEmptyComponent={

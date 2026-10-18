@@ -89,7 +89,7 @@ export default function CreateApartmentScreen() {
           ))}
         </View>
       </FormSection>
-      <Button title="Post listing" onPress={() => void submit()} loading={busy} />
+      <Button title="Post listing" size="large" onPress={() => void submit()} loading={busy} />
     </ScrollView>
   );
 }

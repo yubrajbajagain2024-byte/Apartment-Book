@@ -2,7 +2,7 @@ import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PeopleSearch } from "@/components/people-search";
 import { useTabBarInset } from "@/lib/tab-bar";
-import { space } from "@/lib/theme";
+import { space, textStyle } from "@/lib/theme";
 import { makeStyles } from "@/lib/theme-provider";
 
 /** The title row, fixed under the safe area, laid out like Explore's. */
@@ -31,5 +31,5 @@ export default function SearchTab() {
 const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   chrome: { backgroundColor: colors.bar },
-  title: { height: TITLE_ROW, lineHeight: TITLE_ROW, paddingLeft: 20, paddingRight: space.lg, fontSize: 30, fontWeight: "800", letterSpacing: -0.5, color: colors.text },
+  title: { height: TITLE_ROW, lineHeight: TITLE_ROW, paddingLeft: 20, paddingRight: space.lg, fontSize: textStyle.largeTitle.fontSize, fontWeight: textStyle.largeTitle.fontWeight, color: colors.text },
 }));

@@ -304,30 +304,42 @@ export function useCommentThread({ targetType, targetId, ownerId, onCountChange,
 export type CommentThread = ReturnType<typeof useCommentThread>;
 
 /** "230 comments" with the small sort button right after it. `count` null (still loading) reads "Comments". */
-export function CommentsHeading({ count, onSort, align = "center" }: { count: number | null; onSort: (sort: CommentSort) => void; align?: "center" | "left" }) {
+/** "N comments" for a thread's heading ("Comments" until the count is known, "No comments yet" at none). */
+export function commentCountLabel(count: number | null): string {
+  return count === null ? "Comments" : count === 0 ? "No comments yet" : `${count} ${count === 1 ? "comment" : "comments"}`;
+}
+
+/** The sort button beside a thread's heading: Top or Newest, from the action sheet. */
+export function CommentSortButton({ onSort }: { onSort: (sort: CommentSort) => void }) {
   const show = useActionSheet();
   const colors = useColors();
   const styles = useStyles();
-  const label = count === null ? "Comments" : count === 0 ? "No comments yet" : `${count} ${count === 1 ? "comment" : "comments"}`;
+  return (
+    <Pressable
+      onPress={() =>
+        show(
+          COMMENT_SORTS.map((s) => ({ label: s.label, onPress: () => onSort(s.value) })),
+          "Sort comments",
+        )
+      }
+      hitSlop={10}
+      style={({ pressed }) => [styles.sort, pressed && { opacity: 0.6 }]}
+      accessibilityRole="button"
+      accessibilityLabel="Sort comments"
+    >
+      <Icon name="swap-vertical-outline" size={16} color={colors.muted} />
+    </Pressable>
+  );
+}
+
+export function CommentsHeading({ count, onSort, align = "center" }: { count: number | null; onSort: (sort: CommentSort) => void; align?: "center" | "left" }) {
+  const styles = useStyles();
   return (
     <View style={[styles.headingRow, align === "left" && { justifyContent: "flex-start" }]}>
       <Text style={styles.heading} accessibilityRole="header">
-        {label}
+        {commentCountLabel(count)}
       </Text>
-      <Pressable
-        onPress={() =>
-          show(
-            COMMENT_SORTS.map((s) => ({ label: s.label, onPress: () => onSort(s.value) })),
-            "Sort comments",
-          )
-        }
-        hitSlop={10}
-        style={styles.sort}
-        accessibilityRole="button"
-        accessibilityLabel="Sort comments"
-      >
-        <Icon name="swap-vertical-outline" size={16} color={colors.muted} />
-      </Pressable>
+      <CommentSortButton onSort={onSort} />
     </View>
   );
 }

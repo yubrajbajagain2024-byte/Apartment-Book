@@ -3,7 +3,7 @@ import type { Ionicons } from "@expo/vector-icons";
 import type { ProfileSummary } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { hapticTap } from "@/lib/haptics";
-import { radius, space } from "@/lib/theme";
+import { radius, space, textStyle } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
 
@@ -172,7 +172,7 @@ export function InfoActionList({ actions }: { actions: InfoListAction[] }) {
 
 const useStyles = makeStyles((colors) => ({
   card: { alignItems: "center", paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: space.md, gap: 4 },
-  name: { fontSize: 22, fontWeight: "800", color: colors.text, textAlign: "center", marginTop: space.md },
+  name: { ...textStyle.title2, color: colors.text, textAlign: "center", marginTop: space.md },
   handle: { fontSize: 15, color: colors.muted, textAlign: "center" },
   detail: { fontSize: 13, color: colors.faint, textAlign: "center" },
   groupMark: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
@@ -180,7 +180,7 @@ const useStyles = makeStyles((colors) => ({
   button: { width: 76, alignItems: "center", gap: 6 },
   circle: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
   buttonLabel: { fontSize: 12, fontWeight: "600", color: colors.text },
-  section: { fontSize: 17, fontWeight: "800", color: colors.text, paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.sm },
+  section: { fontSize: 17, fontWeight: "700", color: colors.text, paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.sm },
   sectionCount: { fontSize: 15, fontWeight: "600", color: colors.muted },
   member: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: 8 },
   memberName: { flex: 1, fontSize: 15, fontWeight: "600", color: colors.text },

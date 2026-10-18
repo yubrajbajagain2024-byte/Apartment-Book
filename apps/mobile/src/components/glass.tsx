@@ -12,19 +12,19 @@ import { AnimatedPressable, usePressScale } from "./ui";
 export const LIQUID_GLASS = isLiquidGlassAvailable();
 
 /**
- * Where glass sits decides how it is made, as in Apple's guidance: `bar` is the navigation layer over the app's own
- * surfaces (regular glass on an all but opaque fill of the bar's colour, so what is on it stays readable), `media` is a
- * control over photos and video (clear glass on a dark dimming layer, the same in both themes), `prominent` is the one
- * primary floating action (glass tinted with the brand blue). Reduce Transparency, or no Liquid Glass, leaves the fill.
+ * Glass only where it does a job, as in Apple's guidance, never as decoration: `bar` is the navigation layer over the
+ * app's own surfaces (regular glass on an all but opaque fill of the bar's colour, so what is on it stays readable), and
+ * `media` is a control over photos and video (clear glass on a dark dimming layer, the same in both themes). Everything
+ * else in the app is solid. Reduce Transparency, or no Liquid Glass, leaves the fill.
  */
-export type GlassVariant = "bar" | "media" | "prominent";
+export type GlassVariant = "bar" | "media";
 
 /** The layers behind a glass control, absolutely filling its parent: put it first, then the control's content. */
 export function GlassBackdrop({ variant = "bar", radius, interactive = false }: { variant?: GlassVariant; radius?: number; interactive?: boolean }) {
   const { colors, isDark } = useAppTheme();
   const reduce = useReduceTransparency();
   const glass = LIQUID_GLASS && !reduce;
-  const fill: ColorValue = variant === "media" ? (reduce ? colors.mediaPill : colors.mediaControl) : variant === "prominent" ? colors.brand : reduce ? colors.bar : colors.glass;
+  const fill: ColorValue = variant === "media" ? (reduce ? colors.mediaPill : colors.mediaControl) : reduce ? colors.bar : colors.glass;
   const shape: ViewStyle = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, borderRadius: radius, borderCurve: "continuous" };
   return (
     <>
@@ -34,7 +34,6 @@ export function GlassBackdrop({ variant = "bar", radius, interactive = false }: 
           pointerEvents="none"
           style={shape}
           glassEffectStyle={variant === "media" ? "clear" : "regular"}
-          tintColor={variant === "prominent" ? colors.brand : undefined}
           isInteractive={interactive}
           colorScheme={variant === "media" ? "dark" : isDark ? "dark" : "light"}
         />
@@ -44,9 +43,9 @@ export function GlassBackdrop({ variant = "bar", radius, interactive = false }: 
 }
 
 /**
- * A round floating icon button on glass: the Reels viewer's Back, a sound switch on a video, a cover's Back and menu,
- * the floating "+". It sinks under the finger, answers with a haptic, and its glass reacts to the touch on iOS 26. The
- * icon is the text colour on `bar` glass, white on `media` and `prominent` glass. `label` is what VoiceOver says.
+ * A round floating icon button on glass: the Reels viewer's Back, a sound switch on a video, a cover's Back and menu.
+ * It sinks under the finger, answers with a haptic, and its glass reacts to the touch on iOS 26. The icon is the text
+ * colour on `bar` glass and white on `media` glass. `label` is what VoiceOver says.
  */
 export function GlassIconButton({
   icon,
@@ -79,7 +78,7 @@ export function GlassIconButton({
 }) {
   const { colors } = useAppTheme();
   const press = usePressScale(0.92, 0.9);
-  const tint = iconColor ?? (variant === "bar" ? colors.text : variant === "prominent" ? colors.onBrand : colors.onMedia);
+  const tint = iconColor ?? (variant === "bar" ? colors.text : colors.onMedia);
   return (
     <AnimatedPressable
       onPress={() => {

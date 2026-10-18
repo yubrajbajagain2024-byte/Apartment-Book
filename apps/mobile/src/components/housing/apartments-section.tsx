@@ -1,6 +1,6 @@
-import { useMemo, useRef } from "react";
+import { memo, useMemo, useRef } from "react";
 import { RefreshControl, Text, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import { formatDistance, formatPrice, isVerifiedPoster, KM_PER_MILE, listApartments, listingMedia, type ApartmentWithOwner } from "@apartment-book/shared";
+import { formatDistance, formatPrice, isVerifiedPoster, KM_PER_MILE, listApartments, listingMedia, type ApartmentWithOwner, type PostEngagement } from "@apartment-book/shared";
 import type { RoomFilters } from "@/components/housing/filter-sheet";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
 import { Badge, EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
@@ -13,6 +13,35 @@ import { useColors } from "@/lib/theme-provider";
 import { useEngagement } from "@/lib/use-engagement";
 import { useTabReselect } from "@/lib/tab-reselect";
 import { refreshWithHaptic } from "@/lib/haptics";
+
+/**
+ * One listing, memoised: only a row whose listing, save or counts changed draws again as the feed scrolls and loads.
+ */
+const ApartmentRow = memo(function ApartmentRow({ a, saved, engagement }: { a: ApartmentWithOwner; saved: boolean; engagement: PostEngagement | undefined }) {
+  return (
+    <PostCard
+      targetType="apartment"
+      targetId={a.id}
+      path={`/apartments/${a.id}`}
+      poster={{ id: a.owner.id, name: a.owner.full_name, avatarUrl: a.owner.avatar_url, verified: isVerifiedPoster(a.owner) }}
+      subtitle={[a.distance_km !== null ? `${formatDistance(a.distance_km)} from campus` : null, a.city].filter(Boolean).join(" · ")}
+      title={a.title}
+      lead={`${formatPrice(a.price_per_month, a.currency)}/mo · ${a.bedrooms === 0 ? "Studio" : `${a.bedrooms} bd`} · ${a.bathrooms} ba`}
+      description={a.description}
+      media={listingMedia(a.images, a.image_meta, a.videos)}
+      createdAt={a.created_at}
+      saved={saved}
+      engagement={engagement}
+      details={
+        <>
+          {a.furnished ? <Badge label="Furnished" tone="blue" /> : null}
+          {a.utilities_included ? <Badge label="Utilities included" tone="green" /> : null}
+          {a.pets_allowed ? <Badge label="Pets OK" /> : null}
+        </>
+      }
+    />
+  );
+});
 
 /**
  * The Apartments half of the Explore tab: the listings feed, starting `topInset` under the floating labels and pills and
@@ -49,29 +78,10 @@ export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filt
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: 90 + tabBar, paddingTop: inset.paddingTop }}
         CellRendererComponent={appearCells}
-        renderItem={({ item: a }) => (
-          <PostCard
-            targetType="apartment"
-            targetId={a.id}
-            path={`/apartments/${a.id}`}
-            poster={{ id: a.owner.id, name: a.owner.full_name, avatarUrl: a.owner.avatar_url, verified: isVerifiedPoster(a.owner) }}
-            subtitle={[a.distance_km !== null ? `${formatDistance(a.distance_km)} from campus` : null, a.city].filter(Boolean).join(" · ")}
-            title={a.title}
-            lead={`${formatPrice(a.price_per_month, a.currency)}/mo · ${a.bedrooms === 0 ? "Studio" : `${a.bedrooms} bd`} · ${a.bathrooms} ba`}
-            description={a.description}
-            media={listingMedia(a.images, a.image_meta, a.videos)}
-            createdAt={a.created_at}
-            saved={savedIds.has(a.id)}
-            engagement={engagement[a.id]}
-            details={
-              <>
-                {a.furnished ? <Badge label="Furnished" tone="blue" /> : null}
-                {a.utilities_included ? <Badge label="Utilities included" tone="green" /> : null}
-                {a.pets_allowed ? <Badge label="Pets OK" /> : null}
-              </>
-            }
-          />
-        )}
+        renderItem={({ item: a }) => <ApartmentRow a={a} saved={savedIds.has(a.id)} engagement={engagement[a.id]} />}
+        windowSize={9}
+        initialNumToRender={3}
+        maxToRenderPerBatch={4}
         ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon={filtered || q ? "search-outline" : "home-outline"} title={filtered || q ? "No apartments match" : "No apartments yet"} body={filtered ? "Try fewer filters." : q ? "Try another word." : "Be the first to list a place."} />}
         ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : null}
         onEndReached={feed.loadMore}

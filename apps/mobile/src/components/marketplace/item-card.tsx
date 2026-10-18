@@ -128,7 +128,7 @@ export const MarketItemCard = memo(function MarketItemCard({ item, width, campus
               ) : null}
               {campus ? (
                 <>
-                  <Icon name="location" size={11} color={metaColor} style={pinStyle} />
+                  <Icon name="location" size={12} color={metaColor} style={pinStyle} />
                   <Text style={metaStyle} numberOfLines={1}>
                     {campus}
                   </Text>
@@ -138,7 +138,7 @@ export const MarketItemCard = memo(function MarketItemCard({ item, width, campus
           ) : null}
           {pickup ? (
             <View style={styles.metaRow}>
-              <Icon name="location" size={11} color={metaColor} style={pinStyle} />
+              <Icon name="location" size={12} color={metaColor} style={pinStyle} />
               <Text style={[metaStyle, styles.shrink]} numberOfLines={1}>
                 {pickup}
               </Text>
@@ -173,7 +173,7 @@ const useStyles = makeStyles((colors) => {
     // layout resolves percentages against the box minus its padding, which would sink the fade into the words.
     fadeRamp: { position: "absolute", left: 0, right: 0, top: -FADE_RAMP, height: FADE_RAMP, experimental_backgroundImage: `linear-gradient(to bottom, transparent, ${colors.mediaScrim})` },
     pricePill: { backgroundColor: colors.mediaPill, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 6 },
-    price: { color: colors.onMedia, fontSize: 14, fontWeight: "800" },
+    price: { color: colors.onMedia, fontSize: 14, fontWeight: "700", fontVariant: ["tabular-nums"] },
     title: { fontSize: 15, lineHeight: 19, fontWeight: "700" },
     onPhoto: { color: colors.onMedia, ...textShadow },
     onFill: { color: colors.text },

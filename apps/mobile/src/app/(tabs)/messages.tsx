@@ -20,7 +20,6 @@ import { useMutes } from "@/lib/use-mutes";
 import { reportMessagesRead } from "@/lib/use-unread";
 import { useTabReselect } from "@/lib/tab-reselect";
 import { Icon } from "@/components/icon";
-import { GlassBackdrop } from "@/components/glass";
 
 /** One line of a list: a chat, or while searching also section titles, found messages and status lines. */
 type Item =
@@ -447,8 +446,6 @@ export default function MessagesScreen() {
       {user && showMarkAll ? (
         <View pointerEvents="box-none" style={[styles.markAllWrap, { bottom: tabBar + space.lg }]}>
           <Pressable onPress={markAllRead} accessibilityRole="button" accessibilityLabel="Mark all as read" style={({ pressed }) => [styles.markAll, pressed && { opacity: 0.75 }]}>
-            {/* A floating control over the list: Liquid Glass on the bar's fill, so its words stay readable. */}
-            <GlassBackdrop variant="bar" radius={22} interactive />
             <Icon name="checkmark-done-outline" size={18} color={colors.text} />
             <Text style={styles.markAllText}>Mark all as read</Text>
           </Pressable>
@@ -466,6 +463,7 @@ const useStyles = makeStyles((colors) => ({
   pad: { padding: space.lg },
   // The pill floats over the list, centred above the bottom bar; the list keeps room under it (its bottom padding).
   markAllWrap: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 2 },
-  markAll: { flexDirection: "row", alignItems: "center", gap: 8, height: 44, paddingHorizontal: 20, borderRadius: 22, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.glassEdge, shadowColor: colors.shadow, shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  // A solid capsule floating over the list (no see-through), lifted by a soft shadow and, on black, a hairline.
+  markAll: { flexDirection: "row", alignItems: "center", gap: 8, height: 44, paddingHorizontal: 20, borderRadius: 22, backgroundColor: colors.elevated, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: colors.shadow, shadowOpacity: 0.16, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   markAllText: { fontSize: 15, fontWeight: "600", color: colors.text },
 }));

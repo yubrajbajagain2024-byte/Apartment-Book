@@ -1,73 +1,39 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, View, type GestureResponderHandlers } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useEffect, useState } from "react";
+import { ScrollView } from "react-native";
 import type { PostTargetType } from "@apartment-book/shared";
-import { radius, sheetShape } from "@/lib/theme";
-import { makeStyles, useColors } from "@/lib/theme-provider";
-import { CommentComposer, CommentList, CommentsHeading, useCommentThread } from "./comments";
-import { Icon } from "@/components/icon";
+import { makeStyles } from "@/lib/theme-provider";
+import { CommentComposer, CommentList, commentCountLabel, CommentSortButton, useCommentThread } from "./comments";
+import { Sheet, SheetFooter, SheetHeader } from "./sheet";
 
 /** `focusComposer` opens the sheet straight into typing (the "Add comment…" bar under a reel), once the sheet has slid up. */
 export type CommentsTarget = { targetType: PostTargetType; targetId: string; ownerId: string; comments: number; focusComposer?: boolean };
 
-/** Bottom sheet with the comment thread of one post or reel, TikTok style: the count up top, the thread, and the composer pinned under it. Pass `target = null` to keep it closed. */
+/**
+ * Bottom sheet with the comment thread of one post or reel, TikTok style: the count up top (the sort button beside it),
+ * the thread, and the composer pinned under it. Pass `target = null` to keep it closed. Built on the app's one Sheet:
+ * it rises on the system's spring over a fading backdrop, and the header pulls it down.
+ */
 export function CommentsSheet({ target, onClose, onCountChange }: { target: CommentsTarget | null; onClose: () => void; onCountChange: (delta: number) => void }) {
-  const styles = useStyles();
-  const drag = useRef(new Animated.Value(0)).current;
-  const closeRef = useRef(onClose);
   // Keep showing the last thread while the sheet slides away, so it does not go blank mid-animation.
   const [shown, setShown] = useState<CommentsTarget | null>(target);
-  const open = target !== null;
-
-  useEffect(() => {
-    closeRef.current = onClose;
-  }, [onClose]);
   useEffect(() => {
     if (target) setShown(target);
   }, [target]);
-  useEffect(() => {
-    if (open) drag.setValue(0);
-  }, [open, drag]);
-
-  // Pull the handle down to close, like every other sheet on the phone.
-  const pan = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
-        onPanResponderMove: (_, g) => drag.setValue(Math.max(0, g.dy)),
-        onPanResponderRelease: (_, g) => {
-          if (g.dy > 90 || g.vy > 1.2) closeRef.current();
-          else Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
-        },
-        onPanResponderTerminate: () => Animated.spring(drag, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start(),
-      }),
-    [drag],
-  );
 
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <View style={styles.root}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close comments" />
-          <Animated.View style={[styles.sheet, { transform: [{ translateY: drag }] }]}>
-            {shown ? <SheetBody key={`${shown.targetType}:${shown.targetId}`} target={shown} panHandlers={pan.panHandlers} onClose={onClose} onCountChange={onCountChange} /> : null}
-          </Animated.View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    <Sheet visible={target !== null} onClose={onClose} closeLabel="Close comments" height="70%" keyboard>
+      {shown ? <SheetBody key={`${shown.targetType}:${shown.targetId}`} target={shown} onCountChange={onCountChange} /> : null}
+    </Sheet>
   );
 }
 
 /** The thread of one target: header with the count and sort button, the scrolling list, and the composer pinned at the bottom. */
-function SheetBody({ target, panHandlers, onClose, onCountChange }: { target: CommentsTarget; panHandlers: GestureResponderHandlers; onClose: () => void; onCountChange: (delta: number) => void }) {
-  const colors = useColors();
+function SheetBody({ target, onCountChange }: { target: CommentsTarget; onCountChange: (delta: number) => void }) {
   const styles = useStyles();
-  const insets = useSafeAreaInsets();
   const thread = useCommentThread({ targetType: target.targetType, targetId: target.targetId, ownerId: target.ownerId, onCountChange });
   // The post's number until the thread has loaded, then what is really there (replies included).
   const count = thread.count ?? target.comments;
-  // Asked to type straight away: the keyboard comes up once the sheet has slid into place (the body mounts with the sheet).
+  // Asked to type straight away: the keyboard comes up once the sheet has risen into place (the body mounts with the sheet).
   const { inputRef } = thread;
   useEffect(() => {
     if (!target.focusComposer) return;
@@ -76,30 +42,18 @@ function SheetBody({ target, panHandlers, onClose, onCountChange }: { target: Co
   }, [target.focusComposer, inputRef]);
   return (
     <>
-      <View {...panHandlers} style={styles.header}>
-        <View style={styles.handle} />
-        <CommentsHeading count={count} onSort={thread.setSort} />
-        <Pressable onPress={onClose} hitSlop={10} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
-          <Icon name="close" size={20} color={colors.text} />
-        </Pressable>
-      </View>
+      <SheetHeader title={commentCountLabel(count)} leading={<CommentSortButton onSort={thread.setSort} />} />
       <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.list}>
         <CommentList thread={thread} emptyText="Be the first to comment." />
       </ScrollView>
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom - sheetShape.marginBottom, 12) }]}>
+      <SheetFooter style={styles.footer}>
         <CommentComposer thread={thread} />
-      </View>
+      </SheetFooter>
     </>
   );
 }
 
-const useStyles = makeStyles((colors) => ({
-  root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
-  // iOS 26: the sheet floats inset from the screen's edges, its corners concentric with the phone's; a hairline marks its edge.
-  sheet: { height: "70%", backgroundColor: colors.elevated, ...sheetShape, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  header: { alignItems: "center", paddingTop: 8, paddingBottom: 10, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 10 },
-  close: { position: "absolute", right: 12, top: 16, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
-  list: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 8 },
-  footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: 14, paddingTop: 10, backgroundColor: colors.elevated },
+const useStyles = makeStyles(() => ({
+  list: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 },
+  footer: { paddingTop: 10 },
 }));

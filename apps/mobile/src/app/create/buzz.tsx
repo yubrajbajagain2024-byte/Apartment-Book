@@ -200,7 +200,7 @@ export default function CreateBuzzScreen() {
         <Text style={styles.hint}>We remove location and camera details from your photos before they are uploaded. Still, check that faces, voices, name tags or your room do not give you or someone else away.</Text>
       </FormSection>
 
-      <Button title="Post anonymously" icon="eye-off-outline" onPress={() => void submit()} loading={busy} disabled={uploading > 0 || videoState !== null} />
+      <Button title="Post anonymously" size="large" icon="eye-off-outline" onPress={() => void submit()} loading={busy} disabled={uploading > 0 || videoState !== null} />
     </ScrollView>
   );
 }

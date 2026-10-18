@@ -77,7 +77,7 @@ export default function CreatePostScreen() {
         <MediaPicker kind="posts" plain maxPhotos={MAX_IMAGES_PER_POST} userId={user.id} photos={photos} onPhotos={(p) => setPhotos(p.slice(0, MAX_IMAGES_PER_POST))} video={video} onVideo={setVideo} />
         <Text style={{ fontSize: 12, color: colors.muted }}>Up to {MAX_IMAGES_PER_POST} photos and one video. Your name and photo are shown on posts. For anonymous threads, use Buzz.</Text>
       </Card>
-      <Button title="Post" onPress={() => void submit()} loading={busy} disabled={empty} />
+      <Button title="Post" size="large" onPress={() => void submit()} loading={busy} disabled={empty} />
     </ScrollView>
   );
 }

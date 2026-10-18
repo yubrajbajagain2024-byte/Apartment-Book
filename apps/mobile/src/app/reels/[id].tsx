@@ -15,9 +15,10 @@ import { emitPostEngagement, emitPostRemoved } from "@/lib/posts-events";
 import { dropHandedReel, peekHandedReel } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { textStyle } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
-import { GlassBackdrop, GlassIconButton } from "@/components/glass";
+import { GlassIconButton } from "@/components/glass";
 
 /** Breathing room between the status bar and the top row, as on Home's bar. */
 const TOP_GAP = 8;
@@ -347,7 +348,7 @@ export default function ReelViewerScreen() {
 const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.mediaBg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 8 },
-  stateTitle: { color: colors.onMedia, fontSize: 20, fontWeight: "800", marginTop: 6, textAlign: "center" },
+  stateTitle: { color: colors.onMedia, ...textStyle.title3, marginTop: 6, textAlign: "center" },
   stateBody: { color: colors.onMediaMuted, fontSize: 14, textAlign: "center", lineHeight: 20 },
   stateButton: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 12, marginTop: 12 },
   stateButtonText: { color: colors.onBrand, fontSize: 15, fontWeight: "700" },

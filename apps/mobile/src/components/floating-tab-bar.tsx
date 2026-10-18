@@ -131,5 +131,5 @@ const styles = StyleSheet.create({
   label: { fontSize: 11, fontWeight: "600", letterSpacing: 0, marginTop: 2 },
   labelOn: { fontWeight: "700" },
   badge: { position: "absolute", top: -5, right: -10, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
-  badgeText: { fontSize: 10, fontWeight: "800" },
+  badgeText: { fontSize: 10, fontWeight: "700", fontVariant: ["tabular-nums"] },
 });

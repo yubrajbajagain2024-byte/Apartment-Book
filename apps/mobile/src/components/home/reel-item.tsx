@@ -14,7 +14,7 @@ import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "../action-sheet";
 import { useShareSheet } from "../share-sheet";
 import { Icon, useBounceOn } from "@/components/icon";
-import { GlassBackdrop, GlassIconButton } from "@/components/glass";
+import { GlassIconButton } from "@/components/glass";
 
 /** Sound is one switch for the whole Reels feed (starts muted, like every other feed video in the app). */
 let reelsMuted = true;
@@ -464,7 +464,7 @@ const useStyles = makeStyles((colors) => {
     // Instagram's geometry on an iPhone: the "…" centre 46pt above the tab bar, then save, share, comment and like every 73pt or so; the caption line level with "…".
     overlay: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "flex-end", paddingLeft: 14, paddingRight: 8, paddingBottom: 31, gap: 10 },
     info: { flex: 1, gap: 6, paddingBottom: 2 },
-    author: { color: colors.onMedia, fontSize: 16, fontWeight: "800", flexShrink: 1, ...shadow },
+    author: { color: colors.onMedia, fontSize: 16, fontWeight: "700", flexShrink: 1, ...shadow },
     title: { color: colors.onMedia, fontSize: 15, fontWeight: "700", ...shadow },
     caption: { color: colors.onMedia, fontSize: 14, lineHeight: 19, ...shadow },
     more: { color: colors.onMediaMuted, fontSize: 13, fontWeight: "700", ...shadow },

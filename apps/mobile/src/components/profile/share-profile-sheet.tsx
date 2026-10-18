@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Platform, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Platform, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { qrMatrix } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { Button } from "@/components/ui";
 import { hapticSuccess } from "@/lib/haptics";
 import { SITE_URL } from "@/lib/supabase";
-import { radius, space, sheetShape } from "@/lib/theme";
-import { makeStyles, useColors } from "@/lib/theme-provider";
-import { Icon } from "@/components/icon";
+import { radius, space, sheetShape, textStyle } from "@/lib/theme";
+import { makeStyles } from "@/lib/theme-provider";
+import { Sheet, SheetHeader } from "@/components/sheet";
 
 /** Blank modules around the code: scanners need four. */
 const QUIET_ZONE = 4;
@@ -37,7 +37,6 @@ function webNavigator(): Navigator | null {
  */
 export function ShareProfileSheet({ visible, onClose, profileId, name, username, avatarUrl, own }: { visible: boolean; onClose: () => void; profileId: string; name: string; username: string | null; avatarUrl: string | null; own: boolean }) {
   const styles = useStyles();
-  const colors = useColors();
   const insets = useSafeAreaInsets();
   const url = profileUrl(profileId);
   const matrix = useMemo(() => qrMatrix(url), [url]);
@@ -81,45 +80,33 @@ export function ShareProfileSheet({ visible, onClose, profileId, name, username,
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.root}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close share profile" />
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom - sheetShape.marginBottom, space.lg) + space.sm }]}>
-          <View style={styles.header}>
-            <View style={styles.grabber} />
-            <Text style={styles.title} accessibilityRole="header">
-              Share profile
-            </Text>
-            <Pressable onPress={onClose} hitSlop={10} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
-              <Icon name="close" size={20} color={colors.text} />
-            </Pressable>
-          </View>
-          <View style={styles.body}>
-            <View style={styles.card}>
-              <QrCode matrix={matrix} size={QR_SIZE} label={label} />
-              <View style={styles.who}>
-                <Avatar name={name} url={avatarUrl} size="sm" online={false} />
-                <View style={{ flexShrink: 1 }}>
-                  <Text style={styles.name} numberOfLines={1}>
-                    {name}
-                  </Text>
-                  {username ? (
-                    <Text style={styles.handle} numberOfLines={1}>
-                      @{username}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-            </View>
-            <Text style={styles.hint}>Scan with a phone camera to open {own ? "your" : `${first}'s`} profile.</Text>
-            <View style={styles.actions}>
-              {canShare ? <Button title="Share" icon="share-outline" onPress={() => void share()} style={{ flex: 1 }} /> : null}
-              {web ? <Button title={copied ? "Link copied" : "Copy link"} variant="secondary" icon={copied ? "checkmark" : "link-outline"} onPress={() => void copy()} style={{ flex: 1 }} /> : null}
+    // Nothing in it scrolls, so a drag anywhere on the sheet pulls it down.
+    <Sheet visible={visible} onClose={onClose} closeLabel="Close share profile" draggable="sheet" style={{ paddingBottom: Math.max(insets.bottom - sheetShape.marginBottom, space.lg) + space.sm }}>
+      <SheetHeader title="Share profile" onClose={onClose} />
+      <View style={styles.body}>
+        <View style={styles.card}>
+          <QrCode matrix={matrix} size={QR_SIZE} label={label} />
+          <View style={styles.who}>
+            <Avatar name={name} url={avatarUrl} size="sm" online={false} />
+            <View style={{ flexShrink: 1 }}>
+              <Text style={styles.name} numberOfLines={1}>
+                {name}
+              </Text>
+              {username ? (
+                <Text style={styles.handle} numberOfLines={1}>
+                  @{username}
+                </Text>
+              ) : null}
             </View>
           </View>
         </View>
+        <Text style={styles.hint}>Scan with a phone camera to open {own ? "your" : `${first}'s`} profile.</Text>
+        <View style={styles.actions}>
+          {canShare ? <Button title="Share" size="large" icon="share-outline" onPress={() => void share()} style={{ flex: 1 }} /> : null}
+          {web ? <Button title={copied ? "Link copied" : "Copy link"} size="large" variant="secondary" icon={copied ? "checkmark" : "link-outline"} onPress={() => void copy()} style={{ flex: 1 }} /> : null}
+        </View>
       </View>
-    </Modal>
+    </Sheet>
   );
 }
 
@@ -157,19 +144,12 @@ function QrCode({ matrix, size, label }: { matrix: boolean[][]; size: number; la
 }
 
 const useStyles = makeStyles((colors) => ({
-  root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
-  // iOS 26: the sheet floats inset from the screen's edges, its corners concentric with the phone's; a hairline marks its edge.
-  sheet: { backgroundColor: colors.elevated, ...sheetShape, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  header: { alignItems: "center", paddingTop: space.sm, paddingBottom: 10, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  grabber: { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 10 },
-  title: { fontSize: 16, fontWeight: "700", color: colors.text },
-  close: { position: "absolute", right: 12, top: 16, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
   body: { alignItems: "center", paddingHorizontal: space.lg, paddingTop: space.xl, gap: space.lg },
   // The hairline outline keeps the card apart from the sheet in dark mode, where the shadow does not show.
   card: { alignItems: "center", gap: space.md, padding: space.lg, borderRadius: radius.lg, borderCurve: "continuous", backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, shadowColor: colors.shadow, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
   qr: { backgroundColor: QR_LIGHT },
   who: { flexDirection: "row", alignItems: "center", gap: 10, maxWidth: 260 },
-  name: { fontSize: 16, fontWeight: "800", color: colors.text },
+  name: { ...textStyle.headline, color: colors.text },
   handle: { fontSize: 14, color: colors.muted },
   hint: { fontSize: 13, color: colors.muted, textAlign: "center" },
   actions: { flexDirection: "row", gap: space.sm, alignSelf: "stretch" },

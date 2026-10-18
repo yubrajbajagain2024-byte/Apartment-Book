@@ -106,7 +106,7 @@ export function PostCard(props: PostCardProps) {
         ) : null}
       </div>
       {!compact && !facebook ? (
-        <span className="shrink-0 text-xs text-gray-400" suppressHydrationWarning>
+        <span className="shrink-0 text-xs text-gray-500" suppressHydrationWarning>
           {timeAgo(createdAt)}
         </span>
       ) : null}

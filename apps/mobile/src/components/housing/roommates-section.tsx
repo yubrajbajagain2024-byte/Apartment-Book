@@ -1,6 +1,6 @@
-import { useMemo, useRef } from "react";
+import { memo, useMemo, useRef } from "react";
 import { RefreshControl, Text, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import { budgetLabel, formatDate, formatDistance, isVerifiedPoster, KM_PER_MILE, listRoommatePosts, listingMedia, type RoommatePostWithAuthor } from "@apartment-book/shared";
+import { budgetLabel, formatDate, formatDistance, isVerifiedPoster, KM_PER_MILE, listRoommatePosts, listingMedia, type PostEngagement, type RoommatePostWithAuthor } from "@apartment-book/shared";
 import type { RoommateFilters } from "@/components/housing/filter-sheet";
 import { OnlineStrip } from "@/components/online-strip";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
@@ -11,12 +11,57 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useTabBarInset } from "@/lib/tab-bar";
 import { useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 import { useEngagement } from "@/lib/use-engagement";
 import { useTabReselect } from "@/lib/tab-reselect";
 import { refreshWithHaptic } from "@/lib/haptics";
 
 /** The two kinds of roommate post the "Has a room" and "Looking for a room" pills pick between. */
 export type RoommateType = "has_room" | "needs_room";
+
+/**
+ * One roommate post, memoised: only a row whose post, save or counts changed draws again as the feed scrolls and loads.
+ */
+const RoommateRow = memo(function RoommateRow({ p, saved, engagement }: { p: RoommatePostWithAuthor; saved: boolean; engagement: PostEngagement | undefined }) {
+  const colors = useColors();
+  const budget = budgetLabel(p);
+  return (
+    <PostCard
+      targetType="roommate"
+      targetId={p.id}
+      path={`/roommates/${p.id}`}
+      poster={{ id: p.author.id, name: p.author.full_name, avatarUrl: p.author.avatar_url, verified: isVerifiedPoster(p.author) }}
+      subtitle={[p.university?.name, p.distance_km !== null ? `${formatDistance(p.distance_km)} from campus` : null].filter(Boolean).join(" · ")}
+      title={p.title}
+      lead={budget ? `${budget}/mo` : undefined}
+      description={p.description}
+      // The description stays behind "more…" until it is wanted: the title, the budget and the chips say enough.
+      descriptionLines={0}
+      // Heart, share, Inbox and the bookmark: no comment button here (the thread is on the post's own screen).
+      messageLabel="Inbox"
+      messageBeside
+      comments={false}
+      media={listingMedia(p.images, p.image_meta, p.videos)}
+      createdAt={p.created_at}
+      saved={saved}
+      engagement={engagement}
+      details={
+        <>
+          <Badge label={p.post_type === "has_room" ? "Has a room" : "Looking for a room"} tone={p.post_type === "has_room" ? "green" : "blue"} />
+          {p.location ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flexShrink: 1 }}>
+              <Icon name="location" size={13} color={colors.muted} />
+              <Text style={{ fontSize: 13, color: colors.muted, flexShrink: 1 }} numberOfLines={1}>
+                {p.location}
+              </Text>
+            </View>
+          ) : null}
+          {p.move_in_date ? <Text style={{ fontSize: 13, color: colors.muted }}>Move in {formatDate(p.move_in_date)}</Text> : null}
+        </>
+      }
+    />
+  );
+});
 
 /**
  * The Roommates half of the Explore tab: who is online, then the posts feed, starting `topInset` under the floating labels
@@ -58,38 +103,10 @@ export function RoommatesSection({ topInset, onScroll, q, campus, type, filters,
           </View>
         }
         CellRendererComponent={appearCells}
-        renderItem={({ item: p }) => {
-          const budget = budgetLabel(p);
-          return (
-            <PostCard
-              targetType="roommate"
-              targetId={p.id}
-              path={`/roommates/${p.id}`}
-              poster={{ id: p.author.id, name: p.author.full_name, avatarUrl: p.author.avatar_url, verified: isVerifiedPoster(p.author) }}
-              subtitle={[p.university?.name, p.distance_km !== null ? `${formatDistance(p.distance_km)} from campus` : null].filter(Boolean).join(" · ")}
-              title={p.title}
-              lead={budget ? `${budget}/mo` : undefined}
-              description={p.description}
-              // The description stays behind "more…" until it is wanted: the title, the budget and the chips say enough.
-              descriptionLines={0}
-              // Heart, share, Inbox and the bookmark: no comment button here (the thread is on the post's own screen).
-              messageLabel="Inbox"
-              messageBeside
-              comments={false}
-              media={listingMedia(p.images, p.image_meta, p.videos)}
-              createdAt={p.created_at}
-              saved={savedIds.has(p.id)}
-              engagement={engagement[p.id]}
-              details={
-                <>
-                  <Badge label={p.post_type === "has_room" ? "Has a room" : "Looking for a room"} tone={p.post_type === "has_room" ? "green" : "blue"} />
-                  {p.location ? <Text style={{ fontSize: 13, color: colors.muted }}>📍 {p.location}</Text> : null}
-                  {p.move_in_date ? <Text style={{ fontSize: 13, color: colors.muted }}>Move in {formatDate(p.move_in_date)}</Text> : null}
-                </>
-              }
-            />
-          );
-        }}
+        renderItem={({ item: p }) => <RoommateRow p={p} saved={savedIds.has(p.id)} engagement={engagement[p.id]} />}
+        windowSize={9}
+        initialNumToRender={3}
+        maxToRenderPerBatch={4}
         ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon={filtered || q ? "search-outline" : "people-outline"} title={filtered || q ? "No roommate posts match" : "No roommate posts yet"} body={filtered ? "Try fewer filters." : q ? "Try another word." : "Be the first to post for your campus."} />}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}

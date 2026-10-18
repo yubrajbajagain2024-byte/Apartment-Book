@@ -9,7 +9,7 @@ import { PhotoCarousel } from "@/components/photo-carousel";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { radius } from "@/lib/theme";
+import { radius, textStyle } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { alertWithHaptic } from "@/lib/haptics";
 import { Icon, useBounceOn } from "@/components/icon";
@@ -48,7 +48,7 @@ export function BuzzTag({ label, tone = "blue" }: { label: string; tone?: "blue"
   const styles = useStyles();
   return (
     <View style={[styles.tag, { backgroundColor: tone === "green" ? colors.successSoft : colors.brandSoft }]}>
-      <Text style={{ fontSize: 10, fontWeight: "800", color: tone === "green" ? colors.successText : colors.brand }}>{label}</Text>
+      <Text style={{ fontSize: 11, fontWeight: "700", color: tone === "green" ? colors.successText : colors.brand }}>{label}</Text>
     </View>
   );
 }
@@ -525,6 +525,6 @@ const useStyles = makeStyles((colors) => ({
   blockTopic: { fontSize: 13, fontWeight: "700", color: colors.muted },
   blockAlias: { fontSize: 13, color: colors.brand, flexShrink: 1 },
   blockAge: { fontSize: 13, color: colors.muted },
-  blockTitle: { fontSize: 21, fontWeight: "700", color: colors.text, lineHeight: 27, paddingHorizontal: BUZZ_GUTTER, paddingTop: 10 },
+  blockTitle: { ...textStyle.title3, lineHeight: 26, color: colors.text, paddingHorizontal: BUZZ_GUTTER, paddingTop: 10 },
   blockBody: { fontSize: 16, color: colors.text, lineHeight: 23, paddingHorizontal: BUZZ_GUTTER, paddingTop: 8 },
 }));

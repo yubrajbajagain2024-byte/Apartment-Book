@@ -155,47 +155,52 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
   }
 
   return (
-    <Animated.View onLayout={onLayout} pointerEvents={overVideo ? "box-none" : "auto"} style={[styles.bar, { paddingTop: insets.top + TOP_GAP, transform: [{ translateY }] }]}>
-      <Animated.View pointerEvents="none" style={[styles.solid, { opacity: solid ?? (overVideo ? 0 : 1) }]} />
-      <View style={styles.row}>
-        {overVideo ? (
-          <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" style={styles.side}>
-            <Icon name="add-circle-outline" size={30} color={fg} style={styles.shadow} />
-          </Pressable>
-        ) : (
+    <>
+      <Animated.View onLayout={onLayout} pointerEvents={overVideo ? "box-none" : "auto"} style={[styles.bar, { paddingTop: insets.top + TOP_GAP, transform: [{ translateY }] }]}>
+        <Animated.View pointerEvents="none" style={[styles.solid, { opacity: solid ?? (overVideo ? 0 : 1) }]} />
+        <View style={styles.row}>
+          {overVideo ? (
+            <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" style={styles.side}>
+              <Icon name="add-circle-outline" size={30} color={fg} style={styles.shadow} />
+            </Pressable>
+          ) : (
+            <View style={styles.side}>
+              <Pressable onPress={() => router.push("/(tabs)/profile")} hitSlop={4} accessibilityRole="button" accessibilityLabel="Your profile" style={styles.ring}>
+                <View style={styles.ringGap}>
+                  {profile ? <Avatar name={profile.full_name} url={profile.avatar_url} size={PHOTO} online={false} transition={0} /> : <Icon name="person-circle" size={PHOTO} color={colors.faint} />}
+                </View>
+              </Pressable>
+              {/* The create badge, labelled "Create" like the "+" over Reels: the end-to-end flows start from it. */}
+              <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" accessibilityHint="A post, a reel or a Buzz thread" style={styles.plus}>
+                <Icon name="add" size={13} color={colors.onBrand} />
+              </Pressable>
+            </View>
+          )}
+          {/* Two equal side slots keep the wordmark truly centred. */}
+          <View style={styles.middle}>
+            <View style={styles.title}>
+              <Text style={[styles.wordmark, { color: fg }, overVideo && styles.shadow]} accessibilityRole="header" numberOfLines={1}>
+                {title}
+              </Text>
+            </View>
+          </View>
           <View style={styles.side}>
-            <Pressable onPress={() => router.push("/(tabs)/profile")} hitSlop={4} accessibilityRole="button" accessibilityLabel="Your profile" style={styles.ring}>
-              <View style={styles.ringGap}>
-                {profile ? <Avatar name={profile.full_name} url={profile.avatar_url} size={PHOTO} online={false} transition={0} /> : <Icon name="person-circle" size={PHOTO} color={colors.faint} />}
-              </View>
-            </Pressable>
-            {/* The create badge, labelled "Create" like the "+" over Reels: the end-to-end flows start from it. */}
-            <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" accessibilityHint="A post, a reel or a Buzz thread" style={styles.plus}>
-              <Icon name="add" size={13} color={colors.onBrand} />
-            </Pressable>
-          </View>
-        )}
-        {/* Two equal side slots keep the wordmark truly centred. */}
-        <View style={styles.middle}>
-          <View style={styles.title}>
-            <Text style={[styles.wordmark, { color: fg }, overVideo && styles.shadow]} accessibilityRole="header" numberOfLines={1}>
-              {title}
-            </Text>
+            <HeaderActions color={fg} iconStyle={overVideo ? styles.shadow : undefined} />
           </View>
         </View>
-        <View style={styles.side}>
-          <HeaderActions color={fg} iconStyle={overVideo ? styles.shadow : undefined} />
+        <View style={styles.row}>
+          <SlidingTabs sections={HOME_TABS} section={section} onSelect={onSelect} scrollX={scrollX} pageWidth={pageWidth} tint={ink} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} fontSize={LABEL_SIZE} spread />
         </View>
-      </View>
-      <View style={styles.row}>
-        <SlidingTabs sections={HOME_TABS} section={section} onSelect={onSelect} scrollX={scrollX} pageWidth={pageWidth} tint={ink} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} fontSize={LABEL_SIZE} spread />
-      </View>
-      {segments.length > 1 ? (
-        <View style={styles.toggleRow}>
-          <ScopeToggle segments={segments} value={chosen} onChange={choose} overVideo={overVideo} shadow={overVideo ? styles.shadow : undefined} />
-        </View>
-      ) : null}
-    </Animated.View>
+        {segments.length > 1 ? (
+          <View style={styles.toggleRow}>
+            <ScopeToggle segments={segments} value={chosen} onChange={choose} overVideo={overVideo} shadow={overVideo ? styles.shadow : undefined} />
+          </View>
+        ) : null}
+      </Animated.View>
+      {/* The status bar's strip stays put while the bar slides away under it, as on iOS: the wordmark and the feed pass
+          beneath the clock, never through it. Faded with the bar's solid look, so Reels keeps its video edge to edge. */}
+      <Animated.View pointerEvents="none" style={[styles.statusStrip, { height: insets.top, opacity: solid ?? (overVideo ? 0 : 1) }]} />
+    </>
   );
 });
 
@@ -239,6 +244,7 @@ const useStyles = makeStyles((colors, scheme) => ({
   bar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "transparent" },
   // The solid look behind the rows, safe area included, its hairline on the bar's bottom edge: faded by the pager (see `solid`).
   solid: { position: "absolute", top: 0, left: 0, right: 0, bottom: -StyleSheet.hairlineWidth, backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  statusStrip: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 11, backgroundColor: colors.bar },
   row: { height: ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: SIDE_PAD },
   side: { width: SIDE, height: ROW, alignItems: "center", justifyContent: "center" },
   middle: { flex: 1, alignItems: "center", justifyContent: "center" },

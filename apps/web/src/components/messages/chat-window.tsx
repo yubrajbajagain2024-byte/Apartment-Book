@@ -336,7 +336,7 @@ export function ChatWindow({
             const attachments = m.attachments ?? [];
             return (
               <li key={m.id} className="flex flex-col">
-                {showDay && hydrated ? <p className="my-3 text-center text-[11px] font-medium uppercase tracking-wide text-gray-400">{formatDayLabel(m.created_at)}</p> : null}
+                {showDay && hydrated ? <p className="my-3 text-center text-[11px] font-medium uppercase tracking-wide text-gray-500">{formatDayLabel(m.created_at)}</p> : null}
                 <div className={cn("flex items-end gap-2", mine ? "flex-row-reverse" : "flex-row", continued && "mt-0")}>
                   {!mine ? (
                     <span className="w-8 shrink-0">
@@ -369,7 +369,7 @@ export function ChatWindow({
                         {m.content}
                       </div>
                     ) : null}
-                    <span className="mt-0.5 px-1 text-[10px] text-gray-400">
+                    <span className="mt-0.5 px-1 text-[11px] text-gray-500">
                       {m.failed ? "Failed to send" : m.pending ? "Sending…" : hydrated ? formatMessageTime(m.created_at) : "\u00a0"}
                     </span>
                   </div>

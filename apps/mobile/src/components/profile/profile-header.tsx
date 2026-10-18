@@ -3,10 +3,10 @@ import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View, type St
 import type { Ionicons } from "@expo/vector-icons";
 import { compactCount, type FollowStats, type ProfileWithUniversity } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
-import { radius, space } from "@/lib/theme";
+import { radius, space, textStyle } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
-import { GlassBackdrop, GlassIconButton } from "@/components/glass";
+import { GlassIconButton } from "@/components/glass";
 
 /** Height of the pills beside the photo (Edit profile, Follow, Message…) and of the round Share button. */
 export const PROFILE_BUTTON_HEIGHT = 40;
@@ -244,7 +244,7 @@ const useStyles = makeStyles((colors) => ({
   floatBar: { position: "absolute", top: 0, left: 0, right: 0 },
   floatBg: { backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   floatTitle: { position: "absolute", left: 60, right: 60, height: PROFILE_BAR_ROW_HEIGHT, alignItems: "center", justifyContent: "center" },
-  floatName: { fontSize: 17, fontWeight: "800", color: colors.text },
+  floatName: { ...textStyle.headline, color: colors.text },
   floatRow: { position: "absolute", left: 0, right: 0, height: PROFILE_BAR_ROW_HEIGHT, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 8 },
   coverButton: { width: COVER_BUTTON, height: COVER_BUTTON, borderRadius: COVER_BUTTON / 2, backgroundColor: colors.coverButton, alignItems: "center", justifyContent: "center" },
   coverButtonSpace: { width: COVER_BUTTON, height: COVER_BUTTON },
@@ -260,7 +260,7 @@ const useStyles = makeStyles((colors) => ({
   round: { width: PROFILE_BUTTON_HEIGHT, paddingHorizontal: 0, flexShrink: 0 },
   info: { paddingHorizontal: space.lg },
   nameRow: { marginTop: space.sm, flexDirection: "row", alignItems: "center", alignSelf: "flex-start", maxWidth: "100%" },
-  name: { fontSize: 22, fontWeight: "800", color: colors.text, flexShrink: 1 },
+  name: { ...textStyle.title2, color: colors.text, flexShrink: 1 },
   nameChevron: { marginLeft: 4, marginTop: 3 },
   handleRow: { marginTop: 2, flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%" },
   handle: { fontSize: 14, color: colors.muted, flexShrink: 1 },
@@ -272,6 +272,6 @@ const useStyles = makeStyles((colors) => ({
   // The card with the numbers: a soft panel with four columns.
   stats: { marginTop: 14, flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 4, borderRadius: 18, backgroundColor: colors.panel },
   stat: { flex: 1, alignItems: "center", gap: 1, paddingHorizontal: 2 },
-  statNumber: { fontSize: 17, fontWeight: "800", color: colors.text },
+  statNumber: { fontSize: 17, fontWeight: "700", color: colors.text, fontVariant: ["tabular-nums"] },
   statLabel: { fontSize: 13, color: colors.muted },
 }));

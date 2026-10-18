@@ -12,7 +12,7 @@ import { RoommatesSection, type RoommateType } from "@/components/housing/roomma
 import { SlidingTabs } from "@/components/sliding-tabs";
 import { useCollapsingHeader } from "@/lib/collapsing-header";
 import { hapticSwipe } from "@/lib/haptics";
-import { radius, space } from "@/lib/theme";
+import { radius, space, textStyle } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
 
@@ -336,13 +336,13 @@ const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   chrome: { backgroundColor: colors.bar, zIndex: 3 },
   titleRow: { height: TITLE_ROW, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md, paddingLeft: 20, paddingRight: space.lg },
-  title: { flexShrink: 1, fontSize: 30, fontWeight: "800", letterSpacing: -0.5, color: colors.text },
+  title: { flexShrink: 1, ...textStyle.largeTitle, color: colors.text },
   searchRow: { height: SEARCH_ROW, flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: 20 },
   // As tall as the box, round, on the same fill; tinted while a filter is in force, with the count on its corner.
   filterButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
   filterButtonOn: { backgroundColor: colors.brandSoft },
   filterBadge: { position: "absolute", top: 3, right: 3, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-  filterBadgeText: { fontSize: 10, fontWeight: "800", color: colors.onBrand },
+  filterBadgeText: { fontSize: 10, fontWeight: "700", color: colors.onBrand },
   // The input fill, not the card colour: the screen behind it is white in light and black in dark. The inbox's box exactly.
   search: { flex: 1, height: 46, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 16 },
   searchMark: { width: 20, alignItems: "center" },

@@ -5,6 +5,7 @@ import { createSignUpSchema, getAllowedEmailDomains } from "@apartment-book/shar
 import { Button, Field, Screen } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { SITE_URL, supabase } from "@/lib/supabase";
+import { textStyle } from "@/lib/theme";
 import { useColors } from "@/lib/theme-provider";
 
 export default function SignupScreen() {
@@ -40,9 +41,9 @@ export default function SignupScreen() {
     return (
       <Screen>
         <View style={{ gap: 12, paddingTop: 24 }}>
-          <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>Check your email</Text>
+          <Text style={{ ...textStyle.title2, color: colors.text }}>Check your email</Text>
           <Text style={{ color: colors.muted, fontSize: 16 }}>We sent a confirmation link to {email}. Open it, then come back and log in.</Text>
-          <Button title="Go to log in" onPress={() => router.replace("/(auth)/login")} />
+          <Button title="Go to log in" size="large" onPress={() => router.replace("/(auth)/login")} />
         </View>
       </Screen>
     );
@@ -50,13 +51,13 @@ export default function SignupScreen() {
   return (
     <Screen scroll>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ gap: 16, paddingTop: 12 }}>
-        <Text style={{ fontSize: 26, fontWeight: "800", color: colors.text }}>Create your account</Text>
+        <Text style={{ ...textStyle.title1, color: colors.text }}>Create your account</Text>
         <Text style={{ color: colors.muted }}>Students only: sign up with your {domains?.length ? domains.map((d) => `@${d}`).join(" or ") : "university"} email.</Text>
         <Field label="Full name" value={fullName} onChangeText={setFullName} autoComplete="name" textContentType="name" placeholder="Maya Torres" />
         <Field label="University email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" placeholder="you@txstate.edu" />
         <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" placeholder="At least 8 characters" onSubmitEditing={submit} />
         {error ? <Text style={{ color: colors.red }}>{error}</Text> : null}
-        <Button title="Create account" onPress={submit} loading={busy} />
+        <Button title="Create account" size="large" onPress={submit} loading={busy} />
         <Text style={{ color: colors.muted, fontSize: 12, textAlign: "center" }}>
           By joining you agree to our{" "}
           <Text style={{ color: colors.brand }} onPress={() => void Linking.openURL(`${SITE_URL}/terms`)}>

@@ -89,7 +89,7 @@ export default function CreateRoommateScreen() {
         <CheckRow label="Smoking is okay" value={f.smokingOk} onChange={(v) => set("smokingOk", v)} />
         <CheckRow label="Pets are okay" value={f.petsOk} onChange={(v) => set("petsOk", v)} />
       </FormSection>
-      <Button title="Post" onPress={() => void submit()} loading={busy} />
+      <Button title="Post" size="large" onPress={() => void submit()} loading={busy} />
     </ScrollView>
   );
 }

@@ -162,15 +162,28 @@ feel native:
 
 - **Icons.** On iOS every icon is the matching SF Symbol (`src/components/icon.tsx`), in Apple's weights and optical
   alignment: filled when on, outlined when off. A like, a save, a vote and a newly chosen tab bounce once. Android keeps Ionicons.
-- **Glass on the navigation layer only.** The tab bar, the floating Create button, the buttons over photos and video
-  (sound, Back over a reel, Back and the menu over a profile cover), the Campus | Global toggle over a reel and the
-  Mark all read pill are Liquid Glass on iOS 26 (`src/components/glass.tsx`). Content stays opaque, and Reduce
-  Transparency swaps every glass surface for a solid fill.
-- **Shapes.** Rounded rectangles use Apple's continuous corner curve (the radius scale is in `src/lib/theme.ts`). The
-  comments, share, filter and menu sheets float 8pt in from the screen edges with the 34pt corners of the system's sheets.
+- **Type.** One scale of Apple's text styles (`textStyle` in `src/lib/theme.ts`): the Search, Find and Messages titles
+  are iOS Large Titles (34pt bold), names and screen titles are Title 2, sheet titles are Headline. Nothing is heavier
+  than bold except the CampConnect wordmark, and the system font keeps its own tracking.
+- **Buttons.** One `Button` (`src/components/ui.tsx`), an iOS 26 capsule in three sizes: compact (34pt) in list rows,
+  regular (44pt) for most actions, large (50pt) for the action that ends a form or a sheet. Semibold labels, a spring
+  press and a soft haptic on the primary ones.
+- **Sheets.** One `Sheet` (`src/components/sheet.tsx`) under the comments, share, filter and share-profile sheets: the
+  screen dims as the sheet rises on UIKit's presentation spring, the header (or the whole sheet when nothing in it
+  scrolls) pulls it down on the UI thread, and a flick or a long pull closes it. Every sheet has the same grabber,
+  centred title and close button, floats 8pt in from the screen edges with 34pt continuous corners, and keeps its text
+  fields above the keyboard. Menus stay the system's own action sheet.
+- **Glass only where it does a job.** The tab bar and the controls over photos and video (sound, Back over a reel, the
+  Campus | Global toggle over a reel, Back and the menu over a profile cover) are Liquid Glass on iOS 26
+  (`src/components/glass.tsx`). Everything else is solid, including the floating Create button and the Mark all as read
+  pill. Reduce Transparency swaps every glass surface for a solid fill.
+- **Scrolling.** The For you, Buzz, Room and Roommate feeds draw each row through a memoised component with stable
+  handlers, so a scroll only redraws the rows whose content changed, and they keep about four screens of rows mounted
+  instead of ten. Photos show the tiny blurred preview saved at upload at once and fade the full photo in over it. On
+  Home, a strip in the bar's colour stays under the status bar while the bar slides away, so nothing passes under the clock.
 - **Motion.** Buttons and glass controls dip under the finger on a spring, the blue thumb of a segmented control slides
   to the chosen option, and the rows of every feed and list fade in once as they first arrive. Reduce Motion turns the
-  scaling, sliding, fading and bouncing off (`src/lib/accessibility.ts`).
+  scaling, sliding, fading and bouncing off, and sheets then fade instead of sliding (`src/lib/accessibility.ts`).
 - **Readability.** Secondary and faint text pass WCAG AA contrast (4.5:1) on the page and on cards in both themes
   (light placeholders sit at about 4.1:1 on the grey input fill). Text follows Apple's type sizes, with nothing under
   11pt apart from the counts and tags on small badges, and the shades at the top and bottom of a reel keep its white

@@ -194,7 +194,7 @@ export default function SettingsScreen() {
         />
       </Card>
       {message ? <Text style={{ color: message === "Saved." ? colors.successText : colors.red }}>{message}</Text> : null}
-      <Button title="Save changes" onPress={() => void save()} loading={busy} />
+      <Button title="Save changes" size="large" onPress={() => void save()} loading={busy} />
       <ThemeCard />
       <Card>
         <Text style={{ fontWeight: "700", color: colors.text }}>Danger zone</Text>

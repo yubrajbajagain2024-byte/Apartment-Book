@@ -100,6 +100,8 @@ export type ThemeColors = {
   mediaBg: string;
   /** The dimmed screen behind sheets and dialogs. */
   backdrop: string;
+  /** The little bar at the top of a sheet that says it can be pulled down: iOS's grabber grey. */
+  grabber: string;
   /** Shadow colour for raised elements. */
   shadow: string;
 };
@@ -159,6 +161,7 @@ export const lightColors: ThemeColors = {
   mediaControlActive: "rgba(255,255,255,0.28)",
   mediaBg: "#000000",
   backdrop: "rgba(0,0,0,0.25)",
+  grabber: "#c7c7cc",
   shadow: "#000000",
 };
 
@@ -214,6 +217,7 @@ export const darkColors: ThemeColors = {
   mediaControlActive: "rgba(255,255,255,0.28)",
   mediaBg: "#000000",
   backdrop: "rgba(0,0,0,0.6)",
+  grabber: "#5a5a5e",
   shadow: "#000000",
 };
 

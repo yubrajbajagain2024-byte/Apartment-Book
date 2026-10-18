@@ -13,7 +13,7 @@ export function ItemTile({ item }: { item: ItemWithSeller }) {
   return (
     <Pressable style={styles.tile} onPress={() => router.push({ pathname: "/marketplace/[id]", params: { id: item.id } })} accessibilityLabel={item.title}>
       <View style={styles.photo}>
-        {photo ? <Image source={{ uri: photo.url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} /> : null}
+        {photo ? <Image source={{ uri: photo.url }} placeholder={photo.blur ? { uri: photo.blur } : undefined} placeholderContentFit="cover" style={StyleSheet.absoluteFill} contentFit="cover" transition={200} /> : null}
         <View style={styles.price}>
           <Text style={styles.priceText}>{item.price === 0 ? "Free" : formatPrice(item.price, item.currency)}</Text>
         </View>

@@ -48,6 +48,6 @@ const useStyles = makeStyles((colors) => ({
   row: { flexDirection: "row", backgroundColor: colors.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   tab: { flex: 1, alignItems: "center", paddingTop: space.md, gap: space.sm },
   label: { fontSize: 15, fontWeight: "600", color: colors.muted },
-  labelActive: { color: colors.text, fontWeight: "800" },
+  labelActive: { color: colors.text, fontWeight: "700" },
   underline: { height: 2, alignSelf: "stretch", backgroundColor: "transparent" },
 }));

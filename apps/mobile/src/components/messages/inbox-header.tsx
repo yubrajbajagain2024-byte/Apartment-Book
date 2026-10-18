@@ -3,7 +3,7 @@ import { Animated, Pressable, StyleSheet, Text, TextInput, View } from "react-na
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SlidingTabs } from "@/components/sliding-tabs";
 import { hapticSelect } from "@/lib/haptics";
-import { radius, space } from "@/lib/theme";
+import { radius, space, textStyle } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import type { InboxFilter, InboxPage } from "./inbox-utils";
 import { Icon } from "@/components/icon";
@@ -130,7 +130,7 @@ const useStyles = makeStyles((colors) => ({
   // The title and the pencil share one row, so the tabs and the search box sit a row higher.
   topRow: { height: 52, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: 20, paddingRight: space.lg },
   compose: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  title: { flexShrink: 1, fontSize: 30, fontWeight: "800", letterSpacing: -0.5, color: colors.text },
+  title: { flexShrink: 1, ...textStyle.largeTitle, color: colors.text },
   // The labels row, as tall as Home's, with the hairline the sliding underline sits on.
   tabs: { height: TABS_ROW, flexDirection: "row", marginHorizontal: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   filters: { flexDirection: "row", gap: space.sm, paddingHorizontal: 20, paddingBottom: space.sm },
