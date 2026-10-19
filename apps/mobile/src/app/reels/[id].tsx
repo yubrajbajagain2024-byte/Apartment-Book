@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
+import { ActivityIndicator, FlatList, PixelRatio, Pressable, StyleSheet, Text, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
 import { Image } from "expo-image";
 import { useIsFocused, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
@@ -44,8 +44,30 @@ const COMMENT_BAR_BOTTOM = 12;
 const LOAD_AHEAD = 3;
 /** The zoom open: critically damped (it never overshoots the screen's edges), about 0.4s. */
 const ZOOM_IN = { damping: 32, stiffness: 270, mass: 1, overshootClamping: true };
-/** The zoom closed: quick off the mark, landing softly on the picture it came from. */
-const ZOOM_OUT_MS = 330;
+/**
+ * The zoom closed: quick off the mark and braking evenly all the way down, so it stops on the picture it came from in the
+ * frame it seems to arrive. A curve with a long soft tail (iOS's 0.32, 0.72, 0, 1) leaves the page creeping the last few
+ * points for a fifth of a second, where its scaled copy of the picture shows softer than the feed's own and shimmers.
+ */
+const ZOOM_OUT_MS = 300;
+const ZOOM_OUT_CURVE = [0.3, 0.7, 0.45, 1] as const;
+/**
+ * Closing onto the tapped picture, the page fades out over the feed's own during the zoom's last HAND_OVER_MS, as it
+ * covers its last few pixels (under 10): the same picture, but the page's is a scaled copy, a little softer (expo-image
+ * filters trilinearly, blending in a half-size mipmap once scaled down). So the crisp one has taken over by the time it
+ * stops: never a soft one standing still, then a pop.
+ */
+const HAND_OVER_MS = 50;
+/** Most of the fade comes last, where the two pictures are a pixel or less apart: no ghost of one beside the other. */
+const HAND_OVER = { duration: HAND_OVER_MS, easing: Easing.in(Easing.cubic) };
+/** Device pixels per point: the opening's edges sit on whole pixels (see frameStyle). */
+const PIXEL = PixelRatio.get();
+
+/** A position on the screen's pixel grid, as layout rounds every edge. */
+function onPixel(v: number): number {
+  "worklet";
+  return Math.round(v * PIXEL) / PIXEL;
+}
 /**
  * The longest the zoom open waits for its page to draw the tapped picture: usually a frame or two (it is the feed's own),
  * and the feed's live picture shows meanwhile, so a late one costs a moment, never a black frame.
@@ -458,7 +480,7 @@ export default function ReelViewerScreen() {
    * Whether the page can be seen at all (1) or not (0). Opened from a picture, it waits unseen until the zoom starts
    * (the screen still shows the tapped picture itself, the feed's own), which is once it has drawn that picture
    * (onStartShown): the zoom never opens on a black frame or a photo still fading in. A moment at most: PICTURE_WAIT_MS.
-   * Unseen again in the frame the zoom closed lands (see afterLanding).
+   * Unseen again by the time the zoom closed lands: faded out over the feed's own picture in its last moment (HAND_OVER_MS).
    */
   const seen = useSharedValue(reduceMotion || origin === null ? 1 : 0);
   const zoomStarted = useRef(reduceMotion);
@@ -524,11 +546,16 @@ export default function ReelViewerScreen() {
     const pullRadius = Math.min(pulled * 5, 1) * PULL_RADIUS;
     const topRadius = from.topRadius * (1 - t) + pullRadius;
     const bottomRadius = from.bottomRadius * (1 - t) + pullRadius;
+    // Its edges on whole pixels, where layout would round them anyway, and the page inside is placed from these very edges
+    // (see pageStyle): rounded behind its back, the opening would nudge the picture up to half a pixel either way each
+    // frame, a jitter that shows as shimmer while it moves slowly.
+    const left = onPixel(from.x * (1 - t));
+    const top = onPixel(from.y * (1 - t));
     return {
-      left: from.x * (1 - t),
-      top: from.y * (1 - t),
-      width: from.width + (screenW - from.width) * t,
-      height: from.height + (screenH - from.height) * t,
+      left,
+      top,
+      width: onPixel(from.x * (1 - t) + from.width + (screenW - from.width) * t) - left,
+      height: onPixel(from.y * (1 - t) + from.height + (screenH - from.height) * t) - top,
       borderTopLeftRadius: topRadius,
       borderTopRightRadius: topRadius,
       borderBottomLeftRadius: bottomRadius,
@@ -552,9 +579,9 @@ export default function ReelViewerScreen() {
     const scale = start + (1 - start) * t;
     const anchor = fy + (screenH / 2 - fy) * t;
     // The page's point `anchor` sits on the middle of the picture's frame as it grows to the screen, measured from the
-    // opening's corner (the page's own origin).
-    const midX = (from.x + from.width / 2) * (1 - t) + (screenW / 2) * t - frame.x * (1 - t);
-    const midY = (from.y + from.height / 2) * (1 - t) + (screenH / 2) * t - frame.y * (1 - t);
+    // opening's corner (the page's own origin), on its pixel as frameStyle puts it.
+    const midX = (from.x + from.width / 2) * (1 - t) + (screenW / 2) * t - onPixel(frame.x * (1 - t));
+    const midY = (from.y + from.height / 2) * (1 - t) + (screenH / 2) * t - onPixel(frame.y * (1 - t));
     return { transform: [{ translateX: midX - screenW / 2 }, { translateY: midY - screenH / 2 - scale * (anchor - screenH / 2) }, { scale }] };
   });
   // A page pulled sideways uncovers the screen it was opened from, and sheds its words and buttons on the way.
@@ -601,11 +628,11 @@ export default function ReelViewerScreen() {
   }, [startEntry, startItem, startSlide]);
 
   /**
-   * Leaves once the page is out of sight. In the frame the zoom closed lands, the page is hidden (`seen`): it sits exactly
-   * on the tapped picture, which the feed is still drawing live underneath, so nothing visible changes. Only two frames
-   * later (the hidden page surely on screen by then, not just set) does the viewer really go: the copy of the screen that
-   * react-native-screens keeps up while a modal goes away is then see-through, and the feed's video plays on in it
-   * instead of a frozen frame that then skips ahead.
+   * Leaves once the page is out of sight. The zoom closed lands exactly on the tapped picture, which the feed is still
+   * drawing live underneath, and the page has faded out over it in the zoom's last moment (`seen`, HAND_OVER_MS), so
+   * nothing visible changes. Only two frames later (the hidden page surely on screen by then, not just set) does the
+   * viewer really go: the copy of the screen that react-native-screens keeps up while a modal goes away is then
+   * see-through, and the feed's video plays on in it instead of a frozen frame that then skips ahead.
    */
   const afterLanding = useCallback((go: () => void) => {
     requestAnimationFrame(() => requestAnimationFrame(() => go()));
@@ -632,14 +659,17 @@ export default function ReelViewerScreen() {
         return land();
       }
       zoomUI.value = 1;
-      toOrigin.value = origin !== null && isStartAt(visibleRef.current) ? 1 : 0;
+      const home = origin !== null && isStartAt(visibleRef.current);
+      toOrigin.value = home ? 1 : 0;
       chrome.value = withTiming(0, { duration: 110 });
       drag.value = withTiming(0, { duration: ZOOM_OUT_MS });
-      open.value = withTiming(0, { duration: ZOOM_OUT_MS, easing: Easing.bezier(0.32, 0.72, 0, 1) }, (finished) => {
+      open.value = withTiming(0, { duration: ZOOM_OUT_MS, easing: Easing.bezier(...ZOOM_OUT_CURVE) }, (finished) => {
         if (!finished) return;
         seen.value = 0;
         runOnJS(land)();
       });
+      // Onto the tapped picture, the feed's own takes over in the last moment (anywhere else the page fades out as it goes).
+      if (home) seen.value = withDelay(ZOOM_OUT_MS - HAND_OVER_MS, withTiming(0, HAND_OVER));
     },
     [reduceMotion, origin, isStartAt, toOrigin, chrome, drag, open, seen, zoomUI, handBack, afterLanding],
   );
@@ -702,7 +732,7 @@ export default function ReelViewerScreen() {
       const home = hasOrigin && onStartPage.value === 1;
       toOrigin.value = home ? 1 : 0;
       chrome.value = withTiming(0, { duration: 110 });
-      const easing = Easing.bezier(0.32, 0.72, 0, 1);
+      const easing = Easing.bezier(...ZOOM_OUT_CURVE);
       const away = Math.sign(drag.value || velocityX || 1) * screenW;
       drag.value = withTiming(home ? 0 : away, { duration: ZOOM_OUT_MS, easing });
       open.value = withTiming(0, { duration: ZOOM_OUT_MS, easing }, (finished) => {
@@ -710,6 +740,7 @@ export default function ReelViewerScreen() {
         seen.value = 0;
         runOnJS(swipeLeave)();
       });
+      if (home) seen.value = withDelay(ZOOM_OUT_MS - HAND_OVER_MS, withTiming(0, HAND_OVER));
     },
     [closingUI, swipeClosing, reduceMotion, seen, zoomUI, swipeLeave, hasOrigin, onStartPage, toOrigin, chrome, drag, screenW, open],
   );

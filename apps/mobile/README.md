@@ -97,9 +97,13 @@ moving as it shrinks back (or as the page in front fades), and sends back no tim
 row that goes while the viewer still holds its player (`useLendablePlayer`) lets it go only once it is back, and For you
 does not reload under the viewer (a Campus | Global choice made there applies once Home is back). Closing from another
 page pauses that page's own video, so only the one going back is heard; deleting the opened post stops its player. The
-zoom closed hides the page in the frame it lands, exactly on the feed's own live picture, and leaves two frames later: the
-copy of the screen react-native-screens keeps up while a modal goes is then see-through, never a frozen frame that skips
-ahead. The feed's
+zoom closed brakes evenly to a stop on the feed's own live picture (300ms, `ZOOM_OUT_CURVE`): iOS's long-tailed curve left
+the page creeping its last few points for a fifth of a second, and there the page is a scaled copy of the picture, a
+little softer than the feed's own (expo-image filters trilinearly) and shimmering as it crept, so going back looked shaky
+and blurred. Its edges sit on whole pixels and the page inside is placed from them (`onPixel`), so the picture never
+twitches against its frame, and it fades out over the feed's own in the last 50ms, as it covers its last few pixels, so
+the crisp one has taken over by the time it stops. The viewer leaves two frames later: the copy of the screen
+react-native-screens keeps up while a modal goes is then see-through, never a frozen frame that skips ahead. The feed's
 sound button fades away as its video goes full screen and back once it returns, and the status bar takes the viewer's
 style only once the page covers most of the screen. Sound is one switch for every feed video, the Reels tab and the viewer
 (`src/lib/video-sound.ts`, muted to start), so a video keeps its sound exactly as it was in both directions; so that it is
