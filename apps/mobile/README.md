@@ -46,22 +46,39 @@ only while Posts has a tab, Following: the posts of people you follow, which swi
 Buzz, Posts and Reels alike (`src/lib/home-scope.ts`). Someone without a university has nothing to choose, so the row is not drawn.
 Tapping any reel, or the photo or video of any post (photos, videos or both), anywhere in the app opens it full screen in
 the viewer (`src/app/reels/[id].tsx`), like Instagram. It does not slide in: the tapped picture itself grows out of its
-place in the feed, the grid or the chat to fill the screen while the screen behind darkens (a see-through modal with no
-system animation; the page stays full size inside the growing frame, scaled so the picture keeps its size), and on the way
-out (Back, Android's back, or a swipe in from the left edge) it shrinks back into the same place; opened from a link or a
-page other than the tapped one, it fades and scales out instead. Screens opened from the viewer (a profile, a chat) come up
-as cards over it. Every picture is laid out TikTok style on a 9:16 canvas, as wide as the screen on a phone and as tall
-as it allows on a wider screen (`placeOnCanvas` in `src/components/home/reel-item.tsx`): a vertical photo or video (9:16,
-or within a hair of it) fills the canvas edge to edge, a taller one grows towards the full screen, and a square, landscape
-or 4:5 one stays whole at the canvas's width, never stretched or cropped; whatever the picture leaves empty shows a subtle,
-dimmed blur of it. Over it, one top row with Back at the left and the Campus | Global toggle in the middle (for reels and For
-you); the creator's name, the words and the heart, comments, share, save and "…" rail sit at the bottom
-(`src/components/home/reel-item.tsx`, as on the Reels page) over a gradual frost (`src/components/progressive-blur.tsx`:
-expo-blur through a gradient mask, left out on a build without them), and under them an "Add comment…" bar on every page
-opens the comments sheet straight into typing. A tap pauses a video: a play button appears in the middle with the sound
+place in the feed, the grid or the chat to fill the screen while the screen behind fades to the page's colour (black
+behind a video, the theme's behind a photo; a see-through modal with no system animation; the page stays full size inside
+the growing frame, scaled so the picture keeps its size and crop), and on the way out (Back or Android's back) it shrinks
+back into the same place; opened from a link or a page other than the tapped one, it fades and scales out instead. A
+sideways swipe, either way, goes back too, under the finger (`usePageSwipe` in `src/lib/viewer-swipe.ts`): the page
+follows it, shrinking and rounding its corners as the screen it was opened from shows through, its words and buttons
+fading away; let go past about a third of the way, or with a flick, and it carries on, the page it was opened on shrinking
+into the post it came from, still exactly where it was (the feed keeps its scroll position, and a carousel post's row has
+followed the viewer to the photo on screen, `emitPostSlide`), any other page sliding on out and fading; let go sooner and
+it springs back. A post's photos keep their own sideways swipes: only past its first or last photo, or from the left edge,
+does a swipe pull the page back. The viewer is a modal screen, outside the view in which the gesture library cancels React
+Native's touches, so the page's taps check `swipedJustNow` themselves: a touch that ended a swipe never pauses, likes or
+opens anything. Feed and viewer videos skip Live Text on a paused frame (`allowsVideoFrameAnalysis={false}`): its button
+would sit over the play control, and its scan was what crashed Expo Go in the simulator. Screens opened from the viewer (a profile, a chat) come up as cards over it. Pictures are laid out
+TikTok style (`src/components/home/reel-item.tsx`). A video fills the screen (`placeVideo`): a vertical one edge to edge,
+trimmed a little at the sides on a phone taller than 9:16; a square or landscape one whole, as wide as a 9:16 canvas, over
+a subtle, dimmed blur of itself. A photo is never stretched or cropped (`photoLayout`): it sits whole and as wide as the
+screen at the top, under the top row, on the theme's own colour (white in light, black in dark), which stays free below it
+for the name, the words and the comment bar, all in the theme's ink; a photo too tall to leave that space (9:16, a phone
+screenshot) is shown full screen on black like a video instead. Over every page, one top row with Back at the left and the
+Campus | Global toggle in the middle (for reels and For you); the creator's name, the words and the heart, comments, share,
+save and "…" rail sit at the bottom (as on the Reels page), over a video's shades and gradual frost
+(`src/components/progressive-blur.tsx`: expo-blur through a gradient mask, left out on a build without them), and under
+them an "Add comment…" bar on every page opens the comments sheet straight into typing. Share opens the same share sheet
+as the feeds (send to friends, or "Share to…" the system share sheet with the page's link: `/posts/<id>` for posts and
+posted reels, `/apartments/<id>` or `/roommates/<id>` for listing tours); the viewer mounts its own `ShareSheetProvider`,
+since iOS presents a sheet from the screen on top and the root layout's one cannot appear over this modal screen. On a photo's page each button of
+the rail is white where it sits over the photo (a soft shadow behind the rail keeps it readable on a white wall) and in the
+theme's ink where it sits on the page below; the top row, the status bar and the comment bar follow the page under them,
+switching as a page's edge passes, and an opened description brings the page's colour up behind it. A tap pauses a video: a play button appears in the middle with the sound
 button just above it, both fading away again the moment it plays (the sound button keeps it paused). A post with several
-photos or videos swipes sideways on its page, with dots under the top row, and opens on the one that was showing in the
-feed; a video plays while its page and slide are on screen, and a double tap anywhere likes. A swipe up moves on: a reel goes on
+photos or videos swipes sideways on its page, with dots on a line of their own under the top row (its colours changing
+halfway through a swipe), and opens on the one that was showing in the feed; a video plays while its page and slide are on screen, and a double tap anywhere likes. A swipe up moves on: a reel goes on
 into the Reels feed (only reels, page by page, the other campus choice keeping the page on screen while what follows comes
 from the new choice); a post in For you goes on down For you, its next pages loading as needed; a square in a profile grid
 (Posts, Reels, Saved, Liked) goes on through that grid; a saved post through your saved posts; a post's own screen and a

@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { APP_NAME, captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromFeedPost, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
 import { hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
-import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
+import { emitPostPinned, onPostPinned, onPostSlide } from "@/lib/posts-events";
 import { entryOf, measureOrigin, openViewer as openFullScreen, viewerItemFromPost, type ViewerOrigin } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { shortDate } from "@/lib/short-date";
@@ -69,6 +69,9 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   const like = useLike("post", post.id, engagement, user?.id ?? null, needLogin);
   const save = useSave("post", post.id, saved, user?.id ?? null, needLogin);
   const [slide, setSlide] = useState(0);
+  /** The viewer opened from this post moved to another of its photos: the carousel follows, so the way back lands on it. */
+  const [jump, setJump] = useState<{ index: number } | null>(null);
+  useEffect(() => onPostSlide((id, index) => id === post.id && setJump({ index })), [post.id]);
   /** Pinned to the top of the author's profile (three at most). Rows read before migration 18 have no pinned_at at all. */
   const [pinned, setPinned] = useState(Boolean(post.pinned_at));
   useEffect(() => setPinned(Boolean(post.pinned_at)), [post.pinned_at]);
@@ -227,7 +230,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
       {media.length > 0 ? (
         <PostFrame>
           <View ref={frame} collapsable={false}>
-            <PhotoCarousel media={media} aspect={frameAspect(media, reel)} active={active} videoLabel={null} dots={false} onIndexChange={setSlide} onPress={openViewer} onDoubleTap={doubleTap} />
+            <PhotoCarousel media={media} aspect={frameAspect(media, reel)} active={active} videoLabel={null} dots={false} onIndexChange={setSlide} jump={jump} onPress={openViewer} onDoubleTap={doubleTap} />
           </View>
           <Animated.View pointerEvents="none" style={[styles.heart, { opacity: heart, transform: [{ scale: heart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
             <Icon name="heart" size={96} color={colors.onMedia} />

@@ -21,13 +21,15 @@ type PhotoCarouselProps = {
   /** Pass false to draw your own dots (Instagram puts them under the photo); `onIndexChange` tells you which slide is showing. */
   dots?: boolean;
   onIndexChange?: (index: number) => void;
+  /** A slide to show from outside (the viewer coming back on another photo): the carousel jumps to it without animating. */
+  jump?: { index: number } | null;
 };
 
 /**
  * Swipeable photos and videos, one slide at a time, with a 1/3 counter and dots.
  * `videoLabel` is the pill shown when the first slide is a video: "Video tour" suits listings; pass another word, or null for no pill.
  */
-export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, active = true, videoLabel = "Video tour", dots = true, onIndexChange }: PhotoCarouselProps) {
+export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, active = true, videoLabel = "Video tour", dots = true, onIndexChange, jump }: PhotoCarouselProps) {
   const colors = useColors();
   const styles = useStyles();
   const [width, setWidth] = useState(0);
@@ -45,6 +47,16 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
     },
     [width, count, onIndexChange],
   );
+
+  useEffect(() => {
+    if (!jump || !width || count < 2) return;
+    const i = Math.max(0, Math.min(count - 1, jump.index));
+    listRef.current?.scrollToIndex({ index: i, animated: false });
+    setIndex(i);
+    onIndexChange?.(i);
+    // Only a new jump moves the carousel; a swipe in the feed after it stays where it is.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jump, width]);
 
   const lastTap = useRef(0);
   const single = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,7 +152,7 @@ function VideoSlide({ media, width, height, playing }: { media: Extract<FeedMedi
   }, [muted, player]);
   return (
     <View style={{ width, height, backgroundColor: colors.mediaBg }}>
-      <VideoView player={player} style={{ width, height }} contentFit="cover" nativeControls={false} onFirstFrameRender={() => setHasFrame(true)} />
+      <VideoView player={player} style={{ width, height }} contentFit="cover" nativeControls={false} allowsVideoFrameAnalysis={false} onFirstFrameRender={() => setHasFrame(true)} />
       {/* Poster stays on top until the first video frame is painted, so the slide is never a black box. */}
       {media.poster && !hasFrame ? <Image source={{ uri: media.poster }} style={StyleSheet.absoluteFill} contentFit="cover" pointerEvents="none" /> : null}
       <GlassIconButton

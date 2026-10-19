@@ -45,8 +45,9 @@ export function firstImageOf(media: FeedMedia[]): string | null {
 }
 
 /**
- * Instagram's share sheet, mounted once in the root layout: `useShareSheet().open(sharedPost, { url })` from any Share
- * button. Friends (people you follow who follow you back) show as a grid; pick some, add a note, Send, and each one gets a
+ * Instagram's share sheet, mounted in the root layout: `useShareSheet().open(sharedPost, { url })` from any Share button.
+ * A screen that iOS presents modally (the full-screen viewer) mounts its own: a sheet is presented by the screen on top,
+ * and the root one, under that screen, could not appear over it. Friends (people you follow who follow you back) show as a grid; pick some, add a note, Send, and each one gets a
  * direct message carrying the post as a card. "Share to…" at the bottom is the system share sheet, as before.
  */
 export function ShareSheetProvider({ children }: { children: ReactNode }) {
