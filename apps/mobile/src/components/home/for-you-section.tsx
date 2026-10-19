@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
-import { useRouter } from "expo-router";
-import { listForYou, reelFromFeedPost, type FeedPostWithAuthor, type ForYouItem, type PostEngagement } from "@apartment-book/shared";
+import { useIsFocused, useRouter } from "expo-router";
+import { listForYou, reelFromFeedPost, videosFor, type FeedPostWithAuthor, type ForYouItem, type PostEngagement } from "@apartment-book/shared";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
 import { EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
@@ -86,7 +86,15 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
   const userId = user?.id ?? null;
   const [scope] = useHomeScope();
   // The campus is chosen from the dropdown in the top bar; someone without a university sees every campus.
-  const universityId = scope.campus === "all" || !profile?.university_id ? undefined : profile.university_id;
+  const chosenUniversity = scope.campus === "all" || !profile?.university_id ? undefined : profile.university_id;
+  // Under the full-screen viewer the list stays exactly as it is, the viewer's own Campus | Global toggle included: the
+  // row it was opened from (and the player it lent) must still be there, and in place, when it closes. A choice made
+  // meanwhile reloads the list once Home is back on screen.
+  const homeShown = useIsFocused();
+  const [universityId, setUniversityId] = useState(chosenUniversity);
+  useEffect(() => {
+    if (homeShown) setUniversityId(chosenUniversity);
+  }, [homeShown, chosenUniversity]);
 
   const [items, setItems] = useState<ForYouItem[]>([]);
   const [hasMore, setHasMore] = useState(true);
@@ -165,8 +173,13 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
   const commentingCount = commenting ? commentsOf(commenting.id) : 0;
   const target = useMemo<CommentsTarget | null>(() => (commenting ? { targetType: "post", targetId: commenting.id, ownerId: commenting.author.id, comments: commentingCount } : null), [commenting, commentingCount]);
   /** Ids of the rows at least 60% on screen: only that reel or video plays. */
-  const [visible, setVisible] = useState<Set<string>>(new Set());
-  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => setVisible(new Set(viewableItems.map((v) => String(v.key))))).current;
+  // One video plays at a time, the first row on screen (at least 60% of it) that has one: sound is one switch for every
+  // video, so two playing at once would both be heard.
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const first = viewableItems.find((v) => v.isViewable && videosFor((v.item as ForYouItem).videos).length > 0);
+    setPlayingId(first ? String(first.key) : null);
+  }).current;
   const viewability = useRef({ itemVisiblePercentThreshold: 60 }).current;
   // The list starts under the floating bar and scrolls beneath it as the bar slides away.
   const inset = useMemo(() => listInset(topInset), [topInset]);
@@ -211,6 +224,9 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
    */
   const openInViewer = useCallback(
     (tapped: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin; time: number | null; player: VideoPlayer | null }) => {
+      // A video opened full screen is the one that plays here when the viewer closes: it lands moving, never paused
+      // because another row on screen was first in line.
+      if (live.time !== null) setPlayingId(tapped.id);
       if (tapped.kind === "reel") {
         const reel = reelFromFeedPost(tapped, live.engagement, live.saved);
         if (reel) openReel(router, reel, live.origin, live.time ?? undefined, live.player ?? undefined);
@@ -277,7 +293,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
             comments={commentsOf(item.id)}
             // Browsing every campus: say which university the post is from.
             subtitle={universityId ? undefined : (item.university?.name ?? undefined)}
-            active={active && visible.has(item.id)}
+            active={active && playingId === item.id}
             onOpenComments={openComments}
             onRemoved={removeRow}
             onOpenViewer={openInViewer}

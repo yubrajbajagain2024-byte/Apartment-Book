@@ -10,6 +10,8 @@ import { createOverVideoStore, HOME_TOP_BAR_HEIGHT, HomeTopTabs, useOverVideo, t
 import { PostsSection } from "@/components/home/posts-section";
 import { ReelsSection } from "@/components/home/reels-section";
 import { useCollapsingHeader } from "@/lib/collapsing-header";
+import { tabBarInset } from "@/lib/tab-bar";
+import { OpeningBandContext } from "@/lib/viewer-chrome";
 import { onHomeSectionRequest, takeHomeSection } from "@/lib/home-section";
 import { useAppTheme } from "@/lib/theme-provider";
 
@@ -68,7 +70,7 @@ const HomeStatusBar = memo(function HomeStatusBar({ overVideo, isDark }: { overV
  * and the JS thread idle, so a swipe uncovers a page that has already rendered and loaded.
  */
 export default function HomeScreen() {
-  const { width } = useWindowDimensions();
+  const { width, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
   const { colors, isDark } = useAppTheme();
@@ -110,7 +112,9 @@ export default function HomeScreen() {
   const [onPosts] = useState(() => createOverVideoStore(START === POSTS));
   const [barHeight, setBarHeight] = useState(insets.top + HOME_TOP_BAR_HEIGHT);
   /** The bar slides away as the page on screen scrolls down and back as soon as it scrolls up (Instagram): For you, Buzz and Posts each feed it their scroll; Reels (full-screen video) never moves it. */
-  const { translateY: barShift, select: followPage, reveal: revealBar, onScroll: onPageScroll } = useCollapsingHeader(ORDER.length, barHeight, START === REELS ? -1 : START);
+  const { translateY: barShift, select: followPage, reveal: revealBar, onScroll: onPageScroll, hidden: barHidden } = useCollapsingHeader(ORDER.length, barHeight, START === REELS ? -1 : START);
+  /** Between the top bar (as far as it has slid away) and the floating tab bar: what a tapped picture zooms open from. */
+  const openingBand = useCallback(() => ({ top: Math.max(0, barHeight - barHidden()), bottom: windowHeight - tabBarInset(insets) }), [barHeight, barHidden, windowHeight, insets]);
   const [pageHeight, setPageHeight] = useState(0);
 
   const section: HomeSection = ORDER[index] ?? DEFAULT_HOME_SECTION;
@@ -326,6 +330,7 @@ export default function HomeScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: section === "reels" ? colors.mediaBg : colors.bg }}>
       {focused ? <HomeStatusBar overVideo={overVideo} isDark={isDark} /> : null}
+      <OpeningBandContext.Provider value={openingBand}>
       <View style={{ flex: 1 }} onLayout={(e) => setPageHeight(Math.round(e.nativeEvent.layout.height))}>
         <Animated.ScrollView
           ref={pager}
@@ -352,6 +357,7 @@ export default function HomeScreen() {
           ))}
         </Animated.ScrollView>
       </View>
+      </OpeningBandContext.Provider>
       <HomeTopTabs section={section} onSelect={select} overVideo={overVideo} onPosts={onPosts} scrollX={scrollX} pageWidth={width} onLayout={onBarLayout} translateY={barShift} />
     </View>
   );

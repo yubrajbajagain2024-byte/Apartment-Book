@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { Alert, Animated, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { VideoPlayer } from "expo-video";
@@ -9,6 +9,7 @@ import { emitPostPinned, onPostPinned, onPostSlide } from "@/lib/posts-events";
 import { entryOf, measureOrigin, openViewer as openFullScreen, viewerItemFromPost, type ViewerOrigin } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { shortDate } from "@/lib/short-date";
+import { OpeningBandContext } from "@/lib/viewer-chrome";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "../action-sheet";
@@ -41,6 +42,8 @@ export type InstaPostProps = {
    * the pages around this one. Without it the post opens alone (and the Reels feed follows it).
    */
   onOpen?: (live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin; time: number | null; player: VideoPlayer | null }) => void;
+  /** Its video is opening full screen (without `onOpen`): the list makes it the one that plays when the viewer closes. */
+  onOpenVideo?: () => void;
 };
 
 const TALLEST = 4 / 5;
@@ -70,6 +73,8 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   const like = useLike("post", post.id, engagement, user?.id ?? null, needLogin);
   const save = useSave("post", post.id, saved, user?.id ?? null, needLogin);
   const [slide, setSlide] = useState(0);
+  /** The band between Home's floating bars, where it has them: the viewer's zoom opens from the picture's part in it. */
+  const openingBand = useContext(OpeningBandContext);
   /**
    * The viewer opened from this post moved to another of its photos: the carousel follows, so the way back lands on it;
    * closing on a video, it hands back where the video had got to, and this one goes on from there.
@@ -118,7 +123,9 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
     // on from where it had got to here rather than starting again.
     const time = at?.time ?? null;
     const player = at?.player ?? null;
-    void measureOrigin(frame.current, POST_FRAME_RADIUS).then((origin) => {
+    if (time !== null && !props.onOpen) props.onOpenVideo?.();
+    void measureOrigin(frame.current, POST_FRAME_RADIUS).then((measured) => {
+      const origin = measured && openingBand ? { ...measured, clip: openingBand() } : measured;
       const live = { engagement: { likes: like.likes, comments, likedByMe: like.liked }, saved: save.saved, slide, origin, time, player };
       if (props.onOpen) return props.onOpen(live);
       const item = viewerItemFromPost(post, live.engagement, live.saved);

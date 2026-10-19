@@ -1,4 +1,4 @@
-import { memo, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Alert, Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import type { Ionicons } from "@expo/vector-icons";
@@ -18,26 +18,10 @@ import { useActionSheet } from "../action-sheet";
 import { useShareSheet } from "../share-sheet";
 import { Icon, useBounceOn } from "@/components/icon";
 import { ProgressiveBlur } from "@/components/progressive-blur";
-import { ViewerChromeContext, ViewerClockContext } from "@/lib/viewer-chrome";
-import { lendPlayer, returnPlayer } from "@/lib/video-handoff";
+import { ViewerChromeContext, ViewerClockContext, ViewerClosingContext, ViewerZoomContext } from "@/lib/viewer-chrome";
+import { hasDrawn, lendPlayer, returnPlayer } from "@/lib/video-handoff";
+import { setVideosMuted, useVideosMuted, VIDEO_AUDIO_MODE, videosMuted } from "@/lib/video-sound";
 import { usePageSwipe, type PageSlides } from "@/lib/viewer-swipe";
-
-/** Sound is one switch for the whole Reels feed (starts muted, like every other feed video in the app). */
-let reelsMuted = true;
-const muteListeners = new Set<() => void>();
-function setReelsMuted(next: boolean) {
-  reelsMuted = next;
-  muteListeners.forEach((l) => l());
-}
-function subscribeMuted(listener: () => void) {
-  muteListeners.add(listener);
-  return () => {
-    muteListeners.delete(listener);
-  };
-}
-function useReelsMuted(): boolean {
-  return useSyncExternalStore(subscribeMuted, () => reelsMuted, () => reelsMuted);
-}
 
 /**
  * The shades over a reel are true gradients of a media colour (the same in both themes), each stop that colour at a
@@ -93,6 +77,9 @@ const PIN_READ_WAIT_MS = 1200;
 
 export const reelKey = (reel: Pick<Reel, "sourceType" | "sourceId">) => `${reel.sourceType}:${reel.sourceId}`;
 
+/** Whether this page draws its pictures yet (see the `pictures` prop). */
+const PicturesContext = createContext(true);
+
 function compact(n: number): string {
   if (n < 1000) return String(n);
   if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0).replace(/\.0$/, "")}K`;
@@ -118,12 +105,26 @@ type Props = {
   initialSlide?: number;
   /** Where that slide's video had got to in the feed when it was tapped (seconds): it goes on from there, once. */
   startAt?: number;
-  /** The feed's own player for that video (iOS): played on here as it is, with no reload, once (see video-handoff.ts). */
+  /** The feed's own player for that video (iOS): played on here as it is, with no reload (see video-handoff.ts). */
   borrowed?: VideoPlayer;
   /** Where the page's own content may start: the bottom of the row drawn over its top. A photo sits below it, whole. */
   contentTop?: number;
   /** The slide on screen changed, or what it sits on did (and once at the start): the screen's own chrome follows it. */
   onSlideChange?: (key: string, slide: number, surface: ViewerSurface) => void;
+  /** The slide it starts on has drawn its picture (its photo, its video's frame): the viewer's zoom waits for that. */
+  onShown?: () => void;
+  /** The same, by its key: the viewer takes away the picture that stood in for a page loaded by its id. */
+  onDrawn?: (key: string) => void;
+  /**
+   * The picture the page stood in with while its post loaded (a grid square's own, already loaded): the first slide
+   * shows it until its own picture is ready, so the swap never flashes black.
+   */
+  standIn?: string;
+  /**
+   * False while the viewer zooms open on another page: this one, off screen meanwhile, draws no picture yet. A large
+   * photo or poster is decoded and resized on the main thread as it arrives, and there it would make the zoom stutter.
+   */
+  pictures?: boolean;
 };
 
 /**
@@ -134,13 +135,13 @@ type Props = {
  * rail's buttons white over the photo or inked over the page (see ViewerSurface, photoLayout); one too tall to leave the
  * words their space is shown full screen like a video. A double tap anywhere likes.
  */
-export const ReelItem = memo(function ReelItem({ reel: source, width, height, topInset, bottomInset, near, playing, onPatch, onOpenComments, onRemoved, initialSlide = 0, startAt, borrowed, contentTop = topInset + 54, onSlideChange }: Props) {
+export const ReelItem = memo(function ReelItem({ reel: source, width, height, topInset, bottomInset, near, playing, onPatch, onOpenComments, onRemoved, initialSlide = 0, startAt, borrowed, contentTop = topInset + 54, onSlideChange, onShown, onDrawn, standIn, pictures = true }: Props) {
   const reel = useMemo(() => asViewerItem(source), [source]);
   const { user } = useSession();
   const router = useRouter();
   const show = useActionSheet();
   const shareSheet = useShareSheet();
-  const muted = useReelsMuted();
+  const muted = useVideosMuted();
   const colors = useColors();
   const styles = useStyles();
   const [userPaused, setUserPaused] = useState(false);
@@ -158,6 +159,12 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   useEffect(() => () => void (pendingTap.current && clearTimeout(pendingTap.current)), []);
 
   const key = reelKey(reel);
+  /** Its first picture is drawn (see onShown, onDrawn). */
+  const firstDrawn = useCallback(() => {
+    onShown?.();
+    onDrawn?.(key);
+  }, [onShown, onDrawn, key]);
+  const firstShown = onShown || onDrawn ? firstDrawn : undefined;
   /** How far each video has got, for the viewer to hand back to the feed as it closes (none on the Reels tab). */
   const clocks = useContext(ViewerClockContext);
   const onClock = useCallback((index: number, read: (() => number) | null) => clocks?.set(key, index, read), [clocks, key]);
@@ -172,16 +179,14 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   const [slide, setSlide] = useState(() => Math.max(0, Math.min(media.length - 1, initialSlide)));
   const slideIsVideo = media[slide]?.type === "video";
   /**
-   * The feed's handover, used once: the slide it was tapped on goes on from where its video was; once it has, the
-   * handover is spent, and a later visit to the page starts its videos from the beginning as usual.
+   * The feed's handover. Its own player (iOS) plays the slide it was tapped on at every visit to the page, so that video
+   * always goes on from where it is, and the feed has it back exactly there however far the viewer went. A time to start
+   * from (Android) is used once: a later visit starts the video from the beginning as usual.
    */
   const [startFrom, setStartFrom] = useState(startAt);
-  const [lentPlayer, setLentPlayer] = useState(borrowed);
+  const [lentPlayer] = useState(borrowed);
   const [firstSlide] = useState(slide);
-  const started = useCallback(() => {
-    setStartFrom(undefined);
-    setLentPlayer(undefined);
-  }, []);
+  const started = useCallback(() => setStartFrom(undefined), []);
   /**
    * A post with several photos or videos: its slides sit side by side on a strip that the page's swipe moves (see
    * usePageSwipe). `settled` is the slide the strip last came to rest on: its video plays, and players wait beside it.
@@ -289,6 +294,8 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   /** The viewer's chrome fade while a page zooms open or closed (none on the Reels tab). */
   const chrome = useContext(ViewerChromeContext);
   const chromeStyle = useAnimatedStyle(() => ({ opacity: chrome ? chrome.value : 1 }));
+  /** The viewer is closing: this page's video (the one going back to the feed) plays on whatever a tap had asked. */
+  const closing = useContext(ViewerClosingContext);
 
   /** The heart jumps when it fills and dips when it empties, so the tap is felt even before the count moves. */
   function animateHeart(liked: boolean) {
@@ -366,7 +373,8 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
     const video = slideIsVideo;
     pendingTap.current = setTimeout(() => {
       pendingTap.current = null;
-      if (video) setUserPaused((p) => !p);
+      // A swipe that began while it waited (the swipe back, the next slide) was what the finger meant: no pause.
+      if (video && !swipedJustNow()) setUserPaused((p) => !p);
     }, 260);
   }
 
@@ -493,15 +501,18 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   const railEdge = pagePhoto ? Math.min(pagePhoto.top + pagePhoto.height, underlayTop) - (overlayTop + railTop) : Infinity;
 
   return (
+    <PicturesContext.Provider value={pictures}>
     <GestureDetector gesture={swipe}>
-    <View style={{ width, height, overflow: "hidden", backgroundColor: onPage ? colors.bg : colors.mediaBg }}>
+    {/* On the Reels tab the page trims what runs past it (a video's sides, a carousel's next slides); in the viewer the
+        screen and the zoom's opening do, so the opening can show a whole video (see wholeVideo). */}
+    <View style={{ width, height, overflow: chrome ? "visible" : "hidden", backgroundColor: onPage ? colors.bg : colors.mediaBg }}>
       {single ? (
         <>
-          <VideoSlide uri={single.playbackUrl} poster={poster} aspect={aspectOf(single)} width={width} height={height} mounted={near} playing={playing && !userPaused} muted={muted} topInset={topInset} bottomInset={bottomInset} frost={near} index={0} startAt={startFrom} borrowed={lentPlayer} onStarted={started} onClock={onClock} />
+          <VideoSlide uri={single.playbackUrl} poster={poster} aspect={aspectOf(single)} width={width} height={height} mounted={near} playing={playing && (closing || !userPaused)} muted={muted} topInset={topInset} bottomInset={bottomInset} frost={near} index={0} startAt={startFrom} borrowed={lentPlayer} onStarted={started} onClock={onClock} onShown={firstShown} standIn={standIn} />
           <Pressable style={StyleSheet.absoluteFill} onPress={onVideoTap} accessibilityRole="button" accessibilityLabel={userPaused ? "Play" : "Pause"} />
         </>
       ) : (
-        <SlideStrip media={media} aspects={aspects} pos={stripPos} settled={settled} shown={slide} width={width} height={height} photoTop={photoAt} photoFloor={floor} topInset={topInset} bottomInset={bottomInset} near={near} playing={playing && !userPaused} muted={muted} onAspect={onAspect} onTap={onVideoTap} goTo={goTo} startAt={startFrom} borrowed={lentPlayer} startSlide={firstSlide} onStarted={started} onClock={onClock} />
+        <SlideStrip media={media} aspects={aspects} pos={stripPos} settled={settled} shown={slide} width={width} height={height} photoTop={photoAt} photoFloor={floor} topInset={topInset} bottomInset={bottomInset} near={near} playing={playing && (closing || !userPaused)} muted={muted} onAspect={onAspect} onTap={onVideoTap} goTo={goTo} startAt={startFrom} borrowed={lentPlayer} startSlide={firstSlide} onStarted={started} onClock={onClock} onShown={firstShown} standIn={standIn} />
       )}
       <Animated.View pointerEvents="none" style={[styles.heartBox, heartBox, styles.bigHeart, { opacity: bigHeart, transform: [{ scale: bigHeart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
         <Icon name="heart" size={110} color={colors.onMedia} />
@@ -588,7 +599,7 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
       {slideIsVideo ? (
         <Animated.View pointerEvents={showControls ? "box-none" : "none"} style={[styles.center, { opacity: controls, transform: [{ scale: controls.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }] }]}>
           <View style={styles.controls}>
-            <Pressable onPress={unlessSwiped(() => setReelsMuted(!muted))} hitSlop={10} accessibilityRole="button" accessibilityLabel={muted ? "Turn sound on" : "Turn sound off"} style={({ pressed }) => [styles.soundBadge, pressed && { opacity: 0.75 }]}>
+            <Pressable onPress={unlessSwiped(() => setVideosMuted(!muted))} hitSlop={10} accessibilityRole="button" accessibilityLabel={muted ? "Turn sound on" : "Turn sound off"} style={({ pressed }) => [styles.soundBadge, pressed && { opacity: 0.75 }]}>
               <Icon name={muted ? "volume-mute" : "volume-high"} size={20} color={colors.onMedia} />
             </Pressable>
             <Pressable onPress={unlessSwiped(() => setUserPaused(false))} accessibilityRole="button" accessibilityLabel="Play" style={({ pressed }) => [styles.playBadge, pressed && { opacity: 0.85 }]}>
@@ -600,6 +611,7 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
       </Reanimated.View>
     </View>
     </GestureDetector>
+    </PicturesContext.Provider>
   );
 });
 
@@ -708,12 +720,29 @@ export function placeVideo(aspect: number | null, pageW: number, pageH: number):
   return centred(canvasW, canvasW / aspect, "cover");
 }
 
+/**
+ * The whole of a video as drawn on its page, trims included: a vertical one filling a phone taller than 9:16 runs past the
+ * page's sides by the strips it loses there. The video is drawn this size and the page's edge does the trimming, so the
+ * viewer's zoom can show those strips through its opening, as the feed did (it trims the top and bottom instead), and
+ * open and close on exactly the feed's picture.
+ */
+export function wholeVideo(aspect: number | null, pageW: number, pageH: number): Placement {
+  const place = placeVideo(aspect, pageW, pageH);
+  if (aspect === null || !(aspect > 0)) return place;
+  // Whether the video spans its place's whole width (its height following from its shape), or its whole height.
+  const acrossFull = place.width / place.height > aspect === (place.fit === "cover");
+  const width = acrossFull ? place.width : place.height * aspect;
+  const height = acrossFull ? place.width / aspect : place.height;
+  return { left: place.left + (place.width - width) / 2, top: place.top + (place.height - height) / 2, width, height, fit: place.fit };
+}
+
 /** The soft, darkened blur of a video's poster that fills whatever of the page the video itself leaves empty. */
 function Backdrop({ uri }: { uri: string }) {
   const styles = useStyles();
+  const pictures = useContext(PicturesContext);
   return (
     <>
-      <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={45} transition={0} />
+      {pictures ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={45} transition={0} /> : null}
       <View style={[StyleSheet.absoluteFill, styles.backdropDim]} />
     </>
   );
@@ -728,38 +757,49 @@ function coversPage(place: Placement, pageW: number, pageH: number) {
  * A full-screen slide (a video, or a photo too tall for a page): dark, the picture's blurred backdrop wherever the picture
  * leaves the page empty, and over the picture the frost and the shades that keep the white words and the rail readable.
  */
-function MediaFrame({ place, backdrop, width, height, topInset, bottomInset, frost, children }: { place: Placement; backdrop: string | null; width: number; height: number; topInset: number; bottomInset: number; frost: boolean; children: ReactNode }) {
+function MediaFrame({ place, whole, backdrop, width, height, topInset, bottomInset, frost, children }: { place: Placement; whole?: Placement; backdrop: string | null; width: number; height: number; topInset: number; bottomInset: number; frost: boolean; children: ReactNode }) {
   const colors = useColors();
   const styles = useStyles();
+  // The frost and the shades are there for the words and the rail, so in the viewer they come and go with them: the zoom
+  // opens on the bare picture, exactly as the feed showed it, and lands back on it.
+  const chrome = useContext(ViewerChromeContext);
+  const shadesStyle = useAnimatedStyle(() => ({ opacity: chrome ? chrome.value : 1 }));
+  // As wide as the picture, where a video runs past the page's sides (see wholeVideo): fading, they leave no edge on it.
+  const across = whole ? { left: Math.min(0, whole.left), right: Math.min(0, width - whole.left - whole.width) } : null;
   return (
     <View style={{ width, height, backgroundColor: colors.mediaBg }} pointerEvents="none">
       {backdrop && !coversPage(place, width, height) ? <Backdrop uri={backdrop} /> : null}
       {children}
       {/* Behind the words and the comment bar, the picture frosts over gradually towards the bottom, as under an iOS bar. */}
-      {frost ? <ProgressiveBlur height={bottomInset + BLUR_REACH} /> : null}
+      {frost ? <ProgressiveBlur height={bottomInset + BLUR_REACH} shown={chrome} style={across} /> : null}
       {/* Soft shades so white words and icons stay readable over a bright picture: at the top under the bar, at the bottom under the name and the rail. */}
-      <View style={[styles.topShade, { height: Math.max(TOP_SHADE_MIN, topInset + TOP_SHADE_EXTRA) }]} />
-      <View style={styles.shade} />
+      <Reanimated.View style={[StyleSheet.absoluteFill, across, shadesStyle]}>
+        <View style={[styles.topShade, { height: Math.max(TOP_SHADE_MIN, topInset + TOP_SHADE_EXTRA) }]} />
+        <View style={styles.shade} />
+      </Reanimated.View>
     </View>
   );
 }
 
 /** What a video slide needs to go on from the feed (`startAt`, then `onStarted`) and to tell the viewer how far it has got (`onClock`). */
-type VideoHandover = { index: number; startAt?: number; borrowed?: VideoPlayer; onStarted?: () => void; onClock?: (index: number, read: (() => number) | null) => void };
+type VideoHandover = { index: number; startAt?: number; borrowed?: VideoPlayer; onStarted?: () => void; onClock?: (index: number, read: (() => number) | null) => void; onShown?: () => void; standIn?: string };
 
 /** A video's slide, full screen when it is vertical: its player (only near the page on screen, so at most a few exist at a time) or its poster. */
 function VideoSlide({ uri, poster, aspect, width, height, mounted, playing, muted, topInset, bottomInset, frost, ...handover }: { uri: string; poster: string; aspect: number | null; width: number; height: number; mounted: boolean; playing: boolean; muted: boolean; topInset: number; bottomInset: number; frost: boolean } & VideoHandover) {
   const styles = useStyles();
   const place = placeVideo(aspect, width, height);
+  // Drawn whole; the page (or the carousel's slide) trims it to its place (see wholeVideo).
+  const whole = wholeVideo(aspect, width, height);
   // The video's very first frame as its still (the poster is a frame a second in): when the player takes over, the
   // picture does not jump back.
   const first = poster ? posterAt(poster, 0) : "";
+  const pictures = useContext(PicturesContext);
   return (
-    <MediaFrame place={place} backdrop={poster || null} width={width} height={height} topInset={topInset} bottomInset={bottomInset} frost={frost}>
+    <MediaFrame place={place} whole={whole} backdrop={poster || null} width={width} height={height} topInset={topInset} bottomInset={bottomInset} frost={frost}>
       {mounted ? (
-        <PageVideo uri={uri} poster={poster} first={first} place={place} playing={playing} muted={muted} {...handover} />
-      ) : first ? (
-        <Image source={{ uri: first }} placeholder={poster ? { uri: poster } : undefined} style={[styles.placed, frame(place)]} contentFit={place.fit} placeholderContentFit={place.fit} transition={0} />
+        <PageVideo uri={uri} poster={poster} first={first} whole={whole} playing={playing} muted={muted} {...handover} />
+      ) : first && pictures ? (
+        <Image source={{ uri: first }} placeholder={handover.standIn || poster ? { uri: handover.standIn || poster } : undefined} style={[styles.whole, frame(whole)]} contentFit={whole.fit} placeholderContentFit={whole.fit} transition={0} onDisplay={handover.onShown} />
       ) : null}
     </MediaFrame>
   );
@@ -769,18 +809,20 @@ function VideoSlide({ uri, poster, aspect, width, height, mounted, playing, mute
 const HANDOVER_WAIT_MS = 1500;
 
 /**
- * A video's player in its place; its poster stays on top until the first frame is painted, so a page is never a black
- * box. Taken over from the feed (`startAt`), it goes on from that moment: once loaded it jumps there and only then
- * plays. Meanwhile the poster (already loaded by the feed) covers the wait, and the still from that very moment over it
- * as soon as it arrives, so it never flashes its first frame.
+ * A video's player, drawn whole (see wholeVideo); its poster stays on top until the first frame is painted, so a page is
+ * never a black box. Playing the feed's own player (`borrowed`), it shows the feed's very frame and goes on as it is.
+ * Taken over from the feed by time instead (`startAt`), it goes on from that moment: once loaded it jumps there and only
+ * then plays. Meanwhile the poster (already loaded by the feed) covers the wait, and the still from that very moment over
+ * it as soon as it arrives, so it never flashes its first frame. `onShown`: the first picture it drew.
  */
-function PageVideo({ uri, poster, first, place, playing, muted, index, startAt, borrowed, onStarted, onClock }: { uri: string; poster: string; first: string; place: Placement; playing: boolean; muted: boolean } & VideoHandover) {
+function PageVideo({ uri, poster, first, whole, playing, muted, index, startAt, borrowed, onStarted, onClock, onShown, standIn }: { uri: string; poster: string; first: string; whole: Placement; playing: boolean; muted: boolean } & VideoHandover) {
   const styles = useStyles();
-  /** The feed's player, played on as it is (kept for this mount even once the page has spent its handover). */
+  /** The feed's player, played on as it is, for this mount's whole life. */
   const [shared] = useState(borrowed ?? null);
   const own = useVideoPlayer(shared ? null : { uri }, (p) => {
     p.loop = true;
-    p.muted = reelsMuted;
+    p.muted = videosMuted();
+    p.audioMixingMode = VIDEO_AUDIO_MODE;
   });
   const player = shared ?? own;
   useEffect(() => {
@@ -791,8 +833,8 @@ function PageVideo({ uri, poster, first, place, playing, muted, index, startAt, 
     // Once: the player is this mount's for its whole life.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // The feed's player is already showing its frame; nothing goes over it.
-  const [hasFrame, setHasFrame] = useState(Boolean(shared));
+  // The feed's player is already showing its live frame (once it has drawn one); nothing goes over it.
+  const [hasFrame, setHasFrame] = useState(() => shared !== null && hasDrawn(shared));
   /** False while a handed-over video is still on its way to `startAt`. */
   const [arrived, setArrived] = useState(() => Boolean(shared) || !(startAt && startAt > 0.2));
   const startRef = useRef(startAt);
@@ -807,26 +849,43 @@ function PageVideo({ uri, poster, first, place, playing, muted, index, startAt, 
     // Once, as the player starts.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [player]);
+  // Only what changes is touched: the feed's player arrives playing, with the app's sound, and goes on untouched.
   useEffect(() => {
-    if (playing && arrived) player.play();
-    else player.pause();
+    if (!(playing && arrived)) player.pause();
+    else if (!player.playing) player.play();
   }, [playing, arrived, player]);
   useEffect(() => {
-    player.muted = muted;
+    if (player.muted !== muted) player.muted = muted;
   }, [muted, player]);
+  // Until it has got to where the feed was (`startAt`), that is where it is: closing that early hands that time back,
+  // not the 0 a player still loading reads.
+  const arrivedRef = useRef(arrived);
+  arrivedRef.current = arrived;
   useEffect(() => {
     if (!onClock) return;
-    onClock(index, () => player.currentTime);
+    onClock(index, () => (arrivedRef.current || !startRef.current ? player.currentTime : startRef.current));
     return () => onClock(index, null);
   }, [onClock, index, player]);
   return (
-    <View style={[styles.placed, frame(place)]}>
+    <View style={[styles.whole, frame(whole)]}>
       {/* No Live Text on a paused frame: its button would sit over the play control, and the scan it runs on every pause is wasted. */}
-      <VideoView player={player} style={StyleSheet.absoluteFill} contentFit={place.fit} nativeControls={false} allowsVideoFrameAnalysis={false} onFirstFrameRender={() => setHasFrame(true)} />
-      {(!hasFrame || !arrived) && poster ? <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} contentFit={place.fit} transition={0} /> : null}
+      <VideoView
+        player={player}
+        style={StyleSheet.absoluteFill}
+        contentFit={whole.fit}
+        nativeControls={false}
+        allowsVideoFrameAnalysis={false}
+        onFirstFrameRender={() => {
+          setHasFrame(true);
+          onShown?.();
+        }}
+      />
+      {(!hasFrame || !arrived) && poster ? (
+        <Image source={{ uri: poster }} placeholder={standIn ? { uri: standIn } : undefined} placeholderContentFit={whole.fit} style={StyleSheet.absoluteFill} contentFit={whole.fit} transition={0} onDisplay={onShown} />
+      ) : null}
       {/* Over the poster, the first frame itself (when it is not taking over part way through): what the player shows next. */}
-      {!hasFrame && !still && first ? <Image source={{ uri: first }} style={StyleSheet.absoluteFill} contentFit={place.fit} transition={0} /> : null}
-      {!arrived && still ? <Image source={{ uri: still }} style={StyleSheet.absoluteFill} contentFit={place.fit} transition={0} /> : null}
+      {!hasFrame && !still && first ? <Image source={{ uri: first }} style={StyleSheet.absoluteFill} contentFit={whole.fit} transition={0} /> : null}
+      {!arrived && still ? <Image source={{ uri: still }} style={StyleSheet.absoluteFill} contentFit={whole.fit} transition={0} /> : null}
     </View>
   );
 }
@@ -871,20 +930,24 @@ function goOnFrom(player: VideoPlayer, seconds: number, done: () => void): () =>
  * page's own colour, which stays free below it for the words; or, too tall for that, full screen on black like a video.
  * Its tiny blurred preview shows at once; a photo uploaded without its size reports its shape once loaded (`onAspect`).
  */
-function PhotoSlide({ uri, blur, aspect, width, height, top, floor, topInset, bottomInset, frost, onAspect }: { uri: string; blur: string | null; aspect: number | null; width: number; height: number; top: number; floor: number; topInset: number; bottomInset: number; frost: boolean; onAspect: (aspect: number) => void }) {
+function PhotoSlide({ uri, blur, aspect, width, height, top, floor, topInset, bottomInset, frost, onAspect, onShown, standIn }: { uri: string; blur: string | null; aspect: number | null; width: number; height: number; top: number; floor: number; topInset: number; bottomInset: number; frost: boolean; onAspect: (aspect: number) => void; onShown?: () => void; standIn?: string }) {
   const colors = useColors();
   const styles = useStyles();
   const { place, surface } = photoLayout(aspect, width, height, top, floor);
-  const image = (
+  const pictures = useContext(PicturesContext);
+  const image = !pictures ? null : (
     <Image
       source={{ uri }}
-      placeholder={blur ? { uri: blur } : undefined}
+      // Its tiny blurred preview (inline, so it shows at once), else the page's stand-in when that is another picture.
+      placeholder={blur ? { uri: blur } : standIn && standIn !== uri ? { uri: standIn } : undefined}
       placeholderContentFit="contain"
       style={[styles.placed, frame(place)]}
       contentFit="contain"
       contentPosition="top"
-      transition={200}
+      // The photo the viewer opened on is the feed's, already loaded: it shows at once, with no fade in.
+      transition={onShown ? 0 : 200}
       onLoad={aspect !== null ? undefined : (e) => (e.source.width > 0 && e.source.height > 0 ? onAspect(e.source.width / e.source.height) : undefined)}
+      onDisplay={onShown}
     />
   );
   if (surface === "media") {
@@ -911,7 +974,7 @@ const ADJUST = [{ name: "increment" }, { name: "decrement" }] as const;
  * beside that one. Each slide takes the page's taps (a lone tap pauses a video, a double tap likes); VoiceOver reads the
  * slide showing, and a swipe up or down on it moves to the next or the previous one.
  */
-function SlideStrip({ media, aspects, pos, settled, shown, width, height, photoTop: top, photoFloor: floor, topInset, bottomInset, near, playing, muted, onAspect, onTap, goTo, startAt, borrowed, startSlide, onStarted, onClock }: { media: FeedMedia[]; aspects: Record<number, number>; pos: SharedValue<number>; settled: number; shown: number; width: number; height: number; photoTop: number; photoFloor: number; topInset: number; bottomInset: number; near: boolean; playing: boolean; muted: boolean; onAspect: (index: number, aspect: number) => void; onTap: () => void; goTo: (index: number) => void; startAt?: number; borrowed?: VideoPlayer; startSlide: number; onStarted: () => void; onClock: (index: number, read: (() => number) | null) => void }) {
+function SlideStrip({ media, aspects, pos, settled, shown, width, height, photoTop: top, photoFloor: floor, topInset, bottomInset, near, playing, muted, onAspect, onTap, goTo, startAt, borrowed, startSlide, onStarted, onClock, onShown, standIn }: { media: FeedMedia[]; aspects: Record<number, number>; pos: SharedValue<number>; settled: number; shown: number; width: number; height: number; photoTop: number; photoFloor: number; topInset: number; bottomInset: number; near: boolean; playing: boolean; muted: boolean; onAspect: (index: number, aspect: number) => void; onTap: () => void; goTo: (index: number) => void; startAt?: number; borrowed?: VideoPlayer; startSlide: number; onStarted: () => void; onClock: (index: number, read: (() => number) | null) => void; onShown?: () => void; standIn?: string }) {
   const styles = useStyles();
   const stripStyle = useAnimatedStyle(() => ({ transform: [{ translateX: pos.value }] }));
   return (
@@ -922,7 +985,7 @@ function SlideStrip({ media, aspects, pos, settled, shown, width, height, photoT
           <Pressable
             key={`${i}:${item.type === "photo" ? item.url : item.playbackUrl}`}
             onPress={onTap}
-            style={{ width, height }}
+            style={{ width, height, zIndex: i === settled ? 1 : 0 }}
             accessibilityRole="adjustable"
             accessibilityLabel={`${item.type === "video" ? "Video" : "Photo"} ${i + 1} of ${media.length}`}
             accessibilityActions={ADJUST}
@@ -930,16 +993,29 @@ function SlideStrip({ media, aspects, pos, settled, shown, width, height, photoT
             accessibilityElementsHidden={i !== shown}
             importantForAccessibility={i === shown ? "auto" : "no-hide-descendants"}
           >
-            {item.type === "photo" ? (
-              <PhotoSlide uri={item.url} blur={item.blur} aspect={aspectOf(item) ?? aspects[i] ?? null} width={width} height={height} top={top} floor={floor} topInset={topInset} bottomInset={bottomInset} frost={close} onAspect={(a) => onAspect(i, a)} />
-            ) : (
-              <VideoSlide uri={item.playbackUrl} poster={item.poster ?? ""} aspect={aspectOf(item)} width={width} height={height} mounted={close} playing={playing && i === settled} muted={muted} topInset={topInset} bottomInset={bottomInset} frost={close} index={i} startAt={i === startSlide ? startAt : undefined} borrowed={i === startSlide ? borrowed : undefined} onStarted={onStarted} onClock={onClock} />
-            )}
+            <SlideClip settled={i === settled}>
+              {item.type === "photo" ? (
+                <PhotoSlide uri={item.url} blur={item.blur} aspect={aspectOf(item) ?? aspects[i] ?? null} width={width} height={height} top={top} floor={floor} topInset={topInset} bottomInset={bottomInset} frost={close} onAspect={(a) => onAspect(i, a)} onShown={i === startSlide ? onShown : undefined} standIn={i === 0 ? standIn : undefined} />
+              ) : (
+                <VideoSlide uri={item.playbackUrl} poster={item.poster ?? ""} aspect={aspectOf(item)} width={width} height={height} mounted={close} playing={playing && i === settled} muted={muted} topInset={topInset} bottomInset={bottomInset} frost={close} index={i} startAt={i === startSlide ? startAt : undefined} borrowed={i === startSlide ? borrowed : undefined} onStarted={onStarted} onClock={onClock} onShown={i === startSlide ? onShown : undefined} standIn={i === 0 ? standIn : undefined} />
+              )}
+            </SlideClip>
           </Pressable>
         );
       })}
     </Reanimated.View>
   );
+}
+
+/**
+ * Where a carousel's slide trims what runs past it (a vertical video's sides, see wholeVideo): always, except the slide
+ * the strip rests on while the viewer zooms (ViewerZoomContext), which then shows whole, over its neighbours. Switched
+ * on the UI thread, so it is there in the zoom's very first frame.
+ */
+function SlideClip({ settled, children }: { settled: boolean; children: ReactNode }) {
+  const zoom = useContext(ViewerZoomContext);
+  const clipStyle = useAnimatedStyle(() => ({ overflow: settled && zoom !== null && zoom.value === 1 ? "visible" : "hidden" }));
+  return <Reanimated.View style={[StyleSheet.absoluteFill, clipStyle]}>{children}</Reanimated.View>;
 }
 
 /** A colour at no opacity (#rrggbb in), for a gradient that fades into it. */
@@ -978,8 +1054,10 @@ const useStyles = makeStyles((colors) => {
     backdropDim: { backgroundColor: "rgba(0,0,0,0.45)" },
     // A carousel's slides side by side, moved as one.
     strip: { position: "absolute", top: 0, left: 0, flexDirection: "row" },
-    // A picture's place on the page (see photoLayout, placeVideo): clipped, so a cover fit never spills past it.
+    // A photo's place on the page (see photoLayout): clipped, so a cover fit never spills past it.
     placed: { position: "absolute", overflow: "hidden" },
+    // A video, drawn whole (see wholeVideo): the page or its slide trims it.
+    whole: { position: "absolute" },
     dots: { position: "absolute", left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 5 },
     dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.onMediaMuted },
     dotOn: { width: 18, backgroundColor: colors.onMedia },

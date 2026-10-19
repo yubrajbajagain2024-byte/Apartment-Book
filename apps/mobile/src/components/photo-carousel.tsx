@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { Animated, FlatList, Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { Image } from "expo-image";
-import { useVideoPlayer, VideoView, type VideoPlayer } from "expo-video";
-import { CAN_SHARE_PLAYERS, isLent, lendPlayer, useLendings } from "@/lib/video-handoff";
+import { useIsFocused } from "expo-router";
+import { VideoView, type VideoPlayer } from "expo-video";
+import { CAN_SHARE_PLAYERS, isLent, markDrawn, useLendablePlayer, useLendings } from "@/lib/video-handoff";
+import { setVideosMuted, useVideosMuted, VIDEO_AUDIO_MODE, videosMuted } from "@/lib/video-sound";
 import type { FeedMedia } from "@apartment-book/shared";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { hapticSelect } from "@/lib/haptics";
@@ -67,8 +69,11 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
     return p && Number.isFinite(p.currentTime) ? p.currentTime : null;
   };
 
+  /** The jump last carried out: each one is carried out once, never again on a later layout. */
+  const jumped = useRef<typeof jump>(null);
   useEffect(() => {
-    if (!jump || !width) return;
+    if (!jump || !width || jumped.current === jump) return;
+    jumped.current = jump;
     const i = Math.max(0, Math.min(count - 1, jump.index));
     if (count > 1) {
       listRef.current?.scrollToIndex({ index: i, animated: false });
@@ -76,8 +81,12 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
       onIndexChange?.(i);
     }
     const player = players.current.get(i);
-    // Not a player that played on in the viewer itself (it is already there): a seek would only stutter it.
-    if (player && typeof jump.time === "number" && Number.isFinite(jump.time) && Math.abs(player.currentTime - jump.time) > 0.5) player.currentTime = jump.time;
+    // Not a player still in the viewer's hands, or that is already there (one that played on in the viewer itself): a
+    // seek would only stutter it. Measured round the loop, so a video that has just come round is not sent back.
+    if (!player || isLent(player) || typeof jump.time !== "number" || !Number.isFinite(jump.time)) return;
+    const apart = Math.abs(player.currentTime - jump.time);
+    const length = player.duration > 0 ? player.duration : Infinity;
+    if (Math.min(apart, length - apart) > 0.5) player.currentTime = jump.time;
     // Only a new jump moves the carousel; a swipe in the feed after it stays where it is.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jump, width]);
@@ -87,11 +96,11 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
   useEffect(() => () => void (single.current && clearTimeout(single.current)), []);
   function tap() {
     // Read at the moment it opens (after the wait for a second tap), so a full-screen view starts where the video is.
+    // The viewer borrows the player as it opens (see openViewer); one already lent means a viewer is on its way.
     const press = onPress
       ? () => {
           const player = CAN_SHARE_PLAYERS ? (players.current.get(index) ?? null) : null;
-          // Lent at once, before the screen changes: this feed no longer pauses it as it loses focus, so it never stops.
-          if (player) lendPlayer(player);
+          if (player && isLent(player)) return;
           onPress({ time: timeAt(index), player });
         }
       : undefined;
@@ -165,50 +174,62 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
   );
 }
 
-let soundOn = false;
-
 function VideoSlide({ media, index, width, height, playing, onPlayer }: { media: Extract<FeedMedia, { type: "video" }>; index: number; width: number; height: number; playing: boolean; onPlayer: (index: number, player: VideoPlayer | null) => void }) {
   const colors = useColors();
   const styles = useStyles();
-  const player = useVideoPlayer({ uri: media.playbackUrl }, (p) => {
+  const player = useLendablePlayer(media.playbackUrl, (p) => {
     p.loop = true;
-    p.muted = !soundOn;
+    p.muted = videosMuted();
+    p.audioMixingMode = VIDEO_AUDIO_MODE;
   });
   useEffect(() => {
     onPlayer(index, player);
     return () => onPlayer(index, null);
   }, [onPlayer, index, player]);
-  const [muted, setMuted] = useState(!soundOn);
+  const muted = useVideosMuted();
   const [hasFrame, setHasFrame] = useState(false);
+  // Only on the screen on show: a tab or screen left behind (they stay mounted) never plays on unseen, which with one
+  // sound switch for every video could be heard.
+  const onScreen = useIsFocused();
+  const shouldPlay = playing && onScreen;
   // While the full-screen viewer plays this player on, it is the viewer's to run; back here, this slide takes charge again.
+  // Only what changes is touched: a player already doing the right thing is left alone, so it never hitches.
   const lendings = useLendings();
   useEffect(() => {
     if (isLent(player)) return;
-    if (playing) player.play();
-    else player.pause();
-  }, [playing, player, lendings]);
+    if (!shouldPlay) player.pause();
+    else if (!player.playing) player.play();
+  }, [shouldPlay, player, lendings]);
+  // The sound follows the one switch even while lent: the viewer sets the same, so the two never disagree, and a lent
+  // player no page of the viewer holds (it went past) still hears a change.
   useEffect(() => {
-    if (isLent(player)) return;
-    player.muted = muted;
-  }, [muted, player, lendings]);
+    if (player.muted !== muted) player.muted = muted;
+  }, [muted, player]);
+  // The sound button goes quietly as the video goes full screen (before the viewer's zoom covers it) and comes back
+  // the same way once the video is back here, rather than vanishing under the zoom and popping back after it.
+  const away = isLent(player);
+  const control = useRef(new Animated.Value(away ? 0 : 1)).current;
+  useEffect(() => {
+    Animated.timing(control, { toValue: away ? 0 : 1, duration: away ? 120 : 220, useNativeDriver: true }).start();
+  }, [away, control]);
   return (
     <View style={{ width, height, backgroundColor: colors.mediaBg }}>
-      <VideoView player={player} style={{ width, height }} contentFit="cover" nativeControls={false} allowsVideoFrameAnalysis={false} onFirstFrameRender={() => setHasFrame(true)} />
+      <VideoView
+        player={player}
+        style={{ width, height }}
+        contentFit="cover"
+        nativeControls={false}
+        allowsVideoFrameAnalysis={false}
+        onFirstFrameRender={() => {
+          setHasFrame(true);
+          markDrawn(player);
+        }}
+      />
       {/* Poster stays on top until the first video frame is painted, so the slide is never a black box. */}
       {media.poster && !hasFrame ? <Image source={{ uri: media.poster }} style={StyleSheet.absoluteFill} contentFit="cover" pointerEvents="none" /> : null}
-      <GlassIconButton
-        icon={muted ? "volume-mute" : "volume-high"}
-        label={muted ? "Unmute" : "Mute"}
-        onPress={() => {
-          soundOn = muted;
-          setMuted(!muted);
-        }}
-        variant="media"
-        size={32}
-        iconSize={15}
-        haptic="select"
-        style={styles.mute}
-      />
+      <Animated.View style={[styles.mute, { opacity: control }]} pointerEvents={away ? "none" : "box-none"}>
+        <GlassIconButton icon={muted ? "volume-mute" : "volume-high"} label={muted ? "Unmute" : "Mute"} onPress={() => setVideosMuted(!muted)} variant="media" size={32} iconSize={15} haptic="select" />
+      </Animated.View>
     </View>
   );
 }

@@ -49,7 +49,16 @@ the viewer (`src/app/reels/[id].tsx`), like Instagram. It does not slide in: the
 place in the feed, the grid or the chat to fill the screen while the screen behind fades to the page's colour (black
 behind a video, the theme's behind a photo; a see-through modal with no system animation; the page stays full size inside
 the growing frame, scaled so the picture keeps its size and crop), and on the way out (Back or Android's back) it shrinks
-back into the same place; opened from a link or a page other than the tapped one, it fades and scales out instead. A
+back into the same place; opened from a link or a page other than the tapped one, it fades and scales out instead. The
+first and last frames are the feed's own picture: the zoom waits, unseen, until the page has drawn the tapped picture (the
+photo's `onDisplay`, the video's first frame; a frame or two, 350ms at most, the feed's live picture showing meanwhile), so
+it never opens on a black frame or a photo still fading in, and no poster goes over a feed player that has drawn a frame
+(`hasDrawn`), even while it buffers or loops; a post partly under Home's floating bars opens out of (and lands on) only the
+band between them (`OpeningBand`, from a JS copy of the collapsing bar's position), the bars staying drawn over the rest;
+a video is lined up on the whole of its picture (`wholeVideo`: drawn whole, past the page's sides where it
+fills a phone taller than 9:16, and trimmed by the page, a carousel's slide or the zoom's opening), so the opening starts on
+exactly the feed's crop at the feed's size (the feed trims a vertical video's top and bottom, the viewer its sides) and lands
+back on it; and a video's shades and frost come and go with the words and the rail, never over the bare picture. A
 sideways swipe, either way, goes back too, under the finger (`usePageSwipe` in `src/lib/viewer-swipe.ts`): the page
 follows it, shrinking and rounding its corners as the screen it was opened from shows through, its words and buttons
 fading away; let go past about a third of the way, or with a flick, and it carries on, the page it was opened on shrinking
@@ -80,13 +89,34 @@ switching as a page's edge passes, and an opened description brings the page's c
 button just above it, both fading away again the moment it plays (the sound button keeps it paused). A post with several
 photos or videos swipes sideways on its page, with dots on a line of their own under the top row (its colours changing
 halfway through a swipe), and opens on the one that was showing in the feed; a video plays while its page and slide are on screen, and a double tap anywhere likes. On iOS a video tapped while it plays in the feed is played on in the viewer by the
-feed's own player (`src/lib/video-handoff.ts`: lent at the tap, given back as the viewer goes), so it opens on the very
-frame that was showing and never pauses, reloads or jumps, there or back. Elsewhere (Android cannot show one player in
+feed's own player (`src/lib/video-handoff.ts`: lent as the viewer opens, in `openViewer`, so a tap that opens something
+else never lends it; counted, so the page showing it borrows it too, for as long as that page is in reach; given back as
+the viewer goes), so it opens on the very frame that was showing and never pauses, reloads or jumps, there or back. Neither
+side calls play or sets the sound on a player already doing the right thing; closing sets it playing first, so it is
+moving as it shrinks back (or as the page in front fades), and sends back no time, which could only make it seek; a feed
+row that goes while the viewer still holds its player (`useLendablePlayer`) lets it go only once it is back, and For you
+does not reload under the viewer (a Campus | Global choice made there applies once Home is back). Closing from another
+page pauses that page's own video, so only the one going back is heard; deleting the opened post stops its player. The
+zoom closed hides the page in the frame it lands, exactly on the feed's own live picture, and leaves two frames later: the
+copy of the screen react-native-screens keeps up while a modal goes is then see-through, never a frozen frame that skips
+ahead. The feed's
+sound button fades away as its video goes full screen and back once it returns, and the status bar takes the viewer's
+style only once the page covers most of the screen. Sound is one switch for every feed video, the Reels tab and the viewer
+(`src/lib/video-sound.ts`, muted to start), so a video keeps its sound exactly as it was in both directions; so that it is
+never heard twice, For you and Posts play one video at a time (the first row on screen that has one) and a carousel's
+videos play only while their screen is the one on show; every
+player mixes with other audio while muted (`audioMixingMode` "auto"; expo-video's native default stops the person's music
+for a muted video scrolling past). Each loop of a short clip still holds about 0.15–0.5s: expo-video loops an HLS stream by
+seeking back to its start, and neither a seek just before the end nor buffering changes help (measured); seamless loops
+need progressive MP4 renditions with `useCaching`, or a native looper in a development build. Elsewhere (Android cannot
+show one player in
 two places) it goes on in the viewer from where it
 had got to (`startAt`: the feed's poster, then the still from that moment, cover the jump), and the feed's own player
 goes on from wherever the viewer leaves it (`emitPostSlide` with a time) rather than starting again. Saved fills the
 bookmark in the rail's own colour. Swiping between pages never blinks: two pages ahead (and one behind) are laid out
-with their videos loaded and waiting, a video's still is its very first frame (Mux `time=0`) so the player takes over
+with their videos loaded and waiting (from the moment the zoom open has finished: until then only the page opened on
+has its player, frost and pictures, since a large photo or poster is decoded and resized on the main thread as it
+arrives, which made the zoom drop frames; profiled with Instruments), a video's still is its very first frame (Mux `time=0`) so the player takes over
 without a jump, and in dark mode the top row keeps one style over photos and videos alike. The bottom tab bar plays no
 haptic, and neither do Home's For you | Buzz | Reels, Explore's Room | Roommate | Marketplace and its "+", Messages'
 Chats | Groups, the profile's section tabs or the inbox's All | Unread | Requests pills. A swipe up moves on: a reel goes on
@@ -95,7 +125,8 @@ from the new choice); a post in For you goes on down For you, its next pages loa
 (Posts, Reels, Saved, Liked) goes on through that grid; a saved post through your saved posts; a post's own screen and a
 post shared in a chat go on into the Reels feed. Words-only posts and listings keep their own screens, and anonymous Buzz
 threads never open here. The source hands its pages over (`src/lib/reel-viewer.ts`), so the viewer opens at once with the
-row's counts (a grid square, which knows only the post's id, loads its post as it comes near, its picture standing in), and
+row's counts (a grid square, which knows only the post's id, loads its post as it comes near, its picture standing in,
+the same view all along, until the loaded page has drawn its own: no black frame between the two), and
 what you like, save or comment there shows on the row when you come back (`emitPostEngagement` in `src/lib/posts-events.ts`);
 a post deleted there leaves the feeds too.
 The bar scrolls like Instagram's (`src/lib/collapsing-header.ts`): it slides up out of the way as the page on screen

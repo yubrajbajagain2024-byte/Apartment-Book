@@ -1,5 +1,6 @@
 import type { useRouter } from "expo-router";
 import type { VideoPlayer } from "expo-video";
+import { lendPlayer, returnPlayer } from "./video-handoff";
 import {
   getFeedPostsByIds,
   getPostEngagementMany,
@@ -69,8 +70,8 @@ export type ViewerSource = {
 
 const NO_ENGAGEMENT: PostEngagement = { likes: 0, comments: 0, likedByMe: false };
 
-/** A tapped picture's frame in window points, and its corner radius. */
-export type ViewerOrigin = { x: number; y: number; width: number; height: number; radius: number };
+/** A tapped picture's frame in window points and its corner radius, and the band of it not under a floating bar (`clip`). */
+export type ViewerOrigin = { x: number; y: number; width: number; height: number; radius: number; clip?: { top: number; bottom: number } };
 
 /** Measures where a tapped view sits on screen (undefined when it cannot be measured), for the viewer to zoom open from. */
 export function measureOrigin(view: { measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => void } | null, radius = 0): Promise<ViewerOrigin | undefined> {
@@ -205,12 +206,22 @@ export function forYouAfter(opts: { universityId: string | undefined; userId: st
  * shows at once with the counts its row already had (no spinner), and the pages around it are ready to swipe to. A
  * viewer opened some other way (a link) finds nothing here and fetches the post by its id instead.
  */
-let handed: { id: string; source: ViewerSource } | null = null;
+let handed: { id: string; source: ViewerSource; read: boolean } | null = null;
+
+/** The feed players handed over with these pages (see video-handoff.ts). */
+function eachPlayer(source: ViewerSource, act: (player: VideoPlayer) => void) {
+  source.entries.forEach((e) => e.player && act(e.player));
+}
 
 export function openViewer(router: Router, source: ViewerSource) {
   const entry = source.entries[source.index];
   if (!entry) return;
-  handed = { id: entry.id, source };
+  // Pages handed over to a viewer that never came up (a second tap overtook it) give back what they borrowed.
+  if (handed && !handed.read) eachPlayer(handed.source, returnPlayer);
+  handed = { id: entry.id, source, read: false };
+  // Borrowed now, just before the screen changes, while the feed still plays it: the feed leaves it alone from here (its
+  // losing focus never pauses it), and the viewer gives it back as it goes.
+  eachPlayer(source, lendPlayer);
   router.push({ pathname: "/reels/[id]", params: { id: entry.id } });
 }
 
@@ -221,7 +232,9 @@ export function openReel(router: Router, reel: Reel, origin?: ViewerOrigin, star
 
 /** What was handed over for this id, if that is what was handed over last. Left in place until `dropHanded`, so a render that runs twice reads the same thing. */
 export function peekHanded(id: string): ViewerSource | null {
-  return handed && handed.id === id ? handed.source : null;
+  if (!handed || handed.id !== id) return null;
+  handed.read = true;
+  return handed.source;
 }
 
 /** Forgets what was handed over for this id (the viewer leaving). */
