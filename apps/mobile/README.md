@@ -40,7 +40,7 @@ ring on the left, which opens your profile, with Instagram's small "+" badge on 
 (Post / Reel / Buzz; over Reels the bar's left slot holds a white "+" instead), the CampConnect wordmark in the middle (it
 reads "Following" while that feed shows) and Search on the right; then the three labels spread across the row
 (`src/components/sliding-tabs.tsx`): the active one bold with a rounded aurora underline as wide as the label, sliding
-with the finger over a hairline, and a soft haptic each time the section changes, by tap or swipe. Under the labels sits the Campus | Global
+with the finger over a hairline; moving between sections, by tap or swipe, plays no haptic. Under the labels sits the Campus | Global
 toggle, a small segmented pill whose thumb slides to the choice: Campus is your own university, Global every university (and,
 only while Posts has a tab, Following: the posts of people you follow, which switches to Posts); the choice scopes For you,
 Buzz, Posts and Reels alike (`src/lib/home-scope.ts`). Someone without a university has nothing to choose, so the row is not drawn.
@@ -88,7 +88,8 @@ goes on from wherever the viewer leaves it (`emitPostSlide` with a time) rather 
 bookmark in the rail's own colour. Swiping between pages never blinks: two pages ahead (and one behind) are laid out
 with their videos loaded and waiting, a video's still is its very first frame (Mux `time=0`) so the player takes over
 without a jump, and in dark mode the top row keeps one style over photos and videos alike. The bottom tab bar plays no
-haptic, and neither do the profile's section tabs or the inbox's All | Unread | Requests pills. A swipe up moves on: a reel goes on
+haptic, and neither do Home's For you | Buzz | Reels, Explore's Room | Roommate | Marketplace and its "+", Messages'
+Chats | Groups, the profile's section tabs or the inbox's All | Unread | Requests pills. A swipe up moves on: a reel goes on
 into the Reels feed (only reels, page by page, the other campus choice keeping the page on screen while what follows comes
 from the new choice); a post in For you goes on down For you, its next pages loading as needed; a square in a profile grid
 (Posts, Reels, Saved, Liked) goes on through that grid; a saved post through your saved posts; a post's own screen and a
@@ -112,8 +113,8 @@ results", counted on the button; rooms sort, bedrooms, rent, distance from campu
 posts a budget cap, who the post is open to, distance and video; items sort, condition and price), and the
 pills that narrow the page (All on Room, All | Has a room | Looking for a room on Roommate, All and the item
 categories on Marketplace); the labels and the pills slide up under the title as the page scrolls. It opens on Room, a swipe or a tap on the label above the
-pager moves to Roommate or the Marketplace and back (one clear haptic each time the page changes, by tap or swipe, like
-Home's), and the floating "+" follows the visible page ("List an apartment",
+pager moves to Roommate or the Marketplace and back (silently, by tap or swipe, like Home's), and the floating "+"
+(no haptic either) follows the visible page ("List an apartment",
 "Create roommate post" or "Sell an item"). The order comes from `HOUSING_SECTIONS` in `packages/shared/src/constants.ts`.
 The Marketplace page is the old Marketplace tab's grid, moved in whole (`src/components/housing/marketplace-section.tsx`):
 the same cards and hearts, its categories in the pills row, its search (applied
@@ -127,7 +128,7 @@ profiles once migration 21 is live, so publish this code (`npx eas-cli@latest up
 applying it. Comments open in a TikTok-style sheet: "N comments" up top with a Top / Newest sort, each comment with
 a heart and its count (a dislike stays private), Reply, replies folded behind "View N replies", the composer pinned at the
 bottom, and a hold on a comment for Reply / Report / Block / Delete (your own comment, or any comment on your post); a like on a
-post, a reel or a comment buzzes the phone through `expo-haptics` (`src/lib/haptics.ts`, with the selection tick of the Home labels too). The same file holds the rest of the vocabulary: a selection tick for the bottom tabs, chips, segments, switches and the sound buttons, the softest impact when a primary button commits or a list is pulled to refresh, success when something is published, and a warning or an error with the alerts that ask before a delete or report a failure (`alertWithHaptic`). Tapping the tab you are on scrolls its page back to the top, as on every iOS tab bar (`src/lib/tab-reselect.ts`).
+post, a reel or a comment buzzes the phone through `expo-haptics` (`src/lib/haptics.ts`). The same file holds the rest of the vocabulary: a selection tick for the bottom tabs, chips, segments, switches and the sound buttons, the softest impact when a primary button commits or a list is pulled to refresh, success when something is published, and a warning or an error with the alerts that ask before a delete or report a failure (`alertWithHaptic`). Tapping the tab you are on scrolls its page back to the top, as on every iOS tab bar (`src/lib/tab-reselect.ts`).
 The Share button on posts, reels and listings opens a sheet of your friends, the people you follow who follow you back
 (`src/components/share-sheet.tsx`, mounted once in `src/app/_layout.tsx`): search, tap one or more faces, add an optional
 note and Send, and each friend gets a chat message with the post as a card that opens it, the note under it; "Share to…"
@@ -154,7 +155,7 @@ who-can-see settings, `profile_classes`, likes readable only through functions, 
 The Messages tab is the inbox (`src/app/(tabs)/messages.tsx`): the new-message pencil in the top-right corner, the big
 "Messages" title, Chats | Groups with Home's sliding aurora underline, a rounded search box and the All | Unread |
 Requests pills (each with its count; Requests on Chats only), then the two pages side by side in a pager like Home's: a
-swipe or a tap on a label moves between your direct chats and your group chats, with the same knock. On Chats the row of
+swipe or a tap on a label moves between your direct chats and your group chats, silently, as on Home. On Chats the row of
 friends online now sits above the chats (photo, name, the time at the right, the last message under it, a hairline between
 rows; no @usernames anywhere in Messages, names only, though typing a handle still finds the chat). A long press on a row (or Chat
 info) mutes that person's messages everywhere or that group, and a group also offers every group chat at once, each for 1, 8 or

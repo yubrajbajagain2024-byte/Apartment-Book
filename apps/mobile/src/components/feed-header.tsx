@@ -1,7 +1,6 @@
 import { useRouter } from "expo-router";
 import { useSession } from "@/lib/session";
 import { useTabBarInset } from "@/lib/tab-bar";
-import { hapticTap } from "@/lib/haptics";
 import { auroraGradient } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
@@ -9,7 +8,7 @@ import { AnimatedPressable, usePressScale } from "@/components/ui";
 
 /**
  * The round floating "+" of a feed (Explore's), above the bottom bar: the one prominent action, an aurora disc with a
- * soft shadow that dips under the finger with a light tap. Signed out it goes to log in.
+ * soft shadow that dips under the finger (no haptic). Signed out it goes to log in.
  */
 export function Fab({ href, label }: { href: string; label: string }) {
   const styles = useStyles();
@@ -20,10 +19,7 @@ export function Fab({ href, label }: { href: string; label: string }) {
   const press = usePressScale(0.92, 1);
   return (
     <AnimatedPressable
-      onPress={() => {
-        hapticTap();
-        router.push((user ? href : "/(auth)/login") as never);
-      }}
+      onPress={() => router.push((user ? href : "/(auth)/login") as never)}
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
       accessibilityRole="button"

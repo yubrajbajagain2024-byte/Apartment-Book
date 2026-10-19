@@ -10,7 +10,6 @@ import { createOverVideoStore, HOME_TOP_BAR_HEIGHT, HomeTopTabs, useOverVideo, t
 import { PostsSection } from "@/components/home/posts-section";
 import { ReelsSection } from "@/components/home/reels-section";
 import { useCollapsingHeader } from "@/lib/collapsing-header";
-import { hapticSwipe } from "@/lib/haptics";
 import { onHomeSectionRequest, takeHomeSection } from "@/lib/home-section";
 import { useAppTheme } from "@/lib/theme-provider";
 
@@ -63,8 +62,8 @@ const HomeStatusBar = memo(function HomeStatusBar({ overVideo, isDark }: { overV
  *
  * Swipes feel like X's: nothing in React changes while the finger drags or the page glides. The underline, the labels and
  * the bar's background follow the finger on the native driver (`scrollX`); the scroll listener only decides, without any
- * state, when the page under the finger changes (one clear haptic) and when the bar's text turns white for Reels (a tiny
- * store only the bar and the status bar read). The section itself (`index`: which page is active, which videos play) is
+ * state, when the page under the finger changes (silently: moving between sections plays no haptic) and when the bar's
+ * text turns white for Reels (a tiny store only the bar and the status bar read). The section itself (`index`: which page is active, which videos play) is
  * committed once the pager stops. The pages next to the one on screen are mounted ahead of time, once the pager is still
  * and the JS thread idle, so a swipe uncovers a page that has already rendered and loaded.
  */
@@ -82,9 +81,9 @@ export default function HomeScreen() {
   const mountedRef = useRef(mounted);
   /** Which way the last move went (+1 right, -1 left): the neighbour on that side is mounted first. */
   const heading = useRef(1);
-  /** The page under the finger: it changes at the halfway point of a swipe, with one haptic each time. */
+  /** The page under the finger: it changes at the halfway point of a swipe. */
   const under = useRef(START);
-  /** Page a label tap is scrolling to, and when it was tapped; until it gets there, the scroll is not a swipe (no haptics) and does not settle. */
+  /** Page a label tap is scrolling to, and when it was tapped; until it gets there, the scroll is not a swipe and does not settle. */
   const target = useRef<number | null>(null);
   const tappedAt = useRef(0);
   /** The finger is on the pager. */
@@ -146,7 +145,7 @@ export default function HomeScreen() {
     prefetch();
   }, [index, mounted, prefetch]);
 
-  /** Page i becomes the section on screen: the one React commit of a move. No haptic here: the swipe or the tap already played it. */
+  /** Page i becomes the section on screen: the one React commit of a move. */
   const commit = useCallback(
     (i: number) => {
       under.current = i;
@@ -213,8 +212,8 @@ export default function HomeScreen() {
     placedWidth.current = width;
   }, [width]);
 
-  // Another screen asked for a section (for example "Reels" right after posting a reel): jump there without animation or
-  // haptic. A section without a page of its own (Posts) is carried by For you, so that is where it lands.
+  // Another screen asked for a section (for example "Reels" right after posting a reel): jump there without animation. A
+  // section without a page of its own (Posts) is carried by For you, so that is where it lands.
   const jump = useCallback(() => {
     const wanted = takeHomeSection();
     if (!wanted) return;
@@ -233,12 +232,11 @@ export default function HomeScreen() {
     return onHomeSectionRequest(jump);
   }, [focused, jump]);
 
-  /** A label tap (or the feed menu's Following, which goes to Posts): one clear haptic now; the section is committed when the scroll ends. */
+  /** A label tap (or the feed menu's Following, which goes to Posts): the section is committed when the scroll ends. */
   const select = useCallback(
     (s: HomeSection) => {
       const i = ORDER.indexOf(s);
       if (i < 0 || i === (target.current ?? under.current)) return;
-      hapticSwipe();
       revealBar();
       if (width <= 0) return commit(i);
       target.current = i;
@@ -266,13 +264,10 @@ export default function HomeScreen() {
       const fromPosts = Math.abs(pos - POSTS);
       if (fromPosts < 0.5 - MARGIN) onPosts.set(true);
       else if (fromPosts > 0.5 + MARGIN) onPosts.set(false);
-      // A swipe (not a label tap's scroll): one clear haptic each time the page under the finger changes. No state.
+      // A swipe (not a label tap's scroll): note the page under the finger once it changes, halfway across. No state.
       if (target.current === null && Math.abs(pos - under.current) > 0.5 + MARGIN) {
         const page = toPage(pos);
-        if (page !== under.current) {
-          under.current = page;
-          hapticSwipe();
-        }
+        if (page !== under.current) under.current = page;
       }
       armSettleTimer();
     },
