@@ -381,7 +381,7 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
     <View style={{ width, height, backgroundColor: colors.mediaBg }}>
       {single ? (
         <>
-          {near ? <PageVideo uri={single.playbackUrl} poster={poster} aspect={aspectOf(single)} cover={reel.kind === "reel"} width={width} height={height} playing={playing && !userPaused} muted={muted} /> : <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} contentFit="cover" />}
+          {near ? <PageVideo uri={single.playbackUrl} poster={poster} aspect={aspectOf(single)} width={width} height={height} playing={playing && !userPaused} muted={muted} /> : <Still uri={poster} aspect={aspectOf(single)} width={width} height={height} transition={0} />}
           <Pressable style={StyleSheet.absoluteFill} onPress={onVideoTap} accessibilityRole="button" accessibilityLabel={userPaused ? "Play" : "Pause"} />
         </>
       ) : (
@@ -501,27 +501,49 @@ function aspectOf(m: FeedMedia): number | null {
   return m.width && m.height ? m.width / m.height : null;
 }
 
+/** TikTok's canvas: a 9:16 column, as wide as the screen on a phone (as tall as the screen allows on a wider one). */
+const CANVAS = 9 / 16;
+/** A picture within this much of 9:16 (a hair wider) still fills the canvas: the sliver it loses is not worth bands. */
+const FILL_TOLERANCE = 1.1;
+
+type Placement = { left: number; top: number; width: number; height: number; fit: "cover" | "contain" };
+
 /**
- * Fills the screen edge to edge when the picture is about as tall as the screen (a reel, a phone video, a portrait
- * photo); anything wider sits whole in the middle over a soft, darkened blur of itself, so nothing is cropped away.
+ * Where a picture of this shape sits on a page of this size, TikTok style, always in the middle: a vertical one (9:16,
+ * or within a hair of it) fills the 9:16 canvas edge to edge; a taller one keeps the canvas's width and grows towards the
+ * screen's full height (cropped only past that); a square, landscape, 4:5 or 3:4 one stays whole, as wide as the canvas.
+ * Nothing is ever stretched. An unknown shape fits whole on the canvas. The rest of the page shows the blurred backdrop.
  */
-function fillsScreen(aspect: number | null, fallback: boolean): boolean {
-  return aspect === null ? fallback : aspect <= 0.62;
+export function placeOnCanvas(aspect: number | null, pageW: number, pageH: number): Placement {
+  const canvasW = Math.min(pageW, pageH * CANVAS);
+  const canvasH = canvasW / CANVAS;
+  const centred = (width: number, height: number, fit: Placement["fit"]): Placement => ({ left: (pageW - width) / 2, top: (pageH - height) / 2, width, height, fit });
+  if (aspect === null || !(aspect > 0)) return centred(canvasW, canvasH, "contain");
+  if (aspect <= CANVAS) return centred(canvasW, Math.min(canvasW / aspect, pageH), "cover");
+  if (aspect <= CANVAS * FILL_TOLERANCE) return centred(canvasW, canvasH, "cover");
+  // A box of the picture's own shape: whole, nothing cropped.
+  return centred(canvasW, canvasW / aspect, "cover");
 }
 
-/** The blurred, darkened copy of a picture behind it when it does not fill the screen. */
+/** The soft, darkened blur of a picture that fills whatever of the page the picture itself leaves empty. */
 function Backdrop({ uri }: { uri: string }) {
   const styles = useStyles();
   return (
     <>
-      <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={40} transition={0} />
+      <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={45} transition={0} />
       <View style={[StyleSheet.absoluteFill, styles.backdropDim]} />
     </>
   );
 }
 
-/** A video page's player. Only mounted near the page on screen, so at most three players exist at a time. */
-function PageVideo({ uri, poster, aspect, cover, width, height, playing, muted }: { uri: string; poster: string; aspect: number | null; cover: boolean; width: number; height: number; playing: boolean; muted: boolean }) {
+/** Does the picture cover the whole page (no backdrop needed)? */
+function coversPage(place: Placement, pageW: number, pageH: number) {
+  return place.width >= pageW - 0.5 && place.height >= pageH - 0.5;
+}
+
+/** A video page's player, placed on the canvas. Only mounted near the page on screen, so at most three players exist at a time. */
+function PageVideo({ uri, poster, aspect, width, height, playing, muted }: { uri: string; poster: string; aspect: number | null; width: number; height: number; playing: boolean; muted: boolean }) {
+  const styles = useStyles();
   const player = useVideoPlayer({ uri }, (p) => {
     p.loop = true;
     p.muted = reelsMuted;
@@ -534,25 +556,27 @@ function PageVideo({ uri, poster, aspect, cover, width, height, playing, muted }
   useEffect(() => {
     player.muted = muted;
   }, [muted, player]);
-  const fill = fillsScreen(aspect, cover);
+  const place = placeOnCanvas(aspect, width, height);
   return (
     <View style={{ width, height }} pointerEvents="none">
-      {!fill && poster ? <Backdrop uri={poster} /> : null}
-      <VideoView player={player} style={StyleSheet.absoluteFill} contentFit={fill ? "cover" : "contain"} nativeControls={false} onFirstFrameRender={() => setHasFrame(true)} />
-      {/* The poster stays on top until the first frame is painted, so a page is never a black box. */}
-      {!hasFrame && poster ? <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} contentFit={fill ? "cover" : "contain"} /> : null}
+      {poster && !coversPage(place, width, height) ? <Backdrop uri={poster} /> : null}
+      <View style={[styles.placed, { left: place.left, top: place.top, width: place.width, height: place.height }]}>
+        <VideoView player={player} style={StyleSheet.absoluteFill} contentFit={place.fit} nativeControls={false} onFirstFrameRender={() => setHasFrame(true)} />
+        {/* The poster stays on top until the first frame is painted, so a page is never a black box. */}
+        {!hasFrame && poster ? <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} contentFit={place.fit} /> : null}
+      </View>
     </View>
   );
 }
 
-/** A photo page: edge to edge when it is tall, otherwise whole over its own blur. Its tiny blurred preview shows at once. */
-function PhotoSlide({ photo, width, height }: { photo: Extract<FeedMedia, { type: "photo" }>; width: number; height: number }) {
-  const fill = fillsScreen(aspectOf(photo), false);
-  const fit = fill ? "cover" : "contain";
+/** A still on the canvas: a photo (its tiny blurred preview shows at once), or a video's poster before its player mounts. */
+function Still({ uri, blur, aspect, width, height, transition = 200 }: { uri: string; blur?: string | null; aspect: number | null; width: number; height: number; transition?: number }) {
+  const styles = useStyles();
+  const place = placeOnCanvas(aspect, width, height);
   return (
-    <View style={{ width, height }}>
-      {!fill ? <Backdrop uri={photo.blur ?? photo.url} /> : null}
-      <Image source={{ uri: photo.url }} placeholder={photo.blur ? { uri: photo.blur } : undefined} placeholderContentFit={fit} style={StyleSheet.absoluteFill} contentFit={fit} transition={200} />
+    <View style={{ width, height }} pointerEvents="none">
+      {!coversPage(place, width, height) ? <Backdrop uri={blur ?? uri} /> : null}
+      <Image source={{ uri }} placeholder={blur ? { uri: blur } : undefined} placeholderContentFit={place.fit} style={[styles.placed, { left: place.left, top: place.top, width: place.width, height: place.height }]} contentFit={place.fit} transition={transition} />
     </View>
   );
 }
@@ -588,11 +612,11 @@ function MediaPager({ media, width, height, near, playing, muted, start, onSlide
       renderItem={({ item, index: i }) => (
         <Pressable onPress={onTap} style={{ width, height }} accessibilityRole={item.type === "video" ? "button" : "image"} accessibilityLabel={`${item.type === "video" ? "Video" : "Photo"} ${i + 1} of ${media.length}`}>
           {item.type === "photo" ? (
-            <PhotoSlide photo={item} width={width} height={height} />
+            <Still uri={item.url} blur={item.blur} aspect={aspectOf(item)} width={width} height={height} />
           ) : near && Math.abs(i - index) <= 1 ? (
-            <PageVideo uri={item.playbackUrl} poster={item.poster ?? ""} aspect={aspectOf(item)} cover={false} width={width} height={height} playing={playing && i === index} muted={muted} />
+            <PageVideo uri={item.playbackUrl} poster={item.poster ?? ""} aspect={aspectOf(item)} width={width} height={height} playing={playing && i === index} muted={muted} />
           ) : item.poster ? (
-            <Image source={{ uri: item.poster }} style={{ width, height }} contentFit="contain" />
+            <Still uri={item.poster} aspect={aspectOf(item)} width={width} height={height} transition={0} />
           ) : null}
         </Pressable>
       )}
@@ -615,8 +639,11 @@ const useStyles = makeStyles((colors) => {
     shade: { position: "absolute", left: 0, right: 0, bottom: 0, height: SHADE_HEIGHT, experimental_backgroundImage: scrimGradient(colors.mediaScrim, bottomShare) },
     // Drawn from the darker text-shadow colour: the top carries smaller, dimmer words than the bottom does.
     topShade: { position: "absolute", left: 0, right: 0, top: 0, experimental_backgroundImage: scrimGradient(colors.mediaTextShadow, topShare, 14) },
-    // Behind a picture that does not fill the screen: its own blur, dimmed so the words over it stay readable.
-    backdropDim: { backgroundColor: "rgba(0,0,0,0.38)" },
+    // Behind a picture that leaves part of the page empty: its own blur, dimmed so it reads as background and the words
+    // over it stay readable.
+    backdropDim: { backgroundColor: "rgba(0,0,0,0.45)" },
+    // A picture's place on the canvas (see placeOnCanvas): clipped, so a cover fit never spills past it.
+    placed: { position: "absolute", overflow: "hidden" },
     dots: { position: "absolute", left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 5 },
     dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.onMediaMuted },
     dotOn: { width: 18, backgroundColor: colors.onMedia },

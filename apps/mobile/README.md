@@ -50,8 +50,11 @@ place in the feed, the grid or the chat to fill the screen while the screen behi
 system animation; the page stays full size inside the growing frame, scaled so the picture keeps its size), and on the way
 out (Back, Android's back, or a swipe in from the left edge) it shrinks back into the same place; opened from a link or a
 page other than the tapped one, it fades and scales out instead. Screens opened from the viewer (a profile, a chat) come up
-as cards over it. The picture fills the screen edge to edge (a picture wider than the screen sits whole over a soft, dimmed
-blur of itself) under one top row with Back at the left and the Campus | Global toggle in the middle (for reels and For
+as cards over it. Every picture is laid out TikTok style on a 9:16 canvas, as wide as the screen on a phone and as tall
+as it allows on a wider screen (`placeOnCanvas` in `src/components/home/reel-item.tsx`): a vertical photo or video (9:16,
+or within a hair of it) fills the canvas edge to edge, a taller one grows towards the full screen, and a square, landscape
+or 4:5 one stays whole at the canvas's width, never stretched or cropped; whatever the picture leaves empty shows a subtle,
+dimmed blur of it. Over it, one top row with Back at the left and the Campus | Global toggle in the middle (for reels and For
 you); the creator's name, the words and the heart, comments, share, save and "…" rail sit at the bottom
 (`src/components/home/reel-item.tsx`, as on the Reels page) over a gradual frost (`src/components/progressive-blur.tsx`:
 expo-blur through a gradient mask, left out on a build without them), and under them an "Add comment…" bar on every page
