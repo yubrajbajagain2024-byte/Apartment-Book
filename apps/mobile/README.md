@@ -37,7 +37,8 @@ accounts by name and follow them) is the magnifying glass in the top-right corne
 the Notifications bell (`src/components/header-actions.tsx`): it pushes the people search with the box focused
 (`src/app/find-people.tsx`, the same screen the share sheet's Find people and a profile's Find friends open). The Notifications bell in the top-right corner of Home's floating top bar opens every
 notification the database keeps for you (`src/app/notifications.tsx`: new messages, likes, comments and replies, follows,
-saves of your listings, places near campus, newest first, the unread ones tinted); tapping one marks it read and opens what
+saves of your listings, places near campus, newest first, each unread one marked only by a small blue dot, the row
+itself like any other in both themes); tapping one marks it read and opens what
 it is about, "Mark all read" sits in the header, and the bell's badge counts the unread live. Home opens on **For you**, a blend of posts and reels (anonymous Buzz threads stay on
 the Buzz page; the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
 three pages, For you | Buzz | Reels, sit side by side in a pager (Posts is a section without a tab: `HIDDEN_HOME_SECTIONS` in the shared constants keeps it out of the row and the pager while its feed, the post features and the data stay; its Following filter is reachable on the website's `/?tab=posts`; reels also run through For you): swipe left or right to move

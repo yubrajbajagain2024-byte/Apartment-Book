@@ -19,8 +19,8 @@ const AVATAR = 44;
 
 /**
  * Notifications, opened from the bell in Home's top-right corner: every notification the database keeps for you (new
- * messages, likes, comments and replies, follows, saves of your listings, new places near campus), newest first, the
- * unread ones tinted with a dot. Tapping one marks it read and opens what it is about; "Mark all read" in the header
+ * messages, likes, comments and replies, follows, saves of your listings, new places near campus), newest first, each
+ * unread one marked only by a small blue dot (the row itself looks like any other, in both themes). Tapping one marks it read and opens what it is about; "Mark all read" in the header
  * clears the rest; the list pulls to refresh and loads older rows as it scrolls. Signed out it asks to log in.
  */
 export default function NotificationsScreen() {
@@ -123,13 +123,13 @@ export default function NotificationsScreen() {
               onPress={() => open(n)}
               accessibilityRole="button"
               accessibilityLabel={`${n.title}${n.body ? `. ${n.body}` : ""}, ${timeAgo(n.created_at)}${isUnread ? ", unread" : ""}`}
-              style={({ pressed }) => [styles.row, isUnread && styles.rowUnread, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
             >
               <View style={styles.mark}>
                 {n.actor ? (
                   <>
                     <Avatar name={n.actor.full_name} url={n.actor.avatar_url} size={AVATAR} online={false} transition={0} />
-                    <View style={[styles.kind, { borderColor: isUnread ? colors.brandSoft : colors.bg }]}>
+                    <View style={[styles.kind, { borderColor: colors.bg }]}>
                       <Icon name={icon} size={11} color={colors.onBrand} />
                     </View>
                   </>
@@ -140,7 +140,7 @@ export default function NotificationsScreen() {
                 )}
               </View>
               <View style={styles.text}>
-                <Text style={[styles.title, isUnread && styles.titleUnread]} numberOfLines={1}>
+                <Text style={styles.title} numberOfLines={1}>
                   {n.title}
                 </Text>
                 {n.body ? (
@@ -148,7 +148,7 @@ export default function NotificationsScreen() {
                     {n.body}
                   </Text>
                 ) : null}
-                <Text style={[styles.time, isUnread && styles.timeUnread]}>{timeAgo(n.created_at)}</Text>
+                <Text style={styles.time}>{timeAgo(n.created_at)}</Text>
               </View>
               {isUnread ? <View style={styles.dot} accessibilityLabel="Unread" /> : null}
             </Pressable>
@@ -183,18 +183,16 @@ const useStyles = makeStyles((colors) => ({
   listEmpty: { flexGrow: 1 },
   summary: { fontSize: 13, color: colors.muted, paddingHorizontal: space.lg, paddingBottom: space.xs },
   row: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingHorizontal: space.lg, paddingVertical: 12 },
-  rowUnread: { backgroundColor: colors.brandSoft },
   mark: { width: AVATAR, height: AVATAR },
   // The kind of notification, on the photo's corner, ringed in the row's colour so it reads over the photo.
   kind: { position: "absolute", right: -4, bottom: -4, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.brand, borderWidth: 2, alignItems: "center", justifyContent: "center" },
   kindAlone: { width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
   text: { flex: 1, gap: 2 },
   title: { fontSize: 15, color: colors.text },
-  titleUnread: { fontWeight: "700" },
   body: { fontSize: 14, color: colors.muted },
   time: { fontSize: 12, color: colors.faint, marginTop: 2 },
-  timeUnread: { color: colors.brand, fontWeight: "600" },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand, marginTop: 8 },
+  // The one mark of an unread notification, level with its first line.
+  dot: { width: 9, height: 9, borderRadius: 4.5, backgroundColor: colors.brand, marginTop: 5 },
   pad: { paddingHorizontal: space.lg, paddingTop: space.sm },
   footer: { paddingVertical: 16 },
 }));
