@@ -2,7 +2,6 @@ import { type ReactNode, type Ref } from "react";
 import { Animated, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SlidingTabs } from "@/components/sliding-tabs";
-import { hapticSelect } from "@/lib/haptics";
 import { auroraGradient, radius, space, textStyle } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import type { InboxFilter, InboxPage } from "./inbox-utils";
@@ -38,7 +37,7 @@ export function InboxHeader({ signedIn, page, onPage, scrollX, pageWidth, reques
 
   function pickFilter(next: InboxFilter) {
     if (next === filter) return;
-    hapticSelect();
+    // Silent: the pill's highlight is the feedback (no haptic).
     onFilter(next);
   }
   const pills = page === "groups" ? INBOX_FILTERS.filter((f) => f.value !== "requests") : INBOX_FILTERS;

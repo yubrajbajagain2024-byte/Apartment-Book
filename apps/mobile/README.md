@@ -79,10 +79,16 @@ theme's ink where it sits on the page below; the top row, the status bar and the
 switching as a page's edge passes, and an opened description brings the page's colour up behind it. A tap pauses a video: a play button appears in the middle with the sound
 button just above it, both fading away again the moment it plays (the sound button keeps it paused). A post with several
 photos or videos swipes sideways on its page, with dots on a line of their own under the top row (its colours changing
-halfway through a swipe), and opens on the one that was showing in the feed; a video plays while its page and slide are on screen, and a double tap anywhere likes. A video tapped while it plays in the feed goes on in the viewer from where it
+halfway through a swipe), and opens on the one that was showing in the feed; a video plays while its page and slide are on screen, and a double tap anywhere likes. On iOS a video tapped while it plays in the feed is played on in the viewer by the
+feed's own player (`src/lib/video-handoff.ts`: lent at the tap, given back as the viewer goes), so it opens on the very
+frame that was showing and never pauses, reloads or jumps, there or back. Elsewhere (Android cannot show one player in
+two places) it goes on in the viewer from where it
 had got to (`startAt`: the feed's poster, then the still from that moment, cover the jump), and the feed's own player
 goes on from wherever the viewer leaves it (`emitPostSlide` with a time) rather than starting again. Saved fills the
-bookmark in the rail's own colour. A swipe up moves on: a reel goes on
+bookmark in the rail's own colour. Swiping between pages never blinks: two pages ahead (and one behind) are laid out
+with their videos loaded and waiting, a video's still is its very first frame (Mux `time=0`) so the player takes over
+without a jump, and in dark mode the top row keeps one style over photos and videos alike. The bottom tab bar plays no
+haptic, and neither do the profile's section tabs or the inbox's All | Unread | Requests pills. A swipe up moves on: a reel goes on
 into the Reels feed (only reels, page by page, the other campus choice keeping the page on screen while what follows comes
 from the new choice); a post in For you goes on down For you, its next pages loading as needed; a square in a profile grid
 (Posts, Reels, Saved, Liked) goes on through that grid; a saved post through your saved posts; a post's own screen and a

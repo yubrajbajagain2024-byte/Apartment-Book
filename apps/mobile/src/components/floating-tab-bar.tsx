@@ -8,7 +8,6 @@ import { TAB_BAR_HEIGHT, TAB_BAR_SIDE, tabBarBottom } from "@/lib/tab-bar";
 import { useReduceMotion, useReduceTransparency } from "@/lib/accessibility";
 import { auroraGradient } from "@/lib/theme";
 import { useAppTheme } from "@/lib/theme-provider";
-import { hapticSelect } from "@/lib/haptics";
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>["tabBar"]>>[0];
 
@@ -106,8 +105,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: TabBarProps) 
           const onPress = () => {
             const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
             if (focused || event.defaultPrevented) return;
-            // The selection tick of a picker as the capsule moves to the new tab.
-            hapticSelect();
+            // No haptic here: switching tabs is silent, the capsule's glide is the feedback.
             // The route names are not known to the types here (any tab navigator can use this bar).
             (navigation as unknown as { navigate: (name: string, params?: object) => void }).navigate(route.name, route.params);
           };

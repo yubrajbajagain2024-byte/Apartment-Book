@@ -11,6 +11,7 @@ import { useTabBarInset } from "@/lib/tab-bar";
 import { errorText } from "@/lib/hooks";
 import { emitPostRemoved, onPostRemoved, takeForYouStale } from "@/lib/posts-events";
 import { entryOf, forYouAfter, openReel, openViewer, viewerItemFromPost, type ViewerEntry, type ViewerOrigin } from "@/lib/reel-viewer";
+import type { VideoPlayer } from "expo-video";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
@@ -55,7 +56,7 @@ const ForYouRow = memo(function ForYouRow({
   active: boolean;
   onOpenComments: (item: ForYouItem) => void;
   onRemoved: (item: ForYouItem) => void;
-  onOpenViewer: (item: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin; time: number | null }) => void;
+  onOpenViewer: (item: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin; time: number | null; player: VideoPlayer | null }) => void;
 }) {
   return (
     <InstaPost
@@ -209,10 +210,10 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
    * Reels feed, as it always has. A video goes on from where it had got to here (`live.time`), rather than starting again.
    */
   const openInViewer = useCallback(
-    (tapped: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin; time: number | null }) => {
+    (tapped: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin; time: number | null; player: VideoPlayer | null }) => {
       if (tapped.kind === "reel") {
         const reel = reelFromFeedPost(tapped, live.engagement, live.saved);
-        if (reel) openReel(router, reel, live.origin, live.time ?? undefined);
+        if (reel) openReel(router, reel, live.origin, live.time ?? undefined, live.player ?? undefined);
         return;
       }
       const { items: list, engagement: counts, savedIds: saved, commentsOf: commentCount, hasMore: more } = latest.current;
@@ -224,7 +225,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
         const item = viewerItemFromPost(p, e, isTapped ? live.saved : saved.has(p.id));
         if (!item) continue;
         if (isTapped) index = entries.length;
-        entries.push(entryOf(item, isTapped ? live.slide : undefined, isTapped ? (live.time ?? undefined) : undefined));
+        entries.push(entryOf(item, isTapped ? live.slide : undefined, isTapped ? (live.time ?? undefined) : undefined, isTapped ? (live.player ?? undefined) : undefined));
       }
       if (index < 0) return;
       openViewer(router, {

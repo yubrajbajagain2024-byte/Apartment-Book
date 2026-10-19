@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView, type VideoPlayer } from "expo-video";
+import { CAN_SHARE_PLAYERS, isLent, lendPlayer, useLendings } from "@/lib/video-handoff";
 import type { FeedMedia } from "@apartment-book/shared";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { hapticSelect } from "@/lib/haptics";
@@ -13,8 +14,11 @@ const DOUBLE_TAP_MS = 260;
 type PhotoCarouselProps = {
   media: FeedMedia[];
   aspect?: number;
-  /** A tap on a slide; `time` is where its video had got to (null on a photo), so a full-screen view can go on from there. */
-  onPress?: (at: { time: number | null }) => void;
+  /**
+   * A tap on a slide; `time` is where its video had got to (null on a photo), and `player` the video's own player (iOS),
+   * so a full-screen view can play on from there without reloading.
+   */
+  onPress?: (at: { time: number | null; player: VideoPlayer | null }) => void;
   /** Double tap, like Instagram. A single tap then waits a moment before it counts. */
   onDoubleTap?: () => void;
   active?: boolean;
@@ -72,7 +76,8 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
       onIndexChange?.(i);
     }
     const player = players.current.get(i);
-    if (player && typeof jump.time === "number" && Number.isFinite(jump.time)) player.currentTime = jump.time;
+    // Not a player that played on in the viewer itself (it is already there): a seek would only stutter it.
+    if (player && typeof jump.time === "number" && Number.isFinite(jump.time) && Math.abs(player.currentTime - jump.time) > 0.5) player.currentTime = jump.time;
     // Only a new jump moves the carousel; a swipe in the feed after it stays where it is.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jump, width]);
@@ -82,7 +87,14 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
   useEffect(() => () => void (single.current && clearTimeout(single.current)), []);
   function tap() {
     // Read at the moment it opens (after the wait for a second tap), so a full-screen view starts where the video is.
-    const press = onPress ? () => onPress({ time: timeAt(index) }) : undefined;
+    const press = onPress
+      ? () => {
+          const player = CAN_SHARE_PLAYERS ? (players.current.get(index) ?? null) : null;
+          // Lent at once, before the screen changes: this feed no longer pauses it as it loses focus, so it never stops.
+          if (player) lendPlayer(player);
+          onPress({ time: timeAt(index), player });
+        }
+      : undefined;
     if (!onDoubleTap) return press?.();
     const now = Date.now();
     if (single.current) clearTimeout(single.current);
@@ -168,13 +180,17 @@ function VideoSlide({ media, index, width, height, playing, onPlayer }: { media:
   }, [onPlayer, index, player]);
   const [muted, setMuted] = useState(!soundOn);
   const [hasFrame, setHasFrame] = useState(false);
+  // While the full-screen viewer plays this player on, it is the viewer's to run; back here, this slide takes charge again.
+  const lendings = useLendings();
   useEffect(() => {
+    if (isLent(player)) return;
     if (playing) player.play();
     else player.pause();
-  }, [playing, player]);
+  }, [playing, player, lendings]);
   useEffect(() => {
+    if (isLent(player)) return;
     player.muted = muted;
-  }, [muted, player]);
+  }, [muted, player, lendings]);
   return (
     <View style={{ width, height, backgroundColor: colors.mediaBg }}>
       <VideoView player={player} style={{ width, height }} contentFit="cover" nativeControls={false} allowsVideoFrameAnalysis={false} onFirstFrameRender={() => setHasFrame(true)} />

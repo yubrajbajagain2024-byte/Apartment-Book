@@ -1,4 +1,5 @@
 import type { useRouter } from "expo-router";
+import type { VideoPlayer } from "expo-video";
 import {
   getFeedPostsByIds,
   getPostEngagementMany,
@@ -48,6 +49,8 @@ export type ViewerEntry = {
   slide?: number;
   /** Where that video had got to in the feed when it was tapped (seconds): the viewer goes on from there. */
   startAt?: number;
+  /** The feed's own player for that video (iOS), to play on in the viewer without a reload (see video-handoff.ts). */
+  player?: VideoPlayer;
 };
 
 /**
@@ -130,8 +133,8 @@ export function viewerItemFromPost(post: FeedPostWithAuthor, engagement: PostEng
   };
 }
 
-export function entryOf(item: ViewerItem, slide?: number, startAt?: number): ViewerEntry {
-  return { key: viewerKey(item), id: item.sourceId, item, thumb: viewerThumb(item.media), slide, startAt };
+export function entryOf(item: ViewerItem, slide?: number, startAt?: number, player?: VideoPlayer): ViewerEntry {
+  return { key: viewerKey(item), id: item.sourceId, item, thumb: viewerThumb(item.media), slide, startAt, player };
 }
 
 /** A Mux video's still at a given moment (its poster's own link, with the time changed); any other poster as it is. */
@@ -212,8 +215,8 @@ export function openViewer(router: Router, source: ViewerSource) {
 }
 
 /** A reel tapped in a feed: that reel (going on from `startAt`, where it was playing), then the Reels feed behind it (only reels, like Instagram). */
-export function openReel(router: Router, reel: Reel, origin?: ViewerOrigin, startAt?: number) {
-  openViewer(router, { entries: [entryOf(viewerItemFromReel(reel), undefined, startAt)], index: 0, then: "reels", origin });
+export function openReel(router: Router, reel: Reel, origin?: ViewerOrigin, startAt?: number, player?: VideoPlayer) {
+  openViewer(router, { entries: [entryOf(viewerItemFromReel(reel), undefined, startAt, player)], index: 0, then: "reels", origin });
 }
 
 /** What was handed over for this id, if that is what was handed over last. Left in place until `dropHanded`, so a render that runs twice reads the same thing. */

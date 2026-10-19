@@ -19,6 +19,7 @@ import { emitPostEngagement, emitPostRemoved, emitPostSlide } from "@/lib/posts-
 import { dropHanded, entryOf, loadViewerItems, peekHanded, viewerItemFromPost, viewerItemFromReel, viewerKey, type ViewerEntry, type ViewerItem, type ViewerOrigin, type ViewerSource } from "@/lib/reel-viewer";
 import { useReduceMotion } from "@/lib/accessibility";
 import { ViewerChromeContext, ViewerClockContext, type ViewerClocks } from "@/lib/viewer-chrome";
+import { returnPlayer } from "@/lib/video-handoff";
 import { usePageSwipe, ViewerSwipeContext, type ViewerSwipe } from "@/lib/viewer-swipe";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
@@ -98,6 +99,13 @@ export default function ReelViewerScreen() {
   /** What the opener handed over (read once): the pages, the one tapped and what comes after them. A link hands over nothing. */
   const [handed] = useState<ViewerSource | null>(() => peekHanded(id));
   useEffect(() => () => dropHanded(id), [id]);
+  // Whatever happens, a feed's player handed over here goes back to the feed as the viewer goes.
+  useEffect(
+    () => () => {
+      handed?.entries.forEach((e) => e.player && returnPlayer(e.player));
+    },
+    [handed],
+  );
   /** After the last page: the Reels feed, the opener's next pages, or nothing. */
   const then = handed?.then ?? "reels";
   const reelsMode = then === "reels";
@@ -517,6 +525,11 @@ export default function ReelViewerScreen() {
   const listExtra = useMemo(() => ({ visible, focused, height, width, muteInset, contentTop, barBottom, shown }), [visible, focused, height, width, muteInset, contentTop, barBottom, shown]);
   /** The top row and the status bar take the colours of the page under them; the screen behind, those of the page on screen. */
   const topOnPage = surfaceAt(under) === "page";
+  /**
+   * The top row's light style, over a photo's white page only. In dark mode every page is black behind it, so it keeps
+   * one style throughout and never changes under the finger.
+   */
+  const lightTop = topOnPage && !isDark;
   const shownOnPage = surfaceAt(visible) === "page";
 
   let body = null;
@@ -532,7 +545,7 @@ export default function ReelViewerScreen() {
           <View style={{ width, height }}>
             {entry.item ? (
               <>
-                <ReelItem reel={entry.item} width={width} height={height} topInset={muteInset} contentTop={contentTop} bottomInset={barHeight} near={Math.abs(index - visible) <= 1} playing={focused && index === visible} onPatch={onPatch} onOpenComments={onOpenComments} onRemoved={onRemoved} initialSlide={entry.slide} startAt={entry.startAt} onSlideChange={onSlideChange} />
+                <ReelItem reel={entry.item} width={width} height={height} topInset={muteInset} contentTop={contentTop} bottomInset={barHeight} near={index - visible >= -1 && index - visible <= 2} playing={focused && index === visible} onPatch={onPatch} onOpenComments={onOpenComments} onRemoved={onRemoved} initialSlide={entry.slide} startAt={entry.startAt} borrowed={entry.player} onSlideChange={onSlideChange} />
                 {/* "Add comment…" under the name and the rail, like Instagram's: a tap opens the comments with the keyboard up.
                     Dark glass over a video; on a photo's page, the theme's own text field. */}
                 <Animated.View pointerEvents="box-none" style={[styles.commentBar, { bottom: barBottom }, chromeStyle]}>
@@ -551,9 +564,11 @@ export default function ReelViewerScreen() {
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
         getItemLayout={(_, i) => ({ length: height, offset: height * i, index: i })}
-        initialNumToRender={2}
-        maxToRenderPerBatch={2}
-        windowSize={3}
+        // Two pages ahead are laid out (and their videos loaded, see `near`) before a swipe reaches them: a quick run of
+        // swipes never lands on an empty page or a video still starting.
+        initialNumToRender={3}
+        maxToRenderPerBatch={3}
+        windowSize={5}
         removeClippedSubviews={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
@@ -628,8 +643,8 @@ export default function ReelViewerScreen() {
       <Animated.View pointerEvents="box-none" style={[styles.top, { paddingTop: rowTop }, chromeStyle]}>
         <View pointerEvents="box-none" style={styles.row}>
           {/* Back on clear glass over a video, as the system draws its bar buttons over media; over a photo's page, the bar's own glass. */}
-          <GlassIconButton icon="chevron-back" label="Back" onPress={leave} variant={topOnPage ? "bar" : "media"} size={40} iconSize={19} haptic={false} hitSlop={8} style={styles.back} />
-          {scoped && segments.length > 1 ? <ScopeToggle segments={segments} value={chosen} onChange={choose} overVideo={!topOnPage} shadow={topOnPage ? undefined : styles.shadow} /> : null}
+          <GlassIconButton icon="chevron-back" label="Back" onPress={leave} variant={lightTop ? "bar" : "media"} size={40} iconSize={19} haptic={false} hitSlop={8} style={styles.back} />
+          {scoped && segments.length > 1 ? <ScopeToggle segments={segments} value={chosen} onChange={choose} overVideo={!lightTop} shadow={lightTop ? undefined : styles.shadow} /> : null}
         </View>
       </Animated.View>
 

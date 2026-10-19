@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+import type { VideoPlayer } from "expo-video";
 import { APP_NAME, captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromFeedPost, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
 import { hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
@@ -39,7 +40,7 @@ export type InstaPostProps = {
    * Opens the post full screen in the viewer, given the row's own live counts: a feed passes its own, which hands over
    * the pages around this one. Without it the post opens alone (and the Reels feed follows it).
    */
-  onOpen?: (live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin; time: number | null }) => void;
+  onOpen?: (live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin; time: number | null; player: VideoPlayer | null }) => void;
 };
 
 const TALLEST = 4 / 5;
@@ -112,15 +113,16 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
    * over the row's own counts (which may be ahead of the feed's after a tap here) so it shows at once; from there a
    * swipe up moves on. A words-only post has nothing to open.
    */
-  function openViewer(at?: { time: number | null }) {
+  function openViewer(at?: { time: number | null; player: VideoPlayer | null }) {
     // The viewer opens on the photo or video showing here, zooming open from the picture's own frame, and a video goes
     // on from where it had got to here rather than starting again.
     const time = at?.time ?? null;
+    const player = at?.player ?? null;
     void measureOrigin(frame.current, POST_FRAME_RADIUS).then((origin) => {
-      const live = { engagement: { likes: like.likes, comments, likedByMe: like.liked }, saved: save.saved, slide, origin, time };
+      const live = { engagement: { likes: like.likes, comments, likedByMe: like.liked }, saved: save.saved, slide, origin, time, player };
       if (props.onOpen) return props.onOpen(live);
       const item = viewerItemFromPost(post, live.engagement, live.saved);
-      if (item) openFullScreen(router, { entries: [entryOf(item, slide, time ?? undefined)], index: 0, then: "reels", origin });
+      if (item) openFullScreen(router, { entries: [entryOf(item, slide, time ?? undefined, player ?? undefined)], index: 0, then: "reels", origin });
     });
   }
 
