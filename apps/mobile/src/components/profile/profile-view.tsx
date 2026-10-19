@@ -723,9 +723,9 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   });
   const tab = PROFILE_TABS[active].key;
 
-  /** A tap moves the pager to the tab with a light tap; a swipe settles there on its own, without one. */
+  /** A tap moves the pager to the tab, silently (no haptic), as a swipe does. */
   function selectTab(next: ProfileTabKey) {
-    if (select(TAB_INDEX[next])) hapticTap();
+    select(TAB_INDEX[next]);
   }
 
   // A grid loads once its page is open or next to the open one, and keeps its squares after that.

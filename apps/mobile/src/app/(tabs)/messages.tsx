@@ -8,7 +8,7 @@ import { InboxMessageRow, InboxNote, InboxRow, InboxSectionHeader } from "@/comp
 import { inInbox, matchConversations, useMessageSearch, useNow, useUsernames, type InboxFilter, type InboxPage } from "@/components/messages/inbox-utils";
 import { InboxOnlineFriends, useOpenFriendChat } from "@/components/messages/online-friends";
 import { Button, EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
-import { hapticSwipe, hapticTap, refreshWithHaptic } from "@/lib/haptics";
+import { hapticTap, refreshWithHaptic } from "@/lib/haptics";
 import { useQuery } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
@@ -35,7 +35,7 @@ const NO_FRIENDS: ProfileSummary[] = [];
 /** While searching, this many chats show above the messages until "Show all" is tapped. */
 const CHAT_MATCHES = 5;
 const ORDER = INBOX_PAGES.map((p) => p.value);
-/** A page change waits until the pager is this share of a page past the halfway point, so a finger resting on the line cannot knock back and forth. */
+/** A page change waits until the pager is this share of a page past the halfway point, so a finger resting on the line cannot flip it back and forth. */
 const MARGIN = 0.02;
 const NOT_SCROLLED: Record<InboxPage, boolean> = { chats: false, groups: false };
 
@@ -43,7 +43,7 @@ const NOT_SCROLLED: Record<InboxPage, boolean> = { chats: false, groups: false }
  * The Messages tab (between Explore and Profile in the bottom bar): its own top bar (the new-message pencil, the big
  * "Messages" title, Chats | Groups), a search box and the All | Unread | Requests pills, then the two pages side by side
  * in a pager like Home's: your direct chats and your group chats, newest first, a swipe or a tap on a label moving
- * between them with the same knock Home gives. Requests, a pill on Chats, holds the direct chats people you do not
+ * between them silently, as on Home. Requests, a pill on Chats, holds the direct chats people you do not
  * follow started with you, until you reply (see useMessageRequests); the Messages tab's unread count counts them too.
  * Above the chats, right under the pills, Messenger's row of your friends who are online now (a tap opens your chat with
  * them) scrolls away with the list. Typing searches the page on screen by name, @username or group title, and below the
@@ -80,13 +80,13 @@ export default function MessagesScreen() {
   const now = useNow(focused);
 
   // ---- The pager: Chats | Groups side by side, as on Home. The underline follows the finger on the native driver (scrollX);
-  // the page is committed when the pager crosses the halfway point (one knock) or when a label is tapped (one knock).
+  // the page is committed when the pager crosses the halfway point or when a label is tapped.
   const pager = useRef<ScrollView>(null);
   /** Each page's list, so tapping Messages again scrolls the page on screen back to the top, as on every iOS tab. */
   const listRefs = useRef<Partial<Record<InboxPage, { scrollToOffset: (p: { offset: number; animated?: boolean }) => void } | null>>>({});
   useTabReselect(() => listRefs.current[page]?.scrollToOffset({ offset: 0, animated: true }));
   const scrollX = useRef(new Animated.Value(0)).current;
-  /** The page under the finger, by the halfway rule: one knock each time it changes. */
+  /** The page under the finger, by the halfway rule. */
   const under = useRef(0);
   /** Page a label tap is scrolling to; until it gets there the scroll is not a swipe. */
   const target = useRef<number | null>(null);
@@ -111,7 +111,6 @@ export default function MessagesScreen() {
     (next: InboxPage) => {
       const i = ORDER.indexOf(next);
       if (i < 0 || next === pageRef.current) return;
-      hapticSwipe();
       target.current = i;
       under.current = i;
       show(i);
@@ -130,12 +129,11 @@ export default function MessagesScreen() {
             if (Math.abs(pos - target.current) < MARGIN) target.current = null;
             return;
           }
-          // A swipe: one knock each time the page under the finger changes, halfway across.
+          // A swipe: the page under the finger changes halfway across.
           if (Math.abs(pos - under.current) > 0.5 + MARGIN) {
             const i = Math.min(ORDER.length - 1, Math.max(0, Math.round(pos)));
             if (i !== under.current) {
               under.current = i;
-              hapticSwipe();
               show(i);
             }
           }

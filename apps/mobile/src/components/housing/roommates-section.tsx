@@ -1,6 +1,6 @@
-import { memo, useMemo, useRef } from "react";
-import { RefreshControl, Text, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import { budgetLabel, formatDate, formatDistance, isVerifiedPoster, KM_PER_MILE, listRoommatePosts, listingMedia, type PostEngagement, type RoommatePostWithAuthor } from "@apartment-book/shared";
+import { memo, useMemo, useRef, useState } from "react";
+import { RefreshControl, Text, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
+import { budgetLabel, formatDate, formatDistance, isVerifiedPoster, KM_PER_MILE, listRoommatePosts, listingMedia, videosFor, type PostEngagement, type RoommatePostWithAuthor } from "@apartment-book/shared";
 import type { RoommateFilters } from "@/components/housing/filter-sheet";
 import { OnlineStrip } from "@/components/online-strip";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
@@ -22,11 +22,12 @@ export type RoommateType = "has_room" | "needs_room";
 /**
  * One roommate post, memoised: only a row whose post, save or counts changed draws again as the feed scrolls and loads.
  */
-const RoommateRow = memo(function RoommateRow({ p, saved, engagement }: { p: RoommatePostWithAuthor; saved: boolean; engagement: PostEngagement | undefined }) {
+const RoommateRow = memo(function RoommateRow({ p, saved, engagement, playing }: { p: RoommatePostWithAuthor; saved: boolean; engagement: PostEngagement | undefined; playing: boolean }) {
   const colors = useColors();
   const budget = budgetLabel(p);
   return (
     <PostCard
+      active={playing}
       targetType="roommate"
       targetId={p.id}
       path={`/roommates/${p.id}`}
@@ -85,6 +86,14 @@ export function RoommatesSection({ topInset, onScroll, q, campus, type, filters,
   // Rows fade in once as they first arrive (not when scrolled back into view).
   const appearCells = useAppearingCells();
   useTabReselect(() => listRef.current?.scrollToOffset({ offset: inset.topOffset, animated: true }), active);
+  // One video tour plays at a time, the first post on screen (at least 60% of it) that has one, and only while this half
+  // of Explore is the one shown: sound is one switch for every video, so two playing at once would both be heard.
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const first = viewableItems.find((v) => v.isViewable && videosFor((v.item as RoommatePostWithAuthor).videos).length > 0);
+    setPlayingId(first ? String(first.key) : null);
+  }).current;
+  const viewability = useRef({ itemVisiblePercentThreshold: 60 }).current;
   const tabBar = useTabBarInset();
 
   return (
@@ -103,7 +112,9 @@ export function RoommatesSection({ topInset, onScroll, q, campus, type, filters,
           </View>
         }
         CellRendererComponent={appearCells}
-        renderItem={({ item: p }) => <RoommateRow p={p} saved={savedIds.has(p.id)} engagement={engagement[p.id]} />}
+        renderItem={({ item: p }) => <RoommateRow p={p} saved={savedIds.has(p.id)} engagement={engagement[p.id]} playing={active && playingId === p.id} />}
+        onViewableItemsChanged={onViewable}
+        viewabilityConfig={viewability}
         windowSize={9}
         initialNumToRender={3}
         maxToRenderPerBatch={4}

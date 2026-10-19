@@ -4,8 +4,9 @@ import { cancelAnimation, runOnJS, useSharedValue, withSpring, type SharedValue 
 
 /**
  * The full-screen viewer's swipe back. `drag` is how far the page on screen has been pulled sideways, in points (either
- * way); `close` finishes the way back once a pull is let go past the point of no return, given the finger's speed. Only
- * the viewer provides it: on the Reels tab a sideways swipe belongs to Home's own pages, and a page leaves it alone.
+ * way); `close` finishes the way back once a pull is let go past the point of no return, given the finger's speed: a
+ * worklet, called on the UI thread as the finger lets go, so the page goes on without waiting for JS. Only the viewer
+ * provides it: on the Reels tab a sideways swipe belongs to Home's own pages, and a page leaves it alone.
  */
 export type ViewerSwipe = { drag: SharedValue<number>; close: (velocityX: number) => void };
 export const ViewerSwipeContext = createContext<ViewerSwipe | null>(null);
@@ -136,7 +137,7 @@ export function usePageSwipe(width: number, slides: PageSlides | null) {
           } else if (mode.value === 2 && drag && close) {
             const pulled = drag.value;
             const far = Math.abs(pulled) > width * BACK_SHARE || (Math.abs(e.velocityX) > BACK_VELOCITY && Math.sign(e.velocityX) === Math.sign(pulled));
-            if (far) runOnJS(close)(e.velocityX);
+            if (far) close(e.velocityX);
             else drag.value = withSpring(0, { ...HOME_SPRING, velocity: e.velocityX });
           }
         })

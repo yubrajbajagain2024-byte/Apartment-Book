@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
 import { useRouter } from "expo-router";
-import { listFeedPosts, type FeedPostWithAuthor } from "@apartment-book/shared";
+import { listFeedPosts, videosFor, type FeedPostWithAuthor } from "@apartment-book/shared";
 import { CaughtUp } from "@/components/home/caught-up";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
@@ -40,8 +40,13 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
   const commentsOf = (id: string) => Math.max(0, (engagement[id]?.comments ?? 0) + (commentDelta[id] ?? 0));
   const commentingCount = commenting ? commentsOf(commenting.id) : 0;
   const target = useMemo<CommentsTarget | null>(() => (commenting ? { targetType: "post", targetId: commenting.id, ownerId: commenting.author.id, comments: commentingCount } : null), [commenting, commentingCount]);
-  const [visible, setVisible] = useState<Set<string>>(new Set());
-  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => setVisible(new Set(viewableItems.map((v) => String(v.key))))).current;
+  // One video plays at a time, the first row on screen (at least 60% of it) that has one: sound is one switch for every
+  // video, so two playing at once would both be heard.
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const first = viewableItems.find((v) => v.isViewable && videosFor((v.item as FeedPostWithAuthor).videos).length > 0);
+    setPlayingId(first ? String(first.key) : null);
+  }).current;
   const viewability = useRef({ itemVisiblePercentThreshold: 60 }).current;
   // The list starts under the floating bar and scrolls beneath it as the bar slides away.
   const inset = useMemo(() => listInset(topInset), [topInset]);
@@ -96,7 +101,9 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
             comments={commentsOf(p.id)}
             // Browsing every campus: say which university the post is from.
             subtitle={campusId ? undefined : (p.university?.name ?? undefined)}
-            active={active && visible.has(p.id)}
+            active={active && playingId === p.id}
+            // Opened full screen, its video is the one that plays here when the viewer closes.
+            onOpenVideo={() => setPlayingId(p.id)}
             onComments={() => (user ? setCommenting(p) : router.push("/(auth)/login"))}
             // For you lists the same posts: the event drops the row here (see onPostRemoved) and there.
             onDeleted={() => emitPostRemoved(p.id)}

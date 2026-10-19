@@ -95,7 +95,7 @@ export function SlidingTabs<T extends string>({
 
   // Each label is drawn in both looks, one over the other, and the two crossfade with the pager: label i keeps its active
   // look within a quarter page of page i and its resting look from three quarters of a page away, crossfading over the
-  // middle half of a swipe (where the haptic plays), so the two weights spend little time half-drawn over each other.
+  // middle half of a swipe (where the page under the finger changes), so the two weights spend little time half-drawn over each other.
   // Only once pageWidth > 0 (strictly increasing input range).
   const count = sections.length;
   const fades = useMemo(() => {

@@ -11,7 +11,6 @@ import { MarketplaceSection } from "@/components/housing/marketplace-section";
 import { RoommatesSection, type RoommateType } from "@/components/housing/roommates-section";
 import { SlidingTabs } from "@/components/sliding-tabs";
 import { useCollapsingHeader } from "@/lib/collapsing-header";
-import { hapticSwipe } from "@/lib/haptics";
 import { auroraGradient, radius, space, textStyle } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
@@ -45,7 +44,7 @@ type Pill = { key: string; label: string; icon?: keyof typeof Ionicons.glyphMap;
  * Home's sliding violet underline (each label centred in an equal third of the row), the inbox's search box under them
  * (it searches the page on screen), and the pills that narrow that page: All on Room, All | Has a room | Looking for a
  * room on Roommate, All and the item categories on Marketplace. The three pages sit side by side in a pager (a swipe or
- * a tap on a label moves between them, with Home's clear haptic each time the page changes); the labels, the box and
+ * a tap on a label moves between them, silently, like Home's); the labels, the box and
  * the pills float over it and slide up under the title as the page on screen scrolls down, back as soon as it scrolls up
  * (useCollapsingHeader). The floating "+" follows the visible page. A link to the tab can name the page to open
  * (?section=marketplace).
@@ -116,15 +115,14 @@ export default function HousingScreen() {
     [revealFloat, show, width],
   );
 
-  /** A label moves the pager to its page, with the same knock a swipe gives. */
+  /** A label moves the pager to its page. */
   function select(s: HousingSection) {
     const i = ORDER.indexOf(s);
     if (i < 0 || i === indexRef.current) return;
-    hapticSwipe();
     goTo(i);
   }
 
-  // A later link to the tab naming a page (the old /marketplace address, say) moves the pager there: no haptic for a move nobody made.
+  // A later link to the tab naming a page (the old /marketplace address, say) moves the pager there.
   const linked = useRef(params.section);
   useEffect(() => {
     if (params.section === linked.current) return;
@@ -145,12 +143,9 @@ export default function HousingScreen() {
       const lo = Math.max(0, Math.floor(pos + 0.02));
       const hi = Math.min(ORDER.length - 1, Math.ceil(pos - 0.02));
       setMounted((prev) => (prev.has(lo) && prev.has(hi) ? prev : new Set(prev).add(lo).add(hi)));
-      // The page under the finger changes at the halfway point of a swipe: one clear knock each time, like Home.
+      // The page under the finger changes at the halfway point of a swipe, like Home.
       const i = Math.min(ORDER.length - 1, Math.max(0, Math.round(pos)));
-      if (i !== indexRef.current) {
-        hapticSwipe();
-        show(i);
-      }
+      if (i !== indexRef.current) show(i);
     },
     [show, width],
   );
@@ -161,14 +156,11 @@ export default function HousingScreen() {
     target.current = null;
     if (width <= 0) return;
     const i = Math.min(ORDER.length - 1, Math.max(0, Math.round(e.nativeEvent.contentOffset.x / width)));
-    // A flick the scroll events missed still lands on another page: the knock plays here instead.
-    if (i !== indexRef.current) {
-      hapticSwipe();
-      show(i);
-    }
+    // A flick the scroll events missed still lands on another page.
+    if (i !== indexRef.current) show(i);
   }
 
-  /** A category pill (or the empty grid's "Search all categories"). The pills play no haptic: only a page change does. */
+  /** A category pill (or the empty grid's "Search all categories"). */
   function pickCategory(next: ItemCategoryValue | null) {
     if (next !== category) setCategory(next);
   }

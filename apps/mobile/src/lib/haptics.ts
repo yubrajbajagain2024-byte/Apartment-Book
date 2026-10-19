@@ -22,16 +22,6 @@ export function hapticSelect() {
   Haptics.selectionAsync().catch(() => {});
 }
 
-/**
- * A clear knock (a medium impact, noticeably firmer than the selection tick) when Home (For you | Buzz | Posts | Reels)
- * or Explore (Room | Roommate | Marketplace) moves to another section: once when the page under the finger changes
- * halfway through a swipe, or once for a tap on another label. Never for a move nobody made (opening Home on Reels after
- * posting a reel, a link naming an Explore page).
- */
-export function hapticSwipe() {
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-}
-
 /** The softest impact: a primary button committing (Log in, Post, Send), a refresh starting. */
 export function hapticSoft() {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});

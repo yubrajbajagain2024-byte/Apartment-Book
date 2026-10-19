@@ -24,7 +24,7 @@ the tab is on screen; the person icon signed out). It floats over the content as
 glass pill (`src/app/(tabs)/_layout.tsx`, its size in `src/lib/tab-bar.ts`): on iOS 26 real liquid glass, with what scrolls
 under it blurred through, elsewhere a translucent fill; the tab on screen sits in a soft aurora capsule with its icon filled. When you tap
 another tab the capsule glides there from the old one, never blinking or fading: its leading edge moves a beat ahead of its trailing edge,
-so it stretches a touch in flight and settles as it lands. The new tab's symbol bounces once with a selection tick, the tab you left returns
+so it stretches a touch in flight and settles as it lands. The new tab's symbol bounces once (silently: no haptic), the tab you left returns
 to its plain look with no bounce, and the tabs make room for the capsule, GroupMe style, on a critically damped spring
 (`src/components/floating-tab-bar.tsx`, on Reanimated); every tab's list and floating button keeps `tabBarInset` clear
 under it. Search (find accounts by name and follow them) is the second tab, under its own "Search" title
@@ -40,7 +40,7 @@ ring on the left, which opens your profile, with Instagram's small "+" badge on 
 (Post / Reel / Buzz; over Reels the bar's left slot holds a white "+" instead), the CampConnect wordmark in the middle (it
 reads "Following" while that feed shows) and Search on the right; then the three labels spread across the row
 (`src/components/sliding-tabs.tsx`): the active one bold with a rounded aurora underline as wide as the label, sliding
-with the finger over a hairline, and a soft haptic each time the section changes, by tap or swipe. Under the labels sits the Campus | Global
+with the finger over a hairline; moving between sections, by tap or swipe, plays no haptic. Under the labels sits the Campus | Global
 toggle, a small segmented pill whose thumb slides to the choice: Campus is your own university, Global every university (and,
 only while Posts has a tab, Following: the posts of people you follow, which switches to Posts); the choice scopes For you,
 Buzz, Posts and Reels alike (`src/lib/home-scope.ts`). Someone without a university has nothing to choose, so the row is not drawn.
@@ -49,7 +49,16 @@ the viewer (`src/app/reels/[id].tsx`), like Instagram. It does not slide in: the
 place in the feed, the grid or the chat to fill the screen while the screen behind fades to the page's colour (black
 behind a video, the theme's behind a photo; a see-through modal with no system animation; the page stays full size inside
 the growing frame, scaled so the picture keeps its size and crop), and on the way out (Back or Android's back) it shrinks
-back into the same place; opened from a link or a page other than the tapped one, it fades and scales out instead. A
+back into the same place; opened from a link or a page other than the tapped one, it fades and scales out instead. The
+first and last frames are the feed's own picture: the zoom waits, unseen, until the page has drawn the tapped picture (the
+photo's `onDisplay`, the video's first frame; a frame or two, 350ms at most, the feed's live picture showing meanwhile), so
+it never opens on a black frame or a photo still fading in, and no poster goes over a feed player that has drawn a frame
+(`hasDrawn`), even while it buffers or loops; a post partly under Home's floating bars opens out of (and lands on) only the
+band between them (`OpeningBand`, from a JS copy of the collapsing bar's position), the bars staying drawn over the rest;
+a video is lined up on the whole of its picture (`wholeVideo`: drawn whole, past the page's sides where it
+fills a phone taller than 9:16, and trimmed by the page, a carousel's slide or the zoom's opening), so the opening starts on
+exactly the feed's crop at the feed's size (the feed trims a vertical video's top and bottom, the viewer its sides) and lands
+back on it; and a video's shades and frost come and go with the words and the rail, never over the bare picture. A
 sideways swipe, either way, goes back too, under the finger (`usePageSwipe` in `src/lib/viewer-swipe.ts`): the page
 follows it, shrinking and rounding its corners as the screen it was opened from shows through, its words and buttons
 fading away; let go past about a third of the way, or with a flick, and it carries on, the page it was opened on shrinking
@@ -79,16 +88,45 @@ theme's ink where it sits on the page below; the top row, the status bar and the
 switching as a page's edge passes, and an opened description brings the page's colour up behind it. A tap pauses a video: a play button appears in the middle with the sound
 button just above it, both fading away again the moment it plays (the sound button keeps it paused). A post with several
 photos or videos swipes sideways on its page, with dots on a line of their own under the top row (its colours changing
-halfway through a swipe), and opens on the one that was showing in the feed; a video plays while its page and slide are on screen, and a double tap anywhere likes. A video tapped while it plays in the feed goes on in the viewer from where it
+halfway through a swipe), and opens on the one that was showing in the feed; a video plays while its page and slide are on screen, and a double tap anywhere likes. On iOS a video tapped while it plays in the feed is played on in the viewer by the
+feed's own player (`src/lib/video-handoff.ts`: lent as the viewer opens, in `openViewer`, so a tap that opens something
+else never lends it; counted, so the page showing it borrows it too, for as long as that page is in reach; given back as
+the viewer goes), so it opens on the very frame that was showing and never pauses, reloads or jumps, there or back. Neither
+side calls play or sets the sound on a player already doing the right thing; closing sets it playing first, so it is
+moving as it shrinks back (or as the page in front fades), and sends back no time, which could only make it seek; a feed
+row that goes while the viewer still holds its player (`useLendablePlayer`) lets it go only once it is back, and For you
+does not reload under the viewer (a Campus | Global choice made there applies once Home is back). Closing from another
+page pauses that page's own video, so only the one going back is heard; deleting the opened post stops its player. The
+zoom closed hides the page in the frame it lands, exactly on the feed's own live picture, and leaves two frames later: the
+copy of the screen react-native-screens keeps up while a modal goes is then see-through, never a frozen frame that skips
+ahead. The feed's
+sound button fades away as its video goes full screen and back once it returns, and the status bar takes the viewer's
+style only once the page covers most of the screen. Sound is one switch for every feed video, the Reels tab and the viewer
+(`src/lib/video-sound.ts`, muted to start), so a video keeps its sound exactly as it was in both directions; so that it is
+never heard twice, For you and Posts play one video at a time (the first row on screen that has one) and a carousel's
+videos play only while their screen is the one on show; every
+player mixes with other audio while muted (`audioMixingMode` "auto"; expo-video's native default stops the person's music
+for a muted video scrolling past). Each loop of a short clip still holds about 0.15–0.5s: expo-video loops an HLS stream by
+seeking back to its start, and neither a seek just before the end nor buffering changes help (measured); seamless loops
+need progressive MP4 renditions with `useCaching`, or a native looper in a development build. Elsewhere (Android cannot
+show one player in
+two places) it goes on in the viewer from where it
 had got to (`startAt`: the feed's poster, then the still from that moment, cover the jump), and the feed's own player
 goes on from wherever the viewer leaves it (`emitPostSlide` with a time) rather than starting again. Saved fills the
-bookmark in the rail's own colour. A swipe up moves on: a reel goes on
+bookmark in the rail's own colour. Swiping between pages never blinks: two pages ahead (and one behind) are laid out
+with their videos loaded and waiting (from the moment the zoom open has finished: until then only the page opened on
+has its player, frost and pictures, since a large photo or poster is decoded and resized on the main thread as it
+arrives, which made the zoom drop frames; profiled with Instruments), a video's still is its very first frame (Mux `time=0`) so the player takes over
+without a jump, and in dark mode the top row keeps one style over photos and videos alike. The bottom tab bar plays no
+haptic, and neither do Home's For you | Buzz | Reels, Explore's Room | Roommate | Marketplace and its "+", Messages'
+Chats | Groups, the profile's section tabs or the inbox's All | Unread | Requests pills. A swipe up moves on: a reel goes on
 into the Reels feed (only reels, page by page, the other campus choice keeping the page on screen while what follows comes
 from the new choice); a post in For you goes on down For you, its next pages loading as needed; a square in a profile grid
 (Posts, Reels, Saved, Liked) goes on through that grid; a saved post through your saved posts; a post's own screen and a
 post shared in a chat go on into the Reels feed. Words-only posts and listings keep their own screens, and anonymous Buzz
 threads never open here. The source hands its pages over (`src/lib/reel-viewer.ts`), so the viewer opens at once with the
-row's counts (a grid square, which knows only the post's id, loads its post as it comes near, its picture standing in), and
+row's counts (a grid square, which knows only the post's id, loads its post as it comes near, its picture standing in,
+the same view all along, until the loaded page has drawn its own: no black frame between the two), and
 what you like, save or comment there shows on the row when you come back (`emitPostEngagement` in `src/lib/posts-events.ts`);
 a post deleted there leaves the feeds too.
 The bar scrolls like Instagram's (`src/lib/collapsing-header.ts`): it slides up out of the way as the page on screen
@@ -106,8 +144,8 @@ results", counted on the button; rooms sort, bedrooms, rent, distance from campu
 posts a budget cap, who the post is open to, distance and video; items sort, condition and price), and the
 pills that narrow the page (All on Room, All | Has a room | Looking for a room on Roommate, All and the item
 categories on Marketplace); the labels and the pills slide up under the title as the page scrolls. It opens on Room, a swipe or a tap on the label above the
-pager moves to Roommate or the Marketplace and back (one clear haptic each time the page changes, by tap or swipe, like
-Home's), and the floating "+" follows the visible page ("List an apartment",
+pager moves to Roommate or the Marketplace and back (silently, by tap or swipe, like Home's), and the floating "+"
+(no haptic either) follows the visible page ("List an apartment",
 "Create roommate post" or "Sell an item"). The order comes from `HOUSING_SECTIONS` in `packages/shared/src/constants.ts`.
 The Marketplace page is the old Marketplace tab's grid, moved in whole (`src/components/housing/marketplace-section.tsx`):
 the same cards and hearts, its categories in the pills row, its search (applied
@@ -121,7 +159,7 @@ profiles once migration 21 is live, so publish this code (`npx eas-cli@latest up
 applying it. Comments open in a TikTok-style sheet: "N comments" up top with a Top / Newest sort, each comment with
 a heart and its count (a dislike stays private), Reply, replies folded behind "View N replies", the composer pinned at the
 bottom, and a hold on a comment for Reply / Report / Block / Delete (your own comment, or any comment on your post); a like on a
-post, a reel or a comment buzzes the phone through `expo-haptics` (`src/lib/haptics.ts`, with the selection tick of the Home labels too). The same file holds the rest of the vocabulary: a selection tick for the bottom tabs, chips, segments, switches and the sound buttons, the softest impact when a primary button commits or a list is pulled to refresh, success when something is published, and a warning or an error with the alerts that ask before a delete or report a failure (`alertWithHaptic`). Tapping the tab you are on scrolls its page back to the top, as on every iOS tab bar (`src/lib/tab-reselect.ts`).
+post, a reel or a comment buzzes the phone through `expo-haptics` (`src/lib/haptics.ts`). The same file holds the rest of the vocabulary: a selection tick for chips, segments, switches and the sound buttons, the softest impact when a primary button commits or a list is pulled to refresh, success when something is published, and a warning or an error with the alerts that ask before a delete or report a failure (`alertWithHaptic`). Tapping the tab you are on scrolls its page back to the top, as on every iOS tab bar (`src/lib/tab-reselect.ts`).
 The Share button on posts, reels and listings opens a sheet of your friends, the people you follow who follow you back
 (`src/components/share-sheet.tsx`, mounted once in `src/app/_layout.tsx`): search, tap one or more faces, add an optional
 note and Send, and each friend gets a chat message with the post as a card that opens it, the note under it; "Share to…"
@@ -148,7 +186,7 @@ who-can-see settings, `profile_classes`, likes readable only through functions, 
 The Messages tab is the inbox (`src/app/(tabs)/messages.tsx`): the new-message pencil in the top-right corner, the big
 "Messages" title, Chats | Groups with Home's sliding aurora underline, a rounded search box and the All | Unread |
 Requests pills (each with its count; Requests on Chats only), then the two pages side by side in a pager like Home's: a
-swipe or a tap on a label moves between your direct chats and your group chats, with the same knock. On Chats the row of
+swipe or a tap on a label moves between your direct chats and your group chats, silently, as on Home. On Chats the row of
 friends online now sits above the chats (photo, name, the time at the right, the last message under it, a hairline between
 rows; no @usernames anywhere in Messages, names only, though typing a handle still finds the chat). A long press on a row (or Chat
 info) mutes that person's messages everywhere or that group, and a group also offers every group chat at once, each for 1, 8 or
