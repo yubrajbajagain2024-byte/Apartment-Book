@@ -1,11 +1,12 @@
 import { type ReactNode } from "react";
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { compactCount, type FollowStats, type ProfileWithUniversity } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
-import { usePressScale } from "@/components/ui";
-import { radius, space, type } from "@/lib/theme";
+import { auroraGradient, radius, space, textStyle } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
+import { GlassIconButton } from "@/components/glass";
 
 /** Height of the pills beside the photo (Edit profile, Follow, Message…) and of the round Share button. */
 export const PROFILE_BUTTON_HEIGHT = 40;
@@ -14,14 +15,17 @@ export const PROFILE_BAR_ROW_HEIGHT = 44;
 /** How much of the cover shows under the status bar. */
 const COVER_HEIGHT = 112;
 const AVATAR_SIZE = 84;
-/** The ring the photo wears, in the screen's colour, where it hangs over the cover's bottom edge. */
+/**
+ * The ring the photo wears where it hangs over the cover's bottom edge: an aurora band, then a gap in the screen's
+ * colour, then the photo. The whole stays AVATAR_OUTER across, so nothing around it moves.
+ */
 const AVATAR_RING = 3;
+const AVATAR_GAP = 2.5;
 const AVATAR_OUTER = AVATAR_SIZE + AVATAR_RING * 2;
+const AVATAR_PHOTO = AVATAR_SIZE - AVATAR_GAP * 2;
 /** How far the photo hangs over the cover's bottom edge. */
 const AVATAR_OVERLAP = 42;
 const COVER_BUTTON = 38;
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /** The @handle, when the profile has one (profiles read before the username column existed have none). */
 export function profileHandle(profile: ProfileWithUniversity): string | null {
@@ -36,13 +40,8 @@ export type CoverAction = { icon: keyof typeof Ionicons.glyphMap; label: string;
  * right. The same fill over the cover and, once the cover has scrolled away, over the bar.
  */
 export function CoverButton({ icon, label, onPress }: CoverAction) {
-  const styles = useStyles();
-  const colors = useColors();
-  return (
-    <Pressable onPress={onPress} hitSlop={6} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.coverButton, pressed && { opacity: 0.6 }]}>
-      <Ionicons name={icon} size={22} color={colors.text} />
-    </Pressable>
-  );
+  // Liquid Glass over the cover, as the system draws bar buttons over content; Back stays silent, the others tap.
+  return <GlassIconButton icon={icon} label={label} onPress={onPress} variant="bar" size={COVER_BUTTON} iconSize={21} haptic={label === "Back" ? false : "tap"} />;
 }
 
 /**
@@ -73,35 +72,25 @@ export function ProfileFloatingBar({ topInset, name, left, right, opacity }: { t
   );
 }
 
-/** A hairline capsule beside the photo: Edit profile, Message. It sinks a touch under the finger, like every button. */
+/** A grey pill beside the photo: Edit profile, Message. */
 export function HeaderButton({ title, onPress, disabled, style }: { title: string; onPress: () => void; disabled?: boolean; style?: StyleProp<ViewStyle> }) {
   const styles = useStyles();
-  const press = usePressScale();
   return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={press.onPressIn}
-      onPressOut={press.onPressOut}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      accessibilityState={{ disabled: Boolean(disabled) }}
-      style={[styles.button, { opacity: disabled ? 0.5 : 1, transform: [{ scale: press.scale }] }, style]}
-    >
+    <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ disabled: Boolean(disabled) }} style={({ pressed }) => [styles.button, { opacity: disabled ? 0.5 : pressed ? 0.7 : 1 }, style]}>
       <Text style={styles.buttonText} numberOfLines={1}>
         {title}
       </Text>
-    </AnimatedPressable>
+    </Pressable>
   );
 }
 
-/** The round hairline button beside the capsules: Share profile on your own profile. */
+/** The round grey button beside the pills: Share profile on your own profile. */
 export function HeaderIconButton({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
   const styles = useStyles();
   const colors = useColors();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.button, styles.round, pressed && { opacity: 0.7 }]}>
-      <Ionicons name={icon} size={20} color={colors.text} />
+      <Icon name={icon} size={20} color={colors.text} />
     </Pressable>
   );
 }
@@ -147,7 +136,7 @@ export function ProfileHeader({
   const school = profile.university?.name ?? null;
   const study = [profile.program, profile.graduation_year ? `'${String(profile.graduation_year).slice(-2)}` : null].filter(Boolean).join(" · ");
   // No fade-in: every profile tab draws its own copy of this header, and a copy appearing mid-swipe must match the others at once.
-  const photo = <Avatar transition={0} name={profile.full_name} url={profile.avatar_url} size={AVATAR_SIZE} userId={own ? undefined : profile.id} online={own ? false : undefined} />;
+  const photo = <Avatar transition={0} name={profile.full_name} url={profile.avatar_url} size={AVATAR_PHOTO} userId={own ? undefined : profile.id} online={own ? false : undefined} />;
   const name = (
     <Text style={styles.name} numberOfLines={2} accessibilityRole={onAccount ? undefined : "header"}>
       {profile.full_name}
@@ -163,21 +152,23 @@ export function ProfileHeader({
 
       <View style={styles.headRow}>
         <View style={styles.avatarRing}>
-          {own && onChangePhoto ? (
-            <Pressable onPress={onChangePhoto} disabled={changingPhoto} accessibilityRole="button" accessibilityLabel="Change profile photo" accessibilityState={{ busy: Boolean(changingPhoto) }} style={({ pressed }) => pressed && { opacity: 0.85 }}>
-              {photo}
-              {changingPhoto ? (
-                <View style={styles.photoBusy}>
-                  <ActivityIndicator color={colors.onMedia} />
+          <View style={styles.avatarGap}>
+            {own && onChangePhoto ? (
+              <Pressable onPress={onChangePhoto} disabled={changingPhoto} accessibilityRole="button" accessibilityLabel="Change profile photo" accessibilityState={{ busy: Boolean(changingPhoto) }} style={({ pressed }) => pressed && { opacity: 0.85 }}>
+                {photo}
+                {changingPhoto ? (
+                  <View style={styles.photoBusy}>
+                    <ActivityIndicator color={colors.onMedia} />
+                  </View>
+                ) : null}
+                <View style={styles.plus}>
+                  <Icon name="add" size={16} color={colors.onBrand} />
                 </View>
-              ) : null}
-              <View style={styles.plus}>
-                <Ionicons name="add" size={16} color={colors.onBrand} />
-              </View>
-            </Pressable>
-          ) : (
-            photo
-          )}
+              </Pressable>
+            ) : (
+              photo
+            )}
+          </View>
         </View>
         <View style={styles.actions}>{actions}</View>
       </View>
@@ -186,7 +177,7 @@ export function ProfileHeader({
         {onAccount ? (
           <Pressable onPress={onAccount} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${profile.full_name}, account options`} style={({ pressed }) => [styles.nameRow, pressed && { opacity: 0.6 }]}>
             {name}
-            <Ionicons name="chevron-down" size={16} color={colors.muted} style={styles.nameChevron} />
+            <Icon name="chevron-down" size={16} color={colors.muted} style={styles.nameChevron} />
           </Pressable>
         ) : (
           <View style={styles.nameRow}>{name}</View>
@@ -197,7 +188,7 @@ export function ProfileHeader({
               @{handle}
             </Text>
             <Pressable onPress={onShowQr} hitSlop={10} accessibilityRole="button" accessibilityLabel="Show profile QR code" style={({ pressed }) => pressed && { opacity: 0.6 }}>
-              <Ionicons name="qr-code-outline" size={14} color={colors.muted} />
+              <Icon name="qr-code-outline" size={14} color={colors.muted} />
             </Pressable>
           </View>
         ) : null}
@@ -206,7 +197,7 @@ export function ProfileHeader({
           <View style={styles.chipRow}>
             {school ? (
               <View style={styles.chip}>
-                <Ionicons name="school-outline" size={13} color={colors.muted} />
+                <Icon name="school-outline" size={13} color={colors.muted} />
                 <Text style={styles.chipText} numberOfLines={1}>
                   {school}
                 </Text>
@@ -224,27 +215,24 @@ export function ProfileHeader({
 
         <View style={styles.stats}>
           <Stat n={posts} label={posts === 1 ? "Post" : "Posts"} />
-          <Stat n={follow.followers} label={follow.followers === 1 ? "Follower" : "Followers"} onPress={() => onOpenFollows("followers")} divider />
-          <Stat n={follow.following} label="Following" onPress={() => onOpenFollows("following")} divider />
-          <Stat n={likes} label={likes === 1 ? "Like" : "Likes"} divider />
+          <Stat n={follow.followers} label={follow.followers === 1 ? "Follower" : "Followers"} onPress={() => onOpenFollows("followers")} />
+          <Stat n={follow.following} label="Following" onPress={() => onOpenFollows("following")} />
+          <Stat n={likes} label={likes === 1 ? "Like" : "Likes"} />
         </View>
       </View>
     </View>
   );
 }
 
-/**
- * A serif number over an eyebrow; Followers and Following open the owner's lists (anyone else's mutual friends). Read out
- * as "243 Followers". `divider` draws the hairline between this stat and the one before it.
- */
-function Stat({ n, label, onPress, divider = false }: { n: number; label: string; onPress?: () => void; divider?: boolean }) {
+/** Bold number over a grey word; Followers and Following open the owner's lists (anyone else's mutual friends). Read out as "243 Followers". */
+function Stat({ n, label, onPress }: { n: number; label: string; onPress?: () => void }) {
   const styles = useStyles();
   return (
-    <Pressable onPress={onPress} disabled={!onPress} hitSlop={6} accessibilityRole={onPress ? "button" : "text"} accessibilityLabel={`${n} ${label}`} style={({ pressed }) => [styles.stat, divider && styles.statDivider, pressed && { opacity: 0.6 }]}>
-      <Text style={styles.statNumber} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+    <Pressable onPress={onPress} disabled={!onPress} hitSlop={6} accessibilityRole={onPress ? "button" : "text"} accessibilityLabel={`${n} ${label}`} style={({ pressed }) => [styles.stat, pressed && { opacity: 0.6 }]}>
+      <Text style={styles.statNumber} numberOfLines={1}>
         {compactCount(n)}
       </Text>
-      <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.2}>
+      <Text style={styles.statLabel} numberOfLines={1}>
         {label}
       </Text>
     </Pressable>
@@ -263,37 +251,35 @@ const useStyles = makeStyles((colors) => ({
   floatBar: { position: "absolute", top: 0, left: 0, right: 0 },
   floatBg: { backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   floatTitle: { position: "absolute", left: 60, right: 60, height: PROFILE_BAR_ROW_HEIGHT, alignItems: "center", justifyContent: "center" },
-  floatName: { ...type.headline, color: colors.text },
+  floatName: { ...textStyle.headline, color: colors.text },
   floatRow: { position: "absolute", left: 0, right: 0, height: PROFILE_BAR_ROW_HEIGHT, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 8 },
   coverButton: { width: COVER_BUTTON, height: COVER_BUTTON, borderRadius: COVER_BUTTON / 2, backgroundColor: colors.coverButton, alignItems: "center", justifyContent: "center" },
   coverButtonSpace: { width: COVER_BUTTON, height: COVER_BUTTON },
   // The photo hangs over the cover's bottom edge; the buttons sit beside it, level with its lower half.
   headRow: { flexDirection: "row", alignItems: "flex-end", paddingHorizontal: space.lg, marginTop: -AVATAR_OVERLAP, gap: space.md },
-  avatarRing: { width: AVATAR_OUTER, height: AVATAR_OUTER, borderRadius: AVATAR_OUTER / 2, padding: AVATAR_RING, backgroundColor: colors.bg },
-  photoBusy: { position: "absolute", top: 0, left: 0, width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
+  avatarRing: { width: AVATAR_OUTER, height: AVATAR_OUTER, borderRadius: AVATAR_OUTER / 2, padding: AVATAR_RING, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.auroraGlow, 135) },
+  avatarGap: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, padding: AVATAR_GAP, backgroundColor: colors.bg },
+  photoBusy: { position: "absolute", top: 0, left: 0, width: AVATAR_PHOTO, height: AVATAR_PHOTO, borderRadius: AVATAR_PHOTO / 2, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
   // The ring is the screen's own colour (the profile sits on bg), cutting the badge out of the photo.
-  plus: { position: "absolute", right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: colors.brand, borderWidth: 2.5, borderColor: colors.bg, alignItems: "center", justifyContent: "center" },
+  plus: { position: "absolute", right: -2, bottom: -2, width: 26, height: 26, borderRadius: 13, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.aurora, 135), borderWidth: 2.5, borderColor: colors.bg, alignItems: "center", justifyContent: "center" },
   actions: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: space.sm, paddingBottom: 6 },
-  // A hairline capsule, no fill: the ink Follow button beside it is the one thing that is filled.
-  button: { height: PROFILE_BUTTON_HEIGHT, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent", alignItems: "center", justifyContent: "center", paddingHorizontal: 18, flexShrink: 1 },
-  buttonText: { ...type.label, color: colors.text },
+  button: { height: PROFILE_BUTTON_HEIGHT, borderRadius: radius.pill, backgroundColor: colors.input, alignItems: "center", justifyContent: "center", paddingHorizontal: 20, flexShrink: 1 },
+  buttonText: { fontSize: 15, fontWeight: "700", color: colors.text },
   round: { width: PROFILE_BUTTON_HEIGHT, paddingHorizontal: 0, flexShrink: 0 },
   info: { paddingHorizontal: space.lg },
   nameRow: { marginTop: space.sm, flexDirection: "row", alignItems: "center", alignSelf: "flex-start", maxWidth: "100%" },
-  // The name in the serif: the one display line of the profile.
-  name: { ...type.title, color: colors.text, flexShrink: 1 },
+  name: { ...textStyle.title2, color: colors.text, flexShrink: 1 },
   nameChevron: { marginLeft: 4, marginTop: 3 },
   handleRow: { marginTop: 2, flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%" },
-  handle: { ...type.caption, fontSize: 14, color: colors.muted, flexShrink: 1 },
+  handle: { fontSize: 14, color: colors.muted, flexShrink: 1 },
   chipRow: { marginTop: 10, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: space.sm },
-  chip: { flexDirection: "row", alignItems: "center", gap: 5, height: 26, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, maxWidth: "100%" },
-  chipText: { ...type.label, fontSize: 12, color: colors.muted, flexShrink: 1 },
-  study: { ...type.caption, fontSize: 14, color: colors.text, flexShrink: 1 },
-  bio: { marginTop: 10, ...type.bodySmall, color: colors.text },
-  // The numbers: four columns between two hairlines, hairlines between them, no box.
-  stats: { marginTop: space.lg, flexDirection: "row", alignItems: "stretch", borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  stat: { flex: 1, alignItems: "center", gap: 2, paddingVertical: space.md, paddingHorizontal: 2 },
-  statDivider: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border },
-  statNumber: { ...type.headline, color: colors.text },
-  statLabel: { ...type.eyebrow, color: colors.muted },
+  chip: { flexDirection: "row", alignItems: "center", gap: 5, height: 26, paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: colors.input, maxWidth: "100%" },
+  chipText: { fontSize: 13, fontWeight: "600", color: colors.muted, flexShrink: 1 },
+  study: { fontSize: 14, color: colors.text, flexShrink: 1 },
+  bio: { marginTop: 10, fontSize: 15, lineHeight: 20, color: colors.text },
+  // The card with the numbers: a soft panel with four columns.
+  stats: { marginTop: 14, flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 4, borderRadius: 18, backgroundColor: colors.panel },
+  stat: { flex: 1, alignItems: "center", gap: 1, paddingHorizontal: 2 },
+  statNumber: { fontSize: 17, fontWeight: "700", color: colors.text, fontVariant: ["tabular-nums"] },
+  statLabel: { fontSize: 13, color: colors.muted },
 }));

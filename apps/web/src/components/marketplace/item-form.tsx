@@ -92,7 +92,7 @@ export function ItemForm({
         </CardBody>
       </Card>
 
-      <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-5">
+      <div className="flex items-center justify-end gap-3">
         <LinkButton href={initial ? `/marketplace/${initial.id}` : "/marketplace"} variant="ghost">
           Cancel
         </LinkButton>

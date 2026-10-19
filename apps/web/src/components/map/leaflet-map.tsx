@@ -43,18 +43,18 @@ function iconFor(kind: MapPin["kind"], label: string): L.DivIcon {
   if (kind === "campus") {
     return L.divIcon({
       className: "ab-marker",
-      html: `<span class="inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-gray-900 shadow-float ring-1 ring-gray-300">🎓 ${escapeHtml(label)}</span>`,
+      html: `<span class="inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-amber-500 px-2.5 py-1 text-xs font-bold text-white shadow-md ring-2 ring-white">🎓 ${escapeHtml(label)}</span>`,
     });
   }
   if (kind === "picker") {
     return L.divIcon({
       className: "ab-marker",
-      html: `<span class="block h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white bg-accent shadow-float"></span>`,
+      html: `<span class="block h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-white bg-red-600 shadow-md"></span>`,
     });
   }
   return L.divIcon({
     className: "ab-marker",
-    html: `<span class="inline-block -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-full bg-gray-900 px-2.5 py-1 text-xs font-semibold text-white shadow-float ring-2 ring-white hover:bg-gray-800">${escapeHtml(label)}</span>`,
+    html: `<span class="inline-block -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-full bg-brand-600 px-2.5 py-1 text-xs font-bold text-white shadow-md ring-2 ring-white hover:bg-brand-700">${escapeHtml(label)}</span>`,
   });
 }
 
@@ -108,17 +108,16 @@ export function LeafletMap({ center, zoom = DEFAULT_MAP_ZOOM, pins = [], fitToPi
       {pins.map((pin) => (
         <Marker key={pin.id} position={[pin.latitude, pin.longitude]} icon={iconFor(pin.kind, pin.label)} zIndexOffset={pin.kind === "campus" ? 1000 : 0}>
           {pin.title ? (
-            // The popup takes the card surface and ink through tokens (bg-card, text-ink), so it reads at night too.
-            <Popup className="[&_.leaflet-popup-content-wrapper]:rounded-[10px] [&_.leaflet-popup-content-wrapper]:bg-card [&_.leaflet-popup-content-wrapper]:text-ink [&_.leaflet-popup-content-wrapper]:shadow-float [&_.leaflet-popup-content-wrapper]:ring-1 [&_.leaflet-popup-content-wrapper]:ring-line [&_.leaflet-popup-tip]:bg-card">
+            <Popup>
               <div className="min-w-40 text-sm">
                 {pin.href ? (
-                  <a href={pin.href} className="font-semibold text-gray-900 underline-offset-4 hover:underline">
+                  <a href={pin.href} className="font-semibold text-brand-700 hover:underline">
                     {pin.title}
                   </a>
                 ) : (
-                  <span className="font-semibold text-gray-900">{pin.title}</span>
+                  <span className="font-semibold">{pin.title}</span>
                 )}
-                {pin.subtitle ? <p className="mt-0.5 text-gray-500">{pin.subtitle}</p> : null}
+                {pin.subtitle ? <p className="mt-0.5 text-gray-600">{pin.subtitle}</p> : null}
               </div>
             </Popup>
           ) : null}

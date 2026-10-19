@@ -91,8 +91,8 @@ export function ProfileForm({ profile, universities, welcome }: { profile: Profi
       </Card>
       <Card>
         <fieldset className="min-w-0" data-testid="privacy-settings">
-          <legend className="px-5 pt-4 font-display text-xl tracking-tight text-gray-900">Privacy</legend>
-          <p className="px-5 pt-1 text-sm text-gray-500">Choose who can open the Classes, Saved and Liked tabs on your profile. Friends are people you follow who follow you back.</p>
+          <legend className="px-5 pt-4 text-lg font-semibold text-gray-900">Privacy</legend>
+          <p className="px-5 pt-1 text-sm text-gray-600">Choose who can open the Classes, Saved and Liked tabs on your profile. Friends are people you follow who follow you back.</p>
           <div className="grid gap-4 px-5 py-4 sm:grid-cols-3">
             {PRIVACY_FIELDS.map(({ section, name }) => {
               const value = def(name, visibility[section]);
@@ -123,7 +123,7 @@ export function ProfileForm({ profile, universities, welcome }: { profile: Profi
 export function AddUniversityForm() {
   const [state, action, pending] = useActionState(addUniversityAction, null);
   return (
-    <details className="rounded-xl bg-white shadow-card ring-1 ring-gray-200">
+    <details className="rounded-xl bg-white shadow-sm ring-1 ring-gray-200">
       <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-gray-800">Can&apos;t find your university? Add it</summary>
       <form action={action} className="grid gap-3 border-t border-gray-100 px-5 py-4 sm:grid-cols-3">
         <div className="sm:col-span-3">

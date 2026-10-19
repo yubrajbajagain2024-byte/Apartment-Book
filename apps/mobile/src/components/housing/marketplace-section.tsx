@@ -6,19 +6,20 @@ import type { MarketFilters } from "@/components/housing/filter-sheet";
 import type { CampusChoice } from "@/components/marketplace/campus-menu";
 import { categoryIcon, MarketItemCard } from "@/components/marketplace/item-card";
 import { useItemLikes } from "@/components/marketplace/use-item-likes";
-import { Button, EmptyState, ErrorBanner, Skeleton } from "@/components/ui";
+import { Button, EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useTabBarInset } from "@/lib/tab-bar";
-import { radius, space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { useTabReselect } from "@/lib/tab-reselect";
+import { refreshWithHaptic } from "@/lib/haptics";
 
 const PAGE_SIZE = 20;
-/** Space at the sides of the grid (the posts' gutter) and between its cards. */
-const SIDE = space.lg;
-const GAP = space.md;
+/** Space at the sides of the grid and between its cards. */
+const SIDE = 12;
+const GAP = 12;
 /** The grid searches once typing pauses this long. */
 const SEARCH_DELAY_MS = 300;
 
@@ -34,21 +35,6 @@ function useSettled(text: string, ms: number): string {
     return () => clearTimeout(timer);
   }, [text, ms]);
   return settled;
-}
-
-/** The shape of the grid while its first page loads: two rows of card-sized grey squares, so the page keeps its layout instead of a spinner. */
-function GridSkeleton({ columns, size }: { columns: number; size: number }) {
-  return (
-    <View accessibilityLabel="Loading" style={{ gap: GAP }}>
-      {[0, 1].map((row) => (
-        <View key={row} style={{ flexDirection: "row", gap: GAP }}>
-          {Array.from({ length: columns }, (_, i) => (
-            <Skeleton key={i} width={size} height={size} style={{ borderRadius: radius.md }} />
-          ))}
-        </View>
-      ))}
-    </View>
-  );
 }
 
 /**
@@ -70,6 +56,7 @@ export function MarketplaceSection({
   onSearchBusy,
   filters,
   filtered,
+  active = true,
 }: {
   topInset: number;
   onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
@@ -81,6 +68,8 @@ export function MarketplaceSection({
   /** The filter sheet's choices for this page: sort, condition and price. */
   filters: MarketFilters;
   filtered: boolean;
+  /** The page on screen: only then does a tap on the Explore tab scroll it back to the top. */
+  active?: boolean;
 }) {
   const styles = useStyles();
   const colors = useColors();
@@ -113,6 +102,10 @@ export function MarketplaceSection({
 
   // Another campus, category or search starts the grid from the top.
   const list = useRef<FlatList<ItemWithSeller>>(null);
+  // Rows fade in once as they first arrive (not when scrolled back into view).
+  const appearCells = useAppearingCells();
+  // Tapping Explore again while the Marketplace is on screen: back to the top.
+  useTabReselect(() => list.current?.scrollToOffset({ offset: inset.topOffset, animated: true }), active);
   useEffect(() => {
     list.current?.scrollToOffset({ offset: inset.topOffset, animated: false });
   }, [settled, universityId, category, filters, inset.topOffset]);
@@ -153,7 +146,7 @@ export function MarketplaceSection({
   );
 
   function empty() {
-    if (feed.loading) return <GridSkeleton columns={columns} size={cardWidth} />;
+    if (feed.loading) return <Loading />;
     if (feed.error)
       return (
         <View style={styles.pad}>
@@ -202,12 +195,13 @@ export function MarketplaceSection({
         onScroll={onScroll}
         scrollEventThrottle={16}
         contentContainerStyle={[styles.grid, { paddingTop: 2 + inset.paddingTop, paddingBottom: 24 + tabBar }, feed.items.length === 0 && styles.gridEmpty]}
+        CellRendererComponent={appearCells}
         renderItem={renderItem}
         ListEmptyComponent={empty()}
         ListFooterComponent={footer()}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
-        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={onRefresh} progressViewOffset={inset.progressViewOffset} />}
+        refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={refreshWithHaptic(onRefresh)} progressViewOffset={inset.progressViewOffset} />}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
       />
@@ -221,6 +215,6 @@ const useStyles = makeStyles(() => ({
   gridRow: { gap: GAP },
   // An empty grid fills the screen, so its message sits in the middle.
   gridEmpty: { flexGrow: 1 },
-  pad: { paddingVertical: space.md },
-  footer: { paddingVertical: space.lg },
+  pad: { paddingVertical: SIDE },
+  footer: { paddingVertical: 16 },
 }));

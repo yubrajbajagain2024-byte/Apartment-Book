@@ -75,17 +75,18 @@ export function FollowButton({ targetId, stats, userId, onNeedLogin, compact, on
     <Button
       title={label}
       variant={follow.followedByMe ? "secondary" : "primary"}
-      size={compact ? "sm" : "md"}
       icon={compact ? undefined : follow.followedByMe ? "checkmark" : "person-add-outline"}
       accessibilityLabel={label}
       accessibilityState={{ selected: follow.followedByMe }}
       disabled={follow.pending}
       onPress={() => void follow.toggle()}
+      size={compact ? "compact" : "regular"}
       style={[compact && styles.compact, style]}
     />
   );
 }
 
 const styles = StyleSheet.create({
+  // Wide enough for "Following" and "Follow back", so a row's button never changes width when tapped.
   compact: { minWidth: 104 },
 });

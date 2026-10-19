@@ -1,26 +1,77 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
 import { useRouter } from "expo-router";
-import { listForYou, type FeedPostWithAuthor, type ForYouItem } from "@apartment-book/shared";
+import { listForYou, reelFromFeedPost, type FeedPostWithAuthor, type ForYouItem, type PostEngagement } from "@apartment-book/shared";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
-import { EmptyState, ErrorBanner, FeedSkeleton } from "@/components/ui";
+import { EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
 import { useTabBarInset } from "@/lib/tab-bar";
 import { errorText } from "@/lib/hooks";
 import { emitPostRemoved, onPostRemoved, takeForYouStale } from "@/lib/posts-events";
+import { entryOf, forYouAfter, openReel, openViewer, viewerItemFromPost, type ViewerEntry, type ViewerOrigin } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { space, type } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { CaughtUp } from "./caught-up";
 import { InstaPost } from "./insta-post";
 import { markReelsStale } from "./reels-section";
+import { useTabReselect } from "@/lib/tab-reselect";
+import { refreshWithHaptic } from "@/lib/haptics";
 
 /** The list's key: posts and reels share one table, so the id alone tells rows apart. */
 const keyOf = (post: ForYouItem) => post.id;
+
+/**
+ * How much of the feed stays mounted around the screen: a post is nearly a screen tall and carries photos or a video,
+ * so four screens each way (not FlatList's ten) keeps memory and the JS thread free while a fling still never shows a gap.
+ */
+const WINDOW = { windowSize: 9, initialNumToRender: 3, maxToRenderPerBatch: 4, updateCellsBatchingPeriod: 40 } as const;
+
+/**
+ * One row, memoised: scrolling changes which posts are on screen (and so which videos play), and only the rows whose
+ * own props changed draw again, not every post in the window. The callbacks take the post, so they stay the same.
+ */
+const ForYouRow = memo(function ForYouRow({
+  item,
+  saved,
+  engagement,
+  preview,
+  comments,
+  subtitle,
+  active,
+  onOpenComments,
+  onRemoved,
+  onOpenViewer,
+}: {
+  item: ForYouItem;
+  saved: boolean;
+  engagement: PostEngagement | undefined;
+  preview: ReturnType<typeof usePostPreviews>["previews"][string] | undefined;
+  comments: number;
+  subtitle: string | undefined;
+  active: boolean;
+  onOpenComments: (item: ForYouItem) => void;
+  onRemoved: (item: ForYouItem) => void;
+  onOpenViewer: (item: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin; time: number | null }) => void;
+}) {
+  return (
+    <InstaPost
+      post={item}
+      saved={saved}
+      engagement={engagement}
+      preview={preview}
+      comments={comments}
+      subtitle={subtitle}
+      active={active}
+      onComments={() => onOpenComments(item)}
+      onDeleted={() => onRemoved(item)}
+      onOpen={(live) => onOpenViewer(item, live)}
+    />
+  );
+});
 
 /**
  * Home → For you, the landing page: posts and reels blended into one list (listForYou). Rows reuse the Instagram-style
@@ -123,6 +174,10 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
   // Coming back to For you keeps the list and the scroll position. It reloads only when something new was published
   // while another page was showing: a post or a reel by this person.
   const listRef = useRef<FlatList<ForYouItem>>(null);
+  // Rows fade in once as they first arrive (not when scrolled back into view).
+  const appearCells = useAppearingCells();
+  // Tapping Home again while For you is on screen: back to the top, as on every iOS tab (the bar slides back with it).
+  useTabReselect(() => listRef.current?.scrollToOffset({ offset: inset.topOffset, animated: true }), active);
   const wasActive = useRef(active);
   useEffect(() => {
     // The first load on mount already includes anything posted before.
@@ -137,6 +192,54 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
   }, [active, refresh, inset.topOffset]);
   // A post deleted on its own screen disappears here without a reload.
   useEffect(() => onPostRemoved((id) => setItems((prev) => prev.filter((p) => p.id !== id))), []);
+
+  const openComments = useCallback((item: ForYouItem) => (user ? setCommenting(item) : router.push("/(auth)/login")), [user, router]);
+  // Posts and Reels list the same row: the event drops it here (see onPostRemoved) and there.
+  const removeRow = useCallback((item: ForYouItem) => {
+    if (item.kind === "reel") markReelsStale();
+    emitPostRemoved(item.id);
+  }, []);
+
+  // The latest list, counts and saves, read when a row is tapped, so the handler can stay the same for the memoised rows.
+  const latest = useRef({ items, engagement, savedIds, commentsOf, hasMore });
+  latest.current = { items, engagement, savedIds, commentsOf, hasMore };
+  /**
+   * A tap on a post's photo or video: the viewer opens on it with For you's other posts with pictures around it, in feed
+   * order (a swipe up goes on down the feed, its next pages loading as needed). A reel opens on its own, followed by the
+   * Reels feed, as it always has. A video goes on from where it had got to here (`live.time`), rather than starting again.
+   */
+  const openInViewer = useCallback(
+    (tapped: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin; time: number | null }) => {
+      if (tapped.kind === "reel") {
+        const reel = reelFromFeedPost(tapped, live.engagement, live.saved);
+        if (reel) openReel(router, reel, live.origin, live.time ?? undefined);
+        return;
+      }
+      const { items: list, engagement: counts, savedIds: saved, commentsOf: commentCount, hasMore: more } = latest.current;
+      const entries: ViewerEntry[] = [];
+      let index = -1;
+      for (const p of list) {
+        const isTapped = p.id === tapped.id;
+        const e = isTapped ? live.engagement : { likes: counts[p.id]?.likes ?? 0, comments: commentCount(p.id), likedByMe: counts[p.id]?.likedByMe ?? false };
+        const item = viewerItemFromPost(p, e, isTapped ? live.saved : saved.has(p.id));
+        if (!item) continue;
+        if (isTapped) index = entries.length;
+        entries.push(entryOf(item, isTapped ? live.slide : undefined, isTapped ? (live.time ?? undefined) : undefined));
+      }
+      if (index < 0) return;
+      openViewer(router, {
+        entries,
+        index,
+        origin: live.origin,
+        then: {
+          more: forYouAfter({ universityId, userId, page: page.current, hasMore: more, seen: new Set(list.map((p) => p.id)) }),
+          // The other campus choice in the viewer: For you's feed for it, from its first page.
+          rescope: (nextUniversity, seen) => forYouAfter({ universityId: nextUniversity, userId, page: 0, hasMore: true, seen }),
+        },
+      });
+    },
+    [router, universityId, userId],
+  );
 
   function closeComments() {
     // The line under the post shows the newest comment: reload it for the post that was open.
@@ -162,9 +265,11 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
             </View>
           ) : null
         }
+        CellRendererComponent={appearCells}
+        {...WINDOW}
         renderItem={({ item }) => (
-          <InstaPost
-            post={item}
+          <ForYouRow
+            item={item}
             saved={savedIds.has(item.id)}
             engagement={engagement[item.id]}
             preview={previews[item.id]}
@@ -172,17 +277,14 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
             // Browsing every campus: say which university the post is from.
             subtitle={universityId ? undefined : (item.university?.name ?? undefined)}
             active={active && visible.has(item.id)}
-            onComments={() => (user ? setCommenting(item) : router.push("/(auth)/login"))}
-            // Posts and Reels list the same row: the event drops it here (see onPostRemoved) and there.
-            onDeleted={() => {
-              if (item.kind === "reel") markReelsStale();
-              emitPostRemoved(item.id);
-            }}
+            onOpenComments={openComments}
+            onRemoved={removeRow}
+            onOpenViewer={openInViewer}
           />
         )}
         ListEmptyComponent={
           loading ? (
-            <FeedSkeleton />
+            <Loading />
           ) : error ? (
             <View style={styles.banner}>
               <ErrorBanner message={error} onRetry={refresh} />
@@ -193,9 +295,9 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
         }
         ListFooterComponent={
           loadingMore ? (
-            <ActivityIndicator color={colors.muted} style={{ paddingVertical: space.lg }} />
+            <ActivityIndicator color={colors.brand} style={{ paddingVertical: 12 }} />
           ) : moreError ? (
-            <Pressable onPress={fetchMore} accessibilityRole="button" style={({ pressed }) => [{ paddingVertical: space.md }, pressed && { opacity: 0.7 }]}>
+            <Pressable onPress={fetchMore} accessibilityRole="button" style={{ paddingVertical: 12 }}>
               <Text style={styles.retry}>Could not load more. Tap to try again.</Text>
             </Pressable>
           ) : !hasMore && items.length > 0 ? (
@@ -206,7 +308,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
         onEndReachedThreshold={0.6}
         onViewableItemsChanged={onViewable}
         viewabilityConfig={viewability}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} progressViewOffset={inset.progressViewOffset} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshWithHaptic(refresh)} progressViewOffset={inset.progressViewOffset} />}
       />
       <CommentsSheet target={target} onClose={closeComments} onCountChange={(d) => commenting && setCommentDelta((prev) => ({ ...prev, [commenting.id]: (prev[commenting.id] ?? 0) + d }))} />
     </View>
@@ -214,6 +316,6 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
 }
 
 const useStyles = makeStyles((colors) => ({
-  banner: { paddingHorizontal: FEED_HEADER_PADDING, paddingTop: space.sm },
-  retry: { ...type.label, fontSize: 13, textAlign: "center", color: colors.muted },
+  banner: { paddingHorizontal: FEED_HEADER_PADDING, paddingTop: 10 },
+  retry: { textAlign: "center", color: colors.brand, fontSize: 13, fontWeight: "600" },
 }));

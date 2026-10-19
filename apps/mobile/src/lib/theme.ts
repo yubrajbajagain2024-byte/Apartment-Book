@@ -1,87 +1,61 @@
-import type { TextStyle, ViewStyle } from "react-native";
+// Colours live in palette.ts and come from the theme (useColors() / makeStyles() in theme-provider.tsx),
+// so they follow Light, Dark and System Default. Sizes stay here because they are the same in both themes.
+export const radius = { sm: 8, md: 12, lg: 16, pill: 999 };
+export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };
 
 /**
- * CampConnect's design system, the parts that are the same in both themes. Colours live in palette.ts and come from
- * the theme (useColors() / makeStyles() in theme-provider.tsx), so they follow Light, Dark and System Default.
- *
- * The look: quiet luxury. Warm ivory and near-black surfaces, ink for what matters and one violet accent used
- * sparingly, hairlines rather than boxes, an editorial serif (Playfair Display) for the wordmark and titles over the
- * platform's own sans for everything you read and tap, corners kept modest, shadows barely there, and motion on soft
- * springs. Nothing here is decoration: every value is a size, a weight or a rhythm the screens share.
+ * Apple's text styles at the default size, with UIKit's line heights: one scale for every screen, so a heading, a
+ * list row and a caption read the same wherever they appear. Titles are bold (700), like the system's navigation large
+ * titles; nothing in the app goes heavier except the CampConnect wordmark. The system font (SF Pro) brings its own
+ * optical tracking, so none of these set letterSpacing.
  */
-
-/** Corner radii: modest, so cards and controls read as crafted rather than bubbly. `pill` is for capsules only. */
-export const radius = { xs: 4, sm: 6, md: 10, lg: 14, xl: 20, pill: 999 };
-
-/** The spacing rhythm, on a 4pt grid. */
-export const space = { xxs: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 };
-
-/**
- * The faces loaded in app/_layout.tsx (assets/fonts): Playfair Display for display text, the system face (SF on iOS,
- * Roboto on Android) for everything else. A display style names its face and never sets fontWeight: iOS would look
- * for another weight inside a family that holds just one.
- */
-export const fonts = {
-  display: "PlayfairDisplay-SemiBold",
-  displayMedium: "PlayfairDisplay-Medium",
-  displayBold: "PlayfairDisplay-Bold",
-  displayItalic: "PlayfairDisplay-MediumItalic",
-} as const;
-
-/** The font files, keyed by the family names above. */
-export const FONT_FILES = {
-  [fonts.display]: require("../../assets/fonts/PlayfairDisplay-SemiBold.ttf"),
-  [fonts.displayMedium]: require("../../assets/fonts/PlayfairDisplay-Medium.ttf"),
-  [fonts.displayBold]: require("../../assets/fonts/PlayfairDisplay-Bold.ttf"),
-  [fonts.displayItalic]: require("../../assets/fonts/PlayfairDisplay-MediumItalic.ttf"),
+export const textStyle = {
+  largeTitle: { fontSize: 34, lineHeight: 41, fontWeight: "700" },
+  title1: { fontSize: 28, lineHeight: 34, fontWeight: "700" },
+  title2: { fontSize: 22, lineHeight: 28, fontWeight: "700" },
+  title3: { fontSize: 20, lineHeight: 25, fontWeight: "700" },
+  headline: { fontSize: 17, lineHeight: 22, fontWeight: "600" },
+  body: { fontSize: 17, lineHeight: 22 },
+  callout: { fontSize: 16, lineHeight: 21 },
+  subheadline: { fontSize: 15, lineHeight: 20 },
+  footnote: { fontSize: 13, lineHeight: 18 },
+  caption1: { fontSize: 12, lineHeight: 16 },
+  caption2: { fontSize: 11, lineHeight: 13 },
 } as const;
 
 /**
- * The type scale. Display and title are the serif (screen titles, the wordmark, big numbers, the headline of an empty
- * state); the rest is the system face. Sizes are points before the phone's text-size setting.
+ * iOS's continuous ("squircle") corner: the curvature eases into the straight edge instead of meeting it at a kink, as
+ * on every Apple surface. Same radii as before; circles and capsules keep their plain arcs.
  */
-export const type = {
-  /** The largest serif: a welcome, a profile's name. */
-  display: { fontFamily: fonts.display, fontSize: 32, lineHeight: 38, letterSpacing: -0.5 },
-  /** Screen titles in the app's own bars, the Home wordmark. */
-  title: { fontFamily: fonts.display, fontSize: 24, lineHeight: 30, letterSpacing: -0.3 },
-  /** A serif heading inside a page: an empty state's headline, a sheet's title. */
-  headline: { fontFamily: fonts.display, fontSize: 20, lineHeight: 26, letterSpacing: -0.2 },
-  /** A quiet serif aside: "You're all caught up." */
-  aside: { fontFamily: fonts.displayItalic, fontSize: 16, lineHeight: 22 },
-  /** Sans headings: a card's title, a section heading. */
-  heading: { fontSize: 17, lineHeight: 22, fontWeight: "700" as const, letterSpacing: -0.2 },
-  /** A row's main line: names. */
-  subheading: { fontSize: 15, lineHeight: 20, fontWeight: "600" as const },
-  body: { fontSize: 16, lineHeight: 22 },
-  bodySmall: { fontSize: 15, lineHeight: 21 },
-  /** Buttons, chips, tabs. */
-  label: { fontSize: 14, lineHeight: 18, fontWeight: "600" as const },
-  /** Times, metadata, helper text. */
-  caption: { fontSize: 13, lineHeight: 18 },
-  footnote: { fontSize: 12, lineHeight: 16 },
-  /** A tracked small-caps label above a section or a stat: the editorial eyebrow. */
-  eyebrow: { fontSize: 11, lineHeight: 14, fontWeight: "700" as const, letterSpacing: 1.1, textTransform: "uppercase" as const },
-} satisfies Record<string, TextStyle>;
+export const continuous = { borderCurve: "continuous" } as const;
+
+/** Where the aurora's four stops sit: cyan only at the leading edge, blue and periwinkle across the middle (where a label sits), violet at the end. */
+const AURORA_AT = [0, 34, 68, 100] as const;
 
 /**
- * Depth, kept faint: a card's lift in light (dark mode draws hairlines instead, see makeStyles callers), a floating
- * control's shadow, and the sheet's. iOS shadow props; `elevation` for Android.
+ * The Aurora as a CSS gradient for `experimental_backgroundImage`: pass `colors.aurora` (fills under white words) or
+ * `colors.auroraGlow` (rings, underlines). `angle` follows CSS: 90 runs left to right, 135 corner to corner.
  */
-export const shadows = {
-  card: { shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
-  float: { shadowOpacity: 0.14, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 6 },
-  sheet: { shadowOpacity: 0.18, shadowRadius: 24, shadowOffset: { width: 0, height: -4 }, elevation: 12 },
-} satisfies Record<string, ViewStyle>;
+export function auroraGradient(stops: readonly string[], angle = 110): string {
+  return `linear-gradient(${angle}deg, ${stops.map((c, i) => `${c} ${AURORA_AT[i] ?? 100}%`).join(", ")})`;
+}
 
-/** Motion: one soft spring for everything that settles, and how far a control sinks under the finger. */
+/** An iOS 26 sheet at a partial height: it floats inset from the screen's sides and bottom, its corners concentric with the phone's. */
+export const sheetShape = { marginHorizontal: 8, marginBottom: 8, borderRadius: 34, borderCurve: "continuous", overflow: "hidden" } as const;
+
+/**
+ * Motion, after UIKit's springs: `spring` settles without a visible overshoot, `snappy` answers a finger at once
+ * (selection thumbs), and a control sinks to `pressScale` while it is held. Everything is still under Reduce Motion
+ * (see lib/accessibility).
+ */
 export const motion = {
   spring: { damping: 18, stiffness: 240, mass: 0.7 },
-  /** For Animated.spring (the legacy API): the same feel. */
+  snappy: { damping: 24, stiffness: 380, mass: 0.6 },
+  /** UIKit's sheet presentation: critically damped (no bounce) with a response of about 0.37s. */
+  sheet: { damping: 34, stiffness: 290, mass: 1 },
+  /** How long a sheet takes to leave, accelerating away like the system's own. */
+  sheetOut: 240,
   legacySpring: { friction: 7, tension: 160, useNativeDriver: true },
   pressScale: 0.97,
-  /** Durations in ms for timing animations: a fade, a slide. */
-  fast: 140,
   base: 220,
-  slow: 320,
 } as const;

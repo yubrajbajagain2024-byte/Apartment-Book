@@ -1,11 +1,13 @@
-import { memo, useCallback } from "react";
+import { memo, useCallback, useRef } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { compactCount, type ProfileTile, type ProfileTileType } from "@apartment-book/shared";
-import { radius, space, type } from "@/lib/theme";
+import { entryForPost, measureOrigin, openViewer, type ViewerOrigin } from "@/lib/reel-viewer";
+import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 /** What VoiceOver calls each kind of square: "Reel: Move-in day…". */
 export const TILE_TYPE_LABELS: Record<ProfileTileType, string> = { post: "Post", reel: "Reel", apartment: "Apartment", roommate: "Roommate post", item: "Item" };
@@ -13,7 +15,7 @@ export const TILE_TYPE_LABELS: Record<ProfileTileType, string> = { post: "Post",
 export const TILE_ASPECT = 4 / 3;
 export const REEL_ASPECT = 16 / 9;
 /** The squares' rounded corners. */
-export const TILE_RADIUS = radius.md;
+export const TILE_RADIUS = 10;
 
 type ListingType = "apartment" | "roommate" | "item";
 const LISTING_ICONS: Record<ListingType, keyof typeof Ionicons.glyphMap> = { apartment: "home", roommate: "people", item: "pricetag" };
@@ -29,12 +31,25 @@ export function tileLabel(tile: ProfileTile): string {
   return `${TILE_TYPE_LABELS[tile.type]}: ${words}${tile.pinned ? ", pinned" : ""}${views}`;
 }
 
-/** Opens a square's own screen: a post or reel on the post screen, a listing on its detail screen. */
+/** A post or reel square with a picture: one the full-screen viewer can show (a words-only post keeps its own screen). */
+function opensFullScreen(tile: ProfileTile): boolean {
+  return (tile.type === "post" || tile.type === "reel") && (tile.imageUrl !== null || tile.isVideo);
+}
+
+/**
+ * Opens a square: a post or reel with a picture full screen in the viewer, with the grid's other posts and reels (in the
+ * grid's order) above and below it to swipe through, as Instagram opens a profile's grid; a words-only post on the post
+ * screen; a listing on its detail screen. `tiles` is the grid the square was tapped in.
+ */
 export function useOpenTile() {
   const router = useRouter();
   return useCallback(
-    (tile: ProfileTile) => {
-      if (tile.type === "post" || tile.type === "reel") router.push({ pathname: "/posts/[id]", params: { id: tile.id } });
+    (tile: ProfileTile, tiles?: readonly ProfileTile[], origin?: ViewerOrigin) => {
+      if (opensFullScreen(tile)) {
+        const list = (tiles ?? [tile]).filter(opensFullScreen);
+        const index = Math.max(0, list.findIndex((t) => t.key === tile.key));
+        openViewer(router, { entries: list.map((t) => entryForPost(t.id, t.imageUrl)), index, then: "end", origin });
+      } else if (tile.type === "post" || tile.type === "reel") router.push({ pathname: "/posts/[id]", params: { id: tile.id } });
       else if (tile.type === "apartment") router.push({ pathname: "/apartments/[id]", params: { id: tile.id } });
       else if (tile.type === "roommate") router.push({ pathname: "/roommates/[id]", params: { id: tile.id } });
       else router.push({ pathname: "/marketplace/[id]", params: { id: tile.id } });
@@ -49,8 +64,10 @@ export function useOpenTile() {
  * stack icon of several photos. A words-only post, or a listing without photos, shows its words on a soft background.
  * `onLongPress` is only given for your own posts and reels (Pin to profile).
  */
-export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspect = TILE_ASPECT, onOpen, onLongPress }: { tile: ProfileTile; width: number; aspect?: number; onOpen: (tile: ProfileTile) => void; onLongPress?: (tile: ProfileTile) => void }) {
+export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspect = TILE_ASPECT, onOpen, onLongPress }: { tile: ProfileTile; width: number; aspect?: number; onOpen: (tile: ProfileTile, origin?: ViewerOrigin) => void; onLongPress?: (tile: ProfileTile) => void }) {
   const styles = useStyles();
+  /** The square's frame, measured when it is tapped so the viewer can zoom open from it. */
+  const self = useRef<View>(null);
   const colors = useColors();
   const listing = isListing(tile.type) ? tile.type : null;
   const pinLabel = tile.pinned ? "Unpin from profile" : "Pin to profile";
@@ -59,7 +76,8 @@ export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspe
   const inkShadow = tile.imageUrl ? styles.iconShadow : null;
   return (
     <Pressable
-      onPress={() => onOpen(tile)}
+      ref={self}
+      onPress={() => void measureOrigin(self.current, TILE_RADIUS).then((origin) => onOpen(tile, origin))}
       onLongPress={onLongPress ? () => onLongPress(tile) : undefined}
       delayLongPress={350}
       accessibilityRole="button"
@@ -78,25 +96,25 @@ export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspe
         </View>
       ) : (
         <View style={styles.blank}>
-          <Ionicons name={tile.isVideo ? "play" : "image-outline"} size={26} color={colors.faint} />
+          <Icon name={tile.isVideo ? "play" : "image-outline"} size={26} color={colors.faint} />
         </View>
       )}
 
       {tile.views !== null ? (
         <View style={styles.views} pointerEvents="none">
-          <Ionicons name={tile.isVideo ? "play" : "eye-outline"} size={13} color={ink} style={inkShadow} />
+          <Icon name={tile.isVideo ? "play" : "eye-outline"} size={13} color={ink} style={inkShadow} />
           <Text style={[styles.viewsText, { color: ink }, inkShadow]}>{compactCount(tile.views)}</Text>
         </View>
       ) : listing ? (
         <View style={styles.views} pointerEvents="none">
-          <Ionicons name={LISTING_ICONS[listing]} size={13} color={ink} style={inkShadow} />
+          <Icon name={LISTING_ICONS[listing]} size={13} color={ink} style={inkShadow} />
         </View>
       ) : null}
 
       {tile.pinned ? (
-        <Ionicons name="pin" size={16} color={ink} style={[styles.corner, inkShadow]} />
+        <Icon name="pin" size={16} color={ink} style={[styles.corner, inkShadow]} />
       ) : tile.multiPhoto ? (
-        <Ionicons name="copy" size={15} color={ink} style={[styles.corner, inkShadow]} />
+        <Icon name="copy" size={15} color={ink} style={[styles.corner, inkShadow]} />
       ) : null}
     </Pressable>
   );
@@ -124,19 +142,19 @@ export const ListingGridTile = memo(function ListingGridTile({ tile, width, aspe
         </>
       ) : (
         <View style={styles.listingBlank}>
-          <Ionicons name={LISTING_ICONS[kind]} size={28} color={colors.faint} />
+          <Icon name={LISTING_ICONS[kind]} size={28} color={colors.faint} />
         </View>
       )}
 
       {tile.isVideo ? (
-        <Ionicons name="play" size={15} color={ink} style={[styles.corner, inkShadow]} />
+        <Icon name="play" size={15} color={ink} style={[styles.corner, inkShadow]} />
       ) : tile.multiPhoto ? (
-        <Ionicons name="copy" size={15} color={ink} style={[styles.corner, inkShadow]} />
+        <Icon name="copy" size={15} color={ink} style={[styles.corner, inkShadow]} />
       ) : null}
 
       <View style={styles.listingText} pointerEvents="none">
         <View style={styles.listingKindRow}>
-          <Ionicons name={LISTING_ICONS[kind]} size={11} color={ink} style={inkShadow} />
+          <Icon name={LISTING_ICONS[kind]} size={11} color={ink} style={inkShadow} />
           <Text style={[styles.listingKind, { color: ink }, inkShadow]} numberOfLines={1}>
             {LISTING_KINDS[kind]}
           </Text>
@@ -151,12 +169,12 @@ export const ListingGridTile = memo(function ListingGridTile({ tile, width, aspe
 
 // The soft grey fills (words-only and blank squares) are input: bg is now the screen itself.
 const useStyles = makeStyles((colors) => ({
-  tile: { backgroundColor: colors.skeleton, overflow: "hidden", borderRadius: TILE_RADIUS },
+  tile: { backgroundColor: colors.border, overflow: "hidden", borderRadius: TILE_RADIUS, borderCurve: "continuous" },
   words: { flex: 1, backgroundColor: colors.input, padding: space.sm, justifyContent: "center" },
-  wordsText: { ...type.caption, lineHeight: 17, color: colors.text, fontWeight: "500" },
+  wordsText: { fontSize: 13, lineHeight: 17, color: colors.text, fontWeight: "500" },
   blank: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.input },
   views: { position: "absolute", left: 8, bottom: 7, flexDirection: "row", alignItems: "center", gap: 4 },
-  viewsText: { ...type.footnote, fontWeight: "700" },
+  viewsText: { fontSize: 12, fontWeight: "700" },
   iconShadow: { textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
   corner: { position: "absolute", top: 8, right: 8 },
   // The fade under a listing's kind and title: from clear to the photo-pill dark, drawn as a real gradient (no seams).

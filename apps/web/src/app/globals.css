@@ -1,230 +1,66 @@
 @import "tailwindcss";
 
-/*
- * CampConnect's design system on the website: quiet luxury. Warm ivory surfaces and near-black ink by day, near-black
- * surfaces and warm white ink at night (the browser's own appearance decides), one violet accent used sparingly,
- * bronze for the verified, hairlines rather than boxes, an editorial serif (Playfair Display) for the wordmark and
- * titles over Geist for everything read and clicked.
- *
- * The tokens below are the only colours. Tailwind's grey, brand, red, green and amber scales point at them (the
- * `@theme inline` block), so every utility already in the components (text-gray-900, bg-brand-600, ring-gray-200…)
- * draws the system's colour in both schemes without a dark: variant anywhere.
- */
-:root {
-  color-scheme: light dark;
-  --cc-bg: #f7f6f3;
-  --cc-card: #ffffff;
-  --cc-elevated: #ffffff;
-  --cc-input: #edebe6;
-  --cc-panel: #f1efea;
-  --cc-skeleton: #eceae4;
-  --cc-ink: #121214;
-  --cc-ink-2: #2e2e33;
-  --cc-ink-3: #55555b;
-  --cc-muted: #6b6b71;
-  --cc-faint: #9d9da4;
-  --cc-line: #e6e4de;
-  --cc-line-strong: #d6d3cb;
-  --cc-on-ink: #ffffff;
-  --cc-accent: #5b4bdb;
-  --cc-accent-ink: #4336b8;
-  --cc-accent-soft: #ece9fb;
-  --cc-accent-ring: #cdc6f5;
-  --cc-verified: #a8884a;
-  --cc-like: #d8405a;
-  --cc-red: #d23b4b;
-  --cc-red-fill: #c8323f;
-  --cc-red-soft: #fbecec;
-  --cc-red-ink: #8e2430;
-  --cc-green: #2f9e5b;
-  --cc-green-soft: #e8f4ec;
-  --cc-green-ink: #1f6b3b;
-  --cc-amber: #c79a2e;
-  --cc-amber-soft: #fbf3df;
-  --cc-amber-ink: #7a5614;
-  --cc-shadow: 18 18 20;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --cc-bg: #0b0b0c;
-    --cc-card: #151517;
-    --cc-elevated: #1a1a1d;
-    --cc-input: #1e1e21;
-    --cc-panel: #151517;
-    --cc-skeleton: #202023;
-    --cc-ink: #f3f2ee;
-    --cc-ink-2: #d9d8d3;
-    --cc-ink-3: #bdbcb8;
-    --cc-muted: #a4a4aa;
-    --cc-faint: #6e6e75;
-    --cc-line: #262629;
-    --cc-line-strong: #343438;
-    --cc-on-ink: #0b0b0c;
-    --cc-accent: #9a8cff;
-    --cc-accent-ink: #b9aeff;
-    --cc-accent-soft: #1f1c33;
-    --cc-accent-ring: #3d3670;
-    --cc-verified: #d4b36a;
-    --cc-like: #ff5a73;
-    --cc-red: #ff5563;
-    --cc-red-fill: #c8323f;
-    --cc-red-soft: #3a1a1e;
-    --cc-red-ink: #ffb3bb;
-    --cc-green: #4cc273;
-    --cc-green-soft: #143022;
-    --cc-green-ink: #8ce0a8;
-    --cc-amber: #e6b84a;
-    --cc-amber-soft: #3a2e12;
-    --cc-amber-ink: #f2d27a;
-    --cc-shadow: 0 0 0;
-  }
-}
-
-@theme inline {
-  --color-surface: var(--cc-bg);
-  --color-card: var(--cc-card);
-  --color-elevated: var(--cc-elevated);
-  --color-ink: var(--cc-ink);
-  --color-muted: var(--cc-muted);
-  --color-line: var(--cc-line);
-  --color-accent: var(--cc-accent);
-  --color-accent-100: var(--cc-accent-soft);
-  --color-accent-500: var(--cc-accent);
-  --color-accent-600: var(--cc-accent-ink);
-  --color-verified: var(--cc-verified);
-  --color-like: var(--cc-like);
-  /* Text on an ink fill that must not flip with the scheme (a chip that turns ink when chosen). */
-  --color-on-ink: var(--cc-on-ink);
-  /* The grey scale is the surface-and-ink ladder: 50 a hover wash, 100 a field, 200 a hairline, 400 to 900 text from faint to ink. */
-  --color-gray-50: var(--cc-panel);
-  --color-gray-100: var(--cc-input);
-  --color-gray-200: var(--cc-line);
-  --color-gray-300: var(--cc-line-strong);
-  --color-gray-400: var(--cc-faint);
-  --color-gray-500: var(--cc-muted);
-  --color-gray-600: var(--cc-ink-3);
-  --color-gray-700: var(--cc-ink-2);
-  --color-gray-800: var(--cc-ink-2);
-  --color-gray-900: var(--cc-ink);
-  --color-gray-950: var(--cc-ink);
-  /* Brand is ink (buttons, links, the active tab); the lighter steps are the accent's soft washes and rings. */
-  --color-brand-50: var(--cc-accent-soft);
-  --color-brand-100: var(--cc-accent-soft);
-  --color-brand-200: var(--cc-accent-ring);
-  --color-brand-500: var(--cc-accent);
-  --color-brand-600: var(--cc-ink);
-  --color-brand-700: var(--cc-ink-2);
-  --color-brand-800: var(--cc-ink);
-  --color-red-50: var(--cc-red-soft);
-  --color-red-100: var(--cc-red-soft);
-  --color-red-200: var(--cc-red-soft);
-  --color-red-500: var(--cc-red);
-  --color-red-600: var(--cc-red);
-  --color-red-700: var(--cc-red-ink);
-  --color-red-800: var(--cc-red-ink);
-  --color-green-50: var(--cc-green-soft);
-  --color-green-100: var(--cc-green-soft);
-  --color-green-200: var(--cc-green-soft);
-  --color-green-500: var(--cc-green);
-  --color-green-600: var(--cc-green);
-  --color-green-700: var(--cc-green-ink);
-  --color-green-800: var(--cc-green-ink);
-  --color-amber-50: var(--cc-amber-soft);
-  --color-amber-100: var(--cc-amber-soft);
-  --color-amber-200: var(--cc-amber-soft);
-  --color-amber-500: var(--cc-amber);
-  --color-amber-600: var(--cc-amber);
-  --color-amber-700: var(--cc-amber-ink);
-  --color-amber-800: var(--cc-amber-ink);
+@theme {
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-500: #2b7de9;
+  /* The aurora's blue stop: 4.7:1 on white, so blue words and links pass AA. */
+  --color-brand-600: #166fe5;
+  --color-brand-700: #1565d8;
+  --color-brand-800: #0f4fb0;
+  --color-surface: #f0f2f5;
+  /* CampConnect's signature, the Aurora: cyan, sky blue, periwinkle, violet (the same stops as the app's palette). */
+  --color-aurora-cyan: #0a83a6;
+  --color-aurora-blue: #166fe5;
+  --color-aurora-periwinkle: #5468ee;
+  --color-aurora-violet: #8250ea;
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-playfair), "Playfair Display", Georgia, "Times New Roman", serif;
-  --shadow-card: 0 4px 12px rgb(var(--cc-shadow) / 0.05);
-  --shadow-float: 0 8px 24px rgb(var(--cc-shadow) / 0.12);
-  --shadow-sheet: 0 -6px 24px rgb(var(--cc-shadow) / 0.14);
-  /* Corners kept modest: rounded-lg is a control, rounded-xl and rounded-2xl a card, rounded-3xl a sheet. */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
-  --radius-xl: 14px;
-  --radius-2xl: 14px;
-  --radius-3xl: 20px;
 }
 
 html {
-  color-scheme: light dark;
+  color-scheme: light;
+  /* Every control draws its own pressed state, so Safari's grey tap flash would only double it. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  background: var(--cc-bg);
-  color: var(--cc-ink);
+  background: var(--color-surface);
+  color: #1c1e21;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
-::selection {
-  background: var(--cc-accent-soft);
-  color: var(--cc-ink);
+/* In the base layer, so any component's own classes still win over these defaults. */
+@layer base {
+  ::selection {
+    background: var(--color-brand-100);
+  }
+  /* Keyboard focus on links and menu rows gets the brand ring the buttons already have. */
+  :where(a, summary, [role="menuitem"], [role="tab"], [role="option"]):focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
 }
 
-/* The surfaces the components call white are the card colour: a white card by day, a near-black one at night. */
-@media (prefers-color-scheme: dark) {
-  .bg-white,
-  .hover\:bg-white:hover,
-  .focus\:bg-white:focus {
-    background-color: var(--cc-card);
-  }
-  .bg-white\/95,
-  .bg-white\/90,
-  .bg-white\/85,
-  .bg-white\/80 {
-    background-color: color-mix(in srgb, var(--cc-card) 88%, transparent);
-  }
-  .ring-white {
-    --tw-ring-color: var(--cc-card);
-  }
-  .border-white {
-    border-color: var(--cc-card);
-  }
-  .divide-white > :not(:last-child) {
-    border-color: var(--cc-card);
-  }
-  /* Ink fills keep ink-coloured words on them: white ink carries near-black text at night. */
-  .bg-brand-600,
-  .bg-brand-700,
-  .bg-brand-800,
-  .bg-gray-900,
-  .bg-gray-800,
-  .hover\:bg-brand-700:hover,
-  .hover\:bg-gray-800:hover {
-    color: var(--cc-on-ink);
-  }
-  .shadow-sm,
-  .shadow,
-  .shadow-md,
-  .shadow-lg,
-  .shadow-xl {
-    --tw-shadow: 0 0 #0000;
-    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
-  }
+/*
+ * The Aurora, used sparingly: primary buttons (not the small ones that repeat down a list), the logo mark, the active
+ * tab's underline and the ring around a profile photo. Cyan only at the leading edge, blue and periwinkle across the
+ * middle where a label sits (white words stay at 4.5:1 or more), violet at the end. Pair it with a solid bg-brand-600
+ * underneath, which shows wherever a gradient is not drawn.
+ */
+@utility bg-aurora {
+  background-image: linear-gradient(110deg, var(--color-aurora-cyan) 0%, var(--color-aurora-blue) 34%, var(--color-aurora-periwinkle) 68%, var(--color-aurora-violet) 100%);
+}
+@utility bg-aurora-line {
+  background-image: linear-gradient(90deg, var(--color-aurora-cyan) 0%, var(--color-aurora-blue) 34%, var(--color-aurora-periwinkle) 68%, var(--color-aurora-violet) 100%);
 }
 
 /* Thin scrollbars for the chat panes */
 .scrollbar-thin {
   scrollbar-width: thin;
-}
-
-/* Leaflet popups take the card surface, so a pin's card reads in both schemes. */
-.leaflet-popup-content-wrapper,
-.leaflet-popup-tip {
-  background: var(--cc-card);
-  color: var(--cc-ink);
-  box-shadow: 0 8px 24px rgb(var(--cc-shadow) / 0.12);
-}
-.leaflet-popup-content-wrapper {
-  border-radius: 14px;
-  border: 1px solid var(--cc-line);
 }
 
 /* Leaflet div icons: no fixed size, the label inside defines the box */
@@ -248,9 +84,9 @@ body {
   100% { background-position: 200% 0; }
 }
 .ab-skeleton {
-  background: linear-gradient(90deg, var(--cc-skeleton) 25%, var(--cc-panel) 50%, var(--cc-skeleton) 75%);
+  background: linear-gradient(90deg, #e9ebee 25%, #f5f6f7 50%, #e9ebee 75%);
   background-size: 200% 100%;
-  animation: ab-shimmer 1.6s ease-in-out infinite;
+  animation: ab-shimmer 1.4s ease-in-out infinite;
 }
 
 @keyframes ab-burst {
@@ -273,25 +109,45 @@ body {
   animation: ab-burst 900ms ease-out forwards;
 }
 
+/* Apple's curve for things that arrive: off the mark at once, then a long, gentle settle. */
 @keyframes ab-fade-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .ab-fade-in {
-  animation: ab-fade-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: ab-fade-in 340ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
-/* A control sinks a touch under the pointer; the whole site shares the one spring-like curve. */
-.ab-press {
-  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+/* A sheet or dialog rises into place over a backdrop that fades in under it. */
+@keyframes ab-sheet-in {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-.ab-press:active {
-  transform: scale(0.97);
+.ab-sheet-in {
+  animation: ab-sheet-in 380ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes ab-scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.ab-scrim-in {
+  animation: ab-scrim-in 240ms ease-out both;
+}
+
+/*
+ * A menu grows out of its button. The corner it grows from comes from an origin-* class on the menu: this rule sits
+ * outside Tailwind's layers, so a transform-origin set here would override those classes.
+ */
+@keyframes ab-menu-in {
+  from { opacity: 0; scale: 0.95; }
+  to { opacity: 1; scale: 1; }
+}
+.ab-menu-in {
+  animation: ab-menu-in 180ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ab-skeleton, .ab-burst, .ab-pop, .ab-fade-in { animation: none; }
-  .ab-press, .ab-press:active { transition: none; transform: none; }
+  .ab-skeleton, .ab-burst, .ab-pop, .ab-fade-in, .ab-sheet-in, .ab-scrim-in, .ab-menu-in { animation: none; }
   /* Without its animation the burst heart would sit over the video for good. */
   .ab-burst { display: none; }
 }

@@ -155,7 +155,7 @@ export function VideoUploader({
                       <span className="text-xs font-semibold">{item.status === "uploading" ? `Uploading ${item.progress}%` : "Processing…"}</span>
                       {item.status === "uploading" ? (
                         <span className="h-1.5 w-3/4 overflow-hidden rounded-full bg-white/30">
-                          <span className="block h-full bg-white transition-all" style={{ width: `${item.progress}%` }} />
+                          <span className="block h-full bg-brand-500 transition-all" style={{ width: `${item.progress}%` }} />
                         </span>
                       ) : (
                         <span className="text-[11px] text-white/80">Making streaming versions</span>
@@ -181,20 +181,20 @@ export function VideoUploader({
         <div className="flex flex-wrap gap-2">
           {tour ? (
             <Button type="button" onClick={() => setRecording(true)}>
-              <Camera className="h-4 w-4" strokeWidth={1.75} /> Record a tour
+              <Camera className="h-4 w-4" /> Record a tour
             </Button>
           ) : null}
-          <label className="ab-press inline-flex h-11 cursor-pointer items-center gap-2 rounded-[10px] px-5 text-sm font-semibold text-gray-900 ring-1 ring-gray-300 transition-colors hover:bg-gray-50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gray-400">
-            <Upload className="h-4 w-4" strokeWidth={1.75} /> Upload a video
+          <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg bg-gray-200 px-4 text-sm font-semibold text-gray-900 hover:bg-gray-300">
+            <Upload className="h-4 w-4" /> Upload a video
             <input type="file" accept="video/*,.mov,.mp4,.m4v,.webm" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void addFile(f); e.target.value = ""; }} />
           </label>
-          <label className="ab-press inline-flex h-11 cursor-pointer items-center gap-2 rounded-[10px] px-5 text-sm font-semibold text-gray-900 ring-1 ring-gray-300 transition-colors hover:bg-gray-50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gray-400 md:hidden">
-            <Camera className="h-4 w-4" strokeWidth={1.75} /> Camera app
+          <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg bg-gray-200 px-4 text-sm font-semibold text-gray-900 hover:bg-gray-300 md:hidden">
+            <Camera className="h-4 w-4" /> Camera app
             <input type="file" accept="video/*" capture="environment" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void addFile(f); e.target.value = ""; }} />
           </label>
         </div>
       ) : null}
-      <p className="text-xs leading-relaxed text-gray-500">
+      <p className="text-xs text-gray-500">
         {tour ? "Walk through the front door, living room, kitchen, bedroom, bathroom and the view. " : ""}
         Any phone video works (iPhone .mov included), up to 2 GB. The original is uploaded untouched and streams at the best quality each viewer&apos;s connection allows.
       </p>

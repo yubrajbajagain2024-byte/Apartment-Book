@@ -111,11 +111,11 @@ export function BuzzMenu({
 
   return (
     <div ref={rootRef} className={cn("relative shrink-0", className, open && "z-50")}>
-      <button ref={buttonRef} type="button" onClick={toggle} aria-label={label} aria-haspopup="menu" aria-expanded={open} aria-controls={open ? menuId : undefined} className="ab-press flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-900">
+      <button ref={buttonRef} type="button" onClick={toggle} aria-label={label} aria-haspopup="menu" aria-expanded={open} aria-controls={open ? menuId : undefined} className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-900">
         <MoreHorizontal className="h-5 w-5" />
       </button>
       {open && pos ? (
-        <div id={menuId} role="menu" aria-label={label} style={{ top: pos.top, right: pos.right }} className="ab-fade-in fixed z-50 w-60 rounded-[14px] bg-white p-1.5 shadow-float ring-1 ring-gray-200">
+        <div id={menuId} role="menu" aria-label={label} style={{ top: pos.top, right: pos.right }} className="ab-menu-in fixed z-50 w-60 origin-top-right rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200">
           {report ? (
             !signedIn ? (
               <a role="menuitem" href={login} className={item}>
@@ -220,7 +220,7 @@ function BuzzThumb({ media, href, alt, priority, small }: { media: FeedMedia[]; 
   if (!first) return null;
   const src = first.type === "video" ? first.poster : first.url;
   return (
-    <Link href={href} tabIndex={-1} aria-hidden="true" className={cn("relative z-10 shrink-0 overflow-hidden rounded-lg bg-gray-100 ring-1 ring-gray-200", small ? "h-[54px] w-[72px]" : "h-[72px] w-24")} data-testid="buzz-thumb">
+    <Link href={href} tabIndex={-1} aria-hidden="true" className={cn("relative z-10 shrink-0 overflow-hidden rounded-xl bg-gray-100 ring-1 ring-black/5", small ? "h-[54px] w-[72px]" : "h-[72px] w-24")} data-testid="buzz-thumb">
       {src ? <Image src={src} alt={alt} fill sizes="96px" priority={priority} className="object-cover" /> : null}
       {first.type === "video" ? (
         <span className="absolute bottom-1 left-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white">
@@ -265,11 +265,11 @@ export function BuzzRow({
   const media = listingMedia(post.images, post.imageMeta, post.videos);
 
   return (
-    <article className="relative px-4 pb-3 pt-2.5 transition-colors hover:bg-gray-50" data-testid="buzz-card">
+    <article className="relative px-4 pb-2.5 pt-2 transition-colors hover:bg-gray-50" data-testid="buzz-card">
       <div className="flex items-center gap-2">
         <Link href={topicHref ? topicHref(post.topic) : `${BUZZ_HOME}&topic=${post.topic}`} className="relative z-10 flex min-w-0 items-center gap-2 hover:underline">
           <BuzzTopicIcon topic={post.topic} />
-          <span className="truncate text-[13px] font-semibold text-gray-700">{buzzTopicLabel(post.topic)}</span>
+          <span className="truncate text-[13px] font-bold text-gray-900">{buzzTopicLabel(post.topic)}</span>
         </Link>
         <BuzzAge iso={post.createdAt} className="shrink-0 text-[13px] text-gray-500" />
         <BuzzBadges isMine={post.isMine} />
@@ -278,13 +278,13 @@ export function BuzzRow({
 
       <div className="mt-0.5 flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h2 className="font-display text-[19px] leading-snug tracking-tight text-gray-900 [overflow-wrap:anywhere]">
+          <h2 className="text-[17px] font-bold leading-snug text-gray-900 [overflow-wrap:anywhere]">
             {/* The title link covers the whole row; the pills and the menu sit above it. */}
             <Link href={href} className="after:absolute after:inset-0">
               {post.title}
             </Link>
           </h2>
-          {post.body ? <p className="mt-1 line-clamp-3 whitespace-pre-line text-sm leading-snug text-gray-500 [overflow-wrap:anywhere]">{post.body}</p> : null}
+          {post.body ? <p className="mt-1 line-clamp-3 whitespace-pre-line text-sm leading-snug text-gray-600 [overflow-wrap:anywhere]">{post.body}</p> : null}
         </div>
         <BuzzThumb media={media} href={href} alt={post.title} priority={priority} />
       </div>
@@ -312,7 +312,7 @@ export function BuzzSearchRow({ post }: { post: BuzzPost }) {
           <BuzzAge iso={post.createdAt} className="shrink-0" />
           <BuzzBadges isMine={post.isMine} />
         </div>
-        <h2 className="mt-1.5 font-display text-[17px] leading-snug tracking-tight text-gray-900 [overflow-wrap:anywhere]">
+        <h2 className="mt-1.5 text-base leading-snug text-gray-900 [overflow-wrap:anywhere]">
           <Link href={href} className="after:absolute after:inset-0">
             {post.title}
           </Link>
@@ -342,11 +342,11 @@ export function BuzzPostBlock({ post, signedIn, replyCount }: { post: BuzzPost; 
       <div className="flex items-center gap-2.5 px-4">
         <BuzzTopicIcon topic={post.topic} size="md" />
         <div className="min-w-0 text-[13px] leading-tight">
-          <Link href={`${BUZZ_HOME}&topic=${post.topic}`} className="font-semibold text-gray-700 hover:underline">
+          <Link href={`${BUZZ_HOME}&topic=${post.topic}`} className="font-bold text-gray-700 hover:underline">
             {buzzTopicLabel(post.topic)}
           </Link>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-gray-500">
-            <span className="font-medium text-accent">{post.alias}</span>
+            <span className="font-medium text-brand-700">{post.alias}</span>
             <span aria-hidden="true">•</span>
             <BuzzAge iso={post.createdAt} />
             <BuzzBadges isOp isMine={post.isMine} />
@@ -354,7 +354,7 @@ export function BuzzPostBlock({ post, signedIn, replyCount }: { post: BuzzPost; 
         </div>
       </div>
 
-      <h1 className="mt-3 px-4 font-display text-[26px] leading-tight tracking-tight text-gray-900 [overflow-wrap:anywhere]">{post.title}</h1>
+      <h1 className="mt-2.5 px-4 text-[22px] font-bold leading-tight text-gray-900 [overflow-wrap:anywhere]">{post.title}</h1>
       {post.body ? <p className="mt-2 whitespace-pre-wrap px-4 text-[15px] leading-relaxed text-gray-900 [overflow-wrap:anywhere]">{post.body}</p> : null}
 
       {/* Photos and video run from one edge of the column to the other, with no box around them. */}

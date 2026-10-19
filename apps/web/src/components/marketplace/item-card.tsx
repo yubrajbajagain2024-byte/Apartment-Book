@@ -25,7 +25,7 @@ export function ItemCard({
   const [burst, setBurst] = useState(0);
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-[14px] bg-white shadow-card ring-1 ring-gray-200 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-float">
+    <article className="group relative flex flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200 transition-shadow hover:shadow-md">
       <div className="relative">
         <PhotoCarousel
           photos={photos}
@@ -39,25 +39,27 @@ export function ItemCard({
             setBurst((b) => b + 1);
           }}
         >
+          <div className="pointer-events-none absolute bottom-2 left-2 z-20 rounded-full bg-black/65 px-2.5 py-1 text-sm font-bold text-white backdrop-blur">
+            {item.price === 0 ? "Free" : formatPrice(item.price, item.currency)}
+          </div>
           {item.status !== "available" ? (
-            <div className="pointer-events-none absolute left-2.5 top-2.5 z-20">
+            <div className="pointer-events-none absolute left-2 top-2 z-20">
               <Badge tone="amber">{item.status}</Badge>
             </div>
           ) : null}
           <SaveBurst key={burst} show={burst > 0} />
         </PhotoCarousel>
-        <div className="absolute right-2.5 top-2.5 z-20">
-          <SaveToggleButton controller={save} size="sm" />
+        <div className="absolute right-2 top-2 z-20">
+          <SaveToggleButton controller={save} size="sm" className="bg-white/90 shadow" />
         </div>
       </div>
-      <div className="flex flex-1 items-start gap-1 p-3">
-        <Link href={href} className="flex min-w-0 flex-1 flex-col gap-1">
-          <p className="font-display text-lg leading-none tracking-tight text-gray-900">{item.price === 0 ? "Free" : formatPrice(item.price, item.currency)}</p>
-          <h3 className="line-clamp-2 text-sm font-medium leading-snug text-gray-900">{item.title}</h3>
-          <p className="truncate text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">
+      <div className="flex flex-1 items-start gap-1 p-2.5">
+        <Link href={href} className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900">{item.title}</h3>
+          <p className="truncate text-xs text-gray-500">
             {labelFor(ITEM_CONDITIONS, item.condition)} · {item.pickup_location || item.university?.name || item.seller.full_name}
           </p>
-          <p className="truncate text-xs text-gray-400" suppressHydrationWarning>
+          <p className="truncate text-xs text-gray-500" suppressHydrationWarning>
             {timeAgo(item.created_at)}
           </p>
         </Link>

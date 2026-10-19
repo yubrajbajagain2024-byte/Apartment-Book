@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { SharedContentKind } from "@apartment-book/shared";
 import { hapticTap } from "@/lib/haptics";
-import { space, type } from "@/lib/theme";
+import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
 export const SHARED_TABS: readonly { key: SharedContentKind; label: string }[] = [
@@ -47,7 +47,7 @@ export function SharedTabs({ active, onSelect }: { active: SharedContentKind; on
 const useStyles = makeStyles((colors) => ({
   row: { flexDirection: "row", backgroundColor: colors.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   tab: { flex: 1, alignItems: "center", paddingTop: space.md, gap: space.sm },
-  label: { ...type.label, fontSize: 15, color: colors.muted },
+  label: { fontSize: 15, fontWeight: "600", color: colors.muted },
   labelActive: { color: colors.text, fontWeight: "700" },
   underline: { height: 2, alignSelf: "stretch", backgroundColor: "transparent" },
 }));

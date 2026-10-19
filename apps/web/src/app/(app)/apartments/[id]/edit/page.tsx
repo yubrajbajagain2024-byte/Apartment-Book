@@ -17,8 +17,8 @@ export default async function EditApartmentPage({ params }: { params: Promise<{ 
   if (apartment.owner_id !== user.id) redirect(`/apartments/${id}`);
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <h1 className="font-display text-3xl tracking-tight text-gray-900">Edit listing</h1>
+    <div className="mx-auto flex max-w-3xl flex-col gap-4">
+      <h1 className="text-2xl font-bold">Edit listing</h1>
       <ApartmentForm action={updateApartmentAction.bind(null, id)} universities={universities} userId={user.id} initial={apartment} />
     </div>
   );

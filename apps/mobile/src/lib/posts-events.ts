@@ -45,6 +45,24 @@ export function onPostRemoved(listener: (id: string) => void): () => void {
   };
 }
 
+const slideListeners = new Set<(id: string, slide: number, time?: number) => void>();
+
+/**
+ * The full-screen viewer moved to another photo or video of the post it was opened from: the post's rows in the feeds
+ * show the same one, so the way back lands on the photo that was on screen. `time`, as the viewer closes on a video:
+ * where that video had got to, so the row's own player goes on from there too.
+ */
+export function emitPostSlide(id: string, slide: number, time?: number) {
+  slideListeners.forEach((l) => l(id, slide, time));
+}
+
+export function onPostSlide(listener: (id: string, slide: number, time?: number) => void): () => void {
+  slideListeners.add(listener);
+  return () => {
+    slideListeners.delete(listener);
+  };
+}
+
 const pinListeners = new Set<(id: string, pinned: boolean) => void>();
 
 /** A post or reel was pinned to its author's profile, or unpinned: profile grids move the square without reloading. */

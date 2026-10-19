@@ -1,18 +1,18 @@
 import { Alert, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { AMENITIES, deleteApartment, formatDate, formatDistance, formatPrice, getApartment, labelFor, listingMedia } from "@apartment-book/shared";
-import { DetailSkeleton, Fact, ListingDetail, useDetailStyles } from "@/components/listing-detail";
-import { Badge, Button, EmptyState, Tag } from "@/components/ui";
+import { Fact, ListingDetail, useDetailStyles } from "@/components/listing-detail";
+import { Badge, Button, EmptyState, Loading } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
-import { space } from "@/lib/theme";
+import { alertWithHaptic } from "@/lib/haptics";
 
 export default function ApartmentScreen() {
   const { id, comment } = useLocalSearchParams<{ id: string; comment?: string }>();
   const router = useRouter();
   const { data: a, loading } = useQuery(() => getApartment(supabase, id), [id]);
   const detailStyles = useDetailStyles();
-  if (loading) return <DetailSkeleton />;
+  if (loading) return <Loading />;
   if (!a) return <EmptyState icon="home-outline" title="This listing is no longer available" />;
   return (
     <ListingDetail
@@ -24,24 +24,22 @@ export default function ApartmentScreen() {
       poster={{ id: a.owner.id, name: a.owner.full_name, avatarUrl: a.owner.avatar_url }}
       createdAt={a.created_at}
       focusComments={comment === "1"}
-      // The facts as a spec sheet: an eyebrow over each value, two to a row in a hairline grid.
       facts={
         <>
-          <Fact icon="bed-outline" eyebrow="Bedrooms" label={a.bedrooms === 0 ? "Studio" : `${a.bedrooms} bed`} />
-          <Fact icon="water-outline" eyebrow="Bathrooms" label={`${a.bathrooms} bath`} />
-          <Fact icon="location-outline" eyebrow="Location" label={a.city || a.address} />
-          {a.distance_km !== null ? <Fact icon="school-outline" eyebrow="Campus" label={`${formatDistance(a.distance_km)} to campus`} /> : null}
-          {a.available_from ? <Fact icon="calendar-outline" eyebrow="Available" label={`From ${formatDate(a.available_from)}`} /> : null}
-          {a.lease_months ? <Fact icon="time-outline" eyebrow="Lease" label={`${a.lease_months}-month lease`} /> : null}
+          <Fact icon="bed-outline" label={a.bedrooms === 0 ? "Studio" : `${a.bedrooms} bed`} />
+          <Fact icon="water-outline" label={`${a.bathrooms} bath`} />
+          <Fact icon="location-outline" label={a.city || a.address} />
+          {a.distance_km !== null ? <Fact icon="school-outline" label={`${formatDistance(a.distance_km)} to campus`} /> : null}
+          {a.available_from ? <Fact icon="calendar-outline" label={`From ${formatDate(a.available_from)}`} /> : null}
+          {a.lease_months ? <Fact icon="time-outline" label={`${a.lease_months}-month lease`} /> : null}
         </>
       }
       ownerActions={
         <Button
           title="Delete listing"
           variant="danger"
-          size="sm"
           onPress={() =>
-            Alert.alert("Delete this listing?", "This cannot be undone.", [
+            alertWithHaptic("warning", "Delete this listing?", "This cannot be undone.", [
               { text: "Cancel", style: "cancel" },
               { text: "Delete", style: "destructive", onPress: () => deleteApartment(supabase, a.id).then(() => router.back()).catch((e) => Alert.alert("Could not delete", e.message)) },
             ])
@@ -49,11 +47,10 @@ export default function ApartmentScreen() {
         />
       }
     >
-      {/* What the place offers as hairline capsules; only a status that is not "active" keeps a tinted badge. */}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.sm }}>
-        {a.furnished ? <Tag label="Furnished" /> : null}
-        {a.utilities_included ? <Tag label="Utilities included" /> : null}
-        {a.pets_allowed ? <Tag label="Pets allowed" /> : null}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+        {a.furnished ? <Badge label="Furnished" tone="blue" /> : null}
+        {a.utilities_included ? <Badge label="Utilities included" tone="green" /> : null}
+        {a.pets_allowed ? <Badge label="Pets allowed" /> : null}
         {a.status !== "active" ? <Badge label={a.status} tone="amber" /> : null}
       </View>
       <Text style={detailStyles.h2}>About this place</Text>
@@ -61,9 +58,9 @@ export default function ApartmentScreen() {
       {a.amenities.length > 0 ? (
         <>
           <Text style={detailStyles.h2}>Amenities</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             {a.amenities.map((am) => (
-              <Tag key={am} label={labelFor(AMENITIES, am)} />
+              <Badge key={am} label={labelFor(AMENITIES, am)} />
             ))}
           </View>
         </>

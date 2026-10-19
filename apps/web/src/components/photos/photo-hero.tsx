@@ -17,8 +17,8 @@ export function PhotoHero({ photos, media, alt }: { photos: PhotoMeta[]; media?:
 
   if (slides.length === 0) {
     return (
-      <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 rounded-[14px] bg-gray-50 text-gray-400 ring-1 ring-gray-200">
-        <ImageOff className="h-8 w-8" strokeWidth={1.5} />
+      <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 rounded-xl bg-gray-100 text-gray-400">
+        <ImageOff className="h-10 w-10" />
         <span className="text-sm">No photos yet</span>
       </div>
     );
@@ -38,7 +38,7 @@ export function PhotoHero({ photos, media, alt }: { photos: PhotoMeta[]; media?:
         priority
         quality={90}
         sizes="(min-width: 1024px) 800px, 100vw"
-        className="aspect-[4/3] rounded-[14px] ring-1 ring-gray-200 md:aspect-[16/10]"
+        className="aspect-[4/3] rounded-xl md:aspect-[16/10]"
       >
         <button
           type="button"
@@ -48,9 +48,9 @@ export function PhotoHero({ photos, media, alt }: { photos: PhotoMeta[]; media?:
             e.stopPropagation();
             setOpen(true);
           }}
-          className="ab-press absolute bottom-3 right-3 z-20 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur hover:bg-black/75"
+          className="absolute bottom-2 right-2 z-20 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur hover:bg-black/75"
         >
-          <Expand className="h-3.5 w-3.5" strokeWidth={1.75} /> View full size
+          <Expand className="h-3.5 w-3.5" /> View full size
         </button>
       </PhotoCarousel>
 
@@ -61,7 +61,7 @@ export function PhotoHero({ photos, media, alt }: { photos: PhotoMeta[]; media?:
               key={m.type === "photo" ? m.url : m.playbackUrl}
               type="button"
               onClick={() => setIndex(i)}
-              className={cn("ab-press relative h-16 w-20 shrink-0 overflow-hidden rounded-lg bg-black ring-1 ring-offset-2 ring-offset-surface transition", i === index ? "ring-gray-900" : "ring-transparent opacity-70 hover:opacity-100")}
+              className={cn("relative h-16 w-20 shrink-0 overflow-hidden rounded-lg bg-black ring-2 transition", i === index ? "ring-brand-600" : "ring-transparent opacity-80 hover:opacity-100 hover:ring-gray-300")}
               aria-label={m.type === "video" ? `Video ${i + 1}` : `Photo ${i + 1}`}
             >
               {m.type === "photo" ? (

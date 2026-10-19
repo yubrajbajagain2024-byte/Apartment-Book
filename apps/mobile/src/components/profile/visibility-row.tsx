@@ -1,9 +1,10 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { ownSectionNote, PROFILE_SECTION_NOUNS, PROFILE_VISIBILITY_OPTIONS, visibilityLabel, type ProfileSection, type ProfileVisibility } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
-import { radius, space, type } from "@/lib/theme";
+import { radius, space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 export const VISIBILITY_ICONS: Record<ProfileVisibility, keyof typeof Ionicons.glyphMap> = { public: "earth-outline", friends: "people-outline", private: "lock-closed-outline" };
 
@@ -38,7 +39,7 @@ export function VisibilityRow({ section, value, busy, onChange }: { section: Pro
   }
   return (
     <View style={styles.row}>
-      <Ionicons name={VISIBILITY_ICONS[value]} size={16} color={colors.muted} />
+      <Icon name={VISIBILITY_ICONS[value]} size={16} color={colors.muted} />
       <Text style={styles.note}>{ownSectionNote(section, value)}</Text>
       <Pressable onPress={change} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel={changeLabel} accessibilityState={{ disabled: Boolean(busy), busy: Boolean(busy) }} style={({ pressed }) => [styles.change, pressed && { opacity: 0.6 }]}>
         {busy ? <ActivityIndicator size="small" color={colors.brand} /> : <Text style={styles.changeText}>Change</Text>}
@@ -54,7 +55,7 @@ export function LockedNotice({ message }: { message: string }) {
   return (
     <View style={styles.locked} accessible accessibilityLabel={message}>
       <View style={styles.lockCircle}>
-        <Ionicons name="lock-closed" size={24} color={colors.text} />
+        <Icon name="lock-closed" size={24} color={colors.text} />
       </View>
       <Text style={styles.lockedText}>{message}</Text>
     </View>
@@ -86,7 +87,7 @@ export function VisibilityPicker({ section, value, onChange }: { section: Profil
               accessibilityState={{ checked: selected }}
               style={[styles.segment, selected && styles.segmentOn]}
             >
-              <Ionicons name={VISIBILITY_ICONS[o.value]} size={14} color={selected ? colors.brand : colors.muted} />
+              <Icon name={VISIBILITY_ICONS[o.value]} size={14} color={selected ? colors.brand : colors.muted} />
               <Text style={[styles.segmentText, selected && { color: colors.brand }]}>{o.label}</Text>
             </Pressable>
           );
@@ -99,17 +100,16 @@ export function VisibilityPicker({ section, value, onChange }: { section: Profil
 
 const useStyles = makeStyles((colors) => ({
   row: { flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: space.lg, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  note: { flex: 1, ...type.caption, color: colors.muted },
-  change: { minWidth: 64, minHeight: 30, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
-  changeText: { ...type.label, fontSize: 13, color: colors.text },
-  // Drawn like an empty state: a thin ring, then the message in the serif.
+  note: { flex: 1, fontSize: 13, color: colors.muted },
+  change: { minWidth: 64, minHeight: 30, paddingHorizontal: 12, borderRadius: radius.sm, borderCurve: "continuous", backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
+  changeText: { fontSize: 13, fontWeight: "700", color: colors.text },
   locked: { alignItems: "center", gap: space.md, paddingHorizontal: space.xl, paddingVertical: 40 },
-  lockCircle: { width: 56, height: 56, borderRadius: 28, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
-  lockedText: { ...type.headline, fontSize: 18, lineHeight: 24, color: colors.text, textAlign: "center" },
-  pickerLabel: { ...type.eyebrow, color: colors.muted, marginLeft: 2 },
+  lockCircle: { width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, borderColor: colors.text, alignItems: "center", justifyContent: "center" },
+  lockedText: { fontSize: 15, fontWeight: "600", color: colors.text, textAlign: "center" },
+  pickerLabel: { fontSize: 13, fontWeight: "600", color: colors.muted },
   segments: { flexDirection: "row", gap: space.sm },
-  segment: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, height: 36, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" },
-  segmentOn: { backgroundColor: colors.brandSoft, borderColor: colors.text },
-  segmentText: { ...type.label, fontSize: 13, color: colors.muted },
-  pickerHint: { ...type.footnote, color: colors.muted, marginLeft: 2 },
+  segment: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, height: 36, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  segmentOn: { backgroundColor: colors.brandSoft, borderColor: colors.brand },
+  segmentText: { fontSize: 13, fontWeight: "600", color: colors.muted },
+  pickerHint: { fontSize: 12, color: colors.muted },
 }));

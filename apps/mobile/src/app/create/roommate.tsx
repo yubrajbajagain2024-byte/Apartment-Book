@@ -7,7 +7,7 @@ import { MediaPicker } from "@/components/photo-picker";
 import { Button, Chip, Field } from "@/components/ui";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { space } from "@/lib/theme";
+import { hapticSuccess, alertWithHaptic } from "@/lib/haptics";
 
 export default function CreateRoommateScreen() {
   const { user, profile } = useSession();
@@ -43,16 +43,17 @@ export default function CreateRoommateScreen() {
     setBusy(true);
     try {
       const created = await createRoommatePost(supabase, user!.id, parsed.data);
+      hapticSuccess();
       router.replace({ pathname: "/roommates/[id]", params: { id: created.id } });
     } catch (e) {
-      Alert.alert("Could not post", e instanceof Error ? e.message : "Try again");
+      alertWithHaptic("error", "Could not post", e instanceof Error ? e.message : "Try again");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: space.xxxl }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={{ padding: 12, gap: 12, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
       <FormSection title="What are you looking for?">
         <Segmented options={[{ value: "needs_room", label: "I need a room" }, { value: "has_room", label: "I have a room" }]} value={f.postType} onChange={(v) => set("postType", v)} />
         <Field label="Title" value={f.title} onChangeText={(v) => set("title", v)} placeholder="Quiet CS student looking for a room from January" error={errors.title} />
@@ -75,12 +76,12 @@ export default function CreateRoommateScreen() {
       </FormSection>
       <FormSection title="Preferences">
         <Segmented options={GENDER_PREFERENCES.map((g) => ({ value: g.value, label: g.label }))} value={f.genderPreference} onChange={(v) => set("genderPreference", v)} />
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {SLEEP_SCHEDULES.map((s) => (
             <Chip key={s} label={s} active={f.sleepSchedule === s} onPress={() => set("sleepSchedule", f.sleepSchedule === s ? "" : s)} />
           ))}
         </View>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {CLEANLINESS_LEVELS.map((c) => (
             <Chip key={c} label={c} active={f.cleanliness === c} onPress={() => set("cleanliness", f.cleanliness === c ? "" : c)} />
           ))}
@@ -88,7 +89,7 @@ export default function CreateRoommateScreen() {
         <CheckRow label="Smoking is okay" value={f.smokingOk} onChange={(v) => set("smokingOk", v)} />
         <CheckRow label="Pets are okay" value={f.petsOk} onChange={(v) => set("petsOk", v)} />
       </FormSection>
-      <Button title="Post" onPress={() => void submit()} loading={busy} style={{ marginTop: space.sm }} />
+      <Button title="Post" size="large" onPress={() => void submit()} loading={busy} />
     </ScrollView>
   );
 }

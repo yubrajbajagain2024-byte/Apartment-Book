@@ -41,7 +41,7 @@ export function useLikeToggle(targetType: PostTargetType, targetId: string, init
 }
 
 export const actionButtonClasses =
-  "ab-press inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg px-1.5 text-[13px] font-semibold text-gray-800 hover:bg-gray-100 sm:px-2 sm:text-sm";
+  "inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg px-1.5 text-[13px] font-semibold text-gray-800 hover:bg-gray-100 sm:px-2 sm:text-sm";
 
 export function LikeButton({ controller, className }: { controller: LikeController; className?: string }) {
   return (

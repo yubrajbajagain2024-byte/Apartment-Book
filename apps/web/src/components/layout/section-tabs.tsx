@@ -4,7 +4,8 @@ import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-const BAR = "h-[2px] w-6 rounded-full bg-gray-900";
+// The active tab's underline wears the aurora, like the app's.
+const BAR = "h-[3px] w-6 rounded-full bg-brand-600 bg-aurora-line";
 const BAR_WIDTH = 24;
 
 /** One tab of a section bar; the value is what hrefFor receives and the tail of the link's test id. */
@@ -62,7 +63,7 @@ export function SectionTabs<V extends string>({
   }, [shown]);
 
   return (
-    <nav aria-label={label} className={cn("sticky top-14 z-30 -mx-3 border-b border-gray-200 bg-white/95 backdrop-blur sm:mx-0 sm:w-full sm:max-w-[500px] sm:self-center sm:rounded-[14px] sm:border-b-0 sm:ring-1 sm:ring-gray-200", className)}>
+    <nav aria-label={label} className={cn("sticky top-14 z-30 -mx-3 border-b border-gray-200 bg-white/95 backdrop-blur sm:mx-0 sm:w-full sm:max-w-[500px] sm:self-center sm:rounded-xl sm:border-b-0 sm:ring-1 sm:ring-gray-200", className)}>
       {/* gap-7 rather than gap-8: Home's four tabs have to sit next to each other on a 390px phone. */}
       <ul ref={listRef} className="group/tabs relative flex items-stretch justify-center gap-7">
         {sections.map((section) => {
@@ -79,7 +80,7 @@ export function SectionTabs<V extends string>({
                 scroll={false}
                 onClick={() => setTapped(section.value)}
                 aria-current={current ? "page" : undefined}
-                className={cn("relative flex h-11 items-center px-1 text-[15px] tracking-[-0.01em] transition-colors", current ? "font-semibold text-gray-900" : "font-medium text-gray-500 hover:text-gray-900")}
+                className={cn("relative flex h-11 items-center px-1 text-[15px] transition-colors", current ? "font-bold text-gray-900" : "font-medium text-gray-500 hover:text-gray-800")}
                 data-testid={`${testIdPrefix}-${section.value}`}
               >
                 {section.label}

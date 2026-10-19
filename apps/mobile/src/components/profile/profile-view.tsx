@@ -16,7 +16,7 @@ import {
   type NativeSyntheticEvent,
   type ScrollView,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -56,13 +56,14 @@ import {
 import { useActionSheet } from "@/components/action-sheet";
 import { useFollow } from "@/components/follow-button";
 import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
-import { hapticTap } from "@/lib/haptics";
+import { hapticTap, alertWithHaptic, refreshWithHaptic } from "@/lib/haptics";
 import { errorText, useQuery } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned, onPostRemoved } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { tabBarInset } from "@/lib/tab-bar";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { radius, space, type } from "@/lib/theme";
+import { radius, space } from "@/lib/theme";
+import type { ViewerOrigin } from "@/lib/reel-viewer";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useChangeAvatar } from "@/lib/use-change-avatar";
 import { ClassesSection } from "./classes-section";
@@ -72,6 +73,8 @@ import { ListingGridTile, ProfileGridTile, REEL_ASPECT, TILE_ASPECT, useOpenTile
 import { ShareProfileSheet } from "./share-profile-sheet";
 import { useTileGrid, type GridCursor, type GridPage, type TileGrid } from "./use-tile-grid";
 import { LockedNotice, VisibilityRow } from "./visibility-row";
+import { useTabReselect } from "@/lib/tab-reselect";
+import { Icon } from "@/components/icon";
 
 /** Space between the squares of the grid, across and down, and from the grid to the screen's edges. */
 const GAP = 6;
@@ -496,7 +499,7 @@ type TilesPageProps = PageFrame & {
   grid: TileGrid;
   own: boolean;
   tileWidth: number;
-  onOpen: (tile: ProfileTile) => void;
+  onOpen: (tile: ProfileTile, tiles?: readonly ProfileTile[], origin?: ViewerOrigin) => void;
   /** Your own Posts and Reels: hold a square for Pin to profile. */
   onPin?: (tile: ProfileTile) => void;
   gate: Gate;
@@ -520,10 +523,17 @@ const TilesPage = memo(function TilesPage(props: TilesPageProps) {
   const list = useRef<Animated.FlatList<ProfileTile>>(null);
   const scrollTo = useCallback((y: number, animated: boolean) => list.current?.scrollToOffset({ offset: y, animated }), []);
   const scroll = usePageScroll(props, scrollTo);
+  // Tapping Profile again while this tab of your profile is on screen: back to the top (the others follow, linked).
+  useTabReselect(() => scrollTo(0, true), active);
 
+  // A square opens with the rest of this grid around it (the viewer swipes through the grid's posts and reels). The
+  // grid is read when a square is tapped, so the squares do not all draw again each time a page of them arrives.
+  const tiles = useRef(grid.tiles);
+  tiles.current = grid.tiles;
+  const openInGrid = useCallback((tile: ProfileTile, origin?: ViewerOrigin) => onOpen(tile, tiles.current, origin), [onOpen]);
   const renderTile = useCallback<ListRenderItem<ProfileTile>>(
-    ({ item }) => (tab === "listings" ? <ListingGridTile tile={item} width={tileWidth} onOpen={onOpen} /> : <ProfileGridTile tile={item} width={tileWidth} aspect={tab === "reels" ? REEL_ASPECT : TILE_ASPECT} onOpen={onOpen} onLongPress={onPin} />),
-    [tab, tileWidth, onOpen, onPin],
+    ({ item }) => (tab === "listings" ? <ListingGridTile tile={item} width={tileWidth} onOpen={onOpen} /> : <ProfileGridTile tile={item} width={tileWidth} aspect={tab === "reels" ? REEL_ASPECT : TILE_ASPECT} onOpen={openInGrid} onLongPress={onPin} />),
+    [tab, tileWidth, onOpen, openInGrid, onPin],
   );
 
   const section = tab === "saved" || tab === "liked" ? tab : null;
@@ -535,7 +545,7 @@ const TilesPage = memo(function TilesPage(props: TilesPageProps) {
     </>
   );
 
-  const spinner = <ActivityIndicator style={styles.spinner} color={colors.muted} />;
+  const spinner = <ActivityIndicator style={styles.spinner} color={colors.brand} />;
   let footer: ReactElement | null = null;
   if (gate === "error") footer = <ErrorLine message={gateMessage} onRetry={onRetryGate} />;
   else if (gate === "loading") footer = spinner;
@@ -568,7 +578,7 @@ const TilesPage = memo(function TilesPage(props: TilesPageProps) {
       onScrollToTop={scroll.onSettle}
       onContentSizeChange={scroll.onContentSizeChange}
       contentOffset={scroll.contentOffset}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={scroll.onRefresh} progressViewOffset={topInset} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshWithHaptic(scroll.onRefresh)} progressViewOffset={topInset} />}
       scrollsToTop={active}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
@@ -605,8 +615,9 @@ const ClassesPage = memo(function ClassesPage(props: ClassesPageProps) {
   const scroller = useRef<ScrollView>(null);
   const scrollTo = useCallback((y: number, animated: boolean) => scroller.current?.scrollTo({ y, animated }), []);
   const scroll = usePageScroll(props, scrollTo);
+  useTabReselect(() => scrollTo(0, true), active);
 
-  const spinner = <ActivityIndicator style={styles.spinner} color={colors.muted} />;
+  const spinner = <ActivityIndicator style={styles.spinner} color={colors.brand} />;
   let body: ReactElement;
   if (gate === "error") body = <ErrorLine message={gateMessage} onRetry={onRetryGate} />;
   else if (gate === "loading") body = spinner;
@@ -627,7 +638,7 @@ const ClassesPage = memo(function ClassesPage(props: ClassesPageProps) {
       onScrollToTop={scroll.onSettle}
       onContentSizeChange={scroll.onContentSizeChange}
       contentOffset={scroll.contentOffset}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={scroll.onRefresh} progressViewOffset={topInset} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshWithHaptic(scroll.onRefresh)} progressViewOffset={topInset} />}
       scrollsToTop={active}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
@@ -780,7 +791,7 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
       hapticTap();
       await Promise.all([refreshProfile(), profileQ.refresh()]);
     } catch (e) {
-      Alert.alert("Could not change who can see this", errorText(e));
+      alertWithHaptic("error", "Could not change who can see this", errorText(e));
     } finally {
       forget(section);
       setSavingVisibility(null);
@@ -808,7 +819,7 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
           onPress: () =>
             void setPostPinned(supabase, tile.id, pin)
               .then(() => emitPostPinned(tile.id, pin))
-              .catch((e) => Alert.alert(pin ? "Could not pin" : "Could not unpin", errorText(e))),
+              .catch((e) => alertWithHaptic("error", pin ? "Could not pin" : "Could not unpin", errorText(e))),
         },
       ]);
     },
@@ -911,9 +922,9 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
         icon: "ban-outline",
         destructive: !blocked,
         onPress: () => {
-          if (blocked) return void unblockUser(supabase, me, userId).then(afterBlockChange, (e) => Alert.alert("Could not unblock", errorText(e)));
+          if (blocked) return void unblockUser(supabase, me, userId).then(afterBlockChange, (e) => alertWithHaptic("error", "Could not unblock", errorText(e)));
           // Blocking removes follows both ways on the server, so the counts and the Follow button reload with the block state.
-          Alert.alert(`Block ${name}?`, "They won't be able to message you, and you won't see each other's posts.", [
+          alertWithHaptic("warning", `Block ${name}?`, "They won't be able to message you, and you won't see each other's posts.", [
             { text: "Cancel", style: "cancel" },
             { text: "Block", style: "destructive", onPress: () => void blockUser(supabase, me, userId).then(afterBlockChange, (e) => Alert.alert("Could not block", errorText(e))) },
           ]);
@@ -1215,7 +1226,7 @@ function TabEmpty({ tab, own }: { tab: GridTab; own: boolean }) {
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIcon}>
-        <Ionicons name={icon} size={26} color={colors.text} />
+        <Icon name={icon} size={26} color={colors.text} />
       </View>
       <Text style={styles.emptyTitle}>{title}</Text>
       {action ? <Button title={action.title} icon="add" onPress={() => router.push(action.href)} style={styles.emptyAction} /> : null}
@@ -1243,9 +1254,8 @@ const useStyles = makeStyles((colors) => ({
   follow: { flexShrink: 1, minHeight: PROFILE_BUTTON_HEIGHT, height: PROFILE_BUTTON_HEIGHT, borderRadius: radius.pill, paddingHorizontal: 18, gap: 6 },
   spinner: { paddingVertical: space.xl },
   errorLine: { padding: space.lg },
-  // An empty tab, drawn like the system's EmptyState: a thin ring, a serif headline, the one thing to do about it.
   empty: { alignItems: "center", gap: space.md, paddingHorizontal: space.xl, paddingVertical: 40 },
-  emptyIcon: { width: 56, height: 56, borderRadius: 28, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
-  emptyTitle: { ...type.headline, color: colors.text, textAlign: "center" },
+  emptyIcon: { width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, borderColor: colors.text, alignItems: "center", justifyContent: "center" },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: colors.text, textAlign: "center" },
   emptyAction: { minWidth: 160 },
 }));

@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import type { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { listNotifications, markNotificationsRead, timeAgo, type NotificationWithActor } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
-import { Button, EmptyState, ErrorBanner, RowSkeleton } from "@/components/ui";
+import { Button, EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { space, type } from "@/lib/theme";
+import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { refreshWithHaptic } from "@/lib/haptics";
+import { Icon } from "@/components/icon";
 
 const PAGE = 30;
 /** The small mark on each row saying what kind of notification it is (over the actor's photo, or alone without one). */
@@ -18,10 +20,12 @@ const AVATAR = 44;
 /**
  * Notifications, opened from the bell in Home's top-right corner: every notification the database keeps for you (new
  * messages, likes, comments and replies, follows, saves of your listings, new places near campus), newest first, the
- * unread ones marked with an ink dot and a heavier title. Tapping one marks it read and opens what it is about; "Mark all read" in the header
+ * unread ones tinted with a dot. Tapping one marks it read and opens what it is about; "Mark all read" in the header
  * clears the rest; the list pulls to refresh and loads older rows as it scrolls. Signed out it asks to log in.
  */
 export default function NotificationsScreen() {
+  // Rows fade in once as they first arrive (not when scrolled back into view).
+  const appearCells = useAppearingCells();
   const { user } = useSession();
   const router = useRouter();
   const styles = useStyles();
@@ -109,8 +113,8 @@ export default function NotificationsScreen() {
         data={items ?? []}
         keyExtractor={(n) => n.id}
         contentContainerStyle={[styles.list, (items?.length ?? 0) === 0 && styles.listEmpty]}
-        ItemSeparatorComponent={Hairline}
         ListHeaderComponent={items && items.length > 0 ? <Text style={styles.summary}>{unread > 0 ? `${unread} unread` : "All caught up"}</Text> : null}
+        CellRendererComponent={appearCells}
         renderItem={({ item: n }) => {
           const icon = ICONS[n.type] ?? "notifications";
           const isUnread = n.read_at === null;
@@ -119,19 +123,19 @@ export default function NotificationsScreen() {
               onPress={() => open(n)}
               accessibilityRole="button"
               accessibilityLabel={`${n.title}${n.body ? `. ${n.body}` : ""}, ${timeAgo(n.created_at)}${isUnread ? ", unread" : ""}`}
-              style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [styles.row, isUnread && styles.rowUnread, pressed && { opacity: 0.7 }]}
             >
               <View style={styles.mark}>
                 {n.actor ? (
                   <>
                     <Avatar name={n.actor.full_name} url={n.actor.avatar_url} size={AVATAR} online={false} transition={0} />
-                    <View style={styles.kind}>
-                      <Ionicons name={icon} size={11} color={colors.onBrand} />
+                    <View style={[styles.kind, { borderColor: isUnread ? colors.brandSoft : colors.bg }]}>
+                      <Icon name={icon} size={11} color={colors.onBrand} />
                     </View>
                   </>
                 ) : (
                   <View style={styles.kindAlone}>
-                    <Ionicons name={icon} size={20} color={colors.brand} />
+                    <Icon name={icon} size={20} color={colors.brand} />
                   </View>
                 )}
               </View>
@@ -152,7 +156,7 @@ export default function NotificationsScreen() {
         }}
         ListEmptyComponent={
           items === null && !error ? (
-            <RowSkeleton rows={7} />
+            <Loading />
           ) : error ? (
             <View style={styles.pad}>
               <ErrorBanner message={error} onRetry={() => void load()} />
@@ -164,41 +168,33 @@ export default function NotificationsScreen() {
         ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footer} color={colors.muted} /> : null}
         onEndReached={() => void loadMore()}
         onEndReachedThreshold={0.6}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshWithHaptic(() => void onRefresh())} />}
       />
     </View>
   );
 }
 
-/** The hairline between two rows, starting where the text does. */
-function Hairline() {
-  const styles = useStyles();
-  return <View style={styles.hairline} />;
-}
-
 const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
-  headerButton: { paddingHorizontal: space.xs, paddingVertical: 6 },
-  headerButtonText: { ...type.label, fontSize: 15, color: colors.text },
+  headerButton: { paddingHorizontal: 4, paddingVertical: 6 },
+  headerButtonText: { fontSize: 15, fontWeight: "600", color: colors.brand },
   list: { paddingVertical: space.sm, paddingBottom: 40 },
   // An empty list fills the screen, so its message sits in the middle.
   listEmpty: { flexGrow: 1 },
-  // "3 unread" / "All caught up": a quiet serif aside above the rows.
-  summary: { ...type.aside, color: colors.muted, paddingHorizontal: space.lg, paddingTop: space.xs, paddingBottom: space.sm },
-  row: { flexDirection: "row", alignItems: "flex-start", gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md },
-  hairline: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginLeft: space.lg + AVATAR + space.md },
+  summary: { fontSize: 13, color: colors.muted, paddingHorizontal: space.lg, paddingBottom: space.xs },
+  row: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingHorizontal: space.lg, paddingVertical: 12 },
+  rowUnread: { backgroundColor: colors.brandSoft },
   mark: { width: AVATAR, height: AVATAR },
-  // The kind of notification, on the photo's corner, ringed in the screen's colour so it reads over the photo.
-  kind: { position: "absolute", right: -4, bottom: -4, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.brand, borderWidth: 2, borderColor: colors.bg, alignItems: "center", justifyContent: "center" },
+  // The kind of notification, on the photo's corner, ringed in the row's colour so it reads over the photo.
+  kind: { position: "absolute", right: -4, bottom: -4, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.brand, borderWidth: 2, alignItems: "center", justifyContent: "center" },
   kindAlone: { width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
   text: { flex: 1, gap: 2 },
-  title: { ...type.bodySmall, color: colors.text },
-  titleUnread: { fontWeight: "600" },
-  body: { fontSize: 14, lineHeight: 19, color: colors.muted },
-  // Times stay quiet, read or not: the dot and the heavier title say what is new.
-  time: { ...type.footnote, color: colors.faint, marginTop: 2 },
-  timeUnread: { color: colors.muted },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.brand, marginTop: 7 },
+  title: { fontSize: 15, color: colors.text },
+  titleUnread: { fontWeight: "700" },
+  body: { fontSize: 14, color: colors.muted },
+  time: { fontSize: 12, color: colors.faint, marginTop: 2 },
+  timeUnread: { color: colors.brand, fontWeight: "600" },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand, marginTop: 8 },
   pad: { paddingHorizontal: space.lg, paddingTop: space.sm },
-  footer: { paddingVertical: space.lg },
+  footer: { paddingVertical: 16 },
 }));

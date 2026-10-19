@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView as ScrollViewType } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import type { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DEFAULT_HOUSING_SECTION, HOUSING_SECTIONS, ITEM_CATEGORIES, type HousingSection, type ItemCategoryValue } from "@apartment-book/shared";
@@ -12,9 +12,9 @@ import { RoommatesSection, type RoommateType } from "@/components/housing/roomma
 import { SlidingTabs } from "@/components/sliding-tabs";
 import { useCollapsingHeader } from "@/lib/collapsing-header";
 import { hapticSwipe } from "@/lib/haptics";
-// Aliased: the screen keeps a `type` state (the roommate post kind) of its own.
-import { radius, space, type as typeScale } from "@/lib/theme";
+import { auroraGradient, radius, space, textStyle } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 const ORDER = HOUSING_SECTIONS.map((s) => s.value);
 const START = Math.max(0, ORDER.indexOf(DEFAULT_HOUSING_SECTION));
@@ -219,22 +219,22 @@ export default function HousingScreen() {
         <Animated.View style={[styles.float, { transform: [{ translateY: floatShift }] }]}>
           <View style={styles.tabs}>
             {/* Spread like Home's four labels: three labels do not fit a phone with the inbox's gap. */}
-            <SlidingTabs sections={HOUSING_SECTIONS} section={section} onSelect={select} scrollX={scrollX} pageWidth={width} tint={colors.accent} labelColor={colors.text} dimColor={colors.muted} spread fontSize={16} />
+            <SlidingTabs sections={HOUSING_SECTIONS} section={section} onSelect={select} scrollX={scrollX} pageWidth={width} tint={colors.accent} tintGradient={auroraGradient(colors.auroraGlow, 90)} labelColor={colors.text} dimColor={colors.muted} spread fontSize={16} />
           </View>
           {/* The inbox's search box, searching the page on screen; the Marketplace's spinner takes the magnifier's slot while its grid catches up. */}
           <View style={styles.searchRow}>
             <View style={styles.search}>
-              <View style={styles.searchMark}>{section === "marketplace" && busy ? <ActivityIndicator size="small" color={colors.muted} /> : <Ionicons name="search" size={18} color={colors.muted} />}</View>
+              <View style={styles.searchMark}>{section === "marketplace" && busy ? <ActivityIndicator size="small" color={colors.muted} /> : <Icon name="search" size={18} color={colors.muted} />}</View>
               <TextInput value={q} onChangeText={setQ} placeholder={placeholder} placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} returnKeyType="search" autoCorrect={false} autoCapitalize="none" accessibilityLabel={placeholder} style={styles.input} />
               {q ? (
                 <Pressable onPress={() => setQ("")} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear search">
-                  <Ionicons name="close-circle" size={18} color={colors.faint} />
+                  <Icon name="close-circle" size={18} color={colors.faint} />
                 </Pressable>
               ) : null}
             </View>
             {/* The round filter button beside the box: it opens the sheet for the page on screen and counts the choices in force. */}
             <Pressable onPress={() => setFiltersOpen(true)} hitSlop={6} accessibilityRole="button" accessibilityLabel={activeFilters > 0 ? `Filters, ${activeFilters} on` : "Filters"} accessibilityHint="Sort and narrow the page on screen" style={({ pressed }) => [styles.filterButton, activeFilters > 0 && styles.filterButtonOn, pressed && { opacity: 0.7 }]}>
-              <Ionicons name="options-outline" size={22} color={activeFilters > 0 ? colors.brand : colors.text} />
+              <Icon name="options-outline" size={22} color={activeFilters > 0 ? colors.brand : colors.text} />
               {activeFilters > 0 ? (
                 <View style={styles.filterBadge}>
                   <Text style={styles.filterBadgeText}>{activeFilters}</Text>
@@ -271,7 +271,7 @@ export default function HousingScreen() {
                 accessibilityState={{ selected: p.selected }}
                 style={({ pressed }) => [styles.chip, p.selected && styles.chipSelected, pressed && !p.selected && { opacity: 0.7 }]}
               >
-                {p.icon ? <Ionicons name={p.icon} size={14} color={p.selected ? colors.text : colors.muted} /> : null}
+                {p.icon ? <Icon name={p.icon} size={14} color={p.selected ? colors.brand : colors.muted} /> : null}
                 {/* The pills follow the text size as far as the labels above them do, so "All" never ends in an ellipsis. */}
                 <Text style={[styles.chipText, p.selected && styles.chipTextSelected]} numberOfLines={1} maxFontSizeMultiplier={1.2}>
                   {p.label}
@@ -303,11 +303,11 @@ export default function HousingScreen() {
           {ORDER.map((s, i) => (
             <View key={s} style={{ width, flex: 1 }}>
               {!mounted.has(i) ? null : s === "roommates" ? (
-                <RoommatesSection topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} type={type} filters={filters.roommates} filtered={activeFilterCount("roommates", filters) > 0} />
+                <RoommatesSection active={section === "roommates"} topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} type={type} filters={filters.roommates} filtered={activeFilterCount("roommates", filters) > 0} />
               ) : s === "marketplace" ? (
-                <MarketplaceSection topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} category={category} onCategoryChange={pickCategory} onSearchBusy={setBusy} filters={filters.marketplace} filtered={activeFilterCount("marketplace", filters) > 0} />
+                <MarketplaceSection active={section === "marketplace"} topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} category={category} onCategoryChange={pickCategory} onSearchBusy={setBusy} filters={filters.marketplace} filtered={activeFilterCount("marketplace", filters) > 0} />
               ) : (
-                <ApartmentsSection topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} filters={filters.apartments} filtered={activeFilterCount("apartments", filters) > 0} />
+                <ApartmentsSection active={section === "apartments"} topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} filters={filters.apartments} filtered={activeFilterCount("apartments", filters) > 0} />
               )}
             </View>
           ))}
@@ -336,15 +336,13 @@ const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   chrome: { backgroundColor: colors.bar, zIndex: 3 },
   titleRow: { height: TITLE_ROW, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md, paddingLeft: 20, paddingRight: space.lg },
-  // The serif of the app's own bars (see type.title), a step larger than the Home wordmark: this is a page's title.
-  title: { ...typeScale.title, fontSize: 28, lineHeight: 34, flexShrink: 1, color: colors.text },
+  title: { flexShrink: 1, ...textStyle.largeTitle, color: colors.text },
   searchRow: { height: SEARCH_ROW, flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: 20 },
-  // As tall as the box, round, on the same fill; while a filter is in force it takes a chip's selected look (an ink ring
-  // on the warm wash), with the count on its corner.
-  filterButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.input, borderWidth: 1, borderColor: "transparent", alignItems: "center", justifyContent: "center" },
-  filterButtonOn: { backgroundColor: colors.brandSoft, borderColor: colors.text },
-  filterBadge: { position: "absolute", top: 2, right: 2, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-  filterBadgeText: { fontSize: 10, lineHeight: 12, fontWeight: "700", color: colors.onBrand },
+  // As tall as the box, round, on the same fill; tinted while a filter is in force, with the count on its corner.
+  filterButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
+  filterButtonOn: { backgroundColor: colors.brandSoft },
+  filterBadge: { position: "absolute", top: 3, right: 3, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  filterBadgeText: { fontSize: 10, fontWeight: "700", color: colors.onBrand },
   // The input fill, not the card colour: the screen behind it is white in light and black in dark. The inbox's box exactly.
   search: { flex: 1, height: 46, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 16 },
   searchMark: { width: 20, alignItems: "center" },
@@ -354,9 +352,8 @@ const useStyles = makeStyles((colors) => ({
   // The labels row, as tall as Home's, with the hairline the sliding underline sits on.
   tabs: { height: TABS_ROW, flexDirection: "row", marginHorizontal: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   pills: { height: PILLS_ROW, flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: 20 },
-  // The design system's Chip: a hairline capsule at rest, an ink outline on the warm wash once chosen.
-  chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 13, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" },
-  chipSelected: { backgroundColor: colors.brandSoft, borderColor: colors.text },
-  chipText: { ...typeScale.label, fontSize: 13, color: colors.muted },
-  chipTextSelected: { color: colors.text },
+  chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: colors.input },
+  chipSelected: { backgroundColor: colors.brandSoft },
+  chipText: { fontSize: 13, fontWeight: "600", color: colors.text },
+  chipTextSelected: { color: colors.brand },
 }));

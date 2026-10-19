@@ -40,15 +40,15 @@ export default async function SavedPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-display text-3xl tracking-tight text-gray-900">Saved</h1>
-        <p className="mt-1 text-sm text-gray-500">{total} saved {total === 1 ? "thing" : "things"}</p>
+        <h1 className="text-2xl font-bold">Saved</h1>
+        <p className="text-sm text-gray-600">{total} saved {total === 1 ? "thing" : "things"}</p>
       </div>
       {total === 0 ? (
         <EmptyState icon={Bookmark} title="Nothing saved yet" description="Tap the bookmark on any apartment, roommate post or item, or use Save in a post's menu, to keep it here." action={<LinkButton href="/apartments">Browse apartments</LinkButton>} />
       ) : null}
       {feedPosts.length > 0 ? (
         <section className="flex flex-col gap-3">
-          <h2 className="font-display text-xl tracking-tight text-gray-900">Posts</h2>
+          <h2 className="text-lg font-semibold">Posts</h2>
           <div className="-mx-3 grid items-start gap-1 sm:mx-0 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
             {feedPosts.map((p) => (
               <FeedPostCard key={p.id} post={p} saved signedIn currentUserId={user.id} currentUser={currentUser} engagement={feedEngagement[p.id]} preview={feedPreviews[p.id]} />
@@ -58,7 +58,7 @@ export default async function SavedPage() {
       ) : null}
       {apartments.length > 0 ? (
         <section className="flex flex-col gap-3">
-          <h2 className="font-display text-xl tracking-tight text-gray-900">Apartments</h2>
+          <h2 className="text-lg font-semibold">Apartments</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {byOrder(apartments, saved.apartment).map((a) => (
               <ApartmentCard key={a.id} apartment={a} saved signedIn />
@@ -68,7 +68,7 @@ export default async function SavedPage() {
       ) : null}
       {posts.length > 0 ? (
         <section className="flex flex-col gap-3">
-          <h2 className="font-display text-xl tracking-tight text-gray-900">Roommate posts</h2>
+          <h2 className="text-lg font-semibold">Roommate posts</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {byOrder(posts, saved.roommate).map((p) => (
               <RoommateCard key={p.id} post={p} saved signedIn />
@@ -78,7 +78,7 @@ export default async function SavedPage() {
       ) : null}
       {items.length > 0 ? (
         <section className="flex flex-col gap-3">
-          <h2 className="font-display text-xl tracking-tight text-gray-900">Marketplace items</h2>
+          <h2 className="text-lg font-semibold">Marketplace items</h2>
           <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
             {byOrder(items, saved.item).map((i) => (
               <ItemCard key={i.id} item={i} saved signedIn />

@@ -16,13 +16,13 @@ export default async function SignupPage({
   const domains = await getAllowedEmailDomains(await createClient()).catch(() => [] as string[]);
   return (
     <>
-      <h1 className="mb-2 text-center font-display text-3xl tracking-tight text-gray-900">Create your account</h1>
+      <h1 className="mb-2 text-center text-2xl font-bold">Create your account</h1>
       {domains.length > 0 ? (
-        <p className="mb-7 text-center text-sm leading-relaxed text-gray-500">
+        <p className="mb-6 text-center text-sm text-gray-600">
           Every member is a verified student: sign up with your {domains.map((d) => `@${d}`).join(" or ")} email.
         </p>
       ) : (
-        <div className="mb-7" />
+        <div className="mb-6" />
       )}
       <SignupForm next={next} domains={domains} />
     </>

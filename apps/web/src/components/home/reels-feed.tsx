@@ -206,10 +206,10 @@ export function ReelsFeed({ initial, universityId, hasHomeUniversity, signedIn, 
       ) : null}
 
       <div className="absolute right-0 top-1/2 z-30 hidden -translate-y-1/2 flex-col gap-2 md:flex">
-        <button type="button" onClick={() => goTo(active - 1)} disabled={active === 0} aria-label="Previous reel" className="ab-press flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-900 shadow-card ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-40">
+        <button type="button" onClick={() => goTo(active - 1)} disabled={active === 0} aria-label="Previous reel" className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-800 shadow ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-40">
           <ChevronUp className="h-5 w-5" />
         </button>
-        <button type="button" onClick={() => goTo(active + 1)} disabled={active >= items.length - 1} aria-label="Next reel" className="ab-press flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-900 shadow-card ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-40">
+        <button type="button" onClick={() => goTo(active + 1)} disabled={active >= items.length - 1} aria-label="Next reel" className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-800 shadow ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-40">
           <ChevronDown className="h-5 w-5" />
         </button>
       </div>
@@ -249,8 +249,8 @@ function CommentsDrawer({
 
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Comments">
-      <button type="button" aria-label="Close comments" onClick={onClose} className="absolute inset-0 h-full w-full cursor-default bg-black/40 md:bg-black/20" />
-      <div className="ab-fade-in absolute inset-x-0 bottom-0 flex max-h-[75dvh] min-h-[50dvh] flex-col rounded-t-3xl bg-white pb-[env(safe-area-inset-bottom)] shadow-float md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[400px] md:rounded-none md:rounded-l-3xl">
+      <button type="button" aria-label="Close comments" onClick={onClose} className="ab-scrim-in absolute inset-0 h-full w-full cursor-default bg-black/40 md:bg-black/20" />
+      <div className="ab-sheet-in absolute inset-x-0 bottom-0 flex max-h-[75dvh] min-h-[50dvh] flex-col rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[400px] md:rounded-none md:rounded-l-2xl">
         {/* The thread's own "N comments" line, which stays put under this bar while the comments scroll, is the title; this bar only says which reel and closes the sheet. */}
         <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-2.5">
           <p className="min-w-0 truncate text-xs text-gray-500">
@@ -258,13 +258,13 @@ function CommentsDrawer({
             {reel.sourceType !== "post" ? (
               <>
                 {" · "}
-                <Link href={reelPath(reel)} className="font-semibold text-gray-900 hover:underline">
+                <Link href={reelPath(reel)} className="font-semibold text-brand-700 hover:underline">
                   View listing
                 </Link>
               </>
             ) : null}
           </p>
-          <button type="button" onClick={onClose} aria-label="Close" className="ab-press flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-900 hover:bg-gray-200">
+          <button type="button" onClick={onClose} aria-label="Close" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">
             <X className="h-5 w-5" />
           </button>
         </div>

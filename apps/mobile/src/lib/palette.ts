@@ -2,30 +2,33 @@
  * The two CampConnect palettes. Every colour on screen comes from one of these through useColors() / makeStyles(),
  * so a theme switch repaints the whole app at once. Same keys in both; screens never pick a hex code themselves.
  *
- * Quiet luxury in both: warm ivory surfaces and near-black ink in light, near-black surfaces and warm white ink in dark.
- * Ink is the primary colour (buttons, links, selected things), one violet accent is used sparingly for what moves
- * (Home's underline, the feed dots, hashtags), and a bronze marks the verified. Hairlines separate; nothing is boxed.
+ * Light: white background, black text, light grey borders, blue accents.
+ * Dark: pure black background and bars, white text, dark grey cards and borders, the same blue accents.
  */
 export type ThemeColors = {
-  /** CampConnect's primary: ink. Buttons, links, selected tabs and chips; white ink in dark. */
+  /** The CampConnect blue (the aurora's blue stop): links, icons, active chips, and fills where a gradient would be fussy. */
   brand: string;
   brandDark: string;
-  /** A faint warm wash behind icons, selected chips and avatar initials. */
+  /** A faint blue wash behind brand icons and selected chips. */
   brandSoft: string;
-  /** Text and icons drawn on a brand fill. */
+  /** Text and icons drawn on a brand-blue fill. */
   onBrand: string;
-  /** The verified mark beside a name: bronze, the one warm metal in the palette. */
-  verified: string;
-  /** The one accent, a deep violet: Home's sliding underline, the slide dots under a photo, hashtags, selection. */
+  /** The violet accent: the slide dots under a photo, the group mark in the inbox. */
   accent: string;
-  /** A second violet, close to `accent`, for the quiet duotone of the few gradients left (the ring around your photo). */
-  accentBlue: string;
-  accentTeal: string;
+  /**
+   * CampConnect's signature, the Aurora: cyan, sky blue, periwinkle, violet, as four gradient stops (see auroraGradient in
+   * theme.ts). Used sparingly, on what matters most: primary buttons, the send buttons, the floating "+", the active
+   * tab's underline, the selected segment and the rings around a profile photo. `aurora` fills what carries white words,
+   * deep enough that a label passes 4.5:1 across the middle where it sits (the same in both themes); `auroraGlow` draws
+   * what carries none (rings and underlines), the same as `aurora` on white and brighter on black; `auroraWash` is the
+   * glow as a faint tint, behind the active tab's icon in the floating bar.
+   */
+  aurora: readonly [string, string, string, string];
+  auroraGlow: readonly [string, string, string, string];
+  auroraWash: readonly [string, string, string, string];
   /** The floating bottom bar where there is no liquid glass (Android, iOS before 26): a translucent fill, and the hairline around the pill everywhere. */
   glass: string;
   glassEdge: string;
-  /** The lighter capsule behind the bar's active tab. */
-  glassHighlight: string;
   /** Screen background. */
   bg: string;
   /** Cards and rows that sit on the screen. Bars use `bar`. */
@@ -38,7 +41,10 @@ export type ThemeColors = {
   text: string;
   /** Secondary text: times, captions, labels. */
   muted: string;
-  /** Hints, placeholders, disabled icons. */
+  /**
+   * Hints, placeholders, disabled icons. At least 4.5:1 on the page and on cards in both themes, and on the input fill
+   * in dark; light placeholders sit at about 4.1:1 on the grey input fill, so they stay a step lighter than `muted`.
+   */
   faint: string;
   /** Hairlines, dividers, card outlines. */
   border: string;
@@ -48,7 +54,7 @@ export type ThemeColors = {
   skeleton: string;
   /** A soft panel on the screen: the profile's stats card. Lighter than the screen in dark, a grey wash in light. */
   panel: string;
-  /** The profile's cover band: its top colour (it fades down into `bg`) and the two soft glows over it, violet and teal. */
+  /** The profile's cover band: its top colour (it fades down into `bg`) and the two soft glows over it, the aurora's violet and cyan. */
   coverTop: string;
   coverGlowA: string;
   coverGlowB: string;
@@ -87,10 +93,20 @@ export type ThemeColors = {
   mediaTextShadow: string;
   /** The verified tick over video: lighter than `brand`, so it stays clear on dark footage. */
   verifiedOnMedia: string;
+  /**
+   * A control drawn on video (the Campus | Global toggle over Reels, the viewer's Back and sound buttons): a dark glass
+   * fill, its light edge and the brighter thumb on the chosen part. The same in both themes, so white words always have
+   * something dark behind them (white stays above 4.5:1 even on a white frame).
+   */
+  mediaControl: string;
+  mediaControlEdge: string;
+  mediaControlActive: string;
   /** Behind photos and videos while they load, and the Reels page. */
   mediaBg: string;
   /** The dimmed screen behind sheets and dialogs. */
   backdrop: string;
+  /** The little bar at the top of a sheet that says it can be pulled down: iOS's grabber grey. */
+  grabber: string;
   /** Shadow colour for raised elements. */
   shadow: string;
 };
@@ -99,108 +115,115 @@ export type ColorScheme = "light" | "dark";
 export type ThemePreference = "system" | "light" | "dark";
 
 export const lightColors: ThemeColors = {
-  brand: "#121214",
-  brandDark: "#000000",
-  brandSoft: "#ECEAE4",
-  onBrand: "#FFFFFF",
-  verified: "#A8884A",
-  accent: "#5B4BDB",
-  accentBlue: "#4F5FD8",
-  accentTeal: "#7C6EE6",
-  glass: "rgba(247,246,243,0.78)",
-  glassEdge: "rgba(18,18,20,0.08)",
-  glassHighlight: "rgba(18,18,20,0.06)",
-  bg: "#F7F6F3",
-  card: "#FFFFFF",
-  bar: "#F7F6F3",
-  elevated: "#FFFFFF",
-  text: "#121214",
-  muted: "#6B6B71",
-  faint: "#9D9DA4",
-  border: "#E6E4DE",
-  input: "#EDEBE6",
-  skeleton: "#ECEAE4",
-  panel: "#F1EFEA",
-  coverTop: "#ECEAE4",
-  coverGlowA: "rgba(91,75,219,0.16)",
-  coverGlowB: "rgba(168,136,74,0.14)",
-  coverButton: "rgba(18,18,20,0.06)",
-  green: "#2F9E5B",
-  red: "#D23B4B",
-  amber: "#C79A2E",
-  dangerFill: "#C8323F",
-  successFill: "#2F9E5B",
-  like: "#D8405A",
-  hashtag: "#5B4BDB",
-  downvote: "#5B4BDB",
-  downvoteFill: "#5B4BDB",
-  dangerSoft: "#FBECEC",
-  dangerText: "#8E2430",
-  successSoft: "#E8F4EC",
-  successText: "#1F6B3B",
-  warningSoft: "#FBF3DF",
-  warningText: "#7A5614",
-  onMedia: "#FFFFFF",
-  onMediaMuted: "rgba(255,255,255,0.78)",
+  // 4.7:1 on white: links and blue words pass AA.
+  brand: "#166fe5",
+  brandDark: "#1360c8",
+  brandSoft: "#e7f0fd",
+  onBrand: "#ffffff",
+  accent: "#6a4df0",
+  aurora: ["#0a83a6", "#166fe5", "#5468ee", "#8250ea"],
+  auroraGlow: ["#0a83a6", "#166fe5", "#5468ee", "#8250ea"],
+  auroraWash: ["rgba(44,198,234,0.20)", "rgba(74,157,251,0.18)", "rgba(131,148,249,0.18)", "rgba(164,124,248,0.20)"],
+  glass: "rgba(255,255,255,0.92)",
+  glassEdge: "rgba(0,0,0,0.1)",
+  bg: "#ffffff",
+  card: "#ffffff",
+  bar: "#ffffff",
+  elevated: "#ffffff",
+  text: "#050505",
+  muted: "#65676b",
+  faint: "#737679",
+  border: "#e4e6eb",
+  input: "#f0f2f5",
+  skeleton: "#e4e6eb",
+  panel: "#f0f2f5",
+  coverTop: "#e4e8f4",
+  coverGlowA: "rgba(124,92,255,0.34)",
+  coverGlowB: "rgba(44,198,234,0.30)",
+  coverButton: "rgba(0,0,0,0.07)",
+  green: "#31a24c",
+  red: "#e41e3f",
+  amber: "#f7b928",
+  dangerFill: "#e41e3f",
+  successFill: "#31a24c",
+  like: "#ed4956",
+  hashtag: "#00376b",
+  downvote: "#6a5cff",
+  downvoteFill: "#6a5cff",
+  dangerSoft: "#fdecec",
+  dangerText: "#8a1c1c",
+  successSoft: "#e6f6ea",
+  successText: "#1f7a37",
+  warningSoft: "#fff4d6",
+  warningText: "#7a5200",
+  onMedia: "#ffffff",
+  onMediaMuted: "rgba(255,255,255,0.75)",
   mediaScrim: "rgba(0,0,0,0.45)",
-  mediaPill: "rgba(0,0,0,0.62)",
+  mediaPill: "rgba(0,0,0,0.65)",
   mediaTextShadow: "rgba(0,0,0,0.6)",
-  verifiedOnMedia: "#E6CB85",
+  verifiedOnMedia: "#4da3ff",
+  mediaControl: "rgba(18,18,20,0.58)",
+  mediaControlEdge: "rgba(255,255,255,0.24)",
+  mediaControlActive: "rgba(255,255,255,0.28)",
   mediaBg: "#000000",
-  backdrop: "rgba(18,18,20,0.32)",
-  shadow: "#121214",
+  backdrop: "rgba(0,0,0,0.25)",
+  grabber: "#c7c7cc",
+  shadow: "#000000",
 };
 
 export const darkColors: ThemeColors = {
-  brand: "#F3F2EE",
-  brandDark: "#FFFFFF",
-  brandSoft: "#232326",
-  onBrand: "#0B0B0C",
-  verified: "#D4B36A",
-  accent: "#9A8CFF",
-  accentBlue: "#8F9BFF",
-  accentTeal: "#B3A7FF",
-  glass: "rgba(21,21,23,0.78)",
-  glassEdge: "rgba(255,255,255,0.10)",
-  glassHighlight: "rgba(255,255,255,0.12)",
-  bg: "#0B0B0C",
-  card: "#151517",
-  bar: "#0B0B0C",
-  elevated: "#1A1A1D",
-  text: "#F3F2EE",
-  muted: "#A4A4AA",
-  faint: "#6E6E75",
-  border: "#262629",
-  input: "#1E1E21",
-  skeleton: "#202023",
-  panel: "#151517",
-  coverTop: "#141418",
-  coverGlowA: "rgba(154,140,255,0.22)",
-  coverGlowB: "rgba(212,179,106,0.14)",
-  coverButton: "rgba(255,255,255,0.12)",
-  green: "#4CC273",
-  red: "#FF5563",
-  amber: "#E6B84A",
-  dangerFill: "#C8323F",
-  successFill: "#2F9E5B",
-  like: "#FF5A73",
-  hashtag: "#B9AEFF",
-  downvote: "#9A8CFF",
-  downvoteFill: "#5B4BDB",
-  dangerSoft: "#3A1A1E",
-  dangerText: "#FFB3BB",
-  successSoft: "#143022",
-  successText: "#8CE0A8",
-  warningSoft: "#3A2E12",
-  warningText: "#F2D27A",
-  onMedia: "#FFFFFF",
-  onMediaMuted: "rgba(255,255,255,0.78)",
+  brand: "#1877f2",
+  brandDark: "#166fe5",
+  brandSoft: "#0f2747",
+  onBrand: "#ffffff",
+  accent: "#8b7cff",
+  aurora: ["#0a83a6", "#166fe5", "#5468ee", "#8250ea"],
+  auroraGlow: ["#2cc6ea", "#4a9dfb", "#8394f9", "#a47cf8"],
+  auroraWash: ["rgba(44,198,234,0.26)", "rgba(74,157,251,0.24)", "rgba(131,148,249,0.24)", "rgba(164,124,248,0.26)"],
+  glass: "rgba(22,22,24,0.92)",
+  glassEdge: "rgba(255,255,255,0.14)",
+  bg: "#000000",
+  card: "#1c1c1e",
+  bar: "#000000",
+  elevated: "#1c1c1e",
+  text: "#ffffff",
+  muted: "#a8abaf",
+  faint: "#929599",
+  border: "#38383a",
+  input: "#2c2c2e",
+  skeleton: "#2c2c2e",
+  panel: "#1c1c1e",
+  coverTop: "#18163a",
+  coverGlowA: "rgba(118,84,240,0.55)",
+  coverGlowB: "rgba(44,198,234,0.34)",
+  coverButton: "rgba(255,255,255,0.14)",
+  green: "#3fbf5f",
+  red: "#ff453a",
+  amber: "#ffd60a",
+  dangerFill: "#d70015",
+  successFill: "#1f7a37",
+  like: "#ff4d67",
+  hashtag: "#e0f1ff",
+  downvote: "#8b7fff",
+  downvoteFill: "#6a5cff",
+  dangerSoft: "#3b1518",
+  dangerText: "#ffb4b4",
+  successSoft: "#10301b",
+  successText: "#7ee2a0",
+  warningSoft: "#3a2f0b",
+  warningText: "#ffd66b",
+  onMedia: "#ffffff",
+  onMediaMuted: "rgba(255,255,255,0.75)",
   mediaScrim: "rgba(0,0,0,0.45)",
-  mediaPill: "rgba(0,0,0,0.62)",
+  mediaPill: "rgba(0,0,0,0.65)",
   mediaTextShadow: "rgba(0,0,0,0.6)",
-  verifiedOnMedia: "#E6CB85",
+  verifiedOnMedia: "#4da3ff",
+  mediaControl: "rgba(18,18,20,0.58)",
+  mediaControlEdge: "rgba(255,255,255,0.24)",
+  mediaControlActive: "rgba(255,255,255,0.28)",
   mediaBg: "#000000",
   backdrop: "rgba(0,0,0,0.6)",
+  grabber: "#5a5a5e",
   shadow: "#000000",
 };
 

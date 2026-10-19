@@ -1,6 +1,6 @@
 import { GENDER_PREFERENCES, RADIUS_OPTIONS_MILES, type University } from "@apartment-book/shared";
-import { Input, Select } from "@/components/ui/input";
-import { FilterBar, FilterChip, FilterLabel } from "@/components/common/filter-bar";
+import { Checkbox, Input, Select } from "@/components/ui/input";
+import { FilterBar } from "@/components/common/filter-bar";
 
 export type RoommateFilterValues = {
   q?: string;
@@ -15,11 +15,11 @@ export type RoommateFilterValues = {
 export function RoommateFilters({ universities, values, hasFilters }: { universities: University[]; values: RoommateFilterValues; hasFilters: boolean }) {
   return (
     <FilterBar action="/roommates" hasFilters={hasFilters}>
-      <FilterLabel className="min-w-40 flex-1">
+      <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs font-medium text-gray-600">
         Search
         <Input name="q" defaultValue={values.q ?? ""} placeholder="Keywords, neighbourhood…" />
-      </FilterLabel>
-      <FilterLabel className="min-w-48">
+      </label>
+      <label className="flex min-w-48 flex-col gap-1 text-xs font-medium text-gray-600">
         University
         <Select name="university" defaultValue={values.university ?? "all"}>
           <option value="all">All universities</option>
@@ -29,21 +29,21 @@ export function RoommateFilters({ universities, values, hasFilters }: { universi
             </option>
           ))}
         </Select>
-      </FilterLabel>
-      <FilterLabel className="w-44">
+      </label>
+      <label className="flex w-44 flex-col gap-1 text-xs font-medium text-gray-600">
         Post type
         <Select name="type" defaultValue={values.type ?? ""}>
           <option value="">All posts</option>
           <option value="has_room">Has a room</option>
           <option value="needs_room">Looking for a room</option>
         </Select>
-      </FilterLabel>
-      <FilterLabel className="w-32">
+      </label>
+      <label className="flex w-32 flex-col gap-1 text-xs font-medium text-gray-600">
         Max budget
         <Input name="maxBudget" type="number" min={0} defaultValue={values.maxBudget ?? ""} placeholder="Any" />
-      </FilterLabel>
+      </label>
       {values.university && values.university !== "all" ? (
-        <FilterLabel className="w-40">
+        <label className="flex w-40 flex-col gap-1 text-xs font-medium text-gray-600">
           Distance from campus
           <Select name="radius" defaultValue={values.radius ?? ""}>
             <option value="">Any distance</option>
@@ -53,12 +53,12 @@ export function RoommateFilters({ universities, values, hasFilters }: { universi
               </option>
             ))}
           </Select>
-        </FilterLabel>
+        </label>
       ) : null}
-      <div className="flex h-11 items-center">
-        <FilterChip name="video" value="1" defaultChecked={values.video === "1"} label="Video only" />
+      <div className="flex h-10 items-center">
+        <Checkbox name="video" value="1" defaultChecked={values.video === "1"} label="Video only" />
       </div>
-      <FilterLabel className="w-36">
+      <label className="flex w-36 flex-col gap-1 text-xs font-medium text-gray-600">
         Open to
         <Select name="gender" defaultValue={values.gender ?? ""}>
           <option value="">Anyone</option>
@@ -68,7 +68,7 @@ export function RoommateFilters({ universities, values, hasFilters }: { universi
             </option>
           ))}
         </Select>
-      </FilterLabel>
+      </label>
     </FilterBar>
   );
 }

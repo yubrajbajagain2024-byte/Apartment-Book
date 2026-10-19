@@ -23,7 +23,7 @@ function GoogleButton({ next }: { next: string }) {
 
 function Divider() {
   return (
-    <div className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-400">
+    <div className="flex items-center gap-3 text-xs uppercase text-gray-500">
       <span className="h-px flex-1 bg-gray-200" /> or <span className="h-px flex-1 bg-gray-200" />
     </div>
   );
@@ -61,9 +61,9 @@ export function LoginForm({ next, initialError, domains = [] }: { next: string; 
       </form>
       <Divider />
       <GoogleButton next={next} />
-      <p className="text-center text-sm text-gray-500">
+      <p className="text-center text-sm text-gray-600">
         New here?{" "}
-        <Link href={`/signup?next=${encodeURIComponent(next)}`} className="font-semibold text-brand-600 underline-offset-4 hover:underline">
+        <Link href={`/signup?next=${encodeURIComponent(next)}`} className="font-semibold text-brand-600 hover:underline">
           Create an account
         </Link>
       </p>
@@ -78,9 +78,9 @@ export function SignupForm({ next, domains = [] }: { next: string; domains?: str
     return (
       <div className="flex flex-col gap-4">
         <FormMessage success={state.success} />
-        <p className="text-center text-sm text-gray-500">
+        <p className="text-center text-sm text-gray-600">
           Already confirmed?{" "}
-          <Link href="/login" className="font-semibold text-brand-600 underline-offset-4 hover:underline">
+          <Link href="/login" className="font-semibold text-brand-600 hover:underline">
             Log in
           </Link>
         </p>
@@ -108,9 +108,9 @@ export function SignupForm({ next, domains = [] }: { next: string; domains?: str
       </form>
       <Divider />
       <GoogleButton next={next} />
-      <p className="text-center text-sm text-gray-500">
+      <p className="text-center text-sm text-gray-600">
         Already have an account?{" "}
-        <Link href={`/login?next=${encodeURIComponent(next)}`} className="font-semibold text-brand-600 underline-offset-4 hover:underline">
+        <Link href={`/login?next=${encodeURIComponent(next)}`} className="font-semibold text-brand-600 hover:underline">
           Log in
         </Link>
       </p>

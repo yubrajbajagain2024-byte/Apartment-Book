@@ -51,7 +51,7 @@ export function ApartmentForm({
       <Card>
         <CardHeader>
           <CardTitle>Video tour</CardTitle>
-          <p className="mt-1 text-sm text-gray-500">Start with a 30-second walkthrough. Listings with a video rank higher in the feed.</p>
+          <p className="mt-1 text-sm text-gray-600">Start with a 30-second walkthrough. Listings with a video rank higher in the feed.</p>
         </CardHeader>
         <CardBody>
           <VideoUploader initial={initial?.videos} />
@@ -128,8 +128,8 @@ export function ApartmentForm({
             <Checkbox name="petsAllowed" label="Pets allowed" defaultChecked={defBool("petsAllowed", initial?.pets_allowed)} />
           </div>
           <fieldset className="sm:col-span-2">
-            <legend className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">Amenities</legend>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+            <legend className="mb-2 text-sm font-medium text-gray-800">Amenities</legend>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {AMENITIES.map((a) => (
                 <Checkbox key={a.value} name="amenities" value={a.value} label={a.label} defaultChecked={selectedAmenities.has(a.value)} />
               ))}
@@ -151,7 +151,7 @@ export function ApartmentForm({
         </CardBody>
       </Card>
 
-      <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-5">
+      <div className="flex items-center justify-end gap-3">
         <LinkButton href={initial ? `/apartments/${initial.id}` : "/apartments"} variant="ghost">
           Cancel
         </LinkButton>

@@ -78,11 +78,11 @@ export function BuzzVote({
   }
 
   const pill = variant === "pill";
-  const arrowClass = cn("ab-press flex items-center justify-center rounded-full text-gray-600 hover:bg-gray-100", pill ? "h-8 w-8" : "h-8 w-7");
+  const arrowClass = cn("flex items-center justify-center rounded-full text-gray-600 transition-colors hover:bg-gray-100", pill ? "h-8 w-8" : "h-8 w-7");
   const iconClass = pill ? "h-5 w-5" : "h-[22px] w-[22px]";
 
   return (
-    <div className={cn("flex shrink-0 items-center", pill && "h-9 rounded-full border border-gray-200 bg-white px-0.5", className)} data-testid="buzz-vote">
+    <div className={cn("flex shrink-0 items-center", pill && "h-9 rounded-full border border-gray-300 bg-white px-0.5", className)} data-testid="buzz-vote">
       <button type="button" onClick={() => cast(1)} aria-label="Upvote" aria-pressed={state.vote === 1} className={cn(arrowClass, "hover:text-brand-700", state.vote === 1 && "text-brand-600")}>
         <ArrowBigUp className={cn(iconClass, state.vote === 1 && "fill-current")} strokeWidth={1.75} />
       </button>
@@ -94,7 +94,7 @@ export function BuzzVote({
       >
         {compactCount(state.score)}
       </span>
-      {pill ? <span aria-hidden="true" className="h-4 w-px bg-gray-200" /> : null}
+      {pill ? <span aria-hidden="true" className="h-4 w-px bg-gray-300" /> : null}
       <button type="button" onClick={() => cast(-1)} aria-label="Downvote" aria-pressed={state.vote === -1} className={cn(arrowClass, "hover:text-red-600", state.vote === -1 && "text-red-600", pill && "ml-0.5")}>
         <ArrowBigDown className={cn(iconClass, state.vote === -1 && "fill-current")} strokeWidth={1.75} />
       </button>

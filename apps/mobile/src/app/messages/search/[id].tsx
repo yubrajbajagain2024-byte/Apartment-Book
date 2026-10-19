@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ActivityIndicator, FlatList, Keyboard, Pressable, Text, TextInput, View } from "react-native";
+import type { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { formatDayLabel, formatMessageTime, isSameDay, searchConversationMessages, type MessageWithSender } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { sharedErrorText } from "@/components/messages/shared-content";
-import { EmptyState, ErrorBanner, Loading, RowSkeleton } from "@/components/ui";
+import { ErrorBanner, Loading } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { radius, space, type } from "@/lib/theme";
-import { makeStyles, useAppTheme } from "@/lib/theme-provider";
+import { radius, space } from "@/lib/theme";
+import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 /** The newest matches only; the database caps a search at 100. */
 const LIMIT = 50;
@@ -120,7 +121,7 @@ export default function ChatSearchScreen() {
     <View style={styles.screen}>
       <View style={styles.header}>
         <View style={styles.search}>
-          {searching ? <ActivityIndicator size="small" color={colors.muted} style={styles.icon} /> : <Ionicons name="search" size={18} color={colors.muted} style={styles.icon} />}
+          {searching ? <ActivityIndicator size="small" color={colors.muted} style={styles.icon} /> : <Icon name="search" size={18} color={colors.muted} style={styles.icon} />}
           <TextInput
             autoFocus
             value={text}
@@ -138,7 +139,7 @@ export default function ChatSearchScreen() {
           />
           {text ? (
             <Pressable onPress={() => setText("")} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear search">
-              <Ionicons name="close-circle" size={18} color={colors.faint} />
+              <Icon name="close-circle" size={18} color={colors.faint} />
             </Pressable>
           ) : null}
         </View>
@@ -162,7 +163,9 @@ export default function ChatSearchScreen() {
           !q ? (
             <Hint icon="search-outline" title="Search this chat" body="Find messages by a word or phrase in them." />
           ) : results.error ? null : !shown || searching ? (
-            <RowSkeleton rows={4} />
+            <View style={styles.loading}>
+              <ActivityIndicator color={colors.brand} />
+            </View>
           ) : (
             <Hint icon="chatbubble-ellipses-outline" title="No messages found" body={`Nothing in this chat says “${shown.q}”.`} />
           )
@@ -175,6 +178,7 @@ export default function ChatSearchScreen() {
 /** One result: who sent it and their photo, when, and the message with the words in bold. */
 function ResultRow({ message, query, me, onPress }: { message: MessageWithSender; query: string; me: string | null; onPress: () => void }) {
   const styles = useStyles();
+  const colors = useColors();
   const mine = message.sender_id !== null && message.sender_id === me;
   const name = mine ? "You" : (message.sender?.full_name ?? "Deleted user");
   const date = resultDate(message.created_at);
@@ -185,7 +189,7 @@ function ResultRow({ message, query, me, onPress }: { message: MessageWithSender
       accessibilityRole="button"
       accessibilityLabel={`${name}, ${date}: ${message.content}`}
       accessibilityHint="Opens the chat at this message"
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.input }]}
     >
       <Avatar name={message.sender?.full_name ?? name} url={message.sender?.avatar_url} size="md" online={false} />
       <View style={styles.body}>
@@ -207,12 +211,16 @@ function ResultRow({ message, query, me, onPress }: { message: MessageWithSender
   );
 }
 
-/** Before a search, and when one finds nothing: the system's empty state, a little way down the page. */
 function Hint({ icon, title, body }: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }) {
   const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.hint}>
-      <EmptyState icon={icon} title={title} body={body} />
+      <View style={styles.hintIcon}>
+        <Icon name={icon} size={26} color={colors.brand} />
+      </View>
+      <Text style={styles.hintTitle}>{title}</Text>
+      <Text style={styles.hintBody}>{body}</Text>
     </View>
   );
 }
@@ -220,21 +228,22 @@ function Hint({ icon, title, body }: { icon: keyof typeof Ionicons.glyphMap; tit
 const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: { paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.sm },
-  // The soft input fill with a hairline edge: the screen behind it is the warm ivory in light, near-black in dark.
-  search: { flexDirection: "row", alignItems: "center", gap: space.sm, backgroundColor: colors.input, borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, paddingHorizontal: 14, height: 44 },
+  // The input fill, not the card colour: the screen behind it is white in light and black in dark.
+  search: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 14, height: 42 },
   icon: { width: 18 },
-  input: { flex: 1, ...type.bodySmall, color: colors.text, paddingVertical: 0 },
+  input: { flex: 1, fontSize: 15, color: colors.text, paddingVertical: 0 },
   banner: { paddingHorizontal: space.lg, paddingBottom: space.sm },
-  // "3 results" as an eyebrow over the rows.
-  count: { ...type.eyebrow, color: colors.muted, paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.sm },
-  // Each result on a hairline between the gutters.
-  row: { flexDirection: "row", alignItems: "flex-start", gap: space.md, marginHorizontal: space.lg, paddingVertical: space.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  pressed: { opacity: 0.7 },
+  count: { fontSize: 13, fontWeight: "600", color: colors.muted, paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.xs },
+  row: { flexDirection: "row", alignItems: "flex-start", gap: space.md, paddingHorizontal: space.lg, paddingVertical: 10 },
   body: { flex: 1, minWidth: 0, gap: 2 },
   top: { flexDirection: "row", alignItems: "baseline", gap: space.sm },
-  name: { flex: 1, ...type.subheading, color: colors.text },
-  date: { ...type.footnote, color: colors.muted },
+  name: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.text },
+  date: { fontSize: 12, color: colors.muted },
   text: { fontSize: 14, lineHeight: 19, color: colors.muted },
   match: { fontWeight: "700", color: colors.text },
-  hint: { paddingTop: space.lg },
+  loading: { paddingTop: space.xl, alignItems: "center" },
+  hint: { alignItems: "center", paddingHorizontal: space.xl, paddingTop: 48, gap: space.sm },
+  hintIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
+  hintTitle: { fontSize: 17, fontWeight: "700", color: colors.text, textAlign: "center" },
+  hintBody: { fontSize: 14, color: colors.muted, textAlign: "center", lineHeight: 19 },
 }));

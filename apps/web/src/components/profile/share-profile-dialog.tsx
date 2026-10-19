@@ -31,7 +31,7 @@ export function ShareProfileButton({ target, variant, className }: { target: Sha
           onClick={() => setOpen(true)}
           aria-label="Show profile QR code"
           aria-haspopup="dialog"
-          className={cn("ab-press inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-900", className)}
+          className={cn("inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 hover:text-gray-900", className)}
           data-testid="profile-qr-button"
         >
           <QrCode className="h-4 w-4" />
@@ -143,15 +143,15 @@ function ShareProfileSheet({ onClose, target }: { onClose: () => void; target: S
     }
   }
 
-  const action = "ab-press inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-[10px] bg-gray-100 px-4 text-sm font-semibold text-gray-900 hover:bg-gray-200";
+  const action = "inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-gray-100 px-4 text-sm font-semibold text-gray-900 hover:bg-gray-200";
 
   return (
     <div role="dialog" aria-modal="true" aria-label="Share profile" onKeyDown={onKeyDown} className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4" data-testid="share-profile-dialog">
-      <div aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-black/40" />
-      <div ref={panelRef} tabIndex={-1} className="ab-fade-in relative flex max-h-[90dvh] w-full flex-col overflow-y-auto rounded-t-3xl bg-white pb-[env(safe-area-inset-bottom)] shadow-float ring-1 ring-gray-200 focus:outline-none sm:w-[380px] sm:rounded-3xl">
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 px-5 py-3.5">
-          <h2 className="font-display text-xl tracking-tight text-gray-900">Share profile</h2>
-          <button type="button" onClick={onClose} aria-label="Close" data-autofocus="" className="ab-press flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-900 hover:bg-gray-200">
+      <div aria-hidden="true" onClick={onClose} className="ab-scrim-in absolute inset-0 bg-black/40" />
+      <div ref={panelRef} tabIndex={-1} className="ab-sheet-in relative flex max-h-[90dvh] w-full flex-col overflow-y-auto rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl focus:outline-none sm:w-[380px] sm:rounded-2xl">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
+          <h2 className="text-base font-semibold text-gray-900">Share profile</h2>
+          <button type="button" onClick={onClose} aria-label="Close" data-autofocus="" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200">
             <X className="h-5 w-5" />
           </button>
         </header>
@@ -159,16 +159,16 @@ function ShareProfileSheet({ onClose, target }: { onClose: () => void; target: S
         <div className="flex flex-col items-center gap-4 px-5 pb-5 pt-5">
           <div className="flex min-w-0 max-w-full flex-col items-center gap-1 text-center">
             <Avatar name={target.name} src={target.avatarUrl} size="lg" />
-            <p className="mt-1.5 max-w-full truncate font-display text-xl tracking-tight text-gray-900">{target.name}</p>
-            {target.username ? <p className="max-w-full truncate text-sm text-gray-500">@{target.username}</p> : null}
+            <p className="mt-1 max-w-full truncate text-base font-bold text-gray-900">{target.name}</p>
+            {target.username ? <p className="max-w-full truncate text-sm text-gray-600">@{target.username}</p> : null}
           </div>
-          {/* The code on true white (not the card colour, which is near-black at night) with its quiet zone, so it scans from a screen in any light. */}
-          <div className="rounded-2xl ring-1 ring-gray-200" style={{ padding: cell * QUIET_ZONE, backgroundColor: "#fff" }}>
+          {/* The code on white with its quiet zone, so it scans from a screen in any light. */}
+          <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-200" style={{ padding: cell * QUIET_ZONE }}>
             <svg role="img" aria-label={qrLabel} viewBox={`0 0 ${n} ${n}`} width={cell * n} height={cell * n} shapeRendering="crispEdges" className="block" data-testid="profile-qr">
               <path d={path} fill="#000" />
             </svg>
           </div>
-          <p className="max-w-full select-all truncate text-xs tracking-[0.01em] text-gray-400">{target.url}</p>
+          <p className="max-w-full select-all truncate text-xs text-gray-500">{target.url}</p>
           <div className="flex w-full gap-2">
             <button type="button" onClick={() => void copyLink()} className={action}>
               {copied ? <Check className="h-4 w-4 text-brand-600" /> : <Link2 className="h-4 w-4" />}

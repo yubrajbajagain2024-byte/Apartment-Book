@@ -4,12 +4,11 @@ import { useRouter } from "expo-router";
 import { signInSchema } from "@apartment-book/shared";
 import { Button, Field, Screen } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
-import { space, type } from "@/lib/theme";
-import { makeStyles } from "@/lib/theme-provider";
+import { textStyle } from "@/lib/theme";
+import { useColors } from "@/lib/theme-provider";
 
-/** The welcome back: a serif headline, an italic line under it, eyebrow-labelled fields, the ink button and two quiet links. */
 export default function LoginScreen() {
-  const styles = useStyles();
+  const colors = useColors();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,19 +30,15 @@ export default function LoginScreen() {
 
   return (
     <Screen scroll>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.form}>
-        <View style={styles.welcome}>
-          <Text style={styles.headline} accessibilityRole="header">
-            Welcome back
-          </Text>
-          <Text style={styles.tagline}>Log in with your university email.</Text>
-        </View>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ gap: 16, paddingTop: 12 }}>
+        <Text style={{ ...textStyle.title1, color: colors.text }}>Welcome back</Text>
+        <Text style={{ color: colors.muted }}>Log in with your university email.</Text>
         <Field label="University email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" textContentType="emailAddress" placeholder="you@txstate.edu" />
         <Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete="password" textContentType="password" placeholder="••••••••" onSubmitEditing={submit} />
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <Button title="Log in" onPress={submit} loading={busy} style={styles.submit} />
-        <Pressable onPress={() => router.replace("/(auth)/signup")} hitSlop={8} accessibilityRole="button" style={({ pressed }) => [styles.link, pressed && styles.pressed]}>
-          <Text style={styles.linkText}>New here? Create an account</Text>
+        {error ? <Text style={{ color: colors.red }}>{error}</Text> : null}
+        <Button title="Log in" size="large" onPress={submit} loading={busy} />
+        <Pressable onPress={() => router.replace("/(auth)/signup")}>
+          <Text style={{ textAlign: "center", color: colors.brand, fontWeight: "600" }}>New here? Create an account</Text>
         </Pressable>
         <Pressable
           onPress={async () => {
@@ -51,28 +46,11 @@ export default function LoginScreen() {
             const { error: err } = await supabase.auth.resetPasswordForEmail(email);
             setError(err ? err.message : "Check your email for a reset link.");
           }}
-          hitSlop={8}
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.link, pressed && styles.pressed]}
         >
-          <Text style={styles.quiet}>Forgot password?</Text>
+          <Text style={{ textAlign: "center", color: colors.muted }}>Forgot password?</Text>
         </Pressable>
-        <View style={{ height: space.xl }} />
+        <View style={{ height: 24 }} />
       </KeyboardAvoidingView>
     </Screen>
   );
 }
-
-const useStyles = makeStyles((colors) => ({
-  form: { gap: space.lg, paddingTop: space.md },
-  // The headline and its italic line sit a little apart from the fields, like a brand's welcome.
-  welcome: { gap: space.sm, paddingTop: space.lg, paddingBottom: space.sm },
-  headline: { ...type.display, color: colors.text },
-  tagline: { ...type.aside, color: colors.muted },
-  error: { ...type.caption, fontSize: 14, color: colors.red, marginLeft: 2 },
-  submit: { marginTop: space.xs },
-  link: { alignSelf: "center", paddingVertical: space.xs, paddingHorizontal: space.sm },
-  pressed: { opacity: 0.7 },
-  linkText: { ...type.label, fontSize: 15, color: colors.brand, textAlign: "center" },
-  quiet: { ...type.caption, color: colors.muted, textAlign: "center" },
-}));

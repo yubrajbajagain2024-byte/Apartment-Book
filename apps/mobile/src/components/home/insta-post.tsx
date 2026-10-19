@@ -1,24 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { APP_NAME, captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reelFromFeedPost, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromFeedPost, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
-import { hapticTap } from "@/lib/haptics";
+import { APP_NAME, captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromFeedPost, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
+import { hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
-import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
-import { openReel } from "@/lib/reel-viewer";
+import { emitPostPinned, onPostPinned, onPostSlide } from "@/lib/posts-events";
+import { entryOf, measureOrigin, openViewer as openFullScreen, viewerItemFromPost, type ViewerOrigin } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { shortDate } from "@/lib/short-date";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "../action-sheet";
 import { Avatar } from "../avatar";
 import { useLike, useSave } from "../engagement";
 import { ExpandableText } from "../expandable-text";
 import { PhotoCarousel } from "../photo-carousel";
-import { POST_GUTTER, POST_TEXT, PostActions, PostFrame, PostHeader } from "../post-bits";
+import { POST_FRAME_RADIUS, POST_GUTTER, POST_TEXT, PostActions, PostFrame, PostHeader } from "../post-bits";
 import { useShareSheet } from "../share-sheet";
+import { Icon } from "@/components/icon";
 
 export type InstaPostProps = {
   post: FeedPostWithAuthor;
@@ -36,6 +35,11 @@ export type InstaPostProps = {
   detail?: boolean;
   onComments: () => void;
   onDeleted?: () => void;
+  /**
+   * Opens the post full screen in the viewer, given the row's own live counts: a feed passes its own, which hands over
+   * the pages around this one. Without it the post opens alone (and the Reels feed follows it).
+   */
+  onOpen?: (live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin; time: number | null }) => void;
 };
 
 const TALLEST = 4 / 5;
@@ -65,6 +69,12 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   const like = useLike("post", post.id, engagement, user?.id ?? null, needLogin);
   const save = useSave("post", post.id, saved, user?.id ?? null, needLogin);
   const [slide, setSlide] = useState(0);
+  /**
+   * The viewer opened from this post moved to another of its photos: the carousel follows, so the way back lands on it;
+   * closing on a video, it hands back where the video had got to, and this one goes on from there.
+   */
+  const [jump, setJump] = useState<{ index: number; time?: number } | null>(null);
+  useEffect(() => onPostSlide((id, index, time) => id === post.id && setJump({ index, time })), [post.id]);
   /** Pinned to the top of the author's profile (three at most). Rows read before migration 18 have no pinned_at at all. */
   const [pinned, setPinned] = useState(Boolean(post.pinned_at));
   useEffect(() => setPinned(Boolean(post.pinned_at)), [post.pinned_at]);
@@ -72,6 +82,8 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   useEffect(() => onPostPinned((id, next) => id === post.id && setPinned(next)), [post.id]);
   const heart = useRef(new Animated.Value(0)).current;
   const lastTextTap = useRef(0);
+  /** The picture's frame, measured when it is tapped so the viewer can zoom open from it. */
+  const frame = useRef<View>(null);
 
   const author = post.author;
   const own = user?.id === author.id;
@@ -96,13 +108,20 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   }
 
   /**
-   * A tap on a reel in the feed opens it full screen in the Reels viewer, like Instagram, handing over the row's own
-   * counts (which may be ahead of the feed's after a tap here) so it shows at once; from there a swipe up moves on to
-   * other reels. On the reel's own screen there is nothing to open.
+   * A tap on the photo or video of any post, or on a reel, opens it full screen in the viewer, like Instagram, handing
+   * over the row's own counts (which may be ahead of the feed's after a tap here) so it shows at once; from there a
+   * swipe up moves on. A words-only post has nothing to open.
    */
-  function openViewer() {
-    const asReel = reelFromFeedPost(post, { likes: like.likes, comments, likedByMe: like.liked }, save.saved);
-    if (asReel) openReel(router, asReel);
+  function openViewer(at?: { time: number | null }) {
+    // The viewer opens on the photo or video showing here, zooming open from the picture's own frame, and a video goes
+    // on from where it had got to here rather than starting again.
+    const time = at?.time ?? null;
+    void measureOrigin(frame.current, POST_FRAME_RADIUS).then((origin) => {
+      const live = { engagement: { likes: like.likes, comments, likedByMe: like.liked }, saved: save.saved, slide, origin, time };
+      if (props.onOpen) return props.onOpen(live);
+      const item = viewerItemFromPost(post, live.engagement, live.saved);
+      if (item) openFullScreen(router, { entries: [entryOf(item, slide, time ?? undefined)], index: 0, then: "reels", origin });
+    });
   }
 
   /** A words-only post has no photo to double tap, so the text takes the gesture (its heart is the one in the row below). */
@@ -142,7 +161,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   }
 
   function remove() {
-    Alert.alert(`Delete this ${noun}?`, "This cannot be undone.", [
+    alertWithHaptic("warning", `Delete this ${noun}?`, "This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
@@ -165,7 +184,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
       emitPostPinned(post.id, next);
     } catch (e) {
       setPinned(!next);
-      Alert.alert(next ? "Could not pin" : "Could not unpin", errorText(e));
+      alertWithHaptic("error", next ? "Could not pin" : "Could not unpin", errorText(e));
     }
   }
 
@@ -215,9 +234,11 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
 
       {media.length > 0 ? (
         <PostFrame>
-          <PhotoCarousel media={media} aspect={frameAspect(media, reel)} active={active} videoLabel={null} dots={false} onIndexChange={setSlide} onPress={reel && !detail ? openViewer : undefined} onDoubleTap={doubleTap} />
+          <View ref={frame} collapsable={false}>
+            <PhotoCarousel media={media} aspect={frameAspect(media, reel)} active={active} videoLabel={null} dots={false} onIndexChange={setSlide} jump={jump} onPress={openViewer} onDoubleTap={doubleTap} />
+          </View>
           <Animated.View pointerEvents="none" style={[styles.heart, { opacity: heart, transform: [{ scale: heart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
-            <Ionicons name="heart" size={96} color={colors.onMedia} />
+            <Icon name="heart" size={96} color={colors.onMedia} />
           </Animated.View>
         </PostFrame>
       ) : null}
@@ -260,12 +281,12 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
           ) : null}
 
           {!detail && comments > 1 ? (
-            <Pressable onPress={onComments} style={({ pressed }) => pressed && { opacity: 0.7 }} accessibilityRole="button">
+            <Pressable onPress={onComments} accessibilityRole="button">
               <Text style={styles.viewAll}>View all {compactCount(comments)} comments</Text>
             </Pressable>
           ) : null}
           {!detail && comments > 0 && preview?.lastComment ? (
-            <Pressable onPress={onComments} style={({ pressed }) => pressed && { opacity: 0.7 }}>
+            <Pressable onPress={onComments}>
               <Text style={styles.line} numberOfLines={2}>
                 <Text style={styles.bold}>{preview.lastComment.author.full_name}</Text> {preview.lastComment.body}
               </Text>
@@ -278,21 +299,19 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
 }
 
 const useStyles = makeStyles((colors) => ({
-  // Posts follow each other on the screen with room between them; no box, no hairline.
-  post: { width: "100%", backgroundColor: colors.bg, paddingTop: space.xs, paddingBottom: 20 },
-  body: { paddingHorizontal: POST_GUTTER, paddingTop: 2, paddingBottom: space.md },
+  post: { width: "100%", backgroundColor: colors.bg, paddingTop: 4, paddingBottom: 18 },
+  body: { paddingHorizontal: POST_GUTTER, paddingTop: 2, paddingBottom: 12 },
   text: { ...POST_TEXT, color: colors.text },
   heart: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", shadowColor: colors.shadow, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 2 } },
-  // The slide dots: the one place the violet accent appears on a post.
-  slideDots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.xs, paddingTop: space.sm + space.xxs },
+  slideDots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingTop: 10 },
   slideDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.faint },
   slideDotActive: { backgroundColor: colors.accent },
-  below: { paddingHorizontal: POST_GUTTER, paddingTop: 6, gap: space.xs },
+  below: { paddingHorizontal: POST_GUTTER, paddingTop: 6, gap: 4 },
   likedBy: { flexDirection: "row", alignItems: "center", gap: 6 },
   face: { borderWidth: 1.5, borderColor: colors.bg, borderRadius: 12 },
   line: { fontSize: 14, lineHeight: 19, color: colors.text, flexShrink: 1 },
-  bold: { fontWeight: "600" },
-  // Hashtags take the accent, which is readable on both themes.
+  bold: { fontWeight: "700" },
+  // Hashtags in the brand blue: a dark navy would vanish on the dark theme.
   tag: { color: colors.hashtag },
-  viewAll: { fontSize: 14, lineHeight: 19, color: colors.muted },
+  viewAll: { fontSize: 14, color: colors.muted },
 }));

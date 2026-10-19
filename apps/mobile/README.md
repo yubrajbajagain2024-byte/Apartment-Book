@@ -17,31 +17,15 @@ npx expo start --tunnel # phone anywhere with Expo Go: scan the QR code
 `.env` holds only public keys (Supabase URL + anon key, website URL). Row-level
 security protects the data, so they are safe to ship.
 
-## Design system
-
-The app's look is quiet luxury, and it lives in three files. `src/lib/theme.ts` holds what is the same in both themes:
-the corner radii (modest: 6, 10, 14, 20pt; capsules only are pills), the 4pt spacing rhythm, the type scale (Playfair
-Display, bundled in `assets/fonts` and loaded with `useFonts` in `app/_layout.tsx`, for `display`, `title`, `headline`
-and the italic `aside`: the wordmark, screen titles, big numbers and headlines; the system face for everything read and
-tapped, with `eyebrow`, a tracked small-caps label, for section and stat labels), the three shadows (`card`, `float`,
-`sheet`, faint) and the motion (one soft spring, a 0.97 press sink). `src/lib/palette.ts` holds the two palettes, every
-colour on screen: warm ivory surfaces and near-black ink by day, near-black surfaces and warm white ink at night; `brand`
-is that ink (buttons, links, selected states), `accent` the one violet (Home's underline, slide dots, hashtags), `verified`
-a bronze, `border` the hairlines that separate instead of boxes, `input` the soft field fill, and the media tokens stay
-light over photos and video in both. `src/components/ui.tsx` holds the pieces: `Button` (ink, outline, ghost, danger; it
-sinks under the finger), `Field` (eyebrow label, soft fill, an ink hairline on focus), `Chip`, `Badge`, `Card`, `Eyebrow`,
-`SectionTitle`, `Skeleton` with `FeedSkeleton` and `RowSkeleton` (lists breathe their own shape while loading), `EmptyState`
-(a serif headline) and `ErrorBanner`; `post-bits.tsx` the pieces every post is built from. Screens never pick a hex code
-or a font name: they take tokens through `useColors()` / `makeStyles()` and the `type` scale, so Light, Dark and System
-Default all hold. The mark is a serif "C" on ink (`assets/images`, drawn from the Playfair outline).
-
 ## Home and the tabs
 
 The bottom bar has five tabs: Home, Search, Explore, Messages, Profile (your own photo in a circle, ringed while
 the tab is on screen; the person icon signed out). It floats over the content as a rounded
 glass pill (`src/app/(tabs)/_layout.tsx`, its size in `src/lib/tab-bar.ts`): on iOS 26 real liquid glass, with what scrolls
-under it blurred through, elsewhere a translucent fill; the tab on screen sits in a lighter capsule with its icon filled, and the capsule slides to
-the tab you tap on a soft spring while the tabs make room for it, GroupMe style, with no haptic
+under it blurred through, elsewhere a translucent fill; the tab on screen sits in a soft aurora capsule with its icon filled. When you tap
+another tab the capsule glides there from the old one, never blinking or fading: its leading edge moves a beat ahead of its trailing edge,
+so it stretches a touch in flight and settles as it lands. The new tab's symbol bounces once with a selection tick, the tab you left returns
+to its plain look with no bounce, and the tabs make room for the capsule, GroupMe style, on a critically damped spring
 (`src/components/floating-tab-bar.tsx`, on Reanimated); every tab's list and floating button keeps `tabBarInset` clear
 under it. Search (find accounts by name and follow them) is the second tab, under its own "Search" title
 (`src/app/(tabs)/search.tsx`; the share sheet's Find people and a profile's Find friends push the same screen with the box
@@ -51,24 +35,62 @@ saves of your listings, places near campus, newest first, the unread ones tinted
 it is about, "Mark all read" sits in the header, and the bell's badge counts the unread live. Home opens on **For you**, a blend of posts and reels (anonymous Buzz threads stay on
 the Buzz page; the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
 three pages, For you | Buzz | Reels, sit side by side in a pager (Posts is a section without a tab: `HIDDEN_HOME_SECTIONS` in the shared constants keeps it out of the row and the pager while its feed, the post features and the data stay; its Following filter is reachable on the website's `/?tab=posts`; reels also run through For you): swipe left or right to move
-between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in a teal-to-violet
+between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in an aurora
 ring on the left, which opens your profile, with Instagram's small "+" badge on its corner that opens the create sheet
 (Post / Reel / Buzz; over Reels the bar's left slot holds a white "+" instead), the CampConnect wordmark in the middle (it
 reads "Following" while that feed shows) and Search on the right; then the three labels spread across the row
-(`src/components/sliding-tabs.tsx`): the active one bold with a rounded violet underline as wide as the label, sliding
+(`src/components/sliding-tabs.tsx`): the active one bold with a rounded aurora underline as wide as the label, sliding
 with the finger over a hairline, and a soft haptic each time the section changes, by tap or swipe. Under the labels sits the Campus | Global
 toggle, a small segmented pill whose thumb slides to the choice: Campus is your own university, Global every university (and,
 only while Posts has a tab, Following: the posts of people you follow, which switches to Posts); the choice scopes For you,
 Buzz, Posts and Reels alike (`src/lib/home-scope.ts`). Someone without a university has nothing to choose, so the row is not drawn.
-Tapping a reel in For you opens it full screen in the Reels viewer (`src/app/reels/[id].tsx`), like Instagram: the reel
-plays edge to edge under one top row with Back at the left, the same Campus | Global toggle in the middle and its sound
-button at the right; the creator's name, the caption and the heart, comments, share, save and "…" rail sit at the bottom
-(`src/components/home/reel-item.tsx`, as on the Reels page), and under them an "Add comment…" bar on every reel opens the
-comments sheet straight into typing. A swipe up moves on to the next reel: the Reels feed runs on
-behind the one that was opened, page by page, and the other campus choice keeps the reel on screen while the reels after
-it come from the new choice. The row hands its reel over (`src/lib/reel-viewer.ts`), so the viewer opens at once with the
-row's counts, and what you like, save or comment there shows on the row when you come back (`emitPostEngagement` in
-`src/lib/posts-events.ts`); a reel deleted there leaves the feeds too.
+Tapping any reel, or the photo or video of any post (photos, videos or both), anywhere in the app opens it full screen in
+the viewer (`src/app/reels/[id].tsx`), like Instagram. It does not slide in: the tapped picture itself grows out of its
+place in the feed, the grid or the chat to fill the screen while the screen behind fades to the page's colour (black
+behind a video, the theme's behind a photo; a see-through modal with no system animation; the page stays full size inside
+the growing frame, scaled so the picture keeps its size and crop), and on the way out (Back or Android's back) it shrinks
+back into the same place; opened from a link or a page other than the tapped one, it fades and scales out instead. A
+sideways swipe, either way, goes back too, under the finger (`usePageSwipe` in `src/lib/viewer-swipe.ts`): the page
+follows it, shrinking and rounding its corners as the screen it was opened from shows through, its words and buttons
+fading away; let go past about a third of the way, or with a flick, and it carries on, the page it was opened on shrinking
+into the post it came from, still exactly where it was (the feed keeps its scroll position, and a carousel post's row has
+followed the viewer to the photo on screen, `emitPostSlide`), any other page sliding on out and fading; let go sooner and
+it springs back. A post's photos keep their own sideways swipes: only past its first or last photo, or from the left edge,
+does a swipe pull the page back. The viewer is a modal screen, outside the view in which the gesture library cancels React
+Native's touches, so the page's taps check `swipedJustNow` themselves: a touch that ended a swipe never pauses, likes or
+opens anything. Feed and viewer videos skip Live Text on a paused frame (`allowsVideoFrameAnalysis={false}`): its button
+would sit over the play control, and its scan was what crashed Expo Go in the simulator. Screens opened from the viewer (a profile, a chat) come up as cards over it. Pictures are laid out
+TikTok style (`src/components/home/reel-item.tsx`). A video fills the screen (`placeVideo`): a vertical one edge to edge,
+trimmed a little at the sides on a phone taller than 9:16; a square or landscape one whole, as wide as a 9:16 canvas, over
+a subtle, dimmed blur of itself. A photo is never stretched or cropped (`photoLayout`): it sits whole and as wide as the
+screen at the top, under the top row, on the theme's own colour (white in light, black in dark), which stays free below it
+for the name, the words and the comment bar, all in the theme's ink; a photo too tall to leave that space (9:16, a phone
+screenshot) is shown full screen on black like a video instead. Over every page, one top row with Back at the left and the
+Campus | Global toggle in the middle (for reels and For you); the creator's name, the words and the heart, comments, share,
+save and "…" rail sit at the bottom (as on the Reels page), over a video's shades and gradual frost
+(`src/components/progressive-blur.tsx`: expo-blur through a gradient mask, left out on a build without them), and under
+them an "Add comment…" bar on every page opens the comments sheet straight into typing. Share opens the same share sheet
+as the feeds (send to friends, or "Share to…" the system share sheet with the page's link: `/posts/<id>` for posts and
+posted reels, `/apartments/<id>` or `/roommates/<id>` for listing tours); the viewer mounts its own `ShareSheetProvider`,
+since iOS presents a sheet from the screen on top and the root layout's one cannot appear over this modal screen. On a photo's page each button of
+the rail is white where it sits over the photo (a crisp dark edge on its strokes, no shading behind it, keeps it readable on
+a white wall) and in the
+theme's ink where it sits on the page below; the top row, the status bar and the comment bar follow the page under them,
+switching as a page's edge passes, and an opened description brings the page's colour up behind it. A tap pauses a video: a play button appears in the middle with the sound
+button just above it, both fading away again the moment it plays (the sound button keeps it paused). A post with several
+photos or videos swipes sideways on its page, with dots on a line of their own under the top row (its colours changing
+halfway through a swipe), and opens on the one that was showing in the feed; a video plays while its page and slide are on screen, and a double tap anywhere likes. A video tapped while it plays in the feed goes on in the viewer from where it
+had got to (`startAt`: the feed's poster, then the still from that moment, cover the jump), and the feed's own player
+goes on from wherever the viewer leaves it (`emitPostSlide` with a time) rather than starting again. Saved fills the
+bookmark in the rail's own colour. A swipe up moves on: a reel goes on
+into the Reels feed (only reels, page by page, the other campus choice keeping the page on screen while what follows comes
+from the new choice); a post in For you goes on down For you, its next pages loading as needed; a square in a profile grid
+(Posts, Reels, Saved, Liked) goes on through that grid; a saved post through your saved posts; a post's own screen and a
+post shared in a chat go on into the Reels feed. Words-only posts and listings keep their own screens, and anonymous Buzz
+threads never open here. The source hands its pages over (`src/lib/reel-viewer.ts`), so the viewer opens at once with the
+row's counts (a grid square, which knows only the post's id, loads its post as it comes near, its picture standing in), and
+what you like, save or comment there shows on the row when you come back (`emitPostEngagement` in `src/lib/posts-events.ts`);
+a post deleted there leaves the feeds too.
 The bar scrolls like Instagram's (`src/lib/collapsing-header.ts`): it slides up out of the way as the page on screen
 scrolls down, by as much as the page moved, and slides back the moment the page scrolls up, however far down it is; a
 swipe or a tap between pages brings it back too, and Reels never moves it. The same goes for the Room | Roommate | Marketplace
@@ -78,7 +100,7 @@ scrolls up. The bottom bar never moves. The choice lives in
 `src/lib/home-scope.ts` and drives For you, Buzz and Posts alike: the pages have no filter chips of their own.
 Housing (the Explore tab, with a compass icon) works the same way with three pages,
 **Room | Roommate | Marketplace** (apartments, roommates, items), under its own top bar laid out like the inbox's (`src/app/(tabs)/housing.tsx`): the big
-"Find" title, the three labels with the sliding violet underline, the inbox's search box (searching the page on screen) with a
+"Find" title, the three labels with the sliding aurora underline, the inbox's search box (searching the page on screen) with a
 round filter button beside it (`src/components/housing/filter-sheet.tsx`: a sheet of the page's own filters, applied on "Show
 results", counted on the button; rooms sort, bedrooms, rent, distance from campus, furnished, pets and video tours; roommate
 posts a budget cap, who the post is open to, distance and video; items sort, condition and price), and the
@@ -99,7 +121,7 @@ profiles once migration 21 is live, so publish this code (`npx eas-cli@latest up
 applying it. Comments open in a TikTok-style sheet: "N comments" up top with a Top / Newest sort, each comment with
 a heart and its count (a dislike stays private), Reply, replies folded behind "View N replies", the composer pinned at the
 bottom, and a hold on a comment for Reply / Report / Block / Delete (your own comment, or any comment on your post); a like on a
-post, a reel or a comment buzzes the phone through `expo-haptics` (`src/lib/haptics.ts`, with the selection tick of the Home labels too).
+post, a reel or a comment buzzes the phone through `expo-haptics` (`src/lib/haptics.ts`, with the selection tick of the Home labels too). The same file holds the rest of the vocabulary: a selection tick for the bottom tabs, chips, segments, switches and the sound buttons, the softest impact when a primary button commits or a list is pulled to refresh, success when something is published, and a warning or an error with the alerts that ask before a delete or report a failure (`alertWithHaptic`). Tapping the tab you are on scrolls its page back to the top, as on every iOS tab bar (`src/lib/tab-reselect.ts`).
 The Share button on posts, reels and listings opens a sheet of your friends, the people you follow who follow you back
 (`src/components/share-sheet.tsx`, mounted once in `src/app/_layout.tsx`): search, tap one or more faces, add an optional
 note and Send, and each friend gets a chat message with the post as a card that opens it, the note under it; "Share to…"
@@ -124,7 +146,7 @@ who-can-see settings, `profile_classes`, likes readable only through functions, 
 `feed_posts.pinned_at`); without it the header still shows, with zeros, and each tab says what it could not load.
 
 The Messages tab is the inbox (`src/app/(tabs)/messages.tsx`): the new-message pencil in the top-right corner, the big
-"Messages" title, Chats | Groups with Home's sliding violet underline, a rounded search box and the All | Unread |
+"Messages" title, Chats | Groups with Home's sliding aurora underline, a rounded search box and the All | Unread |
 Requests pills (each with its count; Requests on Chats only), then the two pages side by side in a pager like Home's: a
 swipe or a tap on a label moves between your direct chats and your group chats, with the same knock. On Chats the row of
 friends online now sits above the chats (photo, name, the time at the right, the last message under it, a hairline between
@@ -172,6 +194,51 @@ SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data 
 The flows that like, vote or post (01 to 03) only ever act as a seeded `ui-sim-…` account and
 stop if someone else is signed in on the simulator (they read the email on the account sheet behind your name on the
 Profile tab, which shows "Edit profile" when you are signed in); 00 and 04 only look.
+
+## Look and feel on iPhone
+
+The app keeps its own look (the brand blue, white or black surfaces, the system font) and adds what makes an iPhone app
+feel native:
+
+- **The Aurora.** CampConnect's signature is a gradient, cyan → sky blue → periwinkle → violet (`aurora`,
+  `auroraGlow` and `auroraWash` in `src/lib/palette.ts`, drawn with `auroraGradient` from `src/lib/theme.ts`). It is used
+  sparingly: primary buttons (the compact ones that repeat down a list stay solid blue), the send buttons, the floating
+  "+", the active tab's underline in Home, Explore, Messages and on a profile, the selected segment, the soft capsule
+  behind the active tab in the bottom bar, and the rings around your photo in the Home bar, on the Profile tab and on a
+  profile page. Under white words the stops are deep enough that a label keeps 4.5:1 across the middle where it sits;
+  rings and underlines use a brighter version on black. The solid brand blue is the aurora's blue stop (#166fe5 in
+  light, 4.7:1 on white), for links, icons and active chips.
+
+- **Icons.** On iOS every icon is the matching SF Symbol (`src/components/icon.tsx`), in Apple's weights and optical
+  alignment: filled when on, outlined when off. A like, a save, a vote and a newly chosen tab bounce once. Android keeps Ionicons.
+- **Type.** One scale of Apple's text styles (`textStyle` in `src/lib/theme.ts`): the Search, Find and Messages titles
+  are iOS Large Titles (34pt bold), names and screen titles are Title 2, sheet titles are Headline. Nothing is heavier
+  than bold except the CampConnect wordmark, and the system font keeps its own tracking.
+- **Buttons.** One `Button` (`src/components/ui.tsx`), an iOS 26 capsule in three sizes: compact (34pt) in list rows,
+  regular (44pt) for most actions, large (50pt) for the action that ends a form or a sheet. Semibold labels, a spring
+  press and a soft haptic on the primary ones.
+- **Sheets.** One `Sheet` (`src/components/sheet.tsx`) under the comments, share, filter and share-profile sheets: the
+  screen dims as the sheet rises on UIKit's presentation spring, the header (or the whole sheet when nothing in it
+  scrolls) pulls it down on the UI thread, and a flick or a long pull closes it. Every sheet has the same grabber,
+  centred title and close button, floats 8pt in from the screen edges with 34pt continuous corners, and keeps its text
+  fields above the keyboard. Menus stay the system's own action sheet.
+- **Glass only where it does a job.** The tab bar and the controls over photos and video (Back over a reel, the Campus |
+  Global toggle over a reel, Back and the menu over a profile cover) are Liquid Glass on iOS 26
+  (`src/components/glass.tsx`). Everything else is solid, including the floating Create button and the Mark all as read
+  pill. Reduce Transparency swaps every glass surface for a solid fill.
+- **Scrolling.** The For you, Buzz, Room and Roommate feeds draw each row through a memoised component with stable
+  handlers, so a scroll only redraws the rows whose content changed, and they keep about four screens of rows mounted
+  instead of ten. Photos show the tiny blurred preview saved at upload at once and fade the full photo in over it. On
+  Home, a strip in the bar's colour stays under the status bar while the bar slides away, so nothing passes under the clock.
+- **Motion.** Buttons and glass controls dip under the finger on a spring, the blue thumb of a segmented control slides
+  to the chosen option, and the rows of every feed and list fade in once as they first arrive. Reduce Motion turns the
+  scaling, sliding, fading and bouncing off, and sheets then fade instead of sliding (`src/lib/accessibility.ts`).
+- **Readability.** Secondary and faint text pass WCAG AA contrast (4.5:1) on the page and on cards in both themes
+  (light placeholders sit at about 4.1:1 on the grey input fill). Text follows Apple's type sizes, with nothing under
+  11pt apart from the counts and tags on small badges, and the shades at the top and bottom of a reel keep its white
+  words readable even on a white frame.
+
+Haptics and tap-to-top are covered with the comments above.
 
 ## Project state
 

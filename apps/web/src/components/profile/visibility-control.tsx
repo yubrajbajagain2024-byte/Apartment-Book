@@ -87,8 +87,8 @@ export function VisibilityControl({ section, value }: { section: ProfileSection;
   return (
     <div className="border-b border-gray-100 px-4 py-2.5" data-testid={`profile-visibility-${section}`}>
       <div className="flex items-center gap-2.5 text-sm">
-        <Icon className="h-4 w-4 shrink-0 text-gray-500" strokeWidth={1.75} aria-hidden="true" />
-        <p className="min-w-0 flex-1 text-gray-600">{ownSectionNote(section, shown)}</p>
+        <Icon className="h-4 w-4 shrink-0 text-gray-500" aria-hidden="true" />
+        <p className="min-w-0 flex-1 text-gray-700">{ownSectionNote(section, shown)}</p>
         <div ref={rootRef} className="relative shrink-0">
           <button
             ref={buttonRef}
@@ -97,7 +97,7 @@ export function VisibilityControl({ section, value }: { section: ProfileSection;
             aria-haspopup="menu"
             aria-expanded={open}
             aria-controls={open ? menuId : undefined}
-            className="ab-press inline-flex h-8 items-center gap-1.5 rounded-full bg-gray-100 px-3 text-xs font-semibold text-gray-900 hover:bg-gray-200"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-gray-100 px-3 text-xs font-semibold text-gray-900 hover:bg-gray-200"
             data-testid="profile-visibility-change"
           >
             {pending ? <Spinner className="h-3.5 w-3.5" /> : null}
@@ -110,9 +110,9 @@ export function VisibilityControl({ section, value }: { section: ProfileSection;
               role="menu"
               aria-label={`Who can see your ${noun}`}
               onKeyDown={onMenuKeyDown}
-              className="ab-fade-in absolute right-0 top-full z-30 mt-1.5 w-64 rounded-[14px] bg-white p-1.5 text-left shadow-float ring-1 ring-gray-200"
+              className="ab-menu-in absolute right-0 top-full z-30 mt-1.5 w-64 origin-top-right rounded-xl bg-white p-1.5 text-left shadow-lg ring-1 ring-gray-200"
             >
-              <p className="px-2.5 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-gray-500">Who can see your {noun}</p>
+              <p className="px-2.5 pb-1 pt-1 text-xs font-semibold text-gray-500">Who can see your {noun}</p>
               {PROFILE_VISIBILITY_OPTIONS.map((option) => {
                 const checked = option.value === shown;
                 const OptionIcon = VISIBILITY_ICONS[option.value];

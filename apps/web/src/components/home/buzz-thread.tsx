@@ -180,7 +180,7 @@ export function BuzzThread({ post, comments: initialComments, signedIn }: { post
     }
   }
 
-  const roundButton = "ab-press flex h-10 w-10 items-center justify-center rounded-full text-gray-900 hover:bg-gray-100";
+  const roundButton = "flex h-10 w-10 items-center justify-center rounded-full text-gray-900 transition-colors hover:bg-gray-100";
   const open = expanded || Boolean(replyTo);
 
   return (
@@ -190,7 +190,7 @@ export function BuzzThread({ post, comments: initialComments, signedIn }: { post
       className="-mx-3 -mt-4 mb-[calc(env(safe-area-inset-bottom)_-_2.25rem)] flex min-h-[calc(100dvh_-_7.25rem_-_1px_-_env(safe-area-inset-bottom))] flex-col sm:mx-0 sm:mt-0 sm:min-h-[calc(100dvh_-_8.25rem_-_1px_-_env(safe-area-inset-bottom))] md:-mb-5 md:min-h-[calc(100dvh_-_5.25rem_-_1px)]"
       data-testid="buzz-thread"
     >
-      <div className="bg-white max-sm:flex-1 sm:rounded-xl sm:shadow-card sm:ring-1 sm:ring-gray-200">
+      <div className="bg-white max-sm:flex-1 sm:rounded-xl sm:shadow-sm sm:ring-1 sm:ring-gray-200">
         <header className="flex items-center justify-between px-2 py-1.5">
           <Link href={BUZZ_HOME} onClick={closeThread} aria-label="Back to Buzz" title="Back to Buzz" className={roundButton}>
             <X className="h-6 w-6" />
@@ -205,14 +205,14 @@ export function BuzzThread({ post, comments: initialComments, signedIn }: { post
 
         <BuzzPostBlock post={post} signedIn={signedIn} replyCount={comments.length} />
 
-        <section id="replies" aria-label="Replies" className="scroll-mt-16 border-t border-gray-200">
+        <section id="replies" aria-label="Replies" className="scroll-mt-16 border-t-[6px] border-gray-100">
           <div className="flex items-center gap-1 px-2 pt-1.5">
             <BuzzSortMenu label="Sort replies by" value={sort} options={BUZZ_COMMENT_SORTS} onSelect={(value) => setSort(BUZZ_COMMENT_SORTS.find((s) => s.value === value)?.value ?? "best")} />
             <h2 className="sr-only">{comments.length === 1 ? "1 reply" : `${comments.length} replies`}</h2>
           </div>
 
           {comments.length === 0 ? (
-            <p className="px-4 pb-10 pt-8 text-center font-display text-base italic text-gray-500">No replies yet. Be the first to answer.</p>
+            <p className="px-4 pb-10 pt-6 text-center text-sm text-gray-500">No replies yet. Be the first to answer.</p>
           ) : (
             <ul className="pb-2 sm:[&>li:last-child]:rounded-b-xl">
               {rows.map((c, i) => {
@@ -225,19 +225,19 @@ export function BuzzThread({ post, comments: initialComments, signedIn }: { post
                     data-testid="buzz-reply"
                     data-depth={c.depth}
                     data-top-reply={c.depth === 0 ? "" : undefined}
-                    className={cn("flex scroll-mt-28 pl-4 transition-colors", c.depth === 0 && i > 0 && "mt-1 border-t border-gray-100", justPosted === c.id && "bg-brand-50")}
+                    className={cn("flex scroll-mt-28 pl-4 transition-colors", c.depth === 0 && i > 0 && "mt-1 border-t-[6px] border-gray-100", justPosted === c.id && "bg-brand-50/60")}
                   >
                     {c.lines.map((ancestor) => (
                       // A shortcut for the mouse and the finger only. The keyboard and screen readers use each reply's own header button.
                       <button key={ancestor} type="button" tabIndex={-1} aria-hidden="true" onClick={() => toggle(ancestor)} title="Collapse this thread" className="group flex w-5 shrink-0 cursor-pointer justify-start self-stretch">
-                        <span className="h-full w-px bg-gray-200 transition-colors group-hover:w-0.5 group-hover:bg-gray-900" />
+                        <span className="h-full w-px bg-gray-200 transition-colors group-hover:w-0.5 group-hover:bg-brand-500" />
                       </button>
                     ))}
 
                     <div className="min-w-0 flex-1 pr-3 pt-2.5">
                       <button type="button" onClick={() => toggle(c.id)} aria-expanded={!folded} aria-label={folded ? `Show ${c.alias}'s reply` : `Collapse ${c.alias}'s reply`} className="flex w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 text-left text-[13px] text-gray-500">
                         <BuzzAvatar alias={c.alias} className="mr-0.5" />
-                        <span className="font-semibold text-gray-700">{c.alias}</span>
+                        <span className="font-bold text-gray-600">{c.alias}</span>
                         <span aria-hidden="true">•</span>
                         <BuzzAge iso={c.createdAt} />
                         <BuzzBadges isOp={c.isOp} isMine={c.isMine} />
@@ -291,7 +291,7 @@ export function BuzzThread({ post, comments: initialComments, signedIn }: { post
       <div className="pointer-events-none sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-20 mt-auto px-3 pb-2 pt-3 sm:px-0 md:bottom-3">
         {topLevel > 1 ? (
           <div className="mb-2 flex justify-end">
-            <button type="button" onClick={jumpToNext} aria-label="Jump to the next reply" title="Jump to the next reply" className="ab-press pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-900 shadow-float ring-1 ring-gray-200 hover:bg-gray-50" data-testid="buzz-jump">
+            <button type="button" onClick={jumpToNext} aria-label="Jump to the next reply" title="Jump to the next reply" className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-900 shadow-lg ring-1 ring-gray-200 hover:bg-gray-50" data-testid="buzz-jump">
               <ChevronDown className="h-6 w-6" />
             </button>
           </div>
@@ -303,7 +303,7 @@ export function BuzzThread({ post, comments: initialComments, signedIn }: { post
               e.preventDefault();
               submit();
             }}
-            className={cn("pointer-events-auto bg-white shadow-float ring-1 ring-gray-200", open ? "rounded-3xl p-3.5" : "rounded-full px-4")}
+            className={cn("pointer-events-auto bg-white shadow-lg ring-1 ring-gray-200", open ? "rounded-2xl p-3" : "rounded-full px-4")}
             data-testid="buzz-composer"
           >
             {replyTo ? (
@@ -339,7 +339,7 @@ export function BuzzThread({ post, comments: initialComments, signedIn }: { post
             {open ? (
               <>
                 <p className="mt-2 flex items-start gap-1.5 text-xs text-gray-500">
-                  <VenetianMask className="mt-px h-4 w-4 shrink-0" strokeWidth={1.75} /> Your name is never shown. Be kind, and leave out other people&apos;s names and personal details.
+                  <VenetianMask className="mt-px h-4 w-4 shrink-0" /> Your name is never shown. Be kind, and leave out other people&apos;s names and personal details.
                 </p>
                 {error ? (
                   <p className="mt-2 text-sm text-red-600" role="alert">
@@ -358,7 +358,7 @@ export function BuzzThread({ post, comments: initialComments, signedIn }: { post
             ) : null}
           </form>
         ) : (
-          <div className="pointer-events-auto flex items-center justify-between gap-3 rounded-full bg-white py-1.5 pl-4 pr-1.5 shadow-float ring-1 ring-gray-200">
+          <div className="pointer-events-auto flex items-center justify-between gap-3 rounded-full bg-white py-1.5 pl-4 pr-1.5 shadow-lg ring-1 ring-gray-200">
             <p className="min-w-0 text-sm text-gray-700">Log in to reply. Your reply stays anonymous.</p>
             <LinkButton href={login} size="sm" className="rounded-full px-4">
               Log in

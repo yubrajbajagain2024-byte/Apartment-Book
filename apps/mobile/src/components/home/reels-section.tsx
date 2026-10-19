@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View, type ViewToken } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { listReels, REELS_PAGE_SIZE, type Reel } from "@apartment-book/shared";
 import { errorText } from "@/lib/hooks";
@@ -9,10 +8,13 @@ import { useHomeScope } from "@/lib/home-scope";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useTabBarInset } from "@/lib/tab-bar";
-import { radius, space, type } from "@/lib/theme";
+import { auroraGradient, textStyle } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { ReelCommentsSheet } from "./reel-comments-sheet";
 import { ReelItem, reelKey } from "./reel-item";
+import { useTabReselect } from "@/lib/tab-reselect";
+import { refreshWithHaptic } from "@/lib/haptics";
+import { Icon } from "@/components/icon";
 
 /** Set after someone posts a reel, so the feed reloads the next time it is on screen. */
 let reelsStale = false;
@@ -54,6 +56,8 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
   const [visible, setVisible] = useState(0);
   const [commentsKey, setCommentsKey] = useState<string | null>(null);
   const listRef = useRef<FlatList<Reel>>(null);
+  // Tapping Home again while Reels is on screen: back to the first reel.
+  useTabReselect(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }), active);
   const seq = useRef(0);
   const offset = useRef(0);
   const done = useRef(false);
@@ -175,7 +179,7 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
     const sep = key.indexOf(":");
     if (key.slice(0, sep) === "post") emitPostRemoved(key.slice(sep + 1));
   }, []);
-  const onOpenComments = useCallback((reel: Reel) => setCommentsKey(reelKey(reel)), []);
+  const onOpenComments = useCallback((reel: Pick<Reel, "sourceType" | "sourceId">) => setCommentsKey(reelKey(reel)), []);
   const onCommentCount = useCallback(
     (delta: number) => {
       if (!commentsKey) return;
@@ -198,10 +202,10 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
   if (error && (!reels || reels.length === 0)) {
     body = (
       <View style={[styles.fill, styles.centered, { paddingTop: topInset }]}>
-        <Ionicons name="cloud-offline-outline" size={40} color={colors.onMediaMuted} />
+        <Icon name="cloud-offline-outline" size={44} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>Reels did not load</Text>
         <Text style={styles.stateBody}>{error}</Text>
-        <Pressable onPress={() => void loadFirst("initial")} style={({ pressed }) => [styles.stateButton, pressed && { opacity: 0.8 }]} accessibilityRole="button">
+        <Pressable onPress={() => void loadFirst("initial")} style={styles.stateButton} accessibilityRole="button">
           <Text style={styles.stateButtonText}>Try again</Text>
         </Pressable>
       </View>
@@ -209,22 +213,22 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
   } else if (reels === null) {
     body = (
       <View style={[styles.fill, styles.centered]}>
-        <ActivityIndicator color={colors.onMediaMuted} size="small" />
-        <Text style={[styles.stateBody, { marginTop: space.sm }]}>Loading reels…</Text>
+        <ActivityIndicator color={colors.onMedia} size="large" />
+        <Text style={[styles.stateBody, { marginTop: 10 }]}>Loading reels…</Text>
       </View>
     );
   } else if (reels.length === 0) {
     body = (
       <View style={[styles.fill, styles.centered, { paddingTop: topInset }]}>
-        <Ionicons name="film-outline" size={40} color={colors.onMediaMuted} />
+        <Icon name="film-outline" size={48} color={colors.onMediaMuted} />
         <Text style={styles.stateTitle}>No reels yet</Text>
         <Text style={styles.stateBody}>Share a quick video of campus life, your place or a room tour.</Text>
-        <Pressable onPress={create} style={({ pressed }) => [styles.stateButton, pressed && { opacity: 0.8 }]} accessibilityRole="button">
-          <Ionicons name="add" size={18} color={colors.mediaBg} />
+        <Pressable onPress={create} style={styles.stateButton} accessibilityRole="button">
+          <Icon name="add" size={18} color={colors.onBrand} />
           <Text style={styles.stateButtonText}>Post the first reel</Text>
         </Pressable>
-        <Pressable onPress={() => void loadFirst("refresh")} hitSlop={8} style={({ pressed }) => [{ marginTop: space.md }, pressed && { opacity: 0.7 }]} accessibilityRole="button">
-          <Text style={styles.stateLink}>{refreshing ? "Checking…" : "Check again"}</Text>
+        <Pressable onPress={() => void loadFirst("refresh")} hitSlop={8} style={{ marginTop: 14 }} accessibilityRole="button">
+          <Text style={{ color: colors.onMediaMuted, fontWeight: "600" }}>{refreshing ? "Checking…" : "Check again"}</Text>
         </Pressable>
       </View>
     );
@@ -252,7 +256,7 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
         onEndReached={() => void loadMore()}
         onEndReachedThreshold={2}
         scrollsToTop={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadFirst("refresh")} tintColor={colors.onMedia} colors={[colors.brand]} progressViewOffset={topInset} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshWithHaptic(() => void loadFirst("refresh"))} tintColor={colors.onMedia} colors={[colors.brand]} progressViewOffset={topInset} />}
       />
     );
   }
@@ -272,18 +276,13 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
   );
 }
 
-/**
- * The Reels page stays black in both themes (it sits behind video), so it draws with the media colours, not the screen
- * ones: a serif headline in white, a quiet line under it, and a white button with the page's black for its words (the
- * ink `brand` would vanish on black in the light theme).
- */
+/** The Reels page stays black in both themes (it sits behind video), so it draws with the media colours, not the screen ones. */
 const useStyles = makeStyles((colors) => ({
   fill: { flex: 1, backgroundColor: colors.mediaBg },
-  centered: { alignItems: "center", justifyContent: "center", paddingHorizontal: space.xxl, gap: space.sm },
-  stateTitle: { ...type.headline, color: colors.onMedia, textAlign: "center", marginTop: space.xs },
-  stateBody: { ...type.caption, fontSize: 14, lineHeight: 20, color: colors.onMediaMuted, textAlign: "center", maxWidth: 300 },
-  stateButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 44, backgroundColor: colors.onMedia, borderRadius: radius.md, paddingHorizontal: 20, marginTop: space.md },
-  stateButtonText: { ...type.label, fontSize: 15, color: colors.mediaBg },
-  stateLink: { ...type.label, color: colors.onMediaMuted },
+  centered: { alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 8 },
+  stateTitle: { color: colors.onMedia, ...textStyle.title3, marginTop: 6 },
+  stateBody: { color: colors.onMediaMuted, fontSize: 14, textAlign: "center", lineHeight: 20 },
+  stateButton: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.aurora), borderRadius: 999, paddingHorizontal: 20, paddingVertical: 12, marginTop: 12 },
+  stateButtonText: { color: colors.onBrand, fontSize: 15, fontWeight: "700" },
   more: { position: "absolute", bottom: 6, left: 0, right: 0, alignItems: "center" },
 }));

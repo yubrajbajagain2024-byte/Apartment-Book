@@ -129,12 +129,12 @@ export function PostMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        className="ab-press flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+        className="flex h-8 w-8 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 hover:text-gray-900"
       >
         <MoreHorizontal className="h-5 w-5" />
       </button>
       {open && pos ? (
-        <div id={menuId} role="menu" aria-label="Post options" style={{ top: pos.top, right: pos.right }} className="ab-fade-in fixed z-50 w-52 rounded-[14px] bg-white p-1.5 shadow-float ring-1 ring-gray-200">
+        <div id={menuId} role="menu" aria-label="Post options" style={{ top: pos.top, right: pos.right }} className="ab-menu-in fixed z-50 w-52 origin-top-right rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200">
           {save.signedIn ? (
             <button
               type="button"

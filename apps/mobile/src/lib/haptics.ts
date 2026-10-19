@@ -1,3 +1,4 @@
+import { Alert, type AlertButton, type AlertOptions } from "react-native";
 import * as Haptics from "expo-haptics";
 
 /**
@@ -29,4 +30,37 @@ export function hapticSelect() {
  */
 export function hapticSwipe() {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+}
+
+/** The softest impact: a primary button committing (Log in, Post, Send), a refresh starting. */
+export function hapticSoft() {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
+}
+
+/** Before something that cannot be undone: a delete, a leave, a block asking to be confirmed. */
+export function hapticWarning() {
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+}
+
+/** It did not work: a send or a save that failed. */
+export function hapticError() {
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+}
+
+/**
+ * Alert.alert with the haptic that belongs to it: a warning as a destructive choice is asked for ("Delete this post?"),
+ * an error as a failure is reported ("Could not delete"). Same arguments as Alert.alert after the kind.
+ */
+export function alertWithHaptic(kind: "warning" | "error", title: string, message?: string, buttons?: AlertButton[], options?: AlertOptions) {
+  if (kind === "warning") hapticWarning();
+  else hapticError();
+  Alert.alert(title, message, buttons, options);
+}
+
+/** A list's pull-to-refresh handler that answers with the softest impact as the spinner appears. */
+export function refreshWithHaptic(run: () => unknown): () => void {
+  return () => {
+    hapticSoft();
+    void run();
+  };
 }

@@ -46,14 +46,14 @@ function ListingTile({ tile, status, eager }: ProfileListing & { eager: boolean 
     <Link
       href={tile.href}
       aria-label={label}
-      className="group relative block aspect-[3/4] overflow-hidden bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-400"
+      className="group relative block aspect-[3/4] overflow-hidden bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
       data-testid="profile-listing"
     >
       {tile.imageUrl ? (
         <TileImage src={tile.imageUrl} sizes={TILE_SIZES} eager={eager} className="transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none" />
       ) : (
         <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center pb-10 text-gray-400">
-          <KindIcon className="h-8 w-8" strokeWidth={1.5} />
+          <KindIcon className="h-8 w-8" />
         </span>
       )}
       {picture ? <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent" /> : null}

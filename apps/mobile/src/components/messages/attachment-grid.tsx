@@ -1,10 +1,10 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
 import { formatDuration, type UploadStatus } from "@/lib/message-attachments";
-import { radius } from "@/lib/theme";
+import { radius, textStyle } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { VideoPoster } from "./attachment-thumb";
+import { Icon } from "@/components/icon";
 
 /** One photo or video of a message, ready to draw: `uri` is a local file or a signed URL (null until signed). */
 export type GridMedia = {
@@ -111,7 +111,7 @@ function Tile({
     >
       {item.missing ? (
         <View style={[styles.center, styles.missing, { pointerEvents: "none" }]}>
-          <Ionicons name={video ? "videocam-off-outline" : "image-outline"} size={26} color={colors.faint} />
+          <Icon name={video ? "videocam-off-outline" : "image-outline"} size={26} color={colors.faint} />
           <Text style={styles.missingText}>Unavailable</Text>
         </View>
       ) : video ? (
@@ -122,7 +122,7 @@ function Tile({
       {video && !busy && !item.missing ? (
         <View style={[styles.center, { pointerEvents: "none" }]}>
           <View style={styles.play}>
-            <Ionicons name="play" size={22} color={colors.onMedia} style={{ marginLeft: 3 }} />
+            <Icon name="play" size={22} color={colors.onMedia} style={{ marginLeft: 3 }} />
           </View>
         </View>
       ) : null}
@@ -138,7 +138,7 @@ function Tile({
       ) : null}
       {busy ? (
         <View style={[styles.center, styles.scrim, { pointerEvents: "none" }]}>
-          {item.status === "uploading" ? <ActivityIndicator color={colors.onMedia} /> : item.status === "failed" ? <Ionicons name="alert-circle" size={28} color={colors.onMedia} /> : null}
+          {item.status === "uploading" ? <ActivityIndicator color={colors.onMedia} /> : item.status === "failed" ? <Icon name="alert-circle" size={28} color={colors.onMedia} /> : null}
         </View>
       ) : null}
     </Pressable>
@@ -146,7 +146,7 @@ function Tile({
 }
 
 const useStyles = makeStyles((colors) => ({
-  block: { borderRadius: radius.lg, overflow: "hidden", gap: GAP },
+  block: { borderRadius: radius.lg, borderCurve: "continuous", overflow: "hidden", gap: GAP },
   row: { flexDirection: "row", gap: GAP },
   column: { gap: GAP },
   tile: { backgroundColor: colors.skeleton, overflow: "hidden" },
@@ -157,5 +157,5 @@ const useStyles = makeStyles((colors) => ({
   play: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.mediaScrim, alignItems: "center", justifyContent: "center" },
   duration: { position: "absolute", left: 6, bottom: 6, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, backgroundColor: colors.mediaPill },
   durationText: { color: colors.onMedia, fontSize: 11, fontWeight: "700" },
-  more: { color: colors.onMedia, fontSize: 24, fontWeight: "800" },
+  more: { color: colors.onMedia, ...textStyle.title2 },
 }));

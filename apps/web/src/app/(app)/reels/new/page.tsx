@@ -11,8 +11,8 @@ export default async function NewReelPage() {
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-4">
       <div>
-        <h1 className="font-display text-3xl tracking-tight text-gray-900">Post a reel</h1>
-        <p className="mt-1 text-sm text-gray-500">A short video for other students: your place, your campus, a tip worth sharing.</p>
+        <h1 className="text-2xl font-bold">Post a reel</h1>
+        <p className="text-sm text-gray-600">A short video for other students: your place, your campus, a tip worth sharing.</p>
       </div>
       <ReelForm action={createReelAction} defaultUniversityId={profile?.university_id} />
     </div>

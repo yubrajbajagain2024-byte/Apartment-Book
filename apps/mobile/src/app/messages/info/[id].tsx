@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, Share, Text, useWindowDimensions, View } from "react-native";
+import type { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -35,13 +35,14 @@ import { SharedMediaRow } from "@/components/messages/shared-media-row";
 import { SharedTabs } from "@/components/messages/shared-tabs";
 import { profileUrl } from "@/components/profile/share-profile-sheet";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
-import { hapticSuccess } from "@/lib/haptics";
+import { hapticSuccess, refreshWithHaptic } from "@/lib/haptics";
 import { errorText, useQuery } from "@/lib/hooks";
 import { openChatLink, openInBrowser, sharedPostHref } from "@/lib/message-attachments";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { radius, space, type } from "@/lib/theme";
+import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
+import { Icon } from "@/components/icon";
 
 /** Squares per row in the Media grid, and the hairline between them (Instagram's grid). */
 const COLUMNS = 3;
@@ -390,11 +391,9 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
       {isGroup ? (
         <View>
           <InfoSectionTitle title="Members" count={members.length} />
-          <View style={styles.members}>
-            {members.map((m, i) => (
-              <InfoMemberRow key={m.id} member={m} isMe={m.id === userId} divider={i > 0} onPress={() => openProfile(m.id)} />
-            ))}
-          </View>
+          {members.map((m) => (
+            <InfoMemberRow key={m.id} member={m} isMe={m.id === userId} onPress={() => openProfile(m.id)} />
+          ))}
         </View>
       ) : null}
       <InfoSectionTitle title="Shared" />
@@ -412,14 +411,16 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
     if (state.status !== "ready") {
       return (
         <View style={styles.statusBox}>
-          <ActivityIndicator color={colors.muted} />
+          <ActivityIndicator color={colors.brand} />
         </View>
       );
     }
     const empty = EMPTY_TEXT[tab];
     return (
       <View style={styles.empty}>
-        <EmptyState icon={empty.icon} title={empty.title} body={empty.body} />
+        <Icon name={empty.icon} size={30} color={colors.faint} />
+        <Text style={styles.emptyTitle}>{empty.title}</Text>
+        <Text style={styles.emptyBody}>{empty.body}</Text>
       </View>
     );
   }
@@ -443,7 +444,7 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
     <View style={{ paddingBottom: insets.bottom + space.xl }}>
       {state.loadingMore ? (
         <View style={styles.more}>
-          <ActivityIndicator color={colors.muted} />
+          <ActivityIndicator color={colors.brand} />
         </View>
       ) : state.moreError ? (
         <View style={styles.statusBox}>
@@ -467,7 +468,7 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
             menu.length > 0
               ? () => (
                   <Pressable onPress={openMenu} hitSlop={8} accessibilityRole="button" accessibilityLabel="More options" style={styles.headerButton}>
-                    <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
+                    <Icon name="ellipsis-horizontal" size={22} color={colors.text} />
                   </Pressable>
                 )
               : undefined,
@@ -484,7 +485,7 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
         stickyHeaderIndices={[1]}
         onEndReached={() => void shared.loadMore(tab)}
         onEndReachedThreshold={1}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshWithHaptic(() => void onRefresh())} />}
         onScroll={(e) => (scrollY.current = e.nativeEvent.contentOffset.y)}
         scrollEventThrottle={64}
         showsVerticalScrollIndicator={false}
@@ -495,13 +496,13 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
 }
 
 const useStyles = makeStyles((colors) => ({
-  courseNote: { ...type.caption, color: colors.muted, textAlign: "center", paddingHorizontal: space.xl, paddingBottom: space.md },
+  courseNote: { fontSize: 13, lineHeight: 18, color: colors.muted, textAlign: "center", paddingHorizontal: 24, paddingBottom: 12 },
   screen: { flex: 1, backgroundColor: colors.bg },
   headerButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
-  // The members as one hairline group of rows, like the actions at the bottom.
-  members: { marginHorizontal: space.lg, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, overflow: "hidden" },
   statusBox: { paddingHorizontal: space.lg, paddingVertical: space.xl, alignItems: "stretch", justifyContent: "center" },
   more: { paddingVertical: space.lg, alignItems: "center" },
-  empty: { paddingTop: space.sm },
+  empty: { alignItems: "center", paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: space.lg, gap: 6 },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: colors.text, textAlign: "center", marginTop: 4 },
+  emptyBody: { fontSize: 14, color: colors.muted, textAlign: "center", lineHeight: 19 },
   actions: { paddingTop: space.xl },
 }));

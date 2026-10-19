@@ -1,7 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import {
   extractLinks,
@@ -15,10 +14,12 @@ import {
 } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { openChatLink, sharedPostHref, type ChatMessage, type OutgoingFiles, type UploadStatus } from "@/lib/message-attachments";
-import { radius, space, type } from "@/lib/theme";
+import { entryForPost, measureOrigin, openViewer } from "@/lib/reel-viewer";
+import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { AttachmentFileRow } from "./attachment-file-row";
 import { AttachmentGrid, type GridMedia } from "./attachment-grid";
+import { Icon } from "@/components/icon";
 
 /**
  * A sent photo or video as something drawable: a signed URL with the storage path as its cache key, or null while
@@ -212,11 +213,11 @@ export function MessageRow({
           {mine && receipt && receipt !== "seen" ? (
             <View style={styles.receipt} accessibilityLabel={receipt === "sending" ? "Sending" : receipt === "sent" ? "Sent" : "Delivered"}>
               {receipt === "sending" ? (
-                <Ionicons name="ellipse-outline" size={13} color={colors.faint} />
+                <Icon name="ellipse-outline" size={13} color={colors.faint} />
               ) : receipt === "sent" ? (
-                <Ionicons name="checkmark-circle-outline" size={14} color={colors.faint} />
+                <Icon name="checkmark-circle-outline" size={14} color={colors.faint} />
               ) : (
-                <Ionicons name="checkmark-circle" size={14} color={colors.faint} />
+                <Icon name="checkmark-circle" size={14} color={colors.faint} />
               )}
             </View>
           ) : null}
@@ -250,20 +251,34 @@ function Highlight({ active, children }: { active: boolean; children: ReactNode 
   );
 }
 
-/** A shared post, reel or listing inside a chat: picture, who posted it, what it says, and "View post" to open it. */
+/**
+ * A shared post, reel or listing inside a chat: picture, who posted it, what it says, and a tap to open it. A post or
+ * reel with a picture opens full screen in the viewer (the Reels feed follows it); a words-only post opens its own
+ * screen, a listing its detail screen.
+ */
 function SharedPostCard({ shared, dimmed, onLongPress }: { shared: SharedPost; dimmed: boolean; onLongPress?: () => void }) {
   const styles = useStyles();
   const router = useRouter();
   const label = sharedPostLabel(shared);
+  /** The card's picture, measured when it is tapped so the viewer can zoom open from it. */
+  const picture = useRef<View>(null);
+  const open = () => {
+    if (shared.target_type === "post" && shared.image_url) void measureOrigin(picture.current, radius.lg).then((origin) => openViewer(router, { entries: [entryForPost(shared.target_id, shared.image_url)], index: 0, then: "reels", origin }));
+    else router.push(sharedPostHref(shared));
+  };
   return (
     <Pressable
-      onPress={() => router.push(sharedPostHref(shared))}
+      onPress={open}
       onLongPress={onLongPress}
       accessibilityRole="button"
       accessibilityLabel={`${label}: ${shared.title ?? shared.caption ?? shared.author.name}`}
       style={({ pressed }) => [styles.card, dimmed && styles.dim, pressed && { opacity: 0.8 }]}
     >
-      {shared.image_url ? <Image source={{ uri: shared.image_url }} style={styles.cardImage} contentFit="cover" transition={150} accessibilityLabel={shared.title ?? shared.caption ?? "Shared picture"} /> : null}
+      {shared.image_url ? (
+        <View ref={picture} collapsable={false}>
+          <Image source={{ uri: shared.image_url }} style={styles.cardImage} contentFit="cover" transition={150} accessibilityLabel={shared.title ?? shared.caption ?? "Shared picture"} />
+        </View>
+      ) : null}
       <View style={styles.cardBody}>
         <View style={styles.cardAuthor}>
           <Avatar name={shared.author.name} url={shared.author.avatar_url} size="xs" online={false} />
@@ -288,7 +303,7 @@ function SharedPostCard({ shared, dimmed, onLongPress }: { shared: SharedPost; d
 }
 
 const useStyles = makeStyles((colors) => ({
-  day: { ...type.eyebrow, fontWeight: "600", textAlign: "center", color: colors.faint, marginTop: space.lg, marginBottom: 6 },
+  day: { textAlign: "center", fontSize: 11, color: colors.faint, marginTop: 14, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 },
   line: { flexDirection: "row", alignItems: "flex-end", gap: 6, marginTop: 2 },
   lineMine: { flexDirection: "row-reverse" },
   groupStart: { marginTop: 10 },
@@ -296,7 +311,7 @@ const useStyles = makeStyles((colors) => ({
   stack: { maxWidth: "78%", gap: 3 },
   stackMine: { alignItems: "flex-end" },
   stackTheirs: { alignItems: "flex-start" },
-  sender: { ...type.footnote, fontSize: 11, color: colors.muted, marginLeft: 4 },
+  sender: { fontSize: 12, color: colors.muted, marginLeft: 4 },
   bubble: { borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8 },
   mine: { backgroundColor: colors.brand },
   theirs: { backgroundColor: colors.input },
@@ -304,18 +319,18 @@ const useStyles = makeStyles((colors) => ({
   failed: { backgroundColor: colors.dangerSoft },
   text: { fontSize: 15, lineHeight: 20 },
   link: { textDecorationLine: "underline" },
-  time: { ...type.footnote, fontSize: 11, color: colors.faint, marginHorizontal: 4 },
+  time: { fontSize: 12, color: colors.faint, marginHorizontal: 4 },
   failedTime: { color: colors.red, fontWeight: "600" },
   receipt: { width: 16, alignItems: "center", marginBottom: 18 },
   seen: { flexDirection: "row", justifyContent: "flex-end", gap: 2, paddingRight: 2, marginTop: 2 },
-  highlight: { position: "absolute", top: -3, bottom: -3, left: -8, right: -8, borderRadius: radius.md, backgroundColor: colors.brandSoft },
-  card: { width: 240, maxWidth: "100%", borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.card, overflow: "hidden" },
+  highlight: { position: "absolute", top: -3, bottom: -3, left: -8, right: -8, borderRadius: radius.md, borderCurve: "continuous", backgroundColor: colors.brandSoft },
+  card: { width: 240, maxWidth: "100%", borderRadius: radius.lg, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.card, overflow: "hidden" },
   // 4:5 would be 300pt tall at this width, so the picture is capped at 200 and cropped.
   cardImage: { width: "100%", height: 200, backgroundColor: colors.input },
   cardBody: { padding: 10, gap: 4 },
   cardAuthor: { flexDirection: "row", alignItems: "center", gap: 6 },
-  cardName: { ...type.label, fontSize: 13, color: colors.text, flexShrink: 1 },
-  cardTitle: { ...type.subheading, fontSize: 14, lineHeight: 19, color: colors.text },
+  cardName: { fontSize: 13, fontWeight: "600", color: colors.text, flexShrink: 1 },
+  cardTitle: { fontSize: 14, fontWeight: "600", lineHeight: 19, color: colors.text },
   cardText: { fontSize: 14, lineHeight: 19, color: colors.text },
-  cardFooter: { ...type.label, fontSize: 13, color: colors.brand, marginTop: 2 },
+  cardFooter: { fontSize: 13, fontWeight: "600", color: colors.brand, marginTop: 2 },
 }));

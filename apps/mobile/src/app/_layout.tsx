@@ -1,5 +1,4 @@
 import { Stack } from "expo-router";
-import { useFonts } from "expo-font";
 import { Platform, StyleSheet } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -8,14 +7,9 @@ import { ActionSheetProvider } from "@/components/action-sheet";
 import { ShareSheetProvider } from "@/components/share-sheet";
 import { PresenceProvider } from "@/lib/presence";
 import { SessionProvider } from "@/lib/session";
-import { FONT_FILES, fonts } from "@/lib/theme";
 import { AppThemeProvider, useAppTheme } from "@/lib/theme-provider";
 
 export default function RootLayout() {
-  // The serif faces of the design system (lib/theme.ts). The splash screen stays up until they are in (AppThemeProvider
-  // hides it once it mounts); a face that cannot load falls back to the system face rather than holding the app.
-  const [fontsReady, fontError] = useFonts(FONT_FILES);
-  if (!fontsReady && !fontError) return null;
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -46,8 +40,7 @@ function ThemedStack() {
   return (
     <>
       <StatusBar style={isDark ? "light" : "dark"} />
-      {/* Ink chevrons, a serif title and no shadow: a pushed screen's header is the same quiet bar the tabs draw themselves. */}
-      <Stack screenOptions={{ headerTintColor: colors.text, headerTitleStyle: { color: colors.text, fontFamily: fonts.display, fontSize: 19 }, headerStyle: { backgroundColor: colors.bar }, headerShadowVisible: false, headerBackButtonDisplayMode: "minimal", contentStyle: contentUnderHeader }}>
+      <Stack screenOptions={{ headerTintColor: colors.brand, headerTitleStyle: { color: colors.text, fontWeight: "700" }, headerStyle: { backgroundColor: colors.bar }, headerBackButtonDisplayMode: "minimal", contentStyle: contentUnderHeader }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false, contentStyle: content }} />
         <Stack.Screen name="(auth)/login" options={{ title: "Log in", presentation: "modal" }} />
         <Stack.Screen name="(auth)/signup" options={{ title: "Create account", presentation: "modal" }} />
@@ -55,8 +48,11 @@ function ThemedStack() {
         <Stack.Screen name="roommates/[id]" options={{ title: "Roommate post" }} />
         <Stack.Screen name="marketplace/[id]" options={{ title: "Item" }} />
         <Stack.Screen name="posts/[id]" options={{ title: "Post" }} />
-        {/* The Reels viewer is video edge to edge, black behind it in both themes, with its own Back over the video. */}
-        <Stack.Screen name="reels/[id]" options={{ headerShown: false, contentStyle: { backgroundColor: colors.mediaBg } }} />
+        {/* The full-screen viewer zooms open out of the picture that was tapped and back into it on the way out (see
+            app/reels/[id].tsx), so it is a see-through screen with no slide of its own: the screen behind stays in view
+            while the page grows over it and the backdrop darkens. It draws its own Back and closes on a swipe from the
+            left edge. */}
+        <Stack.Screen name="reels/[id]" options={{ headerShown: false, presentation: "transparentModal", animation: "none", gestureEnabled: false, contentStyle: { backgroundColor: "transparent" } }} />
         <Stack.Screen name="buzz/[id]" options={{ headerShown: false, contentStyle: content }} />
         <Stack.Screen name="messages/[id]" options={{ title: "Chat" }} />
         <Stack.Screen name="messages/new" options={{ title: "New message" }} />

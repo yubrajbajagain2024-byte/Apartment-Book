@@ -24,8 +24,8 @@ export default function ProfileTab() {
           body="Sign in with your university email to post, save and message."
           action={
             <View style={{ gap: 8, width: 220 }}>
-              <Button title="Log in" onPress={() => router.push("/(auth)/login")} />
-              <Button title="Create account" variant="secondary" onPress={() => router.push("/(auth)/signup")} />
+              <Button title="Log in" size="large" onPress={() => router.push("/(auth)/login")} />
+              <Button title="Create account" size="large" variant="secondary" onPress={() => router.push("/(auth)/signup")} />
             </View>
           }
         />

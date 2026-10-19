@@ -2,10 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import {
   ActivityIndicator,
   Alert,
-  Animated,
-  KeyboardAvoidingView,
-  Modal,
-  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -15,19 +11,18 @@ import {
   TextInput,
   View,
   useWindowDimensions,
-  type GestureResponderHandlers,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { APP_NAME, listFriends, sendSharedPost, type FeedMedia, type ProfileSummary, type SharedPost } from "@apartment-book/shared";
-import { hapticSuccess, hapticTap } from "@/lib/haptics";
+import { hapticSuccess, hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { motion, radius, shadows, space, type } from "@/lib/theme";
+import { auroraGradient, radius } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { Avatar } from "./avatar";
+import { Icon } from "@/components/icon";
+import { Sheet, SheetFooter, SheetHeader } from "./sheet";
 
 /** Besides the snapshot, the sheet needs the website link for "Share to…" and, optionally, the words that go before it. */
 export type ShareOptions = { url: string; label?: string };
@@ -50,8 +45,9 @@ export function firstImageOf(media: FeedMedia[]): string | null {
 }
 
 /**
- * Instagram's share sheet, mounted once in the root layout: `useShareSheet().open(sharedPost, { url })` from any Share
- * button. Friends (people you follow who follow you back) show as a grid; pick some, add a note, Send, and each one gets a
+ * Instagram's share sheet, mounted in the root layout: `useShareSheet().open(sharedPost, { url })` from any Share button.
+ * A screen that iOS presents modally (the full-screen viewer) mounts its own: a sheet is presented by the screen on top,
+ * and the root one, under that screen, could not appear over it. Friends (people you follow who follow you back) show as a grid; pick some, add a note, Send, and each one gets a
  * direct message carrying the post as a card. "Share to…" at the bottom is the system share sheet, as before.
  */
 export function ShareSheetProvider({ children }: { children: ReactNode }) {
@@ -74,9 +70,6 @@ export function useShareSheet(): ShareSheetApi {
 }
 
 function ShareSheet({ request, onClose }: { request: ShareRequest | null; onClose: (seq?: number) => void }) {
-  const styles = useStyles();
-  const drag = useRef(new Animated.Value(0)).current;
-  const closeRef = useRef(onClose);
   // Keep showing the last request while the sheet slides away, so it does not go blank mid-animation.
   const [shown, setShown] = useState<ShareRequest | null>(request);
   const open = request !== null;
@@ -85,14 +78,8 @@ function ShareSheet({ request, onClose }: { request: ShareRequest | null; onClos
   const fallback = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    closeRef.current = onClose;
-  }, [onClose]);
-  useEffect(() => {
     if (request) setShown(request);
   }, [request]);
-  useEffect(() => {
-    if (open) drag.setValue(0);
-  }, [open, drag]);
   useEffect(() => () => void (fallback.current && clearTimeout(fallback.current)), []);
 
   const runAfterDismiss = useCallback(() => {
@@ -109,48 +96,25 @@ function ShareSheet({ request, onClose }: { request: ShareRequest | null; onClos
       onClose();
       if (Platform.OS !== "ios") return fn();
       afterDismiss.current = fn;
-      fallback.current = setTimeout(runAfterDismiss, 600);
+      // The sheet animates out first (about a quarter second), then the modal goes: allow for both.
+      fallback.current = setTimeout(runAfterDismiss, 900);
     },
     [onClose, runAfterDismiss],
   );
 
-  // Pull the handle down to close, like every other sheet on the phone.
-  const pan = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
-        onPanResponderMove: (_, g) => drag.setValue(Math.max(0, g.dy)),
-        onPanResponderRelease: (_, g) => {
-          if (g.dy > 90 || g.vy > 1.2) closeRef.current();
-          else Animated.spring(drag, { toValue: 0, ...motion.legacySpring }).start();
-        },
-        onPanResponderTerminate: () => Animated.spring(drag, { toValue: 0, ...motion.legacySpring }).start(),
-      }),
-    [drag],
-  );
-
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={() => onClose()} onDismiss={runAfterDismiss} statusBarTranslucent>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <View style={styles.root}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => onClose()} accessibilityRole="button" accessibilityLabel="Close share sheet" />
-          <Animated.View style={[styles.sheet, { transform: [{ translateY: drag }] }]}>
-            {shown ? <SheetBody key={shown.seq} shared={shown.shared} options={shown.options} panHandlers={pan.panHandlers} onClose={() => onClose(shown.seq)} closeThen={closeThen} /> : null}
-          </Animated.View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    <Sheet visible={open} onClose={() => onClose()} onDismiss={runAfterDismiss} closeLabel="Close share sheet" height="72%" keyboard>
+      {shown ? <SheetBody key={shown.seq} shared={shown.shared} options={shown.options} onClose={() => onClose(shown.seq)} closeThen={closeThen} /> : null}
+    </Sheet>
   );
 }
 
 type SendStatus = "idle" | "sending" | "sent";
 
 /** One opening of the sheet: remounted (fresh search, selection and note) each time it opens. */
-function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { shared: SharedPost; options: ShareOptions; panHandlers: GestureResponderHandlers; onClose: () => void; closeThen: (fn: () => void) => void }) {
+function SheetBody({ shared, options, onClose, closeThen }: { shared: SharedPost; options: ShareOptions; onClose: () => void; closeThen: (fn: () => void) => void }) {
   const styles = useStyles();
   const { colors, isDark } = useAppTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useSession();
   const { width } = useWindowDimensions();
@@ -229,7 +193,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
         const missed = recipients.filter((p) => failed.includes(p.id));
         setPicked(new Map(missed.map((p) => [p.id, p])));
         setStatus("idle");
-        Alert.alert(`Could not send to ${missed.map((p) => p.full_name).join(", ")}`, "Check your connection and try again.");
+        alertWithHaptic("error", `Could not send to ${missed.map((p) => p.full_name).join(", ")}`, "Check your connection and try again.");
         return;
       }
       hapticSuccess();
@@ -238,7 +202,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
     } catch (e) {
       if (!alive.current) return;
       setStatus("idle");
-      Alert.alert("Could not send", errorText(e));
+      alertWithHaptic("error", "Could not send", errorText(e));
     }
   }
 
@@ -261,7 +225,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
   if (!user) {
     body = (
       <Pressable onPress={() => closeThen(() => router.push("/(auth)/login"))} accessibilityRole="button" accessibilityLabel="Log in to share with friends" style={({ pressed }) => [styles.empty, pressed && { opacity: 0.7 }]}>
-        <Ionicons name="person-circle-outline" size={44} color={colors.faint} />
+        <Icon name="person-circle-outline" size={44} color={colors.faint} />
         <Text style={styles.loginText}>Log in to share with friends</Text>
         <Text style={styles.emptyBody}>Posts you share land in a chat with each friend.</Text>
       </Pressable>
@@ -270,7 +234,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
     body = (
       <View style={styles.empty}>
         <Text style={styles.errorText}>{error}</Text>
-        <Pressable onPress={() => setAttempt((n) => n + 1)} accessibilityRole="button" accessibilityLabel="Retry" style={({ pressed }) => [styles.ghostButton, pressed && { opacity: 0.7 }]}>
+        <Pressable onPress={() => setAttempt((n) => n + 1)} accessibilityRole="button" accessibilityLabel="Retry" style={styles.ghostButton}>
           <Text style={styles.ghostButtonText}>Retry</Text>
         </Pressable>
       </View>
@@ -284,9 +248,9 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
   } else if (friends.length === 0 && !q.trim()) {
     body = (
       <View style={styles.empty}>
-        <Ionicons name="people-outline" size={44} color={colors.faint} />
+        <Icon name="people-outline" size={44} color={colors.faint} />
         <Text style={styles.emptyTitle}>Friends you follow back show up here.</Text>
-        <Pressable onPress={() => closeThen(() => router.push("/find-people"))} accessibilityRole="button" accessibilityLabel="Find people" style={({ pressed }) => [styles.ghostButton, pressed && { opacity: 0.7 }]}>
+        <Pressable onPress={() => closeThen(() => router.push("/find-people"))} accessibilityRole="button" accessibilityLabel="Find people" style={styles.ghostButton}>
           <Text style={styles.ghostButtonText}>Find people</Text>
         </Pressable>
       </View>
@@ -315,11 +279,11 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
                 <Avatar name={p.full_name} url={p.avatar_url} size={64} userId={p.id} ringColor={colors.elevated} />
                 {selected ? (
                   <View style={styles.check}>
-                    <Ionicons name="checkmark" size={14} color={colors.onBrand} />
+                    <Icon name="checkmark" size={14} color={colors.onBrand} />
                   </View>
                 ) : null}
               </View>
-              <Text style={[styles.tileName, selected && styles.tileNameSelected]} numberOfLines={2}>
+              <Text style={[styles.tileName, selected && { color: colors.brand }]} numberOfLines={2}>
                 {p.full_name}
               </Text>
             </Pressable>
@@ -331,18 +295,10 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
 
   return (
     <>
-      <View {...panHandlers} style={styles.header}>
-        <View style={styles.handle} />
-        <Text style={styles.title} accessibilityRole="header">
-          Share
-        </Text>
-        <Pressable onPress={onClose} hitSlop={10} style={({ pressed }) => [styles.close, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Close">
-          <Ionicons name="close" size={18} color={colors.text} />
-        </Pressable>
-      </View>
+      <SheetHeader title="Share" onClose={onClose} />
       {user ? (
         <View style={styles.search}>
-          <Ionicons name="search-outline" size={18} color={colors.muted} />
+          <Icon name="search-outline" size={18} color={colors.muted} />
           <TextInput
             value={q}
             onChangeText={setQ}
@@ -372,7 +328,7 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
         ) : null}
         {body}
       </ScrollView>
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+      <SheetFooter style={styles.footer}>
         {user && picked.size > 0 ? (
           <View style={styles.composer}>
             <Text style={styles.to} numberOfLines={1}>
@@ -397,9 +353,9 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
                 accessibilityRole="button"
                 accessibilityLabel={sendLabel}
                 accessibilityState={{ disabled: busy || picked.size === 0 }}
-                style={({ pressed }) => [styles.send, status === "sent" && { backgroundColor: colors.successFill }, pressed && !busy && { opacity: 0.85 }]}
+                style={({ pressed }) => [styles.send, status === "sent" ? { backgroundColor: colors.successFill } : styles.sendAurora, pressed && !busy && { opacity: 0.85 }]}
               >
-                {status === "sending" ? <ActivityIndicator size="small" color={colors.onBrand} /> : status === "sent" ? <Ionicons name="checkmark" size={16} color={colors.onBrand} /> : null}
+                {status === "sending" ? <ActivityIndicator size="small" color={colors.onBrand} /> : status === "sent" ? <Icon name="checkmark" size={16} color={colors.onBrand} /> : null}
                 <Text style={styles.sendText}>{sendLabel}</Text>
               </Pressable>
             </View>
@@ -407,56 +363,46 @@ function SheetBody({ shared, options, panHandlers, onClose, closeThen }: { share
         ) : null}
         <Pressable onPress={() => void shareTo()} disabled={busy} accessibilityRole="button" accessibilityLabel="Share to…" style={({ pressed }) => [styles.secondary, pressed && { backgroundColor: colors.input }]}>
           <View style={styles.secondaryIcon}>
-            <Ionicons name="share-outline" size={20} color={colors.text} />
+            <Icon name="share-outline" size={20} color={colors.text} />
           </View>
           <Text style={styles.secondaryText}>Share to…</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.faint} />
+          <Icon name="chevron-forward" size={16} color={colors.faint} />
         </Pressable>
-      </View>
+      </SheetFooter>
     </>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
-  root: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.backdrop },
-  // The sheet floats over the dimmed screen: the system's sheet shadow, and the largest corner the system allows.
-  sheet: { height: "72%", backgroundColor: colors.elevated, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, overflow: "hidden", shadowColor: colors.shadow, ...shadows.sheet },
-  header: { alignItems: "center", paddingTop: space.sm, paddingBottom: space.md, paddingHorizontal: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: space.md },
-  // The sheet's title is the serif headline, a size down.
-  title: { ...type.headline, fontSize: 18, lineHeight: 24, color: colors.text },
-  close: { position: "absolute", right: space.md, top: 18, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
-  // The search box looks like a Field at rest: the soft fill with a hairline.
-  search: { flexDirection: "row", alignItems: "center", gap: space.sm, marginHorizontal: space.md, marginTop: space.md, paddingHorizontal: 12, height: 40, borderRadius: radius.md, backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border },
-  searchInput: { flex: 1, ...type.bodySmall, color: colors.text, paddingVertical: 0 },
-  list: { paddingHorizontal: space.md, paddingTop: space.md, paddingBottom: space.sm, flexGrow: 1 },
+  search: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 12, marginTop: 12, paddingHorizontal: 12, height: 40, borderRadius: radius.md, borderCurve: "continuous", backgroundColor: colors.input },
+  searchInput: { flex: 1, fontSize: 15, color: colors.text, paddingVertical: 0 },
+  list: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8, flexGrow: 1 },
   grid: { flexDirection: "row", flexWrap: "wrap" },
-  tile: { alignItems: "center", paddingVertical: space.sm, paddingHorizontal: space.xs, gap: 6 },
+  tile: { alignItems: "center", paddingVertical: 8, paddingHorizontal: 4, gap: 6 },
   // The ring is the sheet's own colour, cutting the tick out of the photo.
   check: { position: "absolute", right: -2, bottom: -2, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.brand, borderWidth: 2, borderColor: colors.elevated, alignItems: "center", justifyContent: "center" },
-  tileName: { ...type.footnote, lineHeight: 15, color: colors.text, textAlign: "center" },
-  tileNameSelected: { fontWeight: "600" },
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.sm + space.xxs, paddingVertical: space.xxl, paddingHorizontal: space.xl },
-  // Nothing to show: a serif headline and a quiet line, like EmptyState.
-  emptyTitle: { ...type.headline, fontSize: 18, lineHeight: 24, color: colors.text, textAlign: "center" },
-  emptyBody: { ...type.caption, fontSize: 14, lineHeight: 20, color: colors.muted, textAlign: "center" },
-  loginText: { ...type.headline, fontSize: 18, lineHeight: 24, color: colors.text, textAlign: "center" },
-  errorText: { ...type.caption, fontSize: 14, color: colors.red, textAlign: "center" },
+  tileName: { fontSize: 12, lineHeight: 15, color: colors.text, textAlign: "center" },
+  empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 32, paddingHorizontal: 24 },
+  emptyTitle: { fontSize: 15, fontWeight: "600", color: colors.text, textAlign: "center" },
+  emptyBody: { fontSize: 14, color: colors.muted, textAlign: "center" },
+  loginText: { fontSize: 16, fontWeight: "700", color: colors.brand, textAlign: "center" },
+  errorText: { fontSize: 14, color: colors.red, textAlign: "center" },
   // The look of ErrorBanner in components/ui.
-  banner: { flexDirection: "row", alignItems: "center", gap: space.md, marginBottom: space.sm, padding: space.md, borderRadius: radius.md, backgroundColor: colors.dangerSoft },
-  bannerText: { flex: 1, ...type.caption, fontSize: 14, color: colors.dangerText },
-  bannerRetry: { ...type.label, color: colors.dangerText },
-  // A secondary button: a hairline capsule, the words in ink.
-  ghostButton: { height: 36, paddingHorizontal: space.lg, justifyContent: "center", borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: "transparent" },
-  ghostButtonText: { ...type.label, color: colors.text },
-  footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: space.md, paddingTop: space.sm, backgroundColor: colors.elevated },
-  composer: { gap: 6, paddingBottom: space.sm },
-  to: { ...type.footnote, color: colors.muted, marginLeft: 2 },
-  composerRow: { flexDirection: "row", alignItems: "flex-end", gap: space.sm },
-  note: { flex: 1, minHeight: 40, maxHeight: 96, backgroundColor: colors.input, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingTop: 9, paddingBottom: 9, fontSize: 15, lineHeight: 20, color: colors.text },
-  send: { minWidth: 84, height: 40, borderRadius: radius.pill, paddingHorizontal: space.lg, backgroundColor: colors.brand, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
-  sendText: { ...type.label, fontSize: 15, color: colors.onBrand },
-  secondary: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.sm + space.xxs, paddingHorizontal: space.xs, borderRadius: radius.md },
+  banner: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8, padding: 12, borderRadius: radius.md, borderCurve: "continuous", backgroundColor: colors.dangerSoft },
+  bannerText: { flex: 1, fontSize: 14, color: colors.dangerText },
+  bannerRetry: { fontSize: 14, fontWeight: "700", color: colors.dangerText },
+  ghostButton: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: radius.pill, backgroundColor: colors.brandSoft },
+  ghostButtonText: { fontSize: 14, fontWeight: "700", color: colors.brand },
+  footer: { paddingHorizontal: 12, paddingTop: 8 },
+  composer: { gap: 6, paddingBottom: 8 },
+  to: { fontSize: 12, color: colors.muted, marginLeft: 2 },
+  composerRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+  note: { flex: 1, minHeight: 40, maxHeight: 96, backgroundColor: colors.input, borderRadius: 20, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 10, fontSize: 15, color: colors.text },
+  send: { minWidth: 84, height: 40, borderRadius: 20, paddingHorizontal: 16, backgroundColor: colors.brand, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  // Until it has gone: then the green "Sent" replaces the aurora.
+  sendAurora: { experimental_backgroundImage: auroraGradient(colors.aurora) },
+  sendText: { color: colors.onBrand, fontSize: 15, fontWeight: "700" },
+  secondary: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingHorizontal: 4, borderRadius: radius.md, borderCurve: "continuous" },
   secondaryIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
-  secondaryText: { flex: 1, ...type.subheading, color: colors.text },
+  secondaryText: { flex: 1, fontSize: 15, fontWeight: "600", color: colors.text },
 }));

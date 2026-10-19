@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Alert, Keyboard, LayoutAnimation, Platform, Pressable, StyleSheet, Text, TextInput, View, type KeyboardEvent } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MESSAGE_ATTACHMENT_LIMITS } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
-import { hapticTap } from "@/lib/haptics";
+import { hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { ATTACHMENT_LIMIT_TEXT, captureMedia, pickDocuments, pickLibraryMedia, type PendingAttachment, type PickResult } from "@/lib/message-attachments";
-import { radius, space, type } from "@/lib/theme";
+import { auroraGradient } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { AttachmentStrip } from "./attachment-strip";
+import { Icon } from "@/components/icon";
 
 const SHOW_EVENT = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
 const HIDE_EVENT = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
@@ -88,7 +88,7 @@ export function Composer({
       if (picked.length > 0) onAddItems(picked);
       if (problems.length > 0) Alert.alert(picked.length > 0 ? "Some files weren't added" : "Couldn't add that", problems.join("\n"));
     } catch (e) {
-      Alert.alert("Couldn't add that", errorText(e, "Please try again."));
+      alertWithHaptic("error", "Couldn't add that", errorText(e, "Please try again."));
     } finally {
       setBusy(false);
     }
@@ -112,7 +112,7 @@ export function Composer({
       {items.length > 0 ? <AttachmentStrip items={items} onRemove={onRemoveItem} /> : null}
       <View style={styles.row}>
         <Pressable onPress={attach} disabled={busy} hitSlop={6} style={styles.attach} accessibilityRole="button" accessibilityLabel="Attach a photo, video or file">
-          {busy ? <ActivityIndicator color={colors.brand} /> : <Ionicons name="add-circle" size={32} color={colors.brand} />}
+          {busy ? <ActivityIndicator color={colors.brand} /> : <Icon name="add-circle" size={32} color={colors.brand} />}
         </Pressable>
         <TextInput
           value={value}
@@ -128,7 +128,7 @@ export function Composer({
           accessibilityLabel="Message"
         />
         <Pressable onPress={onSend} disabled={!canSend} hitSlop={6} style={[styles.send, !canSend && { opacity: 0.4 }]} accessibilityRole="button" accessibilityLabel="Send" accessibilityState={{ disabled: !canSend }}>
-          <Ionicons name="send" size={17} color={colors.onBrand} />
+          <Icon name="send" size={17} color={colors.onBrand} />
         </Pressable>
       </View>
     </BottomBar>
@@ -157,15 +157,12 @@ const useStyles = makeStyles((colors) => ({
   bar: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.bar },
   row: { flexDirection: "row", alignItems: "flex-end", gap: 8, paddingHorizontal: 10, paddingTop: 8 },
   attach: { width: 36, height: 40, alignItems: "center", justifyContent: "center" },
-  // The soft fill with a hairline edge, a capsule at one line that squares a little as it grows.
   input: {
     flex: 1,
     minHeight: 40,
     maxHeight: 120,
     backgroundColor: colors.input,
-    borderRadius: radius.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    borderRadius: 20,
     paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: 10,
@@ -174,10 +171,10 @@ const useStyles = makeStyles((colors) => ({
     color: colors.text,
     textAlignVertical: "center",
   },
-  send: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
-  notice: { alignItems: "center", gap: 4, paddingHorizontal: space.xl, paddingTop: 14, paddingBottom: 6 },
-  noticeTitle: { ...type.subheading, color: colors.text, textAlign: "center" },
-  noticeBody: { ...type.caption, color: colors.muted, textAlign: "center" },
-  noticeButton: { marginTop: space.sm, height: 34, paddingHorizontal: 18, justifyContent: "center", borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border },
-  noticeButtonText: { ...type.label, color: colors.text },
+  send: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.aurora, 135), alignItems: "center", justifyContent: "center" },
+  notice: { alignItems: "center", gap: 4, paddingHorizontal: 24, paddingTop: 14, paddingBottom: 6 },
+  noticeTitle: { fontSize: 15, fontWeight: "700", color: colors.text, textAlign: "center" },
+  noticeBody: { fontSize: 13, color: colors.muted, textAlign: "center" },
+  noticeButton: { marginTop: 8, paddingHorizontal: 18, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.input },
+  noticeButtonText: { fontSize: 14, fontWeight: "700", color: colors.brand },
 }));

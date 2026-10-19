@@ -88,13 +88,13 @@ export function ProfileTabs({
             tabIndex={selected ? 0 : -1}
             onClick={(e) => onTabClick(e, tab)}
             className={cn(
-              "relative flex h-12 items-center justify-center gap-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-400",
-              selected ? "text-gray-900" : "text-gray-500 hover:text-gray-900",
+              "relative flex h-12 items-center justify-center gap-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500",
+              selected ? "text-gray-900" : "text-gray-500 hover:text-gray-700",
             )}
             data-testid={`profile-tab-${tab}`}
           >
             <span className="relative">
-              <Icon className="h-[22px] w-[22px]" strokeWidth={selected ? 2.25 : 1.75} aria-hidden="true" />
+              <Icon className="h-[22px] w-[22px]" strokeWidth={selected ? 2.25 : 2} aria-hidden="true" />
               {lock ? (
                 <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white" data-testid="profile-tab-lock">
                   <Lock className="h-2.5 w-2.5" strokeWidth={3} aria-hidden="true" />
@@ -104,7 +104,7 @@ export function ProfileTabs({
             <span className="hidden sm:inline" aria-hidden="true">
               {label}
             </span>
-            {selected ? <span aria-hidden="true" className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-gray-900 sm:inset-x-5" /> : null}
+            {selected ? <span aria-hidden="true" className="absolute inset-x-3 bottom-0 h-[3px] rounded-full bg-brand-600 bg-aurora-line sm:inset-x-5" /> : null}
           </Link>
         );
       })}
