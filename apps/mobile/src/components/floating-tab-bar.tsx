@@ -33,7 +33,7 @@ const TRAIL = { damping: 29, stiffness: 290, mass: 0.8 };
  * The floating bottom bar, GroupMe style: a rounded glass pill with the five tabs in a row and one capsule behind the tab
  * on screen. The capsule never blinks or jumps: it glides from the tab you were on to the one you tap (see LEAD and
  * TRAIL), while the tabs make room for it (the tab on screen is ACTIVE_SHARE as wide as the others) on a critically
- * damped spring. Only the new tab's symbol bounces, with a selection tick; the tab you left returns to its plain look at
+ * damped spring. Only the new tab's symbol bounces (silently: no haptic); the tab you left returns to its plain look at
  * once. The navigator's own events still fire (tabPress can be prevented, tabLongPress
  * is sent), each tab keeps its icon, title and badge from its screen options, and screen readers hear
  * "Home, tab, 1 of 5" as before. Everything that moves runs on the UI thread (Reanimated).

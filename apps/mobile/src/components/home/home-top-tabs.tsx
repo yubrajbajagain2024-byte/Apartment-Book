@@ -146,7 +146,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
     if (key === chosen) return;
     if (key === "following") {
       setScope({ following: true });
-      // Only Posts can show the people you follow: picking it from another section goes there (that switch plays its own haptic).
+      // Only Posts can show the people you follow: picking it from another section goes there, silently like every section change.
       if (section !== "posts") return onSelect("posts");
     } else {
       setScope({ campus: key, following: false });
