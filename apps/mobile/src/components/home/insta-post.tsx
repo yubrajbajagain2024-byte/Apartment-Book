@@ -49,8 +49,8 @@ export type InstaPostProps = {
 const TALLEST = 4 / 5;
 const WIDEST = 1.91;
 
-/** A photo keeps its own shape, but never taller than 4:5 or wider than 1.91:1. */
-function frameAspect(media: FeedMedia[], reel: boolean): number {
+/** A photo keeps its own shape, but never taller than 4:5 or wider than 1.91:1. Buzz's media frames follow the same rule. */
+export function frameAspect(media: FeedMedia[], reel: boolean): number {
   if (reel) return 9 / 16;
   const first = media[0];
   if (!first?.width || !first.height) return TALLEST;

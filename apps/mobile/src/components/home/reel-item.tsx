@@ -6,7 +6,8 @@ import { useRouter } from "expo-router";
 import { useVideoPlayer, VideoView, type VideoPlayer } from "expo-video";
 import { GestureDetector } from "react-native-gesture-handler";
 import Reanimated, { cancelAnimation, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
-import { APP_NAME, deleteFeedPost, getFeedPost, getOrCreateDirectConversation, likePost, reelPath, reportContent, REPORT_REASONS, setPostPinned, sharedPostPath, toggleSaved, unlikePost, type FeedMedia, type Reel, type ReportReason } from "@apartment-book/shared";
+import type { SFSymbol } from "expo-symbols";
+import { APP_NAME, BUZZ_TOPICS, deleteFeedPost, getFeedPost, getOrCreateDirectConversation, labelFor, likePost, reelPath, reportContent, REPORT_REASONS, setPostPinned, sharedPostPath, shortAge, toggleSaved, unlikePost, voteBuzz, type FeedMedia, type Reel, type ReportReason } from "@apartment-book/shared";
 import { hapticLike, hapticSelect, hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
@@ -22,6 +23,7 @@ import { ViewerChromeContext, ViewerClockContext, ViewerClosingContext, ViewerZo
 import { hasDrawn, lendPlayer, returnPlayer } from "@/lib/video-handoff";
 import { setVideosMuted, useVideosMuted, VIDEO_AUDIO_MODE, videosMuted } from "@/lib/video-sound";
 import { usePageSwipe, type PageSlides } from "@/lib/viewer-swipe";
+import { emitBuzzEvent, TopicIcon, useBuzzMenu, useVote, type Vote } from "./buzz-card";
 
 /**
  * The shades over a reel are true gradients of a media colour (the same in both themes), each stop that colour at a
@@ -75,7 +77,7 @@ const DOTS_TOP = 8;
 /** How long "…" waits for your reel's pin state when the read-ahead has not answered yet. */
 const PIN_READ_WAIT_MS = 1200;
 
-export const reelKey = (reel: Pick<Reel, "sourceType" | "sourceId">) => `${reel.sourceType}:${reel.sourceId}`;
+export const reelKey = (reel: { sourceType: string; sourceId: string }) => `${reel.sourceType}:${reel.sourceId}`;
 
 /** Whether this page draws its pictures yet (see the `pictures` prop). */
 const PicturesContext = createContext(true);
@@ -169,7 +171,11 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   const clocks = useContext(ViewerClockContext);
   const onClock = useCallback((index: number, read: (() => number) | null) => clocks?.set(key, index, read), [clocks, key]);
   const own = user?.id === reel.author.id;
-  const isTour = reel.sourceType !== "post";
+  const isTour = reel.sourceType === "apartment" || reel.sourceType === "roommate";
+  /** An anonymous Buzz thread: nobody's name, votes instead of likes, its replies on its own screen (see BuzzRail). */
+  const buzz = reel.buzz;
+  /** On a Buzz page a double tap upvotes, through the rail's own vote (see BuzzRail). */
+  const upvote = useRef<(() => void) | null>(null);
   /** What the menus and alerts call it. */
   const noun = isTour || reel.kind === "reel" ? "reel" : "post";
   const media = reel.media;
@@ -245,7 +251,10 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   useEffect(() => {
     onSlideChange?.(key, slide, surface);
   }, [onSlideChange, key, slide, surface]);
-  /** Collapsed, the description is one line like Instagram's. Whether it was cut is measured, not guessed (see onTextLayout). */
+  /**
+   * Collapsed, the description is one line like Instagram's (a Buzz thread's title in bold at its start). Whether it was
+   * cut is measured, not guessed (see onTextLayout).
+   */
   const oneLine = [reel.title, reel.caption].filter(Boolean).join(" · ");
   const [clipped, setClipped] = useState(false);
   const canExpand = clipped || oneLine.includes("\n");
@@ -324,6 +333,7 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   }
 
   async function toggleLike() {
+    if (reel.sourceType === "buzz") return;
     if (!user) return login();
     if (likeBusy) return;
     const next = !reel.likedByMe;
@@ -343,6 +353,7 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   }
 
   async function toggleSave() {
+    if (reel.sourceType === "buzz") return;
     if (!user) return login();
     // A selection tick as the bookmark fills (or empties), as everywhere else you save.
     hapticSelect();
@@ -366,7 +377,8 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
     if (now - lastTap.current < 260) {
       lastTap.current = 0;
       burst();
-      if (!reel.likedByMe) void toggleLike();
+      if (buzz) upvote.current?.();
+      else if (!reel.likedByMe) void toggleLike();
       return;
     }
     lastTap.current = now;
@@ -380,9 +392,11 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
 
   /** Instagram's share sheet: send the reel to friends as a chat card, or "Share to…" the link with the system sheet. */
   function share() {
-    const url = `${SITE_URL}${reelPath(reel)}`;
+    const type = reel.sourceType;
+    if (type === "buzz") return;
+    const url = `${SITE_URL}${reelPath({ sourceType: type, sourceId: reel.sourceId })}`;
     const label = reel.title ?? (reel.caption ? reel.caption.slice(0, 80) : `${reel.author.name} on ${APP_NAME}`);
-    const target = { target_type: reel.sourceType, target_id: reel.sourceId };
+    const target = { target_type: type, target_id: reel.sourceId };
     shareSheet.open(
       {
         ...target,
@@ -417,12 +431,14 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   }
 
   function report() {
+    const targetType = reel.sourceType;
+    if (targetType === "buzz") return;
     if (!user) return login();
     show(
       REPORT_REASONS.map((r) => ({
         label: r.label,
         onPress: async () => {
-          await reportContent(supabase, user.id, { targetType: reel.sourceType, targetId: reel.sourceId, reason: r.value as ReportReason }).catch(() => {});
+          await reportContent(supabase, user.id, { targetType, targetId: reel.sourceId, reason: r.value as ReportReason }).catch(() => {});
           Alert.alert("Thanks", `Our team will review this ${noun}.`);
         },
       })),
@@ -515,7 +531,7 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
         <SlideStrip media={media} aspects={aspects} pos={stripPos} settled={settled} shown={slide} width={width} height={height} photoTop={photoAt} photoFloor={floor} topInset={topInset} bottomInset={bottomInset} near={near} playing={playing && (closing || !userPaused)} muted={muted} onAspect={onAspect} onTap={onVideoTap} goTo={goTo} startAt={startFrom} borrowed={lentPlayer} startSlide={firstSlide} onStarted={started} onClock={onClock} onShown={firstShown} standIn={standIn} />
       )}
       <Animated.View pointerEvents="none" style={[styles.heartBox, heartBox, styles.bigHeart, { opacity: bigHeart, transform: [{ scale: bigHeart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
-        <Icon name="heart" size={110} color={colors.onMedia} />
+        {buzz ? <Icon name="arrow-up-circle" sf="arrowshape.up.fill" size={110} color={colors.onMedia} /> : <Icon name="heart" size={110} color={colors.onMedia} />}
       </Animated.View>
 
       <Reanimated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, chromeStyle]}>
@@ -538,18 +554,31 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
 
       <View style={[styles.overlay, { paddingBottom: OVERLAY_PAD + bottomInset }]} pointerEvents="box-none" onLayout={(e) => setOverlayTop(e.nativeEvent.layout.y)}>
         <View style={styles.info} pointerEvents="box-none" onLayout={(e) => setInfoTop(e.nativeEvent.layout.y)}>
-          <Pressable onPress={unlessSwiped(() => router.push({ pathname: "/profile/[id]", params: { id: reel.author.id } }))} style={{ flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start" }} accessibilityRole="link" accessibilityLabel={`${reel.author.name}'s profile`}>
-            <Text style={[styles.author, onPage && styles.authorPage]} numberOfLines={1}>
-              {reel.author.name}
-            </Text>
-            {reel.author.verified ? <Icon name="checkmark-circle" sf="checkmark.seal.fill" size={16} color={onPage ? colors.brand : colors.verifiedOnMedia} accessibilityLabel="Verified student" /> : null}
-          </Pressable>
+          {buzz ? (
+            // Anonymous: where a post has its author, a thread has its topic and its age ("You" on your own), never a name.
+            <View style={styles.buzzByline} accessible accessibilityLabel={`Anonymous post in ${labelFor(BUZZ_TOPICS, buzz.topic)}, ${shortAge(buzz.createdAt)}${buzz.isMine ? ", yours" : ""}`}>
+              <TopicIcon topic={buzz.topic} size={22} />
+              <Text style={[styles.author, onPage && styles.authorPage]} numberOfLines={1}>
+                {labelFor(BUZZ_TOPICS, buzz.topic)}
+              </Text>
+              <Text style={[styles.buzzAge, onPage && styles.buzzAgePage]}>{shortAge(buzz.createdAt)}</Text>
+              {buzz.isMine ? <Text style={[styles.buzzYou, onPage && styles.buzzYouPage]}>You</Text> : null}
+            </View>
+          ) : (
+            <Pressable onPress={unlessSwiped(() => router.push({ pathname: "/profile/[id]", params: { id: reel.author.id } }))} style={{ flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start" }} accessibilityRole="link" accessibilityLabel={`${reel.author.name}'s profile`}>
+              <Text style={[styles.author, onPage && styles.authorPage]} numberOfLines={1}>
+                {reel.author.name}
+              </Text>
+              {reel.author.verified ? <Icon name="checkmark-circle" sf="checkmark.seal.fill" size={16} color={onPage ? colors.brand : colors.verifiedOnMedia} accessibilityLabel="Verified student" /> : null}
+            </Pressable>
+          )}
           {/* Short by default, like TikTok: one line of title and one of caption, "… more" opens the rest. */}
           {oneLine ? (
             expanded ? (
               <View style={{ gap: 2 }}>
                 {reel.title ? (
-                  <Text style={[styles.title, onPage && styles.titlePage]} numberOfLines={3}>
+                  // A Buzz thread's title is the thread's headline: all of it, however long.
+                  <Text style={[styles.title, onPage && styles.titlePage]} numberOfLines={buzz ? undefined : 3}>
                     {reel.title}
                   </Text>
                 ) : null}
@@ -572,7 +601,14 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
                   accessibilityRole={canExpand ? "button" : "text"}
                   accessibilityHint={canExpand ? "Shows the full description" : undefined}
                 >
-                  {oneLine}
+                  {buzz && reel.title ? (
+                    <>
+                      <Text style={styles.lead}>{reel.title}</Text>
+                      {reel.caption ? ` · ${reel.caption}` : ""}
+                    </>
+                  ) : (
+                    oneLine
+                  )}
                 </Text>
                 {/* The whole description laid out unseen at the same width: more than one line means the line above was
                     cut. (iOS reports a cut line's full text, so the line itself cannot tell.) */}
@@ -585,12 +621,31 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
         </View>
 
         <View style={styles.rail} onLayout={(e) => setRailBox({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height })}>
-          <RailButton icon={reel.likedByMe ? "heart" : "heart-outline"} tint={reel.likedByMe ? { media: colors.like, page: colors.like } : undefined} label={compact(reel.likes)} onPress={unlessSwiped(() => void toggleLike())} a11y={reel.likedByMe ? "Unlike" : "Like"} selected={reel.likedByMe} scale={pop} edge={railEdge} />
-          <RailButton icon="chatbubble-ellipses-outline" label={compact(reel.comments)} onPress={unlessSwiped(() => onOpenComments(reel))} a11y="Comments" edge={railEdge} />
-          <RailButton icon="paper-plane-outline" label="Share" onPress={unlessSwiped(share)} a11y="Share" edge={railEdge} />
-          {/* Saved: the filled bookmark, in the same colour as the rest of the rail (white over a picture). */}
-          <RailButton icon={reel.savedByMe ? "bookmark" : "bookmark-outline"} label={reel.savedByMe ? "Saved" : "Save"} onPress={unlessSwiped(() => void toggleSave())} a11y={reel.savedByMe ? "Unsave" : "Save"} selected={reel.savedByMe} edge={railEdge} />
-          <RailButton icon="ellipsis-horizontal" onPress={unlessSwiped(() => void more())} a11y="More options" small edge={railEdge} />
+          {buzz ? (
+            <BuzzRail
+              item={reel}
+              edge={railEdge}
+              pop={pop}
+              onPop={animateHeart}
+              upvote={upvote}
+              onReplies={() => onOpenComments(reel)}
+              onGone={(muted) => {
+                // Hidden: the list reloads without it. Deleted: it leaves the list (see the viewer's onRemoved).
+                if (muted) emitBuzzEvent({ type: "reload" });
+                onRemoved(key);
+              }}
+              guard={unlessSwiped}
+            />
+          ) : (
+            <>
+              <RailButton icon={reel.likedByMe ? "heart" : "heart-outline"} tint={reel.likedByMe ? { media: colors.like, page: colors.like } : undefined} label={compact(reel.likes)} onPress={unlessSwiped(() => void toggleLike())} a11y={reel.likedByMe ? "Unlike" : "Like"} selected={reel.likedByMe} scale={pop} edge={railEdge} />
+              <RailButton icon="chatbubble-ellipses-outline" label={compact(reel.comments)} onPress={unlessSwiped(() => onOpenComments(reel))} a11y="Comments" edge={railEdge} />
+              <RailButton icon="paper-plane-outline" label="Share" onPress={unlessSwiped(share)} a11y="Share" edge={railEdge} />
+              {/* Saved: the filled bookmark, in the same colour as the rest of the rail (white over a picture). */}
+              <RailButton icon={reel.savedByMe ? "bookmark" : "bookmark-outline"} label={reel.savedByMe ? "Saved" : "Save"} onPress={unlessSwiped(() => void toggleSave())} a11y={reel.savedByMe ? "Unsave" : "Save"} selected={reel.savedByMe} edge={railEdge} />
+              <RailButton icon="ellipsis-horizontal" onPress={unlessSwiped(() => void more())} a11y="More options" small edge={railEdge} />
+            </>
+          )}
         </View>
       </View>
 
@@ -621,7 +676,7 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
  * is behind it. `edge` is where the picture behind the rail ends, in the rail's points (Infinity: it runs under the whole
  * rail); `tint` colours an icon that is on (the red heart, the saved bookmark) over a picture and over the page.
  */
-function RailButton({ icon, label, tint, onPress, a11y, selected, small, scale, edge = Infinity }: { icon: keyof typeof Ionicons.glyphMap; label?: string; tint?: { media: string; page: string }; onPress: () => void; a11y: string; selected?: boolean; small?: boolean; scale?: Animated.Value; edge?: number }) {
+function RailButton({ icon, sf, label, tint, onPress, a11y, selected, small, scale, edge = Infinity }: { icon: keyof typeof Ionicons.glyphMap; sf?: SFSymbol; label?: string; tint?: { media: string; page: string }; onPress: () => void; a11y: string; selected?: boolean; small?: boolean; scale?: Animated.Value; edge?: number }) {
   const colors = useColors();
   const styles = useStyles();
   // A heart or a bookmark that turns on bounces like the system's symbols.
@@ -647,10 +702,44 @@ function RailButton({ icon, label, tint, onPress, a11y, selected, small, scale, 
       accessibilityState={selected === undefined ? undefined : { selected }}
     >
       <Animated.View style={scale ? { transform: [{ scale }] } : undefined}>
-        <Icon name={icon} size={size} color={ink} style={iconOver ? styles.iconShadow : undefined} bounce={bounce} />
+        <Icon name={icon} sf={sf} size={size} color={ink} style={iconOver ? styles.iconShadow : undefined} bounce={bounce} />
       </Animated.View>
       {label ? <Text style={[styles.railLabel, !labelOver && styles.railLabelPage]}>{label}</Text> : null}
     </Pressable>
+  );
+}
+
+/**
+ * A Buzz page's rail, in place of like, comments, share and save: upvote with the score under it, then downvote (your
+ * vote lit, as in the feed), the replies (on the thread's own screen), share (the link, through the system's sheet: a
+ * friend card would say who sent it) and "…" (hide or report a thread, or delete your own). Nobody's name anywhere.
+ */
+function BuzzRail({ item, edge, pop, onPop, upvote, onReplies, onGone, guard }: { item: ViewerItem; edge: number; pop: Animated.Value; onPop: (on: boolean) => void; upvote: { current: (() => void) | null }; onReplies: () => void; onGone: (muted: boolean) => void; guard: (act: () => void) => () => void }) {
+  const colors = useColors();
+  const post = item.buzz!;
+  // The list it was opened from, the thread's own screen and the viewer's own pages follow the vote (see BuzzEvent).
+  const { vote, cast } = useVote("thread", post.id, post, (value) => voteBuzz(supabase, post.id, value), (v: Vote) => emitBuzzEvent({ type: "vote", id: post.id, vote: v }));
+  const { menu, share } = useBuzzMenu(post, { onRemoved: () => onGone(false), onMuted: () => onGone(true) });
+  const up = vote.myVote === 1;
+  const down = vote.myVote === -1;
+  const voteUp = () => {
+    onPop(!up);
+    void cast(1);
+  };
+  // A double tap on the picture upvotes, and never takes the vote back.
+  useEffect(() => {
+    upvote.current = () => {
+      if (!up) voteUp();
+    };
+  });
+  return (
+    <>
+      <RailButton icon={up ? "arrow-up-circle" : "arrow-up-circle-outline"} sf={up ? "arrowshape.up.fill" : "arrowshape.up"} tint={up ? { media: colors.brand, page: colors.brand } : undefined} label={compact(vote.score)} onPress={guard(voteUp)} a11y="Upvote" selected={up} scale={pop} edge={edge} />
+      <RailButton icon={down ? "arrow-down-circle" : "arrow-down-circle-outline"} sf={down ? "arrowshape.down.fill" : "arrowshape.down"} tint={down ? { media: colors.downvote, page: colors.downvote } : undefined} onPress={guard(() => void cast(-1))} a11y="Downvote" selected={down} edge={edge} />
+      <RailButton icon="chatbubble-ellipses-outline" label={compact(post.commentCount)} onPress={guard(onReplies)} a11y={`Replies, ${post.commentCount}`} edge={edge} />
+      <RailButton icon="paper-plane-outline" label="Share" onPress={guard(share)} a11y="Share" edge={edge} />
+      <RailButton icon="ellipsis-horizontal" onPress={guard(menu)} a11y="More options" small edge={edge} />
+    </>
   );
 }
 
@@ -1079,7 +1168,15 @@ const useStyles = makeStyles((colors) => {
     // smudge or shading round them.
     railLabel: { color: colors.onMedia, fontSize: 12, fontWeight: "700", textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 0.5 }, textShadowRadius: 1.5 },
     iconShadow: { textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 0.5 }, textShadowRadius: 2 },
+    // A Buzz page's line where a post has its author: the topic's own icon, the topic, the age, "You" on your own.
+    buzzByline: { flexDirection: "row", alignItems: "center", gap: 7, alignSelf: "flex-start" },
+    buzzAge: { color: colors.onMediaMuted, fontSize: 14, fontWeight: "600", ...shadow },
+    buzzYou: { color: colors.successText, fontSize: 13, fontWeight: "700", ...shadow },
+    // A Buzz thread's title at the start of its one line: the line's own colour, in bold.
+    lead: { fontWeight: "700" },
     authorPage: { color: colors.text, ...plain },
+    buzzAgePage: { color: colors.muted, ...plain },
+    buzzYouPage: { ...plain },
     titlePage: { color: colors.text, ...plain },
     captionPage: { color: colors.text, ...plain },
     morePage: { color: colors.muted, ...plain },

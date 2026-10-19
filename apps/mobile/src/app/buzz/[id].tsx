@@ -24,7 +24,7 @@ import {
   type ReportReason,
 } from "@apartment-book/shared";
 import { useActionSheet, type SheetOption } from "@/components/action-sheet";
-import { AnonAvatar, BUZZ_GUTTER, BuzzPostBlock, BuzzTag, emitBuzzEvent, useBuzzMenu, useVote, VotePill, type Vote } from "@/components/home/buzz-card";
+import { AnonAvatar, BUZZ_GUTTER, BuzzPostBlock, BuzzTag, emitBuzzEvent, onBuzzEvent, useBuzzMenu, useVote, VotePill, type Vote } from "@/components/home/buzz-card";
 import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -32,6 +32,7 @@ import { supabase } from "@/lib/supabase";
 import { auroraGradient } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { hapticTap, alertWithHaptic, refreshWithHaptic } from "@/lib/haptics";
+import { OpeningBandContext, type OpeningBand } from "@/lib/viewer-chrome";
 import { Icon } from "@/components/icon";
 
 /** How far each level of replies moves to the right. One thin vertical line is drawn per level. */
@@ -53,7 +54,7 @@ function RoundButton({ icon, label, onPress }: { icon: keyof typeof Ionicons.gly
 
 /** One anonymous Buzz thread with its anonymous replies, laid out like a Reddit thread. Only aliases are ever shown: the app never receives who wrote what. */
 export default function BuzzThreadScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, reply } = useLocalSearchParams<{ id: string; reply?: string }>();
   const router = useRouter();
   const show = useActionSheet();
   const insets = useSafeAreaInsets();
@@ -82,6 +83,38 @@ export default function BuzzThreadScreen() {
   const seq = useRef(0);
   // The post's photo or video plays only while it is on screen and this screen is on top.
   const focused = useIsFocused();
+  /**
+   * The full-screen viewer's "Reply anonymously…": opened from it (`reply`), the box opens once the thread has loaded;
+   * the viewer closing back onto this screen asks with an event, and the box opens once this screen is back on top.
+   */
+  const replyAsked = useRef(reply === "1");
+  const [replyWhenBack, setReplyWhenBack] = useState(false);
+  const focusedNow = useRef(focused);
+  focusedNow.current = focused;
+  useEffect(
+    () =>
+      onBuzzEvent((e) => {
+        if (e.type === "reply" && e.id === id) setReplyWhenBack(true);
+        // Voted on in the viewer over this screen (its media opened full screen): only the score and the vote change.
+        else if (e.type === "vote" && e.id === id) setPost((p) => (p ? { ...p, score: e.vote.score, myVote: e.vote.myVote } : p));
+        // Deleted or hidden in the viewer over this screen: it shows as no longer there. (Deleted from here, the screen
+        // is on top and leaving anyway.)
+        else if (e.type === "remove" && e.id === id && !focusedNow.current) setPost(null);
+      }),
+    [id],
+  );
+  /**
+   * The band of the screen the replies' list shows (under the header, above the reply bar): a photo opened full screen
+   * from the post block zooms out of (and back into) only its part in it, as on Home (see OpeningBand).
+   */
+  const listBox = useRef<View>(null);
+  const band = useRef<OpeningBand>({ top: 0, bottom: Number.MAX_SAFE_INTEGER });
+  const openingBand = useCallback(() => band.current, []);
+  const measureBand = useCallback(() => {
+    listBox.current?.measureInWindow((_x, y, _w, h) => {
+      if (h > 0) band.current = { top: y, bottom: y + h };
+    });
+  }, []);
   const headerHeight = useRef(0);
   const [mediaOnScreen, setMediaOnScreen] = useState(true);
   const needLogin = () => router.push("/(auth)/login");
@@ -176,6 +209,20 @@ export default function BuzzThreadScreen() {
     });
   }
 
+  useEffect(() => {
+    if (!post || !replyAsked.current) return;
+    replyAsked.current = false;
+    openComposer(null);
+    // Once, when the thread is first here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post]);
+  useEffect(() => {
+    if (!replyWhenBack || !focused) return;
+    setReplyWhenBack(false);
+    openComposer(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replyWhenBack, focused]);
+
   function openComposer(target: BuzzComment | null) {
     if (!user) return needLogin();
     setReplyTo(target);
@@ -248,8 +295,9 @@ export default function BuzzThreadScreen() {
         onPress: () => {
           muteBuzzAuthor(supabase, { commentId: c.id }).then(
             () => {
+              // Hiding the person who started the thread hides the whole thread: anything showing it lets it go.
+              if (c.isOp) emitBuzzEvent({ type: "remove", id });
               emitBuzzEvent({ type: "reload" });
-              // Hiding the person who started the thread hides the whole thread.
               if (c.isOp) leave();
               else void load();
             },
@@ -301,6 +349,8 @@ export default function BuzzThreadScreen() {
       leave();
     },
     onMuted: () => {
+      // Hidden: anything showing it (the viewer under this screen) lets it go, and the list reloads without it.
+      emitBuzzEvent({ type: "remove", id });
       emitBuzzEvent({ type: "reload" });
       leave();
     },
@@ -343,7 +393,8 @@ export default function BuzzThreadScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       {header}
-      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <OpeningBandContext.Provider value={openingBand}>
+      <View ref={listBox} onLayout={measureBand} style={{ flex: 1, backgroundColor: colors.bg }}>
         <FlatList
           ref={listRef}
           data={rows}
@@ -422,6 +473,7 @@ export default function BuzzThreadScreen() {
           </Pressable>
         ) : null}
       </View>
+      </OpeningBandContext.Provider>
 
       <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         {composing && replyTo ? (

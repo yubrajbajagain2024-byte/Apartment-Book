@@ -1,12 +1,18 @@
-import { useEffect, useRef, useState } from "react";
-import { Alert, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { useContext, useEffect, useRef, useState } from "react";
+import { Alert, Animated, Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import type { VideoPlayer } from "expo-video";
 import { BUZZ_TOPICS, compactCount, deleteBuzz, labelFor, listingMedia, muteBuzzAuthor, reportContent, REPORT_REASONS, shortAge, voteBuzz, type BuzzPost, type BuzzTopic, type FeedMedia, type ReportReason } from "@apartment-book/shared";
 import { useActionSheet, type SheetOption } from "@/components/action-sheet";
 import { PhotoCarousel } from "@/components/photo-carousel";
+import { POST_FRAME_RADIUS, PostFrame } from "@/components/post-bits";
 import { errorText } from "@/lib/hooks";
+import { onPostSlide } from "@/lib/posts-events";
+import { entryOf, measureOrigin, openViewer, viewerItemFromBuzz, type ViewerOrigin } from "@/lib/reel-viewer";
+import { OpeningBandContext } from "@/lib/viewer-chrome";
+import { frameAspect } from "./insta-post";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { radius, textStyle } from "@/lib/theme";
@@ -20,8 +26,12 @@ import { Icon, useBounceOn } from "@/components/icon";
  * name, no photo, no profile link and no "Message" button anywhere in here: the app never receives who wrote what.
  */
 
-/** Lets the thread and create screens tell the Buzz list what changed, so it does not show stale rows. Carries thread data only, never people. */
-export type BuzzEvent = { type: "patch"; post: BuzzPost } | { type: "vote"; id: string; vote: Vote } | { type: "remove"; id: string } | { type: "reload" };
+/**
+ * Lets the thread and create screens (and the full-screen viewer) tell the Buzz list what changed, so it does not show
+ * stale rows. Carries thread data only, never people. "reply": the viewer, closing onto a thread's own screen, asks it to
+ * open its reply box.
+ */
+export type BuzzEvent = { type: "patch"; post: BuzzPost } | { type: "vote"; id: string; vote: Vote } | { type: "remove"; id: string } | { type: "reload" } | { type: "reply"; id: string };
 const listeners = new Set<(e: BuzzEvent) => void>();
 export function onBuzzEvent(listener: (e: BuzzEvent) => void): () => void {
   listeners.add(listener);
@@ -316,17 +326,16 @@ export function useBuzzMenu(post: BuzzPost | null, { onRemoved, onMuted }: PostH
   return { menu, share };
 }
 
-/** The action row under a thread: vote pill, replies pill, and the share pill pushed to the right. */
-function PillRow({ post, onVote, onReplies, repliesHint, onShare }: { post: BuzzPost; onVote?: (vote: Vote) => void; onReplies: () => void; repliesHint: string; onShare: () => void }) {
-  const { vote, cast } = useVote("thread", post.id, post, (value) => voteBuzz(supabase, post.id, value), onVote);
+/** The action row under a thread: vote pill, replies pill, and the share pill pushed to the right. The thread's own `useVote` drives it. */
+function PillRow({ vote, onVote, replies, onReplies, repliesHint, onShare }: { vote: Vote; onVote: (direction: 1 | -1) => void; replies: number; onReplies: () => void; repliesHint: string; onShare: () => void }) {
   const colors = useColors();
   const styles = useStyles();
   return (
     <View style={styles.pills}>
-      <VotePill vote={vote} onVote={(d) => void cast(d)} />
-      <Pressable onPress={onReplies} style={styles.pill} accessibilityRole="button" accessibilityLabel={`${repliesLabel(post.commentCount)}. ${repliesHint}`}>
+      <VotePill vote={vote} onVote={onVote} />
+      <Pressable onPress={onReplies} style={styles.pill} accessibilityRole="button" accessibilityLabel={`${repliesLabel(replies)}. ${repliesHint}`}>
         <Icon name="chatbubble-outline" sf="bubble.right" size={19} color={colors.text} fallback={<MaterialCommunityIcons name="comment-outline" size={18} color={colors.text} />} />
-        <Text style={styles.pillText}>{compactCount(post.commentCount)}</Text>
+        <Text style={styles.pillText}>{compactCount(replies)}</Text>
       </Pressable>
       <View style={{ flex: 1 }} />
       <Pressable onPress={onShare} style={styles.pill} accessibilityRole="button" accessibilityLabel="Share">
@@ -359,20 +368,97 @@ function Thumb({ media }: { media: FeedMedia[] }) {
   );
 }
 
+/* ---------- a thread's photos and videos ---------- */
+
+/** What a thread's media hands the viewer as it opens: the slide showing, where its frame is, its video and your vote. */
+export type BuzzMediaOpen = { slide: number; origin?: ViewerOrigin; time: number | null; player: VideoPlayer | null; vote: Vote };
+
+/** The thread alone in the viewer (from its own screen, or a list that hands over nothing more), with the vote shown here. */
+function openThreadMedia(router: ReturnType<typeof useRouter>, post: BuzzPost, live: BuzzMediaOpen, repliesBehind: boolean) {
+  const item = viewerItemFromBuzz({ ...post, score: live.vote.score, myVote: live.vote.myVote });
+  if (!item) return;
+  openViewer(router, { entries: [entryOf(item, live.slide, live.time ?? undefined, live.player ?? undefined)], index: 0, then: "end", origin: live.origin, repliesBehind });
+}
+
+/**
+ * A thread's photos and videos the way For you shows a post's: the same rounded frame in the photo's own shape (between
+ * 4:5 and 1.91:1, see frameAspect), sliding sideways, the dots on their own line under it, a video playing muted while
+ * `active`. A tap opens them full screen in the viewer, zooming open from the frame; a double tap upvotes (never takes the
+ * vote back), an arrow flashing over the picture as Instagram's heart does.
+ */
+function BuzzMedia({ post, media, active, vote, onUpvote, onOpen }: { post: BuzzPost; media: FeedMedia[]; active: boolean; vote: Vote; onUpvote: () => void; onOpen: (live: BuzzMediaOpen) => void }) {
+  const colors = useColors();
+  const styles = useStyles();
+  const [slide, setSlide] = useState(0);
+  /** The band between Home's floating bars: the zoom opens from the picture's part in it. */
+  const openingBand = useContext(OpeningBandContext);
+  const frame = useRef<View>(null);
+  /** The viewer moved to another of the thread's photos, or hands back where a video got to: the carousel follows. */
+  const [jump, setJump] = useState<{ index: number; time?: number } | null>(null);
+  useEffect(() => onPostSlide((id, index, time) => id === post.id && setJump({ index, time })), [post.id]);
+  const arrow = useRef(new Animated.Value(0)).current;
+
+  function doubleTap() {
+    if (vote.myVote !== 1) onUpvote();
+    arrow.setValue(0);
+    Animated.sequence([
+      Animated.spring(arrow, { toValue: 1, useNativeDriver: true, friction: 5, tension: 140 }),
+      Animated.delay(350),
+      Animated.timing(arrow, { toValue: 0, duration: 180, useNativeDriver: true }),
+    ]).start();
+  }
+
+  function open(at: { time: number | null; player: VideoPlayer | null }) {
+    void measureOrigin(frame.current, POST_FRAME_RADIUS).then((measured) => {
+      const origin = measured && openingBand ? { ...measured, clip: openingBand() } : measured;
+      onOpen({ slide, origin, time: at.time, player: at.player, vote });
+    });
+  }
+
+  return (
+    <>
+      <PostFrame>
+        <View ref={frame} collapsable={false}>
+          <PhotoCarousel media={media} aspect={frameAspect(media, false)} active={active} videoLabel={null} dots={false} onIndexChange={setSlide} jump={jump} onPress={open} onDoubleTap={doubleTap} />
+        </View>
+        <Animated.View pointerEvents="none" style={[styles.burst, { opacity: arrow, transform: [{ scale: arrow.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
+          <Icon name="arrow-up-circle" sf="arrowshape.up.fill" size={92} color={colors.onMedia} />
+        </Animated.View>
+      </PostFrame>
+      {media.length > 1 ? (
+        <View style={styles.slideDots} accessibilityLabel={`${slide + 1} of ${media.length}`}>
+          {media.map((_, i) => (
+            <View key={i} style={[styles.slideDot, i === slide && styles.slideDotActive]} />
+          ))}
+        </View>
+      ) : null}
+    </>
+  );
+}
+
 /* ---------- feed row ---------- */
 
 export type BuzzCardProps = PostHandlers & {
   post: BuzzPost;
   /** The server confirmed my vote: merge it into the parent's newest list (only the score and my vote, nothing else). */
   onVote?: (vote: Vote) => void;
+  /** Its video may play: this is the list's one playing row (see BuzzSection), on screen. */
+  active?: boolean;
+  /** Opens its media full screen, handing over the list's other threads too; without it the thread opens alone. */
+  onOpenMedia?: (post: BuzzPost, live: BuzzMediaOpen) => void;
 };
 
-/** One thread in the Buzz feed: a flat, full-width Reddit row (the list draws the hairline between rows). */
-export function BuzzCard({ post, onVote, onRemoved, onMuted }: BuzzCardProps) {
+/**
+ * One thread in the Buzz feed: a flat, full-width Reddit row (the list draws the hairline between rows): the topic and
+ * age, the title and the start of the words (a tap opens the thread), then its photos and videos laid out like a post in
+ * For you, then the vote, replies and share pills.
+ */
+export function BuzzCard({ post, onVote, onRemoved, onMuted, active = false, onOpenMedia }: BuzzCardProps) {
   const router = useRouter();
   const colors = useColors();
   const styles = useStyles();
   const { menu, share } = useBuzzMenu(post, { onRemoved, onMuted });
+  const { vote, cast } = useVote("thread", post.id, post, (value) => voteBuzz(supabase, post.id, value), onVote);
   const media = listingMedia(post.images, post.imageMeta, post.videos);
   const body = post.body.trim();
   const open = () => router.push({ pathname: "/buzz/[id]", params: { id: post.id } });
@@ -402,10 +488,15 @@ export function BuzzCard({ post, onVote, onRemoved, onMuted }: BuzzCardProps) {
             </Text>
           ) : null}
         </View>
-        <Thumb media={media} />
       </Pressable>
 
-      <PillRow post={post} onVote={onVote} onReplies={open} repliesHint="Open the thread" onShare={share} />
+      {media.length > 0 ? (
+        <View style={styles.media}>
+          <BuzzMedia post={post} media={media} active={active} vote={vote} onUpvote={() => void cast(1)} onOpen={(live) => (onOpenMedia ? onOpenMedia(post, live) : openThreadMedia(router, post, live, false))} />
+        </View>
+      ) : null}
+
+      <PillRow vote={vote} onVote={(d) => void cast(d)} replies={post.commentCount} onReplies={open} repliesHint="Open the thread" onShare={share} />
     </View>
   );
 }
@@ -443,16 +534,18 @@ export function BuzzSearchRow({ post }: { post: BuzzPost }) {
 
 /* ---------- the thread screen's post block ---------- */
 
-/** The post at the top of the thread screen. Media runs edge to edge; text keeps the gutter. `active` is false while the block is off screen, so its video pauses. */
+/**
+ * The post at the top of the thread screen: its media in the same frame as the feed's (a tap opens it full screen, the
+ * viewer closing back onto this screen's replies), the text in the gutter. `active` is false while the block is off
+ * screen, so its video pauses.
+ */
 export function BuzzPostBlock({ post, onVote, onReply, active = true }: { post: BuzzPost; onVote?: (vote: Vote) => void; onReply: () => void; active?: boolean }) {
+  const router = useRouter();
   const { share } = useBuzzMenu(post, {});
+  const { vote, cast } = useVote("thread", post.id, post, (value) => voteBuzz(supabase, post.id, value), onVote);
   const styles = useStyles();
   const media = listingMedia(post.images, post.imageMeta, post.videos);
   const body = post.body.trim();
-  const first = media[0];
-  // Show the first photo or video in its own shape, within sensible limits.
-  const natural = first?.width && first?.height ? first.width / first.height : 4 / 3;
-  const aspect = Math.min(16 / 9, Math.max(4 / 5, natural));
 
   return (
     <View style={styles.block}>
@@ -482,10 +575,10 @@ export function BuzzPostBlock({ post, onVote, onReply, active = true }: { post: 
       ) : null}
       {media.length > 0 ? (
         <View style={{ marginTop: 12 }}>
-          <PhotoCarousel media={media} aspect={aspect} videoLabel={null} active={active} />
+          <BuzzMedia post={post} media={media} active={active} vote={vote} onUpvote={() => void cast(1)} onOpen={(live) => openThreadMedia(router, post, live, true)} />
         </View>
       ) : null}
-      <PillRow post={post} onVote={onVote} onReplies={onReply} repliesHint="Write a reply" onShare={share} />
+      <PillRow vote={vote} onVote={(d) => void cast(d)} replies={post.commentCount} onReplies={onReply} repliesHint="Write a reply" onShare={share} />
     </View>
   );
 }
@@ -501,6 +594,13 @@ const useStyles = makeStyles((colors) => ({
   you: { fontSize: 12, fontWeight: "700", color: colors.successText },
   dots: { width: 32, height: 28, alignItems: "flex-end", justifyContent: "center" },
   main: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingHorizontal: BUZZ_GUTTER, paddingTop: 6 },
+  // The media under the words, like a post in For you (PostFrame keeps the gutter itself).
+  media: { paddingTop: 12 },
+  // The arrow a double tap flashes, in the middle of the picture (like For you's heart).
+  burst: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", shadowColor: colors.shadow, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 2 } },
+  slideDots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingTop: 10 },
+  slideDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.faint },
+  slideDotActive: { backgroundColor: colors.accent },
   title: { fontSize: 17, fontWeight: "700", color: colors.text, lineHeight: 22 },
   preview: { fontSize: 14, color: colors.muted, lineHeight: 20 },
   thumb: { width: 96, height: 72, borderRadius: 12, overflow: "hidden", backgroundColor: colors.input },

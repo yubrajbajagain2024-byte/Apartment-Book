@@ -179,7 +179,7 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
     const sep = key.indexOf(":");
     if (key.slice(0, sep) === "post") emitPostRemoved(key.slice(sep + 1));
   }, []);
-  const onOpenComments = useCallback((reel: Pick<Reel, "sourceType" | "sourceId">) => setCommentsKey(reelKey(reel)), []);
+  const onOpenComments = useCallback((reel: { sourceType: string; sourceId: string }) => setCommentsKey(reelKey(reel)), []);
   const onCommentCount = useCallback(
     (delta: number) => {
       if (!commentsKey) return;

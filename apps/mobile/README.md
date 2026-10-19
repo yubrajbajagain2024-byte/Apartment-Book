@@ -134,8 +134,17 @@ Chats | Groups, the profile's section tabs or the inbox's All | Unread | Request
 into the Reels feed (only reels, page by page, the other campus choice keeping the page on screen while what follows comes
 from the new choice); a post in For you goes on down For you, its next pages loading as needed; a square in a profile grid
 (Posts, Reels, Saved, Liked) goes on through that grid; a saved post through your saved posts; a post's own screen and a
-post shared in a chat go on into the Reels feed. Words-only posts and listings keep their own screens, and anonymous Buzz
-threads never open here. The source hands its pages over (`src/lib/reel-viewer.ts`), so the viewer opens at once with the
+post shared in a chat go on into the Reels feed. Words-only posts and listings keep their own screens. A Buzz thread with
+photos or videos opens here too, from the Buzz list (going on through its other threads with media) or from the thread's
+own screen, and stays anonymous: where a post has its author, its page has the topic's icon, the topic and its age ("You"
+on your own), one line with the title in bold before the words (a tap opens all of both), and a rail of upvote with the
+score, downvote (a double tap upvotes),
+replies, share (the link through the system sheet, never a friend card) and "…" (hide, report, or delete your own); the
+replies and "Reply anonymously…" open the thread's own screen over the viewer, or, opened from that screen, close the
+viewer onto it (`viewerItemFromBuzz`, `BuzzRail` in `src/components/home/reel-item.tsx`). Votes, new replies and a thread
+deleted or hidden reach the list, the thread's screen and the viewer's pages alike (`BuzzEvent`). In the Buzz list a thread's
+media sits in the same rounded frame and shape as a post's in For you (`frameAspect`), its dots under it, one video
+playing at a time. The source hands its pages over (`src/lib/reel-viewer.ts`), so the viewer opens at once with the
 row's counts (a grid square, which knows only the post's id, loads its post as it comes near, its picture standing in,
 the same view all along, until the loaded page has drawn its own: no black frame between the two), and
 what you like, save or comment there shows on the row when you come back (`emitPostEngagement` in `src/lib/posts-events.ts`);
