@@ -3,7 +3,7 @@ import { useSafeAreaInsets, type EdgeInsets } from "react-native-safe-area-conte
 /**
  * The floating bottom bar: a rounded glass pill `TAB_BAR_SIDE` in from the screen's sides and `tabBarBottom(insets)` up
  * from its bottom edge, drawn over the tabs' content (see app/(tabs)/_layout.tsx). Lists and floating buttons on the
- * five tabs keep `tabBarInset(insets)` clear under them, so nothing ends up hidden behind the bar.
+ * tabs keep `tabBarInset(insets)` clear under them, so nothing ends up hidden behind the bar.
  */
 export const TAB_BAR_HEIGHT = 66;
 export const TAB_BAR_SIDE = 14;

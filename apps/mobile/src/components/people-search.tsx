@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { FlatList, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { searchPeople, type PosterSummary } from "@apartment-book/shared";
@@ -10,7 +10,6 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { radius, space } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
-import { useTabReselect } from "@/lib/tab-reselect";
 import { Icon } from "@/components/icon";
 
 /** Same array on every render while nothing has loaded, so the stats hook does not refetch for a fresh empty list. */
@@ -19,16 +18,12 @@ const NOBODY: PosterSummary[] = [];
 /**
  * The people search, like Instagram's: find accounts by name. With an empty box it lists people to follow (your
  * university's newest members, or the newest on the app) instead of being blank. Profiles are public, so signed-out
- * people can search too; their Follow taps go to login. The Search tab shows it under its own title; the share sheet's
- * Find people and a profile's Find friends push it over their screen with the box focused at once (`autoFocus`).
- * `bottomInset` keeps the end of the list clear of the floating bottom bar on the tab.
+ * people can search too; their Follow taps go to login. Home's Search button (top right, before the bell), the share
+ * sheet's Find people and a profile's Find friends push it over their screen with the box focused at once (`autoFocus`).
  */
-export function PeopleSearch({ autoFocus = false, bottomInset = 0 }: { autoFocus?: boolean; bottomInset?: number }) {
-  // On the Search tab, tapping Search again scrolls the list back to the top, as on every iOS tab.
-  const listRef = useRef<FlatList<PosterSummary>>(null);
+export function PeopleSearch({ autoFocus = false }: { autoFocus?: boolean }) {
   // Rows fade in once as they first arrive (not when scrolled back into view).
   const appearCells = useAppearingCells();
-  useTabReselect(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }));
   const { user, profile } = useSession();
   const router = useRouter();
   const styles = useStyles();
@@ -64,12 +59,11 @@ export function PeopleSearch({ autoFocus = false, bottomInset = 0 }: { autoFocus
       ) : null}
       {/* Rows from the last query stay up while the next one runs, so the list does not flash a spinner on every keystroke. */}
       <FlatList
-        ref={listRef}
         data={people}
         keyExtractor={(p) => p.id}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 + bottomInset }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
         ListHeaderComponent={people.length > 0 ? <Text style={styles.section}>{section}</Text> : null}
         CellRendererComponent={appearCells}
         renderItem={({ item }) => <PersonRow person={item} stats={stats[item.id]} userId={me ?? null} onNeedLogin={needLogin} onPress={() => router.push({ pathname: "/profile/[id]", params: { id: item.id } })} />}

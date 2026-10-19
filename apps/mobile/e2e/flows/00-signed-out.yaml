@@ -1,7 +1,7 @@
-# Signed-out tour: Home (For you | Buzz | Reels beside your photo, the Campus | Global toggle under them for anyone with a university: opens on For you, the pager swipes between them), Search (the second bottom
-# tab: it lists people to follow), the Notifications bell in Home's top-right corner (signed out it asks to log in), Messages (bottom tab: asks to log in),
+# Signed-out tour: Home (For you | Buzz | Reels beside your photo, the Campus | Global toggle under them for anyone with a university: opens on For you, the pager swipes between them), Search (the
+# magnifying glass before the bell in Home's top-right corner: it lists people to follow), the Notifications bell (signed out it asks to log in), Messages (bottom tab: asks to log in),
 # Explore (Room | Roommate | Marketplace: opens on Room, same pager), and the sign-in prompt on the Profile tab.
-# The bottom bar is Home, Explore, Messages, Profile. Needs the seeded sample posts (node e2e/sim-seed.mjs).
+# The bottom bar is Home, Explore, + (the create sheet), Messages, Profile. Needs the seeded sample posts (node e2e/sim-seed.mjs).
 appId: host.exp.Exponent
 ---
 - extendedWaitUntil:
@@ -80,13 +80,14 @@ appId: host.exp.Exponent
 - extendedWaitUntil:
     visible: "Create"
     timeout: 30000
-# Search: the second bottom tab is the people search under a "Search" title; signed out the list still shows people to
-# follow. The box waits for a tap, so no keyboard is up.
-- tapOn: "Search.*"
+# Search: the magnifying glass before the bell in Home's top-right corner pushes the people search under a "Search"
+# header, its box focused (the keyboard is up); signed out the list still shows people to follow. Back returns to Home.
+- tapOn: "Search"
 - extendedWaitUntil:
     visible: "Search people"
     timeout: 30000
 - takeScreenshot: e2e/screenshots/07-search-people
+- back
 # Explore (housing.tsx): its own top bar ("Find", then Room | Roommate | Marketplace, then the search box of the page on
 # screen, named "Search apartments", "Search roommate posts" or "Search marketplace", then the pills). The bottom tab opens on Room (apartments); the "Roommate" label above the
 # pager slides to the other half and a flick to the right brings Room back. The floating "+" follows the visible half.

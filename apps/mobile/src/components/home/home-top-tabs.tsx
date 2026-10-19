@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HOME_BRAND, HOME_TABS, type HomeSection } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
-import { HeaderActions } from "@/components/header-actions";
+import { HEADER_ACTION_GAP, HEADER_ACTION_SIZE, HeaderActions } from "@/components/header-actions";
 import { SlidingTabs } from "@/components/sliding-tabs";
 import { hapticTap } from "@/lib/haptics";
 import { useHomeScope } from "@/lib/home-scope";
@@ -34,8 +34,14 @@ const PHOTO = 32;
 const PHOTO_GAP = 2;
 const RING = 2;
 const RING_SIZE = PHOTO + 2 * (PHOTO_GAP + RING);
-/** The slot on each side of the wordmark (the ring on the left, the Notifications bell on the right). */
+/** The square your photo (or, over Reels, the "+") sits in at the left, as the bell does at the right. */
 const SIDE = 44;
+/**
+ * The slot on each side of the wordmark: on the right Search and the Notifications bell side by side, the bell centred in
+ * the last SIDE as it always was; on the left the photo in the first SIDE. The same width both sides keeps the wordmark
+ * centred on the screen.
+ */
+const SIDE_SLOT = (SIDE - HEADER_ACTION_SIZE) / 2 + 2 * HEADER_ACTION_SIZE + HEADER_ACTION_GAP;
 const LABEL_SIZE = 16;
 /** The toggle: each segment this wide, the sliding thumb inset by the pill's padding. */
 const SEGMENT = 108;
@@ -98,8 +104,8 @@ export function campusSegments(profile: { university_id: string | null; universi
 /**
  * Floating top bar of Home, X style, in three rows. Row 1: your photo in a gradient ring on the left, which opens your
  * profile, with Instagram's small "+" badge on its corner that opens the create sheet (Post / Reel / Buzz); the
- * CampConnect wordmark in the middle (it reads "Following" while that feed shows); the Notifications bell on the right
- * (it opens the notifications screen; its badge counts the unread). Row 2: the Home tabs (For you | Buzz | Reels) spread across the row
+ * CampConnect wordmark in the middle (it reads "Following" while that feed shows); on the right Search (the people search)
+ * and then the Notifications bell (it opens the notifications screen; its badge counts the unread). Row 2: the Home tabs (For you | Buzz | Reels) spread across the row
  * with X's sliding underline (violet, as wide as the label) over a hairline. Row 3: the Campus | Global toggle, a small
  * segmented pill whose thumb slides to the choice (see useHomeScope: it scopes For you, Buzz, Posts and Reels alike;
  * Campus is the person's own university, Global every university; "Following" joins it only while Posts has a tab,
@@ -159,23 +165,25 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
       <Animated.View onLayout={onLayout} pointerEvents={overVideo ? "box-none" : "auto"} style={[styles.bar, { paddingTop: insets.top + TOP_GAP, transform: [{ translateY }] }]}>
         <Animated.View pointerEvents="none" style={[styles.solid, { opacity: solid ?? (overVideo ? 0 : 1) }]} />
         <View style={styles.row}>
-          {overVideo ? (
-            <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" style={styles.side}>
-              <Icon name="add-circle-outline" size={30} color={fg} style={styles.shadow} />
-            </Pressable>
-          ) : (
-            <View style={styles.side}>
-              <Pressable onPress={() => router.push("/(tabs)/profile")} hitSlop={4} accessibilityRole="button" accessibilityLabel="Your profile" style={styles.ring}>
-                <View style={styles.ringGap}>
-                  {profile ? <Avatar name={profile.full_name} url={profile.avatar_url} size={PHOTO} online={false} transition={0} /> : <Icon name="person-circle" size={PHOTO} color={colors.faint} />}
-                </View>
+          <View style={styles.sideSlot}>
+            {overVideo ? (
+              <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" style={styles.side}>
+                <Icon name="add-circle-outline" size={30} color={fg} style={styles.shadow} />
               </Pressable>
-              {/* The create badge, labelled "Create" like the "+" over Reels: the end-to-end flows start from it. */}
-              <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" accessibilityHint="A post, a reel or a Buzz thread" style={styles.plus}>
-                <Icon name="add" size={13} color={colors.onBrand} />
-              </Pressable>
-            </View>
-          )}
+            ) : (
+              <View style={styles.side}>
+                <Pressable onPress={() => router.push("/(tabs)/profile")} hitSlop={4} accessibilityRole="button" accessibilityLabel="Your profile" style={styles.ring}>
+                  <View style={styles.ringGap}>
+                    {profile ? <Avatar name={profile.full_name} url={profile.avatar_url} size={PHOTO} online={false} transition={0} /> : <Icon name="person-circle" size={PHOTO} color={colors.faint} />}
+                  </View>
+                </Pressable>
+                {/* The create badge, labelled "Create" like the "+" over Reels: the end-to-end flows start from it. */}
+                <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" accessibilityHint="A post, a reel or a Buzz thread" style={styles.plus}>
+                  <Icon name="add" size={13} color={colors.onBrand} />
+                </Pressable>
+              </View>
+            )}
+          </View>
           {/* Two equal side slots keep the wordmark truly centred. */}
           <View style={styles.middle}>
             <View style={styles.title}>
@@ -184,8 +192,8 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
               </Text>
             </View>
           </View>
-          <View style={styles.side}>
-            <HeaderActions color={fg} iconStyle={overVideo ? styles.shadow : undefined} />
+          <View style={[styles.sideSlot, styles.sideEnd]}>
+            <HeaderActions search color={fg} iconStyle={overVideo ? styles.shadow : undefined} />
           </View>
         </View>
         <View style={styles.row}>
@@ -247,6 +255,8 @@ const useStyles = makeStyles((colors, scheme) => ({
   statusStrip: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 11, backgroundColor: colors.bar },
   row: { height: ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: SIDE_PAD },
   side: { width: SIDE, height: ROW, alignItems: "center", justifyContent: "center" },
+  sideSlot: { width: SIDE_SLOT, height: ROW, flexDirection: "row", alignItems: "center" },
+  sideEnd: { justifyContent: "flex-end", paddingRight: (SIDE - HEADER_ACTION_SIZE) / 2 },
   middle: { flex: 1, alignItems: "center", justifyContent: "center" },
   title: { minHeight: ROW, alignItems: "center", justifyContent: "center", maxWidth: "100%" },
   wordmark: { fontSize: 21, fontWeight: "800", letterSpacing: -0.5, flexShrink: 1 },

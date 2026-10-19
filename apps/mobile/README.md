@@ -19,17 +19,23 @@ security protects the data, so they are safe to ship.
 
 ## Home and the tabs
 
-The bottom bar has five tabs: Home, Search, Explore, Messages, Profile (your own photo in a circle, ringed while
-the tab is on screen; the person icon signed out). It floats over the content as a rounded
+The bottom bar is Home, Explore, +, Messages, Profile: four tabs (Profile is your own photo in a circle, ringed while
+the tab is on screen; the person icon signed out) and, in the middle, Create: the plain "+" inside a thin Aurora ring
+(cyan, blue, violet, the glow the app keeps for rings, drawn through a ring-shaped mask), nothing filled and no label
+(screen readers hear "Create"); the ring is as tall as a tab's icon and label together and lines up with them. It opens
+the create sheet (Post / Reel / Buzz), the same one as the "+" on your photo in Home's top bar. It floats over the content as a rounded
 glass pill (`src/app/(tabs)/_layout.tsx`, its size in `src/lib/tab-bar.ts`): on iOS 26 real liquid glass, with what scrolls
 under it blurred through, elsewhere a translucent fill; the tab on screen sits in a soft aurora capsule with its icon filled. When you tap
 another tab the capsule glides there from the old one, never blinking or fading: its leading edge moves a beat ahead of its trailing edge,
 so it stretches a touch in flight and settles as it lands. The new tab's symbol bounces once (silently: no haptic), the tab you left returns
 to its plain look with no bounce, and the tabs make room for the capsule, GroupMe style, on a critically damped spring
 (`src/components/floating-tab-bar.tsx`, on Reanimated); every tab's list and floating button keeps `tabBarInset` clear
-under it. Search (find accounts by name and follow them) is the second tab, under its own "Search" title
-(`src/app/(tabs)/search.tsx`; the share sheet's Find people and a profile's Find friends push the same screen with the box
-focused, `src/app/find-people.tsx`). The Notifications bell in the top-right corner of Home's floating top bar opens every
+under it. The "+" is an action, not a place: the capsule passes behind it but never stops on it, and it never moves, as
+the two tabs on either side make room within their own half of the bar (`action` in FloatingTabBar; its slot is as wide
+as an idle tab, so the five sit evenly). Search (find
+accounts by name and follow them) is the magnifying glass in the top-right corner of Home's floating top bar, just before
+the Notifications bell (`src/components/header-actions.tsx`): it pushes the people search with the box focused
+(`src/app/find-people.tsx`, the same screen the share sheet's Find people and a profile's Find friends open). The Notifications bell in the top-right corner of Home's floating top bar opens every
 notification the database keeps for you (`src/app/notifications.tsx`: new messages, likes, comments and replies, follows,
 saves of your listings, places near campus, newest first, the unread ones tinted); tapping one marks it read and opens what
 it is about, "Mark all read" sits in the header, and the bell's badge counts the unread live. Home opens on **For you**, a blend of posts and reels (anonymous Buzz threads stay on
@@ -38,7 +44,7 @@ three pages, For you | Buzz | Reels, sit side by side in a pager (Posts is a sec
 between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in an aurora
 ring on the left, which opens your profile, with Instagram's small "+" badge on its corner that opens the create sheet
 (Post / Reel / Buzz; over Reels the bar's left slot holds a white "+" instead), the CampConnect wordmark in the middle (it
-reads "Following" while that feed shows) and Search on the right; then the three labels spread across the row
+reads "Following" while that feed shows) and Search and the Notifications bell on the right; then the three labels spread across the row
 (`src/components/sliding-tabs.tsx`): the active one bold with a rounded aurora underline as wide as the label, sliding
 with the finger over a hairline; moving between sections, by tap or swipe, plays no haptic. Under the labels sits the Campus | Global
 toggle, a small segmented pill whose thumb slides to the choice: Campus is your own university, Global every university (and,
@@ -227,7 +233,7 @@ screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.de
 ```bash
 cd apps/mobile
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts (the test account and Leo follow each other, so Leo is a friend to share with; Maya lists CS 3358 and MATH 3398 for this semester, visible to everyone); prints the login, writes e2e/.sim-state.json
-e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you (no Campus | Global toggle signed out), swipes to Buzz, opens Notifications from the bell in Home's top-right corner (signed out: the log-in prompt), Search (bottom tab: the people list), Messages (bottom tab), Explore (Room, Roommate, swipe back, Marketplace), Profile (several flows at once is fine)
+e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you (no Campus | Global toggle signed out), swipes to Buzz, opens Notifications from the bell in Home's top-right corner (signed out: the log-in prompt), Search (the magnifying glass beside the bell: the people list), Messages (bottom tab), Explore (Room, Roommate, swipe back, Marketplace), Profile (several flows at once is fine)
 EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # your own profile (adds CS 1428 under Classes and removes it, Saved says only you can see it), then likes, comments (write, heart, reply, delete from the hold menu), shares the top post with Leo and finds the card in your chat with him (Messages), votes, replies, the Campus | Global toggle under the labels, follows and unfollows Maya (her Classes tab shows CS 3358, her Listings tab her apartment), opens your own Followers (Leo) and Maya's Mutual friends (none: Leo follows her one way), as the seeded account
 node e2e/sim-seed-thread.mjs                            # nested replies and votes for 03-buzz-thread.yaml
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards
