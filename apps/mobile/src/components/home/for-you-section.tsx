@@ -55,7 +55,7 @@ const ForYouRow = memo(function ForYouRow({
   active: boolean;
   onOpenComments: (item: ForYouItem) => void;
   onRemoved: (item: ForYouItem) => void;
-  onOpenViewer: (item: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin }) => void;
+  onOpenViewer: (item: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin; time: number | null }) => void;
 }) {
   return (
     <InstaPost
@@ -206,13 +206,13 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
   /**
    * A tap on a post's photo or video: the viewer opens on it with For you's other posts with pictures around it, in feed
    * order (a swipe up goes on down the feed, its next pages loading as needed). A reel opens on its own, followed by the
-   * Reels feed, as it always has.
+   * Reels feed, as it always has. A video goes on from where it had got to here (`live.time`), rather than starting again.
    */
   const openInViewer = useCallback(
-    (tapped: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin }) => {
+    (tapped: ForYouItem, live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin; time: number | null }) => {
       if (tapped.kind === "reel") {
         const reel = reelFromFeedPost(tapped, live.engagement, live.saved);
-        if (reel) openReel(router, reel, live.origin);
+        if (reel) openReel(router, reel, live.origin, live.time ?? undefined);
         return;
       }
       const { items: list, engagement: counts, savedIds: saved, commentsOf: commentCount, hasMore: more } = latest.current;
@@ -224,7 +224,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
         const item = viewerItemFromPost(p, e, isTapped ? live.saved : saved.has(p.id));
         if (!item) continue;
         if (isTapped) index = entries.length;
-        entries.push(entryOf(item, isTapped ? live.slide : undefined));
+        entries.push(entryOf(item, isTapped ? live.slide : undefined, isTapped ? (live.time ?? undefined) : undefined));
       }
       if (index < 0) return;
       openViewer(router, {

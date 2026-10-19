@@ -8,3 +8,10 @@ import type { DerivedValue } from "react-native-reanimated";
  * simply show.
  */
 export const ViewerChromeContext = createContext<DerivedValue<number> | null>(null);
+
+/**
+ * Where each page's videos have got to, for the viewer to hand back to the feed as it closes (so the row's own player
+ * goes on from there). A page's video registers how to read its position (`read`), and takes it back (null) as it goes.
+ */
+export type ViewerClocks = { set: (key: string, slide: number, read: (() => number) | null) => void };
+export const ViewerClockContext = createContext<ViewerClocks | null>(null);

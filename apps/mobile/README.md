@@ -73,12 +73,16 @@ them an "Add comment…" bar on every page opens the comments sheet straight int
 as the feeds (send to friends, or "Share to…" the system share sheet with the page's link: `/posts/<id>` for posts and
 posted reels, `/apartments/<id>` or `/roommates/<id>` for listing tours); the viewer mounts its own `ShareSheetProvider`,
 since iOS presents a sheet from the screen on top and the root layout's one cannot appear over this modal screen. On a photo's page each button of
-the rail is white where it sits over the photo (a soft shadow behind the rail keeps it readable on a white wall) and in the
+the rail is white where it sits over the photo (a crisp dark edge on its strokes, no shading behind it, keeps it readable on
+a white wall) and in the
 theme's ink where it sits on the page below; the top row, the status bar and the comment bar follow the page under them,
 switching as a page's edge passes, and an opened description brings the page's colour up behind it. A tap pauses a video: a play button appears in the middle with the sound
 button just above it, both fading away again the moment it plays (the sound button keeps it paused). A post with several
 photos or videos swipes sideways on its page, with dots on a line of their own under the top row (its colours changing
-halfway through a swipe), and opens on the one that was showing in the feed; a video plays while its page and slide are on screen, and a double tap anywhere likes. A swipe up moves on: a reel goes on
+halfway through a swipe), and opens on the one that was showing in the feed; a video plays while its page and slide are on screen, and a double tap anywhere likes. A video tapped while it plays in the feed goes on in the viewer from where it
+had got to (`startAt`: the feed's poster, then the still from that moment, cover the jump), and the feed's own player
+goes on from wherever the viewer leaves it (`emitPostSlide` with a time) rather than starting again. Saved fills the
+bookmark in the rail's own colour. A swipe up moves on: a reel goes on
 into the Reels feed (only reels, page by page, the other campus choice keeping the page on screen while what follows comes
 from the new choice); a post in For you goes on down For you, its next pages loading as needed; a square in a profile grid
 (Posts, Reels, Saved, Liked) goes on through that grid; a saved post through your saved posts; a post's own screen and a

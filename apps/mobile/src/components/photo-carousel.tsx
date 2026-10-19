@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { Image } from "expo-image";
-import { useVideoPlayer, VideoView } from "expo-video";
+import { useVideoPlayer, VideoView, type VideoPlayer } from "expo-video";
 import type { FeedMedia } from "@apartment-book/shared";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { hapticSelect } from "@/lib/haptics";
@@ -13,7 +13,8 @@ const DOUBLE_TAP_MS = 260;
 type PhotoCarouselProps = {
   media: FeedMedia[];
   aspect?: number;
-  onPress?: () => void;
+  /** A tap on a slide; `time` is where its video had got to (null on a photo), so a full-screen view can go on from there. */
+  onPress?: (at: { time: number | null }) => void;
   /** Double tap, like Instagram. A single tap then waits a moment before it counts. */
   onDoubleTap?: () => void;
   active?: boolean;
@@ -21,8 +22,11 @@ type PhotoCarouselProps = {
   /** Pass false to draw your own dots (Instagram puts them under the photo); `onIndexChange` tells you which slide is showing. */
   dots?: boolean;
   onIndexChange?: (index: number) => void;
-  /** A slide to show from outside (the viewer coming back on another photo): the carousel jumps to it without animating. */
-  jump?: { index: number } | null;
+  /**
+   * A slide to show from outside (the viewer coming back on another photo): the carousel jumps to it without animating,
+   * and with a `time`, that slide's video jumps there (the viewer handing back where it had got to).
+   */
+  jump?: { index: number; time?: number } | null;
 };
 
 /**
@@ -48,12 +52,27 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
     [width, count, onIndexChange],
   );
 
+  /** The players of the video slides, by slide: read when one is tapped, moved when the viewer hands a time back. */
+  const players = useRef(new Map<number, VideoPlayer>());
+  const onPlayer = useCallback((i: number, player: VideoPlayer | null) => {
+    if (player) players.current.set(i, player);
+    else players.current.delete(i);
+  }, []);
+  const timeAt = (i: number): number | null => {
+    const p = players.current.get(i);
+    return p && Number.isFinite(p.currentTime) ? p.currentTime : null;
+  };
+
   useEffect(() => {
-    if (!jump || !width || count < 2) return;
+    if (!jump || !width) return;
     const i = Math.max(0, Math.min(count - 1, jump.index));
-    listRef.current?.scrollToIndex({ index: i, animated: false });
-    setIndex(i);
-    onIndexChange?.(i);
+    if (count > 1) {
+      listRef.current?.scrollToIndex({ index: i, animated: false });
+      setIndex(i);
+      onIndexChange?.(i);
+    }
+    const player = players.current.get(i);
+    if (player && typeof jump.time === "number" && Number.isFinite(jump.time)) player.currentTime = jump.time;
     // Only a new jump moves the carousel; a swipe in the feed after it stays where it is.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jump, width]);
@@ -62,7 +81,9 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
   const single = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => void (single.current && clearTimeout(single.current)), []);
   function tap() {
-    if (!onDoubleTap) return onPress?.();
+    // Read at the moment it opens (after the wait for a second tap), so a full-screen view starts where the video is.
+    const press = onPress ? () => onPress({ time: timeAt(index) }) : undefined;
+    if (!onDoubleTap) return press?.();
     const now = Date.now();
     if (single.current) clearTimeout(single.current);
     single.current = null;
@@ -72,7 +93,7 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
       return;
     }
     lastTap.current = now;
-    if (onPress) single.current = setTimeout(onPress, DOUBLE_TAP_MS);
+    if (press) single.current = setTimeout(press, DOUBLE_TAP_MS);
   }
   const go = (i: number) => listRef.current?.scrollToIndex({ index: Math.max(0, Math.min(count - 1, i)), animated: true });
 
@@ -98,7 +119,7 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
                 // The tiny blurred preview saved at upload shows at once, and the full photo fades in over it: no blank frames.
                 <Image source={{ uri: item.url }} placeholder={item.blur ? { uri: item.blur } : undefined} placeholderContentFit="cover" style={{ width, height }} contentFit="cover" transition={250} accessibilityLabel={`Photo ${i + 1} of ${count}`} />
               ) : (
-                <VideoSlide media={item} width={width} height={height} playing={active && i === index} />
+                <VideoSlide media={item} index={i} width={width} height={height} playing={active && i === index} onPlayer={onPlayer} />
               )}
             </Pressable>
           )}
@@ -134,13 +155,17 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
 
 let soundOn = false;
 
-function VideoSlide({ media, width, height, playing }: { media: Extract<FeedMedia, { type: "video" }>; width: number; height: number; playing: boolean }) {
+function VideoSlide({ media, index, width, height, playing, onPlayer }: { media: Extract<FeedMedia, { type: "video" }>; index: number; width: number; height: number; playing: boolean; onPlayer: (index: number, player: VideoPlayer | null) => void }) {
   const colors = useColors();
   const styles = useStyles();
   const player = useVideoPlayer({ uri: media.playbackUrl }, (p) => {
     p.loop = true;
     p.muted = !soundOn;
   });
+  useEffect(() => {
+    onPlayer(index, player);
+    return () => onPlayer(index, null);
+  }, [onPlayer, index, player]);
   const [muted, setMuted] = useState(!soundOn);
   const [hasFrame, setHasFrame] = useState(false);
   useEffect(() => {

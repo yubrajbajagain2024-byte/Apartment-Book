@@ -39,7 +39,7 @@ export type InstaPostProps = {
    * Opens the post full screen in the viewer, given the row's own live counts: a feed passes its own, which hands over
    * the pages around this one. Without it the post opens alone (and the Reels feed follows it).
    */
-  onOpen?: (live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin }) => void;
+  onOpen?: (live: { engagement: PostEngagement; saved: boolean; slide: number; origin?: ViewerOrigin; time: number | null }) => void;
 };
 
 const TALLEST = 4 / 5;
@@ -69,9 +69,12 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   const like = useLike("post", post.id, engagement, user?.id ?? null, needLogin);
   const save = useSave("post", post.id, saved, user?.id ?? null, needLogin);
   const [slide, setSlide] = useState(0);
-  /** The viewer opened from this post moved to another of its photos: the carousel follows, so the way back lands on it. */
-  const [jump, setJump] = useState<{ index: number } | null>(null);
-  useEffect(() => onPostSlide((id, index) => id === post.id && setJump({ index })), [post.id]);
+  /**
+   * The viewer opened from this post moved to another of its photos: the carousel follows, so the way back lands on it;
+   * closing on a video, it hands back where the video had got to, and this one goes on from there.
+   */
+  const [jump, setJump] = useState<{ index: number; time?: number } | null>(null);
+  useEffect(() => onPostSlide((id, index, time) => id === post.id && setJump({ index, time })), [post.id]);
   /** Pinned to the top of the author's profile (three at most). Rows read before migration 18 have no pinned_at at all. */
   const [pinned, setPinned] = useState(Boolean(post.pinned_at));
   useEffect(() => setPinned(Boolean(post.pinned_at)), [post.pinned_at]);
@@ -109,13 +112,15 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
    * over the row's own counts (which may be ahead of the feed's after a tap here) so it shows at once; from there a
    * swipe up moves on. A words-only post has nothing to open.
    */
-  function openViewer() {
-    // The viewer opens on the photo or video showing here, zooming open from the picture's own frame.
+  function openViewer(at?: { time: number | null }) {
+    // The viewer opens on the photo or video showing here, zooming open from the picture's own frame, and a video goes
+    // on from where it had got to here rather than starting again.
+    const time = at?.time ?? null;
     void measureOrigin(frame.current, POST_FRAME_RADIUS).then((origin) => {
-      const live = { engagement: { likes: like.likes, comments, likedByMe: like.liked }, saved: save.saved, slide, origin };
+      const live = { engagement: { likes: like.likes, comments, likedByMe: like.liked }, saved: save.saved, slide, origin, time };
       if (props.onOpen) return props.onOpen(live);
       const item = viewerItemFromPost(post, live.engagement, live.saved);
-      if (item) openFullScreen(router, { entries: [entryOf(item, slide)], index: 0, then: "reels", origin });
+      if (item) openFullScreen(router, { entries: [entryOf(item, slide, time ?? undefined)], index: 0, then: "reels", origin });
     });
   }
 

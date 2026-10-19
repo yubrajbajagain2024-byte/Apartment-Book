@@ -3,14 +3,14 @@ import { Alert, Animated, Easing, Pressable, StyleSheet, Text, View } from "reac
 import { Image } from "expo-image";
 import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useVideoPlayer, VideoView } from "expo-video";
+import { useVideoPlayer, VideoView, type VideoPlayer } from "expo-video";
 import { GestureDetector } from "react-native-gesture-handler";
 import Reanimated, { cancelAnimation, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
 import { APP_NAME, deleteFeedPost, getFeedPost, getOrCreateDirectConversation, likePost, reelPath, reportContent, REPORT_REASONS, setPostPinned, sharedPostPath, toggleSaved, unlikePost, type FeedMedia, type Reel, type ReportReason } from "@apartment-book/shared";
 import { hapticLike, hapticSelect, hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
-import { asViewerItem, viewerThumb, type ViewerItem } from "@/lib/reel-viewer";
+import { asViewerItem, posterAt, viewerThumb, type ViewerItem } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
@@ -18,7 +18,7 @@ import { useActionSheet } from "../action-sheet";
 import { useShareSheet } from "../share-sheet";
 import { Icon, useBounceOn } from "@/components/icon";
 import { ProgressiveBlur } from "@/components/progressive-blur";
-import { ViewerChromeContext } from "@/lib/viewer-chrome";
+import { ViewerChromeContext, ViewerClockContext } from "@/lib/viewer-chrome";
 import { usePageSwipe, type PageSlides } from "@/lib/viewer-swipe";
 
 /** Sound is one switch for the whole Reels feed (starts muted, like every other feed video in the app). */
@@ -115,6 +115,8 @@ type Props = {
   onRemoved: (key: string) => void;
   /** For a post with several photos or videos: the one to start on. */
   initialSlide?: number;
+  /** Where that slide's video had got to in the feed when it was tapped (seconds): it goes on from there, once. */
+  startAt?: number;
   /** Where the page's own content may start: the bottom of the row drawn over its top. A photo sits below it, whole. */
   contentTop?: number;
   /** The slide on screen changed, or what it sits on did (and once at the start): the screen's own chrome follows it. */
@@ -129,7 +131,7 @@ type Props = {
  * rail's buttons white over the photo or inked over the page (see ViewerSurface, photoLayout); one too tall to leave the
  * words their space is shown full screen like a video. A double tap anywhere likes.
  */
-export const ReelItem = memo(function ReelItem({ reel: source, width, height, topInset, bottomInset, near, playing, onPatch, onOpenComments, onRemoved, initialSlide = 0, contentTop = topInset + 54, onSlideChange }: Props) {
+export const ReelItem = memo(function ReelItem({ reel: source, width, height, topInset, bottomInset, near, playing, onPatch, onOpenComments, onRemoved, initialSlide = 0, startAt, contentTop = topInset + 54, onSlideChange }: Props) {
   const reel = useMemo(() => asViewerItem(source), [source]);
   const { user } = useSession();
   const router = useRouter();
@@ -153,6 +155,9 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   useEffect(() => () => void (pendingTap.current && clearTimeout(pendingTap.current)), []);
 
   const key = reelKey(reel);
+  /** How far each video has got, for the viewer to hand back to the feed as it closes (none on the Reels tab). */
+  const clocks = useContext(ViewerClockContext);
+  const onClock = useCallback((index: number, read: (() => number) | null) => clocks?.set(key, index, read), [clocks, key]);
   const own = user?.id === reel.author.id;
   const isTour = reel.sourceType !== "post";
   /** What the menus and alerts call it. */
@@ -163,6 +168,13 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   /** The slide on screen, for a post with several photos or videos. */
   const [slide, setSlide] = useState(() => Math.max(0, Math.min(media.length - 1, initialSlide)));
   const slideIsVideo = media[slide]?.type === "video";
+  /**
+   * The feed's handover, used once: the slide it was tapped on goes on from where its video was; once it has, the
+   * handover is spent, and a later visit to the page starts its videos from the beginning as usual.
+   */
+  const [startFrom, setStartFrom] = useState(startAt);
+  const [firstSlide] = useState(slide);
+  const started = useCallback(() => setStartFrom(undefined), []);
   /**
    * A post with several photos or videos: its slides sit side by side on a strip that the page's swipe moves (see
    * usePageSwipe). `settled` is the slide the strip last came to rest on: its video plays, and players wait beside it.
@@ -478,11 +490,11 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
     <View style={{ width, height, overflow: "hidden", backgroundColor: onPage ? colors.bg : colors.mediaBg }}>
       {single ? (
         <>
-          <VideoSlide uri={single.playbackUrl} poster={poster} aspect={aspectOf(single)} width={width} height={height} mounted={near} playing={playing && !userPaused} muted={muted} topInset={topInset} bottomInset={bottomInset} frost={near} />
+          <VideoSlide uri={single.playbackUrl} poster={poster} aspect={aspectOf(single)} width={width} height={height} mounted={near} playing={playing && !userPaused} muted={muted} topInset={topInset} bottomInset={bottomInset} frost={near} index={0} startAt={startFrom} onStarted={started} onClock={onClock} />
           <Pressable style={StyleSheet.absoluteFill} onPress={onVideoTap} accessibilityRole="button" accessibilityLabel={userPaused ? "Play" : "Pause"} />
         </>
       ) : (
-        <SlideStrip media={media} aspects={aspects} pos={stripPos} settled={settled} shown={slide} width={width} height={height} photoTop={photoAt} photoFloor={floor} topInset={topInset} bottomInset={bottomInset} near={near} playing={playing && !userPaused} muted={muted} onAspect={onAspect} onTap={onVideoTap} goTo={goTo} />
+        <SlideStrip media={media} aspects={aspects} pos={stripPos} settled={settled} shown={slide} width={width} height={height} photoTop={photoAt} photoFloor={floor} topInset={topInset} bottomInset={bottomInset} near={near} playing={playing && !userPaused} muted={muted} onAspect={onAspect} onTap={onVideoTap} goTo={goTo} startAt={startFrom} startSlide={firstSlide} onStarted={started} onClock={onClock} />
       )}
       <Animated.View pointerEvents="none" style={[styles.heartBox, heartBox, styles.bigHeart, { opacity: bigHeart, transform: [{ scale: bigHeart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }]}>
         <Icon name="heart" size={110} color={colors.onMedia} />
@@ -498,13 +510,6 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
         </View>
       ) : null}
 
-      {/* Where the rail crosses a photo on its page: a soft shadow behind its white icons, inside the photo only, so they
-          stay readable on a white wall or a sheet of paper as they do over video. */}
-      {pagePhoto && railBox.height > 0 && pagePhoto.top + pagePhoto.height > overlayTop + railTop ? (
-        <View pointerEvents="none" style={[styles.placed, frame(pagePhoto)]}>
-          <View style={[styles.railPool, { top: overlayTop + railTop - pagePhoto.top, height: Math.min(railBox.height, pagePhoto.top + pagePhoto.height - overlayTop - railTop) }]} />
-        </View>
-      ) : null}
       {/* An opened description on a photo's page: the page's colour comes up behind it, over the photo's lower part. */}
       {pagePhoto && expanded ? (
         <View pointerEvents="none" style={[styles.underlay, { top: underlayTop }]}>
@@ -565,8 +570,8 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
           <RailButton icon={reel.likedByMe ? "heart" : "heart-outline"} tint={reel.likedByMe ? { media: colors.like, page: colors.like } : undefined} label={compact(reel.likes)} onPress={unlessSwiped(() => void toggleLike())} a11y={reel.likedByMe ? "Unlike" : "Like"} selected={reel.likedByMe} scale={pop} edge={railEdge} />
           <RailButton icon="chatbubble-ellipses-outline" label={compact(reel.comments)} onPress={unlessSwiped(() => onOpenComments(reel))} a11y="Comments" edge={railEdge} />
           <RailButton icon="paper-plane-outline" label="Share" onPress={unlessSwiped(share)} a11y="Share" edge={railEdge} />
-          {/* Saved: amber over a picture; on the page the filled bookmark in the ink colour, as under a post in the feed. */}
-          <RailButton icon={reel.savedByMe ? "bookmark" : "bookmark-outline"} tint={reel.savedByMe ? { media: colors.amber, page: colors.text } : undefined} label={reel.savedByMe ? "Saved" : "Save"} onPress={unlessSwiped(() => void toggleSave())} a11y={reel.savedByMe ? "Unsave" : "Save"} selected={reel.savedByMe} edge={railEdge} />
+          {/* Saved: the filled bookmark, in the same colour as the rest of the rail (white over a picture). */}
+          <RailButton icon={reel.savedByMe ? "bookmark" : "bookmark-outline"} label={reel.savedByMe ? "Saved" : "Save"} onPress={unlessSwiped(() => void toggleSave())} a11y={reel.savedByMe ? "Unsave" : "Save"} selected={reel.savedByMe} edge={railEdge} />
           <RailButton icon="ellipsis-horizontal" onPress={unlessSwiped(() => void more())} a11y="More options" small edge={railEdge} />
         </View>
       </View>
@@ -732,39 +737,105 @@ function MediaFrame({ place, backdrop, width, height, topInset, bottomInset, fro
   );
 }
 
+/** What a video slide needs to go on from the feed (`startAt`, then `onStarted`) and to tell the viewer how far it has got (`onClock`). */
+type VideoHandover = { index: number; startAt?: number; onStarted?: () => void; onClock?: (index: number, read: (() => number) | null) => void };
+
 /** A video's slide, full screen when it is vertical: its player (only near the page on screen, so at most a few exist at a time) or its poster. */
-function VideoSlide({ uri, poster, aspect, width, height, mounted, playing, muted, topInset, bottomInset, frost }: { uri: string; poster: string; aspect: number | null; width: number; height: number; mounted: boolean; playing: boolean; muted: boolean; topInset: number; bottomInset: number; frost: boolean }) {
+function VideoSlide({ uri, poster, aspect, width, height, mounted, playing, muted, topInset, bottomInset, frost, ...handover }: { uri: string; poster: string; aspect: number | null; width: number; height: number; mounted: boolean; playing: boolean; muted: boolean; topInset: number; bottomInset: number; frost: boolean } & VideoHandover) {
   const styles = useStyles();
   const place = placeVideo(aspect, width, height);
   return (
     <MediaFrame place={place} backdrop={poster || null} width={width} height={height} topInset={topInset} bottomInset={bottomInset} frost={frost}>
-      {mounted ? <PageVideo uri={uri} poster={poster} place={place} playing={playing} muted={muted} /> : poster ? <Image source={{ uri: poster }} style={[styles.placed, frame(place)]} contentFit={place.fit} transition={0} /> : null}
+      {mounted ? <PageVideo uri={uri} poster={poster} place={place} playing={playing} muted={muted} {...handover} /> : poster ? <Image source={{ uri: poster }} style={[styles.placed, frame(place)]} contentFit={place.fit} transition={0} /> : null}
     </MediaFrame>
   );
 }
 
-/** A video's player in its place; its poster stays on top until the first frame is painted, so a page is never a black box. */
-function PageVideo({ uri, poster, place, playing, muted }: { uri: string; poster: string; place: Placement; playing: boolean; muted: boolean }) {
+/** How long a video taken over from the feed waits for its jump to land before it plays anyway. */
+const HANDOVER_WAIT_MS = 1500;
+
+/**
+ * A video's player in its place; its poster stays on top until the first frame is painted, so a page is never a black
+ * box. Taken over from the feed (`startAt`), it goes on from that moment: once loaded it jumps there and only then
+ * plays. Meanwhile the poster (already loaded by the feed) covers the wait, and the still from that very moment over it
+ * as soon as it arrives, so it never flashes its first frame.
+ */
+function PageVideo({ uri, poster, place, playing, muted, index, startAt, onStarted, onClock }: { uri: string; poster: string; place: Placement; playing: boolean; muted: boolean } & VideoHandover) {
   const styles = useStyles();
   const player = useVideoPlayer({ uri }, (p) => {
     p.loop = true;
     p.muted = reelsMuted;
   });
   const [hasFrame, setHasFrame] = useState(false);
+  /** False while a handed-over video is still on its way to `startAt`. */
+  const [arrived, setArrived] = useState(() => !(startAt && startAt > 0.2));
+  const startRef = useRef(startAt);
+  const [still] = useState(() => (poster && startAt && startAt > 0.2 ? posterAt(poster, startAt) : null));
   useEffect(() => {
-    if (playing) player.play();
+    const target = startRef.current;
+    if (arrived || !target) return;
+    return goOnFrom(player, target, () => {
+      setArrived(true);
+      onStarted?.();
+    });
+    // Once, as the player starts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [player]);
+  useEffect(() => {
+    if (playing && arrived) player.play();
     else player.pause();
-  }, [playing, player]);
+  }, [playing, arrived, player]);
   useEffect(() => {
     player.muted = muted;
   }, [muted, player]);
+  useEffect(() => {
+    if (!onClock) return;
+    onClock(index, () => player.currentTime);
+    return () => onClock(index, null);
+  }, [onClock, index, player]);
   return (
     <View style={[styles.placed, frame(place)]}>
       {/* No Live Text on a paused frame: its button would sit over the play control, and the scan it runs on every pause is wasted. */}
       <VideoView player={player} style={StyleSheet.absoluteFill} contentFit={place.fit} nativeControls={false} allowsVideoFrameAnalysis={false} onFirstFrameRender={() => setHasFrame(true)} />
-      {!hasFrame && poster ? <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} contentFit={place.fit} /> : null}
+      {(!hasFrame || !arrived) && poster ? <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} contentFit={place.fit} /> : null}
+      {!arrived && still ? <Image source={{ uri: still }} style={StyleSheet.absoluteFill} contentFit={place.fit} transition={0} /> : null}
     </View>
   );
+}
+
+/**
+ * Moves a fresh player to `seconds` and calls `done` once it is there: as soon as the video is loaded it jumps, and the
+ * player's own clock reporting that moment says it has landed (or, failing that, a short wait). Returns the cleanup.
+ */
+function goOnFrom(player: VideoPlayer, seconds: number, done: () => void): () => void {
+  let jumped = false;
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    player.timeUpdateEventInterval = 0;
+    clearTimeout(fallback);
+    done();
+  };
+  const jump = () => {
+    if (jumped) return;
+    jumped = true;
+    player.timeUpdateEventInterval = 0.1;
+    player.currentTime = seconds;
+  };
+  const status = player.addListener("statusChange", ({ status: next }) => {
+    if (next === "readyToPlay") jump();
+  });
+  const time = player.addListener("timeUpdate", ({ currentTime }) => {
+    if (jumped && currentTime >= seconds - 0.3) finish();
+  });
+  if (player.status === "readyToPlay") jump();
+  const fallback = setTimeout(finish, HANDOVER_WAIT_MS);
+  return () => {
+    status.remove();
+    time.remove();
+    clearTimeout(fallback);
+  };
 }
 
 /**
@@ -812,7 +883,7 @@ const ADJUST = [{ name: "increment" }, { name: "decrement" }] as const;
  * beside that one. Each slide takes the page's taps (a lone tap pauses a video, a double tap likes); VoiceOver reads the
  * slide showing, and a swipe up or down on it moves to the next or the previous one.
  */
-function SlideStrip({ media, aspects, pos, settled, shown, width, height, photoTop: top, photoFloor: floor, topInset, bottomInset, near, playing, muted, onAspect, onTap, goTo }: { media: FeedMedia[]; aspects: Record<number, number>; pos: SharedValue<number>; settled: number; shown: number; width: number; height: number; photoTop: number; photoFloor: number; topInset: number; bottomInset: number; near: boolean; playing: boolean; muted: boolean; onAspect: (index: number, aspect: number) => void; onTap: () => void; goTo: (index: number) => void }) {
+function SlideStrip({ media, aspects, pos, settled, shown, width, height, photoTop: top, photoFloor: floor, topInset, bottomInset, near, playing, muted, onAspect, onTap, goTo, startAt, startSlide, onStarted, onClock }: { media: FeedMedia[]; aspects: Record<number, number>; pos: SharedValue<number>; settled: number; shown: number; width: number; height: number; photoTop: number; photoFloor: number; topInset: number; bottomInset: number; near: boolean; playing: boolean; muted: boolean; onAspect: (index: number, aspect: number) => void; onTap: () => void; goTo: (index: number) => void; startAt?: number; startSlide: number; onStarted: () => void; onClock: (index: number, read: (() => number) | null) => void }) {
   const styles = useStyles();
   const stripStyle = useAnimatedStyle(() => ({ transform: [{ translateX: pos.value }] }));
   return (
@@ -834,7 +905,7 @@ function SlideStrip({ media, aspects, pos, settled, shown, width, height, photoT
             {item.type === "photo" ? (
               <PhotoSlide uri={item.url} blur={item.blur} aspect={aspectOf(item) ?? aspects[i] ?? null} width={width} height={height} top={top} floor={floor} topInset={topInset} bottomInset={bottomInset} frost={close} onAspect={(a) => onAspect(i, a)} />
             ) : (
-              <VideoSlide uri={item.playbackUrl} poster={item.poster ?? ""} aspect={aspectOf(item)} width={width} height={height} mounted={close} playing={playing && i === settled} muted={muted} topInset={topInset} bottomInset={bottomInset} frost={close} />
+              <VideoSlide uri={item.playbackUrl} poster={item.poster ?? ""} aspect={aspectOf(item)} width={width} height={height} mounted={close} playing={playing && i === settled} muted={muted} topInset={topInset} bottomInset={bottomInset} frost={close} index={i} startAt={i === startSlide ? startAt : undefined} onStarted={onStarted} onClock={onClock} />
             )}
           </Pressable>
         );
@@ -870,8 +941,6 @@ const useStyles = makeStyles((colors) => {
     shade: { position: "absolute", left: 0, right: 0, bottom: 0, height: SHADE_HEIGHT, experimental_backgroundImage: scrimGradient(colors.mediaScrim, bottomShare) },
     // Drawn from the darker text-shadow colour: the top carries smaller, dimmer words than the bottom does.
     topShade: { position: "absolute", left: 0, right: 0, top: 0, experimental_backgroundImage: scrimGradient(colors.mediaTextShadow, topShare, 14) },
-    // A thin strip at the photo's right edge, along the rail, casting a wide soft shadow round it (the strip itself is never seen).
-    railPool: { position: "absolute", right: 0, width: 1, boxShadow: "0 0 48px 58px rgba(0,0,0,0.42)" },
     // An opened description on a photo's page: the page's colour, fading in above it, behind the words.
     underlay: { position: "absolute", left: 0, right: 0, bottom: 0 },
     underlayFade: { height: UNDERLAY_FADE, experimental_backgroundImage: `linear-gradient(to bottom, ${clearOf(colors.bg)}, ${colors.bg})` },
@@ -900,9 +969,10 @@ const useStyles = makeStyles((colors) => {
     railButton: { alignItems: "center", gap: 3, minWidth: 48 },
     // The unseen copy of the description that tells whether its one line was cut.
     measure: { position: "absolute", left: 0, right: 0, opacity: 0 },
-    railLabel: { color: colors.onMedia, fontSize: 12, fontWeight: "700", ...shadow },
-    // A wider, darker halo than the words get: the rail's white strokes are thin, and bright footage would swallow them.
-    iconShadow: { textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6 },
+    // The rail's counts and icons: a crisp edge rather than a glow, so they stay sharp, and readable on a white wall, with no
+    // smudge or shading round them.
+    railLabel: { color: colors.onMedia, fontSize: 12, fontWeight: "700", textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 0.5 }, textShadowRadius: 1.5 },
+    iconShadow: { textShadowColor: colors.mediaTextShadow, textShadowOffset: { width: 0, height: 0.5 }, textShadowRadius: 2 },
     authorPage: { color: colors.text, ...plain },
     titlePage: { color: colors.text, ...plain },
     captionPage: { color: colors.text, ...plain },

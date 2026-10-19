@@ -18,7 +18,7 @@ import { errorText } from "@/lib/hooks";
 import { emitPostEngagement, emitPostRemoved, emitPostSlide } from "@/lib/posts-events";
 import { dropHanded, entryOf, loadViewerItems, peekHanded, viewerItemFromPost, viewerItemFromReel, viewerKey, type ViewerEntry, type ViewerItem, type ViewerOrigin, type ViewerSource } from "@/lib/reel-viewer";
 import { useReduceMotion } from "@/lib/accessibility";
-import { ViewerChromeContext } from "@/lib/viewer-chrome";
+import { ViewerChromeContext, ViewerClockContext, type ViewerClocks } from "@/lib/viewer-chrome";
 import { usePageSwipe, ViewerSwipeContext, type ViewerSwipe } from "@/lib/viewer-swipe";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
@@ -420,12 +420,31 @@ export default function ReelViewerScreen() {
   const chromeShown = useDerivedValue(() => chrome.value * (1 - Math.min(Math.abs(drag.value) / (screenW * 0.25), 1)));
   const chromeStyle = useAnimatedStyle(() => ({ opacity: chromeShown.value }));
 
+  /** How far each page's videos have got (see ViewerClockContext), by "key#slide". */
+  const clocks = useRef(new Map<string, () => number>());
+  const clockApi = useMemo<ViewerClocks>(
+    () => ({
+      set: (key, slide, read) => {
+        if (read) clocks.current.set(`${key}#${slide}`, read);
+        else clocks.current.delete(`${key}#${slide}`);
+      },
+    }),
+    [],
+  );
+  /** As the viewer closes: hands the post it was opened from the time its video has got to, so that row goes on from there. */
+  const handBack = useCallback(() => {
+    if (!startEntry || startItem?.sourceType !== "post") return;
+    const time = clocks.current.get(`${startEntry.key}#${startSlide}`)?.();
+    if (typeof time === "number" && Number.isFinite(time)) emitPostSlide(startItem.sourceId, startSlide, time);
+  }, [startEntry, startItem, startSlide]);
+
   /** Zooms closed (into the tapped picture when that page is still the one on screen), then runs `done`. */
   const closing = useRef(false);
   const closeThen = useCallback(
     (done: () => void) => {
       if (closing.current) return;
       closing.current = true;
+      handBack();
       if (reduceMotion) return done();
       toOrigin.value = origin !== null && visibleRef.current === startIndex ? 1 : 0;
       chrome.value = withTiming(0, { duration: 110 });
@@ -434,7 +453,7 @@ export default function ReelViewerScreen() {
         if (finished) runOnJS(done)();
       });
     },
-    [reduceMotion, origin, startIndex, toOrigin, chrome, drag, open],
+    [reduceMotion, origin, startIndex, toOrigin, chrome, drag, open, handBack],
   );
   // Every way out (Back, a link elsewhere, Android's back button) zooms closed first, then really leaves.
   const navigation = useNavigation();
@@ -461,6 +480,7 @@ export default function ReelViewerScreen() {
     (velocityX: number) => {
       if (closing.current) return;
       closing.current = true;
+      handBack();
       const finish = () => {
         leaving.current = true;
         leave();
@@ -476,7 +496,7 @@ export default function ReelViewerScreen() {
         if (finished) runOnJS(finish)();
       });
     },
-    [reduceMotion, origin, startIndex, toOrigin, chrome, drag, open, screenW, leave],
+    [reduceMotion, origin, startIndex, toOrigin, chrome, drag, open, screenW, leave, handBack],
   );
   const swipeBack = useMemo<ViewerSwipe>(() => ({ drag, close: swipeClose }), [drag, swipeClose]);
 
@@ -512,7 +532,7 @@ export default function ReelViewerScreen() {
           <View style={{ width, height }}>
             {entry.item ? (
               <>
-                <ReelItem reel={entry.item} width={width} height={height} topInset={muteInset} contentTop={contentTop} bottomInset={barHeight} near={Math.abs(index - visible) <= 1} playing={focused && index === visible} onPatch={onPatch} onOpenComments={onOpenComments} onRemoved={onRemoved} initialSlide={entry.slide} onSlideChange={onSlideChange} />
+                <ReelItem reel={entry.item} width={width} height={height} topInset={muteInset} contentTop={contentTop} bottomInset={barHeight} near={Math.abs(index - visible) <= 1} playing={focused && index === visible} onPatch={onPatch} onOpenComments={onOpenComments} onRemoved={onRemoved} initialSlide={entry.slide} startAt={entry.startAt} onSlideChange={onSlideChange} />
                 {/* "Add comment…" under the name and the rail, like Instagram's: a tap opens the comments with the keyboard up.
                     Dark glass over a video; on a photo's page, the theme's own text field. */}
                 <Animated.View pointerEvents="box-none" style={[styles.commentBar, { bottom: barBottom }, chromeStyle]}>
@@ -600,6 +620,7 @@ export default function ReelViewerScreen() {
         <Animated.View style={[{ width: screenW, height: screenH }, pageStyle]}>
     <ViewerChromeContext.Provider value={chromeShown}>
     <ViewerSwipeContext.Provider value={swipeBack}>
+    <ViewerClockContext.Provider value={clockApi}>
     <View style={[styles.root, shownOnPage && styles.rootPage]} onLayout={(e) => setHeight(Math.round(e.nativeEvent.layout.height))}>
       {body}
 
@@ -626,6 +647,7 @@ export default function ReelViewerScreen() {
 
       <ReelCommentsSheet reel={commentsItem} focusComposer={commentsTyping} onClose={() => setCommentsKey(null)} onCountChange={onCommentCount} />
     </View>
+    </ViewerClockContext.Provider>
     </ViewerSwipeContext.Provider>
     </ViewerChromeContext.Provider>
         </Animated.View>

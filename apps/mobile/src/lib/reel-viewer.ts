@@ -38,7 +38,17 @@ export type ViewerItem = Omit<Reel, "video"> & {
  * A page as it is handed to the viewer: ready (`item`), or only a post's id, loaded when the page comes near (a profile
  * square or a chat card knows little more). `thumb` shows while it loads; `gone` marks a post that has been deleted.
  */
-export type ViewerEntry = { key: string; id: string; item: ViewerItem | null; thumb: string | null; gone?: boolean; /** The photo or video to start on (the one showing in the feed when it was tapped). */ slide?: number };
+export type ViewerEntry = {
+  key: string;
+  id: string;
+  item: ViewerItem | null;
+  thumb: string | null;
+  gone?: boolean;
+  /** The photo or video to start on (the one showing in the feed when it was tapped). */
+  slide?: number;
+  /** Where that video had got to in the feed when it was tapped (seconds): the viewer goes on from there. */
+  startAt?: number;
+};
 
 /**
  * What the viewer opens on: the pages, the one tapped, and what follows the last of them. A reel goes on into the
@@ -120,8 +130,15 @@ export function viewerItemFromPost(post: FeedPostWithAuthor, engagement: PostEng
   };
 }
 
-export function entryOf(item: ViewerItem, slide?: number): ViewerEntry {
-  return { key: viewerKey(item), id: item.sourceId, item, thumb: viewerThumb(item.media), slide };
+export function entryOf(item: ViewerItem, slide?: number, startAt?: number): ViewerEntry {
+  return { key: viewerKey(item), id: item.sourceId, item, thumb: viewerThumb(item.media), slide, startAt };
+}
+
+/** A Mux video's still at a given moment (its poster's own link, with the time changed); any other poster as it is. */
+export function posterAt(poster: string, seconds: number): string {
+  if (!poster.startsWith("https://image.mux.com/")) return poster;
+  const time = Math.max(0, Math.round(seconds * 10) / 10);
+  return /[?&]time=/.test(poster) ? poster.replace(/([?&]time=)[^&]*/, `$1${time}`) : `${poster}${poster.includes("?") ? "&" : "?"}time=${time}`;
 }
 
 /** A post known only by its id (a profile square, a chat card, a saved row): loaded when its page comes near. */
@@ -174,7 +191,7 @@ export function forYouAfter(opts: { universityId: string | undefined; userId: st
       const fresh = result.items.filter((p) => !seen.has(p.id));
       fresh.forEach((p) => seen.add(p.id));
       const items = await itemsForPosts(fresh, opts.userId);
-      if (items.length > 0) return items.map(entryOf);
+      if (items.length > 0) return items.map((item) => entryOf(item));
     }
     return [];
   };
@@ -194,9 +211,9 @@ export function openViewer(router: Router, source: ViewerSource) {
   router.push({ pathname: "/reels/[id]", params: { id: entry.id } });
 }
 
-/** A reel tapped in a feed: that reel, then the Reels feed behind it (only reels, like Instagram). */
-export function openReel(router: Router, reel: Reel, origin?: ViewerOrigin) {
-  openViewer(router, { entries: [entryOf(viewerItemFromReel(reel))], index: 0, then: "reels", origin });
+/** A reel tapped in a feed: that reel (going on from `startAt`, where it was playing), then the Reels feed behind it (only reels, like Instagram). */
+export function openReel(router: Router, reel: Reel, origin?: ViewerOrigin, startAt?: number) {
+  openViewer(router, { entries: [entryOf(viewerItemFromReel(reel), undefined, startAt)], index: 0, then: "reels", origin });
 }
 
 /** What was handed over for this id, if that is what was handed over last. Left in place until `dropHanded`, so a render that runs twice reads the same thing. */
