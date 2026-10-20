@@ -8,6 +8,7 @@ import {
   formatMessageTime,
   sharedPostLabel,
   sharedPostOf,
+  snapOf,
   type MessageAttachment,
   type ProfileSummary,
   type SharedPost,
@@ -20,6 +21,7 @@ import { makeStyles, useColors } from "@/lib/theme-provider";
 import { AttachmentFileRow } from "./attachment-file-row";
 import { AttachmentGrid, type GridMedia } from "./attachment-grid";
 import { Icon } from "@/components/icon";
+import { SnapBubble } from "@/components/snap/snap-bubble";
 
 /**
  * A sent photo or video as something drawable: a signed URL with the storage path as its cache key, or null while
@@ -116,12 +118,14 @@ export type MessageRowProps = {
   resolveMedia: MediaResolver;
   onOpenMedia: (message: ChatMessage, index: number) => void;
   onOpenFile: (attachment: MessageAttachment) => void;
+  /** A Snap from someone else, tapped while it is new: its one view. */
+  onOpenSnap?: (message: ChatMessage) => void;
   /** Long press (and a tap on a message that was not sent): retry, delete or report. */
   onActions: (message: ChatMessage) => void;
   onPressAvatar: (userId: string) => void;
 };
 
-/** One message in the chat: day label, avatar, shared post, photos and videos, files, words, time and receipts. */
+/** One message in the chat: day label, avatar, shared post, photos and videos, files, a Snap, words, time and receipts. */
 export function MessageRow({
   message: m,
   mine,
@@ -136,6 +140,7 @@ export function MessageRow({
   resolveMedia,
   onOpenMedia,
   onOpenFile,
+  onOpenSnap,
   onActions,
   onPressAvatar,
 }: MessageRowProps) {
@@ -143,6 +148,7 @@ export function MessageRow({
   const styles = useStyles();
   const router = useRouter();
   const shared = sharedPostOf(m.shared_post);
+  const snap = snapOf(m.snap);
   const media = messageMedia(m, resolveMedia);
   const files = messageFiles(m);
   const showText = Boolean(m.content) && !(m.image_url && m.content === WEBSITE_PHOTO_TEXT);
@@ -183,6 +189,7 @@ export function MessageRow({
                 style={{ width: mediaWidth }}
               />
             ))}
+            {snap ? <SnapBubble snap={snap} mine={mine} dimmed={Boolean(m.pending)} corners={corners} onOpen={onOpenSnap ? () => onOpenSnap(m) : undefined} onLongPress={actions} /> : null}
             {showText ? (
               <Pressable onPress={retry} onLongPress={actions} delayLongPress={350} accessibilityHint={m.failed ? "Not sent. Tap for options." : undefined}>
                 <View style={[styles.bubble, mine ? styles.mine : styles.theirs, corners, m.pending && styles.dim, m.failed && styles.failed]}>

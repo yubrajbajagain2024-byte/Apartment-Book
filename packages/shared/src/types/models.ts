@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "./database";
+import type { Database, Json } from "./database";
 import type { MessageAttachment } from "../message-media";
 
 /** A typed Supabase client. Works in the browser, on the server and in React Native. */
@@ -22,8 +22,11 @@ export type Item = Tables<"items">;
 export type SavedListing = Tables<"saved_listings">;
 export type Conversation = Tables<"conversations">;
 export type ConversationMember = Tables<"conversation_members">;
-/** `attachments` is optional: rows from a database without migration 20 have none. The shared queries always fill it. */
-export type Message = Omit<Tables<"messages">, "attachments"> & { attachments?: MessageAttachment[] };
+/**
+ * `attachments` is optional: rows from a database without migration 20 have none. The shared queries always fill it.
+ * `snap` too (migration 28): read it with snapOf().
+ */
+export type Message = Omit<Tables<"messages">, "attachments" | "snap"> & { attachments?: MessageAttachment[]; snap?: Json | null };
 export type DevicePushToken = Tables<"device_push_tokens">;
 export type Media = Tables<"media">;
 export type PostLike = Tables<"post_likes">;
@@ -40,7 +43,7 @@ export type ListingVideo = {
   duration_seconds: number | null;
 };
 export type Notification = Tables<"notifications">;
-export type NotificationType = "message" | "listing_saved" | "nearby_listing" | "system" | "like" | "comment" | "follow";
+export type NotificationType = "message" | "listing_saved" | "nearby_listing" | "system" | "like" | "comment" | "follow" | "snap";
 export type NotificationWithActor = Notification & { actor: ProfileSummary | null };
 /** Something a person has muted: a person's messages anywhere, one chat, or every group chat; `until` null is until unmuted. */
 export type NotificationMute = Tables<"notification_mutes">;

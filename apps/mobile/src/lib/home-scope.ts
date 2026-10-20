@@ -8,6 +8,14 @@ import { useSyncExternalStore } from "react";
  */
 export type HomeScope = { campus: "mine" | "all"; following: boolean };
 
+/**
+ * Whether the Campus | Global toggle (and "Following" in it, while Posts has a tab) is shown: under Home's labels and in
+ * the Reels viewer's top row. Temporarily off: every feed stays on its default (your own campus, everyone's without a
+ * university), and the toggle, the scope and everything that follows it are all still here. Set it back to true to
+ * bring the toggle back.
+ */
+export const SCOPE_TOGGLE_SHOWN = false;
+
 let scope: HomeScope = { campus: "mine", following: false };
 const listeners = new Set<() => void>();
 

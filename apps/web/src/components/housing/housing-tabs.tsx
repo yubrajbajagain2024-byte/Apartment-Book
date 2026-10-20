@@ -4,7 +4,7 @@ import { HOUSING_SECTIONS, housingSectionHref, type HousingSection } from "@apar
 import { SectionTabs } from "@/components/layout/section-tabs";
 
 /**
- * Room | Roommate | Marketplace: the three sections of the Explore tab, sticky under the navbar like the Home tabs. Each
+ * Housing | Roommate | Marketplace: the three sections of the Explore tab, sticky under the navbar like the Home tabs. Each
  * keeps its own address, so only the "All universities" switch travels to the other one; a chosen campus falls back
  * to the student's own there.
  */

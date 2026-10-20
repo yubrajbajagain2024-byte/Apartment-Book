@@ -84,7 +84,7 @@ function createIcon() {
 }
 
 /**
- * Home | Explore (Room | Roommate | Marketplace) | + | Messages | Profile. Search is the magnifying glass in Home's
+ * Home | Explore (Housing | Roommate | Marketplace) | + | Messages | Profile. Search is the magnifying glass in Home's
  * top-right corner, before the Notifications bell (see HeaderActions). The "+" in the middle (CreateIcon: a thin Aurora
  * ring round the plain plus, no label; screen readers hear "Create") opens the create sheet
  * (Post / Reel / Buzz), the same one as the "+" on your photo on Home; signed out, the login screen. No haptic, like the
@@ -96,7 +96,7 @@ export default function TabsLayout() {
   const unread = useUnreadCount(user?.id ?? null);
   const { colors, isDark } = useAppTheme();
   const create = useCreateMenu();
-  const action: TabBarAction = { label: "Create", hint: "A post, a reel or a Buzz thread", icon: createIcon, onPress: create };
+  const action: TabBarAction = { label: "Create", hint: "A post, a reel, a Buzz thread or a Snap", icon: createIcon, onPress: create };
   // The header's own shadow barely shows on black, so in dark a hairline marks its edge. Light keeps its shadow.
   const headerStyle = isDark ? { backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border } : { backgroundColor: colors.bar };
   return (
@@ -111,7 +111,7 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: "Home", headerShown: false, tabBarIcon: icon("index") }} />
-      {/* Explore (housing.tsx) draws its own top bar ("Find", then Room | Roommate | Marketplace, the search box for the page on screen and the pills). */}
+      {/* Explore (housing.tsx) draws its own top bar ("Find", then Housing | Roommate | Marketplace, the search box for the page on screen and the pills). */}
       <Tabs.Screen name="housing" options={{ title: "Explore", headerShown: false, tabBarIcon: icon("housing") }} />
       {/* Messages draws its own top bar: the new-message pencil, the "Messages" title, Chats | Requests and the search. */}
       <Tabs.Screen name="messages" options={{ title: "Messages", headerShown: false, tabBarBadge: unread > 0 ? (unread > 99 ? "99+" : unread) : undefined, tabBarIcon: icon("messages") }} />

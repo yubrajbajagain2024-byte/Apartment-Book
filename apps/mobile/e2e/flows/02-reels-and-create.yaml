@@ -43,6 +43,7 @@ appId: host.exp.Exponent
 - assertVisible: "Post"
 - assertVisible: "Reel"
 - assertVisible: "Buzz \\(anonymous\\)"
+- assertVisible: "Snap"
 - takeScreenshot: e2e/screenshots/14-create-menu
 - tapOn: "Buzz \\(anonymous\\)"
 - extendedWaitUntil:

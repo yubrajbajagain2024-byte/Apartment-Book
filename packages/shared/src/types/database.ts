@@ -620,6 +620,8 @@ export type Database = {
           shared_post: Json | null;
           /** Migration 20: [{kind, path, name, size, mime, width?, height?, duration?}]; read it with parseAttachments(). */
           attachments: Json;
+          /** Migration 28: {id, kind, expires_at, opened_at} when the message is a Snap; read it with snapOf(). Set only by send_snap(). */
+          snap: Json | null;
           created_at: string;
         };
         Insert: {
@@ -630,6 +632,7 @@ export type Database = {
           image_url?: string | null;
           shared_post?: Json | null;
           attachments?: Json;
+          snap?: Json | null;
           created_at?: string;
         };
         Update: {
@@ -640,6 +643,7 @@ export type Database = {
           image_url?: string | null;
           shared_post?: Json | null;
           attachments?: Json;
+          snap?: Json | null;
           created_at?: string;
         };
         Relationships: [
@@ -1439,6 +1443,24 @@ export type Database = {
       conversation_shared_messages: {
         Args: { p_conversation_id: string; p_kind: string; p_before?: string | null; p_limit?: number };
         Returns: Database["public"]["Tables"]["messages"]["Row"][];
+      };
+      list_snap_recipients: {
+        Args: { p_q?: string | null };
+        Returns: { id: string; full_name: string; avatar_url: string | null; is_friend: boolean; last_message_at: string | null }[];
+      };
+      /** Returns {snap_id, expires_at, sent: [{recipient_id, conversation_id, message_id}]}. */
+      send_snap: {
+        Args: { p_path: string; p_kind: string; p_mime: string; p_width: number | null; p_height: number | null; p_duration: number | null; p_recipient_ids: string[] };
+        Returns: Json;
+      };
+      /** Returns {id, path, kind, mime, width, height, duration, sent_at, opened_at, view_until, conversation_id, message_id, sender: {id, full_name, avatar_url}}. */
+      open_snap: {
+        Args: { p_snap_id: string };
+        Returns: Json;
+      };
+      close_snap: {
+        Args: { p_snap_id: string };
+        Returns: undefined;
       };
     };
     Enums: {

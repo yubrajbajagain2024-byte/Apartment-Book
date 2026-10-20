@@ -187,11 +187,12 @@ export const FOR_YOU_PAGE = { posts: 6, reels: 2 } as const;
 
 /**
  * The pages of the Housing (Explore) tab, left to right: the two housing halves, then the Marketplace right after
- * Roommates. Apartments is the landing page; swiping the page moves between them. On the website each page keeps
- * its own address (/apartments, /roommates, /marketplace), so listing links, filters and saved searches are unchanged.
+ * Roommates. Apartments is the landing page, labelled "Housing"; swiping the page moves between them. On the website each
+ * page keeps its own address (/apartments, /roommates, /marketplace), so listing links, filters and saved searches are
+ * unchanged.
  */
 export const HOUSING_SECTIONS = [
-  { value: "apartments", label: "Room" },
+  { value: "apartments", label: "Housing" },
   { value: "roommates", label: "Roommate" },
   { value: "marketplace", label: "Marketplace" },
 ] as const;

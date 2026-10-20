@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Check, Circle, ImagePlus, Send } from "lucide-react";
+import { Camera, Check, Circle, ImagePlus, Send, Video } from "lucide-react";
 import {
   MESSAGES_PAGE_SIZE,
   formatDayLabel,
@@ -16,6 +16,9 @@ import {
   sendMessage,
   sharedPostLabel,
   sharedPostOf,
+  snapOf,
+  snapState,
+  snapStatusText,
   uploadImage,
   type ConversationMember,
   type ConversationSummary,
@@ -24,6 +27,7 @@ import {
   type MessageAttachment,
   type MessageReceipt,
   type MessageWithSender,
+  type MessageSnap,
   type SharedPost,
 } from "@apartment-book/shared";
 import { useHydrated } from "@/lib/hooks";
@@ -87,6 +91,30 @@ function SharedPostCard({ shared, pending }: { shared: SharedPost; pending?: boo
       {shared.caption ? <span className="line-clamp-2 block break-words px-3 pt-0.5 text-sm text-gray-800">{shared.caption}</span> : null}
       <span className="mt-2 block border-t border-gray-100 px-3 py-2 text-xs font-semibold text-brand-700">{label}</span>
     </Link>
+  );
+}
+
+/**
+ * A Snap: never its picture here. It opens once, in the CampConnect app; the card says whether it is waiting there,
+ * opened, expired or gone (and to its sender, delivered), on an Aurora tile while it is new and a hollow one after.
+ */
+function SnapCard({ snap, mine }: { snap: MessageSnap; mine: boolean }) {
+  const state = snapState(snap);
+  const fresh = state === "new";
+  const video = snap.kind === "video";
+  const SnapIcon = mine ? Send : video ? Video : Camera;
+  const title = !mine && fresh ? "New Snap" : video ? "Video Snap" : "Snap";
+  const status = !mine && fresh ? "Open the CampConnect app to view it" : snapStatusText(snap, mine);
+  return (
+    <div data-testid="snap" data-snap-state={state} className={cn("mb-1 flex min-w-48 items-center gap-2.5 rounded-2xl py-2 pl-2 pr-4", mine ? "bg-brand-50" : "bg-gray-100")}>
+      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", fresh ? "bg-brand-600 bg-aurora text-white" : "border-[1.5px] border-gray-200 text-gray-400")}>
+        <SnapIcon className="h-[18px] w-[18px]" aria-hidden="true" />
+      </span>
+      <span className="flex min-w-0 flex-col">
+        <span className="text-sm font-semibold text-gray-900">{title}</span>
+        <span className="text-xs text-gray-500">{status}</span>
+      </span>
+    </div>
   );
 }
 
@@ -174,6 +202,15 @@ export function ChatWindow({
               // They are active right now: the activity line under their name asks again.
               noteIncomingMessage(conversation.id, row.sender_id);
             }
+          },
+        )
+        // A Snap opened, or gone: open_snap() and the Snap cleanup are all that ever change a message.
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${conversation.id}` },
+          (payload) => {
+            const row = payload.new as Message;
+            setMessages((prev) => prev.map((m) => (m.id === row.id ? { ...m, snap: row.snap ?? null } : m)));
           },
         )
         // Other members' read/delivered times, for the receipts under my messages.
@@ -334,6 +371,7 @@ export function ChatWindow({
             const continued = previous && previous.sender_id === m.sender_id && !showDay;
             const shared = sharedPostOf(m.shared_post);
             const attachments = m.attachments ?? [];
+            const snap = snapOf(m.snap);
             return (
               <li key={m.id} className="flex flex-col">
                 {showDay && hydrated ? <p className="my-3 text-center text-[11px] font-medium uppercase tracking-wide text-gray-500">{formatDayLabel(m.created_at)}</p> : null}
@@ -356,6 +394,7 @@ export function ChatWindow({
                     {attachments.length > 0 ? (
                       <MessageAttachments attachments={attachments} mine={mine} senderName={mine ? "You" : (m.sender?.full_name ?? "Unknown")} sentAt={m.created_at} />
                     ) : null}
+                    {snap ? <SnapCard snap={snap} mine={mine} /> : null}
                     {m.content && !(m.image_url && m.content === "📷 Photo") ? (
                       <div
                         className={cn(

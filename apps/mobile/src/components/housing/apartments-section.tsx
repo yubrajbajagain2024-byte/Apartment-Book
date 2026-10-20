@@ -61,7 +61,7 @@ export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filt
   );
   const { savedIds, engagement } = useEngagement("apartment", feed.items, user?.id ?? null);
   const inset = useMemo(() => listInset(topInset), [topInset]);
-  // Tapping Explore again while Room is on screen: back to the top.
+  // Tapping Explore again while Housing is on screen: back to the top.
   const listRef = useRef<FlatList<ApartmentWithOwner>>(null);
   // Rows fade in once as they first arrive (not when scrolled back into view).
   const appearCells = useAppearingCells();

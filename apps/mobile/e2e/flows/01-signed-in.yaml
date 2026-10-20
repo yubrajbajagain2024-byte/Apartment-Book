@@ -1,4 +1,4 @@
-# Signed-in tour: your own profile first (Edit profile, Share profile, Leo in your own Followers, the Listings tab after Liked and no classes card; add CS 1428 under Classes and remove it again; Saved says only you can see it), then the new Home: like a post, comment on it (heart, reply, delete from the hold menu), share it with Leo (a friend: the seed has him and this account follow each other) and find it as a card in your chat with him, vote and reply anonymously in Buzz, watch a reel, reach the profile, flip the Campus | Global toggle under the labels, follow Maya from her post on For you (her Followers count opens only the friends you have in common, none, since her lists are hers alone; her Classes tab shows the classes the seed lists for her, her Listings tab her apartment) and see hers join it, unfollow.
+# Signed-in tour: your own profile first (Edit profile, Share profile, Leo in your own Followers, the Listings tab after Liked and no classes card; add CS 1428 under Classes and remove it again; Saved says only you can see it), then the new Home: like a post, comment on it (heart, reply, delete from the hold menu), share it with Leo (a friend: the seed has him and this account follow each other) and find it as a card in your chat with him, vote and reply anonymously in Buzz, watch a reel, reach the profile, flip the Campus | Global toggle under the labels (while it is shown), follow Maya from her post on For you (her Followers count opens only the friends you have in common, none, since her lists are hers alone; her Classes tab shows the classes the seed lists for her, her Listings tab her apartment) and see hers join it, unfollow.
 # Needs test data: SUPABASE_ACCESS_TOKEN=... node e2e/sim-seed.mjs   (then pass EMAIL and PASSWORD from its output)
 appId: host.exp.Exponent
 env:
@@ -369,7 +369,8 @@ env:
 - takeScreenshot: e2e/screenshots/16-profile-following
 # The Campus | Global toggle under the labels (the seeded account has a university, so both segments show; no "Following"
 # segment, which went with the Posts tab). Back on Home (the left-edge swipe pops the profile on iOS; the pager is still
-# on For you), Global widens the feed to every university and Campus brings it back.
+# on For you), Global widens the feed to every university and Campus brings it back. The toggle is hidden for now
+# (SCOPE_TOGGLE_SHOWN in src/lib/home-scope.ts), so those steps run only while "Campus" is on screen.
 - swipe:
     start: "2%,45%"
     end: "90%,45%"
@@ -382,14 +383,17 @@ env:
     timeout: 15000
 - tapOn: "For you"
 - waitForAnimationToEnd
-- assertVisible: "Campus"
-- assertVisible: "Global"
-- assertNotVisible: "Following"
-- tapOn: "Global"
-- waitForAnimationToEnd
-- takeScreenshot: e2e/screenshots/18-scope-global
-- tapOn: "Campus"
-- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Campus"
+    commands:
+      - assertVisible: "Global"
+      - assertNotVisible: "Following"
+      - tapOn: "Global"
+      - waitForAnimationToEnd
+      - takeScreenshot: e2e/screenshots/18-scope-global
+      - tapOn: "Campus"
+      - waitForAnimationToEnd
 - scrollUntilVisible:
     element: "Post: Move-in day at the new place.*"
     direction: UP

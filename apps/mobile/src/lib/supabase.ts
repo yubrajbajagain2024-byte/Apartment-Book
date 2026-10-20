@@ -8,6 +8,10 @@ const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 if (!url || !anonKey) throw new Error("Missing EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY (see apps/mobile/.env)");
 
+/** The project's API address and public key, for the few requests supabase-js does not make (a Snap's upload with progress). */
+export const SUPABASE_URL = url.replace(/\/$/, "");
+export const SUPABASE_ANON_KEY = anonKey;
+
 /** The website the app talks to for video uploads, legal pages and email links. */
 export const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL ?? "https://apartment-book-vyass.vercel.app").replace(/\/$/, "");
 
