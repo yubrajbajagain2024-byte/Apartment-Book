@@ -279,39 +279,48 @@ env:
     centerElement: true
 - assertVisible: ".*Saturday morning works for me.*"
 - takeScreenshot: e2e/screenshots/10-posts-liked
-# Buzz (Reddit-style rows): upvote in the feed, open the thread from the replies pill, reply anonymously from the
-# "Join the conversation" bar (its label is "Reply anonymously"; tapping it opens the composer with the same label).
+# Buzz (UniVerse's anonymous cards): the guidelines gate the first time (inline, never a sheet), then upvote in the feed,
+# open the thread from the card's words and reply anonymously from the reply bar ("You're anonymous" in it).
 # The top bar slid away with the scroll (Instagram style): a scroll up brings it back.
 - scrollUntilVisible:
     element: "Buzz"
     direction: UP
     timeout: 15000
 - tapOn: "Buzz"
-- assertVisible: "Search Buzz"
+- extendedWaitUntil:
+    visible: "I understand|Search .* buzz"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "I understand"
+    commands:
+      - assertVisible: "Before your first buzz"
+      - takeScreenshot: e2e/screenshots/11-buzz-gate
+      - tapOn: "I understand"
 - extendedWaitUntil:
     visible: ".*Landlord wants to keep my whole deposit.*"
     timeout: 30000
-# Votes persist too: clear an upvote from an earlier run, then upvote.
-- tapOn: "Upvote"
+# Votes persist too: tapping the lit arrow takes the vote back, so either way the arrow answers.
+- tapOn: "Upvote|Remove upvote"
 - takeScreenshot: e2e/screenshots/11-buzz-voted
-- tapOn: ".*Open the thread"
+- tapOn: ".*Landlord wants to keep my whole deposit.*"
 - extendedWaitUntil:
-    visible: "Reply anonymously.*"
+    visible: "Reply anonymously"
     timeout: 30000
-- tapOn: "Reply anonymously.*"
+- tapOn: "Reply anonymously"
 - inputText: "Take dated photos and send a demand letter. It worked for me."
 - tapOn: "Send reply"
 - extendedWaitUntil:
-    visible: "Reply from Student [0-9]+, you"
+    visible: ".*Take dated photos and send a demand letter.*"
     timeout: 30000
-- assertVisible: "Upvote reply"
-- assertVisible: "Post options"
+- assertVisible: "You, Anon .*"
+- assertVisible: "More options"
 - takeScreenshot: e2e/screenshots/12-buzz-thread
-# Following, like Instagram. The thread is a stacked screen without the bottom tabs: Close brings Home back (the pager is
+# Following, like Instagram. The thread is a stacked screen without the bottom tabs: Back brings Home back (the pager is
 # still on Buzz). Back on For you, scroll to the top (Leo's three-photo post) and down to the first post whose header reads
 # "UI Maya": tapping the name opens her profile. Follow her, then unfollow again so the flow can run again and again. (The
 # Following feed itself lives on the website's Posts page while Posts has no tab in the app.)
-- tapOn: "Close"
+- tapOn: "Back"
 - extendedWaitUntil:
     visible: "Home.*"
     timeout: 15000

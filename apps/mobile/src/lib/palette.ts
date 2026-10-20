@@ -1,3 +1,5 @@
+import { BUZZ_PHOSPHOR } from "@apartment-book/shared";
+
 /**
  * The two UniBuzz palettes. Every colour on screen comes from one of these through useColors() / makeStyles(),
  * so a theme switch repaints the whole app at once. Same keys in both; screens never pick a hex code themselves.
@@ -235,3 +237,27 @@ export const THEME_PREFERENCES: { value: ThemePreference; label: string }[] = [
   { value: "dark", label: "Dark" },
   { value: "system", label: "System Default" },
 ];
+
+/**
+ * Phosphor, the incognito world Buzz lives in (UniVerse's `[data-surface="incognito"]` tokens, `BUZZ_PHOSPHOR` in the
+ * shared package): a near-black green canvas, lime accents and a coral downvote. It is the same in Light and Dark, since
+ * Buzz is always this world: every Buzz surface (the Buzz page of Home, a thread, the composer, search, My buzzes, the
+ * Buzz sheets) paints with these and nothing else, and they never appear outside Buzz. The status colours are
+ * UniVerse's semantic ones, used by the author-only chips and the moderation sheets.
+ */
+export const phosphor = {
+  ...BUZZ_PHOSPHOR,
+  warning: "#fbbf24",
+  warningSoft: "rgba(251,191,36,0.14)",
+  dangerSoft: "rgba(255,90,95,0.14)",
+  info: "#38bdf8",
+  infoSoft: "rgba(56,189,248,0.14)",
+  success: "#34d399",
+  successSoft: "rgba(52,211,153,0.14)",
+  /** Behind Buzz sheets: the screen dims to this. */
+  backdrop: "rgba(2,3,2,0.64)",
+  /** Placeholder shapes while a list loads. */
+  skeleton: BUZZ_PHOSPHOR.surface3,
+  shadow: "#000000",
+} as const;
+export type PhosphorColors = typeof phosphor;

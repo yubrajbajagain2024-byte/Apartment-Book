@@ -1,4 +1,5 @@
-# Reddit-style thread: vote on a reply, reply to a reply (nesting), sort, collapse a branch, jump to the next reply.
+# Buzz thread (UniVerse's layout): from Home's Buzz page open the seeded thread, vote on a reply, reply to a reply (it
+# lands under its parent behind the rail, with the "replying to" chip in the reply bar first), then back to the feed.
 # Needs: node e2e/sim-seed.mjs && node e2e/sim-seed-thread.mjs, and a stored session (run 01-signed-in.yaml first).
 appId: host.exp.Exponent
 ---
@@ -26,45 +27,57 @@ appId: host.exp.Exponent
       - tapOn: "Cancel"
 - assertVisible: "Edit profile"
 - tapOn: "Home.*"
-# The top bar slid away with the scroll (Instagram style): a scroll up brings it back.
+# Home's bar may have slid away with an earlier scroll (Instagram style): a scroll up brings it back.
 - scrollUntilVisible:
     element: "Buzz"
     direction: UP
     timeout: 15000
 - tapOn: "Buzz"
+# The guidelines gate, inline, the first time only (01-signed-in.yaml normally accepted it already).
+- extendedWaitUntil:
+    visible: "I understand|Search .* buzz"
+    timeout: 40000
+- runFlow:
+    when:
+      visible: "I understand"
+    commands:
+      - tapOn: "I understand"
 - extendedWaitUntil:
     visible: ".*Landlord wants to keep my whole deposit.*"
     timeout: 40000
-- tapOn: ".*Open the thread"
+# The card's words open the thread.
+- tapOn: ".*Landlord wants to keep my whole deposit.*"
 - extendedWaitUntil:
-    visible: "Sort replies: Best"
+    visible: "Reply anonymously"
     timeout: 40000
+- assertVisible: "Thread"
+- assertVisible: "You're anonymous"
 - takeScreenshot: e2e/screenshots/30-thread-top
-# Vote on the first reply.
+# Vote on a reply (votes on your own replies are off: the first one open to you is someone else's).
 - tapOn:
     text: "Upvote reply"
     index: 0
 - takeScreenshot: e2e/screenshots/31-reply-voted
-# Sort sheet
-- tapOn: "Sort replies: Best"
-- assertVisible: "New"
-- assertVisible: "Old"
-- tapOn: "New"
-- extendedWaitUntil:
-    visible: "Sort replies: New"
-    timeout: 10000
-- tapOn: "Sort replies: New"
-- tapOn: "Best"
-# Reply to a reply
+# Reply to a reply: the chip says who to, and × would go back to replying to the buzz.
 - tapOn:
-    text: "Reply to Student [0-9]+"
+    text: "Reply to Anon .*"
     index: 0
-- assertVisible: "Cancel replying to this person"
+- assertVisible: "Reply to the buzz instead"
+- tapOn: "Reply anonymously"
 - inputText: "Nested reply from the simulator"
 - tapOn: "Send reply"
 - extendedWaitUntil:
-    visible: "Reply from Student [0-9]+, you"
+    visible: ".*Nested reply from the simulator.*"
     timeout: 30000
 - takeScreenshot: e2e/screenshots/32-nested-reply
-- tapOn: "Jump to the next reply"
-- takeScreenshot: e2e/screenshots/33-jumped
+# Pull to refresh brings the server's order (and anything new), then Back to the feed.
+- swipe:
+    start: "50%,30%"
+    end: "50%,80%"
+    duration: 600
+- waitForAnimationToEnd
+- takeScreenshot: e2e/screenshots/33-refreshed
+- tapOn: "Back"
+- extendedWaitUntil:
+    visible: "Search .* buzz"
+    timeout: 15000

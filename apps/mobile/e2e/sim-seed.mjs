@@ -51,7 +51,20 @@ await admin.from("buzz_secrets").update({ thread_jitter_seconds: 0, reply_jitter
 const anonKey = keys.find((k) => k.name === "anon").api_key;
 const asOther = createClient(`https://${ref}.supabase.co`, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
 await asOther.auth.signInWithPassword({ email: other.email, password });
-const buzz = await asOther.rpc("buzz_create", { p_topic: "advice", p_title: "Landlord wants to keep my whole deposit. What can I do?", p_body: "Moved out last month, left the place clean, and they are claiming 'general wear'. Has anyone here fought this and won?" });
+// Buzz v2: Maya accepts the guidelines gate (every Buzz write needs it), then her thread goes in through the service-role
+// write function the website's moderated POST /api/buzz ends in (the seed's words are known to be clean, so no engine
+// run: an empty moderation record). The test account's gate is left for 01-signed-in.yaml to accept on screen.
+const BUZZ_GUIDELINES_VERSION = "2026-10-21"; // packages/shared/src/buzz/constants.ts
+const gate = await asOther.rpc("buzz_v2_accept_gate", { p_version: BUZZ_GUIDELINES_VERSION });
+if (gate.error) throw gate.error;
+const buzz = await admin.rpc("buzz_v2_create", {
+  p_author: other.id,
+  p_input: { scope: "campus", title: "Landlord wants to keep my whole deposit. What can I do?", text: "Moved out last month, left the place clean, and they are claiming 'general wear'. Has anyone here fought this and won?" },
+  p_status: "active",
+  p_support_link: false,
+  p_moderation: { events: [], queue: null },
+});
 if (buzz.error) throw buzz.error;
-fs.writeFileSync(new URL(".sim-state.json", import.meta.url), JSON.stringify({ me, other, extra: [leo], password, apartmentId: apt.id, roommateId: room.id, itemId: item.id, postId: post.id, carouselId: carousel.id, buzzId: buzz.data }, null, 2));
-console.log(JSON.stringify({ me: me.email, password, post: post.id, buzz: buzz.data }));
+const buzzId = buzz.data.id;
+fs.writeFileSync(new URL(".sim-state.json", import.meta.url), JSON.stringify({ me, other, extra: [leo], password, apartmentId: apt.id, roommateId: room.id, itemId: item.id, postId: post.id, carouselId: carousel.id, buzzId }, null, 2));
+console.log(JSON.stringify({ me: me.email, password, post: post.id, buzz: buzzId }));

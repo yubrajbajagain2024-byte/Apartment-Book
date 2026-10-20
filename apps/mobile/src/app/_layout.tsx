@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ActionSheetProvider } from "@/components/action-sheet";
 import { ShareSheetProvider } from "@/components/share-sheet";
+import { phosphor } from "@/lib/palette";
 import { PresenceProvider } from "@/lib/presence";
 import { SessionProvider } from "@/lib/session";
 import { AppThemeProvider, useAppTheme } from "@/lib/theme-provider";
@@ -37,6 +38,8 @@ function ThemedStack() {
   // Android's header edge is an elevation shadow, which cannot show between a black bar and a black screen, so in dark mode
   // the content of a screen with a header starts with a hairline instead (iOS draws its own separator line).
   const contentUnderHeader = Platform.OS === "android" && isDark ? { ...content, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border } : content;
+  // Buzz's screens draw their own Phosphor header; behind them (a push, a swipe back) the screen is Phosphor too, in both themes.
+  const buzzContent = { backgroundColor: phosphor.canvas };
   return (
     <>
       <StatusBar style={isDark ? "light" : "dark"} />
@@ -57,7 +60,9 @@ function ThemedStack() {
             To (snap/index); a Snap in a chat opens once, full screen (snap/[id]). Both fade in and out on their own. */}
         <Stack.Screen name="snap/index" options={{ headerShown: false, presentation: "transparentModal", animation: "none", gestureEnabled: false, contentStyle: { backgroundColor: "transparent" } }} />
         <Stack.Screen name="snap/[id]" options={{ headerShown: false, presentation: "transparentModal", animation: "none", gestureEnabled: false, contentStyle: { backgroundColor: "transparent" } }} />
-        <Stack.Screen name="buzz/[id]" options={{ headerShown: false, contentStyle: content }} />
+        <Stack.Screen name="buzz/[id]" options={{ headerShown: false, contentStyle: buzzContent }} />
+        <Stack.Screen name="buzz/search" options={{ headerShown: false, contentStyle: buzzContent }} />
+        <Stack.Screen name="buzz/mine" options={{ headerShown: false, contentStyle: buzzContent }} />
         <Stack.Screen name="messages/[id]" options={{ title: "Chat" }} />
         <Stack.Screen name="messages/new" options={{ title: "New message" }} />
         <Stack.Screen name="messages/info/[id]" options={{ title: "Chat info" }} />
@@ -69,12 +74,15 @@ function ThemedStack() {
         <Stack.Screen name="follows/[id]" options={{ title: "Followers" }} />
         <Stack.Screen name="saved" options={{ title: "Saved" }} />
         <Stack.Screen name="settings" options={{ title: "Settings" }} />
+        <Stack.Screen name="settings/account-status" options={{ title: "Account status" }} />
+        <Stack.Screen name="settings/buzz-anonymity" options={{ title: "How Buzz anonymity works" }} />
         <Stack.Screen name="create/apartment" options={{ title: "List an apartment" }} />
         <Stack.Screen name="create/roommate" options={{ title: "Roommate post" }} />
         <Stack.Screen name="create/item" options={{ title: "Sell an item" }} />
         <Stack.Screen name="create/post" options={{ title: "New post" }} />
         <Stack.Screen name="create/reel" options={{ title: "New reel" }} />
-        <Stack.Screen name="create/buzz" options={{ title: "New Buzz post" }} />
+        {/* Kept for links: it hands over at once to the composer sheet on Home's Buzz page (see app/create/buzz.tsx). */}
+        <Stack.Screen name="create/buzz" options={{ headerShown: false, animation: "none", contentStyle: buzzContent }} />
       </Stack>
     </>
   );

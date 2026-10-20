@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
 import { useActionSheet } from "@/components/action-sheet";
+import { openBuzzComposerFromAnywhere } from "@/components/buzz/open-composer";
 import { useSession } from "@/lib/session";
 
 /**
@@ -17,7 +18,8 @@ export function useCreateMenu(): () => void {
       [
         { label: "Post", icon: "create-outline", onPress: () => router.push("/create/post" as never) },
         { label: "Reel", icon: "videocam-outline", onPress: () => router.push("/create/reel" as never) },
-        { label: "Buzz (anonymous)", icon: "chatbubbles-outline", onPress: () => router.push("/create/buzz" as never) },
+        // The Buzz composer is a sheet on Home's Buzz page: Home moves there and it opens (after the guidelines gate).
+        { label: "Buzz (anonymous)", icon: "chatbubbles-outline", onPress: () => openBuzzComposerFromAnywhere(router) },
         { label: "Snap", icon: "camera-outline", onPress: () => router.push("/snap" as never) },
       ],
       "What would you like to share?",

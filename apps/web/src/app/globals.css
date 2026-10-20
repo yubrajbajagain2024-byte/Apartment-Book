@@ -58,6 +58,104 @@ body {
   background-image: linear-gradient(90deg, var(--color-aurora-cyan) 0%, var(--color-aurora-blue) 34%, var(--color-aurora-periwinkle) 68%, var(--color-aurora-violet) 100%);
 }
 
+/*
+ * Buzz lives in its own colour world, Phosphor (UniVerse's incognito surface): a near-black green canvas, a lime
+ * accent and a coral downvote. The tokens exist only under [data-surface="incognito"] (the Buzz pane, thread, search,
+ * My buzzes, their sheets, and the small mask markers that point at Buzz), so Phosphor can never leak into the rest
+ * of the site and the site's blue can never leak into Buzz. Same values as BUZZ_PHOSPHOR in the shared package.
+ * In the base layer, so a component's own bg-* / text-* classes still win over the surface's defaults.
+ */
+@layer base {
+  [data-surface="incognito"] {
+    --incog-canvas: #070908;
+    --incog-surface-1: #0e120f;
+    --incog-surface-2: #151b16;
+    --incog-surface-3: #1d261f;
+    --incog-surface-4: #28342a;
+    --incog-glass: rgb(14 18 15 / 0.76);
+    --incog-glass-strong: rgb(14 18 15 / 0.9);
+    --incog-scrim: rgb(2 3 8 / 0.64);
+    --incog-ink: #f2f4fb;
+    --incog-ink-2: #b9c2b4;
+    --incog-ink-3: #869183;
+    --incog-ink-4: #586155;
+    --incog-line: rgb(255 255 255 / 0.1);
+    --incog-line-subtle: rgb(255 255 255 / 0.06);
+    --incog-line-strong: rgb(255 255 255 / 0.18);
+    --incog-accent: #c5f53b;
+    --incog-accent-hover: #d3fb5c;
+    --incog-accent-press: #a6d822;
+    --incog-accent-ink: #d3fb5c;
+    --incog-accent-soft: rgb(197 245 59 / 0.13);
+    --incog-accent-line: rgb(197 245 59 / 0.34);
+    --incog-on-accent: #0c1400;
+    --incog-down: #ff8a65;
+    --incog-danger: #ff5a5f;
+    --incog-danger-soft: rgb(255 90 95 / 0.14);
+    --incog-warning: #fbbf24;
+    --incog-warning-soft: rgb(251 191 36 / 0.14);
+    --incog-success: #34d399;
+    --incog-success-soft: rgb(52 211 153 / 0.14);
+    --incog-info: #38bdf8;
+    --incog-info-soft: rgb(56 189 248 / 0.14);
+    --incog-gradient-hero: linear-gradient(135deg, #e0ff85 0%, #c5f53b 52%, #6ee7a0 100%);
+    --incog-gradient-soft: linear-gradient(135deg, rgb(197 245 59 / 0.16), rgb(110 231 160 / 0.08));
+    color-scheme: dark;
+    background-color: var(--incog-canvas);
+    color: var(--incog-ink);
+  }
+  [data-surface="incognito"] :focus-visible {
+    outline: 2px solid var(--incog-accent-ink);
+    outline-offset: 2px;
+  }
+  [data-surface="incognito"] ::selection {
+    background: var(--incog-accent-soft);
+    color: var(--incog-ink);
+  }
+}
+
+/* bg-incog-surface-1, text-incog-ink-3, border-incog-line …: they resolve only inside a Phosphor surface. */
+@theme inline {
+  --color-incog-canvas: var(--incog-canvas);
+  --color-incog-surface-1: var(--incog-surface-1);
+  --color-incog-surface-2: var(--incog-surface-2);
+  --color-incog-surface-3: var(--incog-surface-3);
+  --color-incog-surface-4: var(--incog-surface-4);
+  --color-incog-glass: var(--incog-glass);
+  --color-incog-glass-strong: var(--incog-glass-strong);
+  --color-incog-scrim: var(--incog-scrim);
+  --color-incog-ink: var(--incog-ink);
+  --color-incog-ink-2: var(--incog-ink-2);
+  --color-incog-ink-3: var(--incog-ink-3);
+  --color-incog-ink-4: var(--incog-ink-4);
+  --color-incog-line: var(--incog-line);
+  --color-incog-line-subtle: var(--incog-line-subtle);
+  --color-incog-line-strong: var(--incog-line-strong);
+  --color-incog-accent: var(--incog-accent);
+  --color-incog-accent-hover: var(--incog-accent-hover);
+  --color-incog-accent-press: var(--incog-accent-press);
+  --color-incog-accent-ink: var(--incog-accent-ink);
+  --color-incog-accent-soft: var(--incog-accent-soft);
+  --color-incog-accent-line: var(--incog-accent-line);
+  --color-incog-on-accent: var(--incog-on-accent);
+  --color-incog-down: var(--incog-down);
+  --color-incog-danger: var(--incog-danger);
+  --color-incog-danger-soft: var(--incog-danger-soft);
+  --color-incog-warning: var(--incog-warning);
+  --color-incog-warning-soft: var(--incog-warning-soft);
+  --color-incog-success: var(--incog-success);
+  --color-incog-success-soft: var(--incog-success-soft);
+  --color-incog-info: var(--incog-info);
+  --color-incog-info-soft: var(--incog-info-soft);
+}
+/* The hero gradient (the FAB, "Buzz it") and the soft one behind "You're anonymous" and the prompt card. */
+@utility bg-incog-hero {
+  background-image: var(--incog-gradient-hero);
+}
+@utility bg-incog-hero-soft {
+  background-image: var(--incog-gradient-soft);
+}
+
 /* Thin scrollbars for the chat panes */
 .scrollbar-thin {
   scrollbar-width: thin;

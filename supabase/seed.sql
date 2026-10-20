@@ -46,3 +46,13 @@ on conflict (name) do update set
   latitude = excluded.latitude,
   longitude = excluded.longitude,
   email_domain = coalesce(excluded.email_domain, public.universities.email_domain);
+
+-- Buzz's short campus name ("Search Texas State buzz"), once migration 30 has added the column.
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'universities' and column_name = 'short_name') then
+    update public.universities set short_name = 'Texas State' where name = 'Texas State University' and short_name is null;
+  end if;
+end
+$$;

@@ -1,20 +1,36 @@
 import { boot, read, expectOk, expectError, done } from "./harness.mjs";
-const { db, mk, as, asAnon } = await boot();
+const { db, mk, as, asAnon, asService } = await boot();
 await expectOk("the Home-feed migrations re-run cleanly, in order", async () => {
   for (const f of ["20260920000000_home_feed.sql", "20260921000000_buzz_storage_folder.sql", "20260922000000_buzz_reply_votes.sql"]) await db.exec(read(`migrations/${f}`));
 });
+// Re-running them brought back migration 11's Buzz functions (open to every signed-in user): migration 30 (Buzz v2)
+// replaces them again, so the Buzz checks below run against what is live, the v2 functions.
+await db.exec(read("migrations/20261021000100_buzz_v2.sql"));
 // Migration 22 replaced migration 11's touch_presence (activity times are private now): put it back on top.
 await db.exec(read("migrations/20261011000000_activity_status.sql"));
 // Publication jitter off for most checks (it has its own test below).
 await db.exec("update public.buzz_secrets set thread_jitter_seconds = 0, reply_jitter_seconds = 0");
 const A = await mk("a@txstate.edu", "Alice"), B = await mk("b@txstate.edu", "Bob"), C = await mk("c@txstate.edu", "Carol");
+// Buzz v2: established accounts (new ones have tighter Buzz rate limits) that accepted the Buzz guidelines.
+for (const u of [A, B, C]) {
+  await db.query("update public.profiles set created_at = now() - interval '30 days' where id = $1", [u]);
+  await as(u, () => db.query("select public.buzz_v2_accept_gate('2026-10-21')"));
+}
 const VIDEO = JSON.stringify([{ media_id: "11111111-1111-1111-1111-111111111111", playback_id: "pb1abcdef", poster_url: null, width: 720, height: 1280, duration_seconds: 12 }]);
 const one = async (p) => (await p).rows[0];
-const create = (uid, topic, title, extra = {}) => as(uid, () => one(db.query("select public.buzz_create(p_topic => $1, p_title => $2, p_body => $3, p_images => $4::text[], p_image_meta => $5::jsonb, p_videos => $6::jsonb) as id", [topic, title, extra.body ?? "", extra.images ?? [], JSON.stringify(extra.meta ?? []), JSON.stringify(extra.videos ?? [])]))).then((r) => r.id);
+// Buzz writes come from the website's moderated write API (service role); everything is in the Global feed here (these
+// accounts have no university).
+const create = (uid, title, extra = {}) => asService(() => one(db.query("select public.buzz_v2_create($1, $2::jsonb) as r", [uid, JSON.stringify({
+  title, text: extra.body ?? "", scope: extra.scope ?? "global", ...(extra.images ? { images: extra.images } : {}), ...(extra.meta ? { imageMeta: extra.meta } : {}), ...(extra.video ? { video: extra.video } : {}),
+})]))).then((r) => r.r);
 const ORIGIN = "https://dskbzoqreandwwpxiplh.supabase.co/storage/v1/object/public/uploads/";
 const hex = (n) => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join("");
 const uploadBuzzPhoto = async (uid) => { const name = `buzz/anon/${hex(48)}.jpg`; await as(uid, () => db.query("insert into storage.objects (bucket_id, name, owner) values ('uploads',$1,$2)", [name, uid])); return ORIGIN + name; };
-const reply = (uid, post, body, parent = null) => as(uid, () => one(db.query("select public.buzz_reply($1,$2,$3) as id", [post, body, parent]))).then((r) => r.id);
+const reply = (uid, post, body, parent = null) => asService(() => one(db.query("select public.buzz_v2_reply($1, $2, $3::jsonb) as r", [uid, post, JSON.stringify(parent ? { text: body, parentId: parent } : { text: body })]))).then((r) => r.r);
+const feed = (uid, o = {}) => as(uid, () => one(db.query("select public.buzz_v2_feed($1, $2, $3, $4) as r", [o.scope ?? "global", o.sort ?? "new", o.window ?? "all", o.q ?? null]))).then((r) => r.r.items);
+const thread = (uid, id) => as(uid, () => one(db.query("select public.buzz_v2_thread($1) as r", [id]))).then((r) => r.r);
+const del = (uid, id) => as(uid, () => db.query("select public.buzz_v2_delete($1)", [id]));
+const fails = async (fn) => { try { await fn(); return false; } catch { return true; } };
 
 // ---- posts and reels -------------------------------------------------------------
 const post = (await as(A, () => one(db.query("insert into public.feed_posts (author_id, body) values ($1,'First week on campus!') returning id", [A])))).id;
@@ -69,47 +85,50 @@ await expectOk("posts: deleting a post removes its likes, comments, saves and vi
   if (Number(left.l) + Number(left.c) + Number(left.s) + Number(left.v) !== 0) throw new Error(JSON.stringify(left));
 });
 
-// ---- buzz: anonymity -----------------------------------------------------------------
-const buzz = await create(A, "advice", "Landlord keeps my deposit?", { body: "What can I do" });
-const buzz2 = await create(A, "rant", "Parking on campus");
-for (const t of ["buzz_posts", "buzz_comments", "buzz_votes", "buzz_mutes", "buzz_rate_log", "buzz_secrets"]) {
+// ---- buzz: anonymity (Buzz v2, migration 30: the same regressions, through the new functions) --------------------------
+const buzz = (await create(A, "Landlord keeps my deposit?", { body: "What can I do" })).id;
+const buzz2 = (await create(A, "Parking on campus")).id;
+for (const t of ["buzz_posts", "buzz_comments", "buzz_votes", "buzz_mutes", "buzz_rate_log", "buzz_secrets", "buzz_polls", "buzz_hidden_threads", "buzz_gate"]) {
   await expectError(`buzz: ${t} is closed to the API, even for the author (no row-count estimates either)`, () => as(A, () => db.query(`select * from public.${t}`)), "permission denied");
 }
 await expectError("buzz: signed-out visitors cannot read the tables", () => asAnon(() => db.query("select * from public.buzz_posts")), "permission denied");
-await expectOk("buzz_feed: sanitized rows for everyone (signed out too), is_mine only for the author, no author column, per-thread aliases", async () => {
-  const mine = (await as(A, () => db.query("select * from public.buzz_feed(p_sort => 'new')"))).rows;
-  const theirs = (await as(B, () => db.query("select * from public.buzz_feed(p_sort => 'new')"))).rows;
-  const anon = (await asAnon(() => db.query("select * from public.buzz_feed()"))).rows;
-  if (mine.length !== 2 || theirs.length !== 2 || anon.length !== 2) throw new Error("wrong counts");
-  if (!mine.every((r) => r.is_mine) || theirs.some((r) => r.is_mine) || anon.some((r) => r.is_mine)) throw new Error("is_mine wrong");
-  for (const r of [...mine, ...theirs, ...anon]) if (Object.keys(r).some((k) => /author|user|visible/.test(k)) || Object.values(r).some((v) => v === A)) throw new Error("leak: " + JSON.stringify(r));
-  if (!/^Student \d{5}$/.test(theirs[0].alias)) throw new Error("alias " + theirs[0].alias);
-  if (theirs.find((r) => r.id === buzz).alias === theirs.find((r) => r.id === buzz2).alias) throw new Error("same alias across threads links them together");
-  if ((await as(B, () => db.query("select 1 from public.buzz_feed(p_topic => 'rant')"))).rows.length !== 1) throw new Error("topic filter");
-  if ((await as(B, () => db.query("select 1 from public.buzz_feed(p_q => 'deposit')"))).rows.length !== 1) throw new Error("search");
-  if ((await as(B, () => db.query("select 1 from public.buzz_feed(p_q => $1)", ["100%_\\"]))).rows.length !== 0) throw new Error("wildcards in search not neutralised");
-  for (const sort of ["hot", "new", "top"]) if ((await as(B, () => db.query("select 1 from public.buzz_feed(p_sort => $1)", [sort]))).rows.length !== 2) throw new Error(sort);
+await expectError("buzz: signed-out visitors cannot read Buzz at all", () => asAnon(() => db.query("select public.buzz_v2_feed()")), "permission denied");
+await expectOk("buzz_v2_feed: sanitized objects, isMine only for the author, no author anywhere, per-thread aliases", async () => {
+  const mine = await feed(A), theirs = await feed(B);
+  if (mine.length !== 2 || theirs.length !== 2) throw new Error("wrong counts");
+  if (!mine.every((r) => r.isMine) || theirs.some((r) => r.isMine)) throw new Error("isMine wrong");
+  for (const r of [...mine, ...theirs]) if (Object.keys(r).some((k) => /author|user|visible/i.test(k)) || JSON.stringify(r).includes(A)) throw new Error("leak: " + JSON.stringify(r));
+  if (!/^Anon [A-Z][a-z]+$/.test(theirs[0].alias.label)) throw new Error("alias " + JSON.stringify(theirs[0].alias));
+  // aliases come from a per-thread digest: the same author's threads never share one
+  if ((await one(db.query("select public.buzz_alias_digest($1, $3::text) = public.buzz_alias_digest($2, $3::text) as same", [buzz, buzz2, A]))).same) throw new Error("same alias key across threads links them together");
+  if ((await feed(B, { q: "deposit" })).length !== 1) throw new Error("search");
+  if ((await feed(B, { q: "100%_\\" })).length !== 0) throw new Error("wildcards in search not neutralised");
+  for (const sort of ["hot", "new", "top"]) if ((await feed(B, { sort })).length !== 2) throw new Error(sort);
 });
 await expectOk("REGRESSION block-oracle: blocking a suspect does NOT hide their Buzz threads or replies", async () => {
   await reply(A, buzz2, "adding detail");
   await as(C, () => db.query("insert into public.blocks (blocker_id, blocked_id) values ($1,$2)", [C, A]));
-  if ((await as(C, () => db.query("select 1 from public.buzz_feed()"))).rows.length !== 2) throw new Error("block changed what Buzz shows: authors can be unmasked");
-  if ((await as(C, () => db.query("select 1 from public.buzz_comments_list($1)", [buzz2]))).rows.length !== 1) throw new Error("block hid a reply");
+  if ((await feed(C)).length !== 2) throw new Error("block changed what Buzz shows: authors can be unmasked");
+  if ((await thread(C, buzz2)).replies.items.length !== 1) throw new Error("block hid a reply");
   await as(C, () => db.query("delete from public.blocks where blocker_id=$1", [C]));
 });
 for (const [name, sql, args] of [
-  ["alias function", "select public.buzz_alias($1,$2)", () => [A, buzz]],
-  ["hidden check", "select public.buzz_hidden($1,$2)", () => [A, buzz]],
-  ["reply counter", "select public.buzz_reply_count($1)", () => [buzz]],
+  ["alias function", "select public.buzz_alias_json(public.buzz_alias_digest($1, $2))", () => [buzz, A]],
+  ["author lookup", "select public.buzz_v2_author_of('buzz', $1)", () => [buzz]],
+  ["reply walk", "select * from public.buzz_v2_visible_replies($1, $2, true)", () => [buzz, B]],
 ]) await expectError(`buzz: ${name} is not reachable through the API`, () => as(B, () => db.query(sql, args())), "permission denied");
 await expectOk("buzz: video ownership is private, and the stored video carries no media id", async () => {
   await as(A, () => db.query("insert into public.media (owner_id, provider, provider_upload_id, status, playback_id) values ($1,'mux','up1','ready','pbbuzz123')", [A]));
   if ((await as(B, () => db.query("select * from public.media where playback_id='pbbuzz123'"))).rows.length !== 0) throw new Error("media owner readable");
   if ((await as(A, () => db.query("select * from public.media"))).rows.length !== 1) throw new Error("owner cannot read own media");
-  const id = await create(C, "campus", "Clip from the quad", { videos: JSON.parse(VIDEO).concat(JSON.parse(VIDEO)) });
-  const v = (await as(B, () => one(db.query("select videos from public.buzz_get($1)", [id])))).videos;
+  await as(C, () => db.query("insert into public.media (owner_id, provider, provider_upload_id, status, playback_id, duration_seconds, width, height) values ($1,'mux','up2','ready','pb1abcdef',12,720,1280)", [C]));
+  const b = await create(C, "Clip from the quad", { video: { playbackId: "pb1abcdef", posterUrl: null, width: 720, height: 1280, durationSeconds: 12 } });
+  const v = (await one(db.query("select videos from public.buzz_posts where id=$1", [b.id]))).videos;
   if (v.length !== 1 || v[0].media_id !== "00000000-0000-0000-0000-000000000000" || v[0].playback_id !== "pb1abcdef") throw new Error(JSON.stringify(v));
-  await as(C, () => db.query("select public.buzz_delete($1)", [id]));
+  const seen = (await thread(B, b.id)).root.media;
+  if (seen.length !== 1 || seen[0].playbackId !== "pb1abcdef" || Object.keys(seen[0]).some((k) => /media_?id/i.test(k))) throw new Error(JSON.stringify(seen));
+  if (!(await fails(() => create(C, "Someone else's clip", { video: { playbackId: "pbbuzz123" } })))) throw new Error("posted someone else's video");
+  await del(C, b.id);
 });
 await expectOk("buzz: photos must be this project's anonymous folder, a random name (no clock), really uploaded by the poster; junk meta is dropped", async () => {
   const good = await uploadBuzzPhoto(C);
@@ -123,15 +142,15 @@ await expectOk("buzz: photos must be this project's anonymous folder, a random n
     `${ORIGIN}buzz/anon/${hex(48)}.jpg`,
     someoneElses,
   ];
-  for (const bad of bads) { let threw = false; try { await create(C, "other", "with a bad photo", { images: [bad] }); } catch { threw = true; } if (!threw) throw new Error("accepted " + bad); }
-  for (const arr of ["array[null]::text[]", `array[array['${good}','${good}']]`]) {
-    let threw = false; try { await as(C, () => db.query(`select public.buzz_create(p_topic => 'other', p_title => 'weird array', p_images => ${arr})`)); } catch { threw = true; } if (!threw) throw new Error("accepted " + arr);
-  }
+  for (const bad of bads) if (!(await fails(() => create(C, "with a bad photo", { images: [bad] })))) throw new Error("accepted " + bad);
+  for (const arr of [[null], [[good, good]]]) if (!(await fails(() => create(C, "weird array", { images: arr })))) throw new Error("accepted " + JSON.stringify(arr));
   const junk = Array.from({ length: 20 }, () => ({ url: good, width: { junk: "x".repeat(3000) }, height: "NaN", blur: "x".repeat(9000) }));
-  const id = await create(C, "other", "with a good photo", { images: [good], meta: [...junk, { url: "https://x.example/other.jpg", width: 1, height: 1, blur: null }] });
-  const row = await as(B, () => one(db.query("select images, image_meta from public.buzz_get($1)", [id])));
+  const b = await create(C, "with a good photo", { images: [good], meta: [...junk, { url: "https://x.example/other.jpg", width: 1, height: 1, blur: null }] });
+  const row = await one(db.query("select images, image_meta from public.buzz_posts where id=$1", [b.id]));
   if (row.images[0] !== good || row.image_meta.length !== 1 || row.image_meta[0].width !== null || row.image_meta[0].blur !== null || JSON.stringify(row).length > 600) throw new Error(JSON.stringify(row).slice(0, 300));
-  await as(C, () => db.query("select public.buzz_delete($1)", [id]));
+  const media = (await thread(B, b.id)).root.media;
+  if (media.length !== 1 || media[0].url !== good || media[0].width !== null || media[0].blur !== null) throw new Error(JSON.stringify(media));
+  await del(C, b.id);
   for (const name of ["buzz/other/1.jpg", `buzz/${B}/1.jpg`]) {
     let threw = false; try { await as(B, () => db.query("insert into storage.objects (bucket_id, name, owner) values ('uploads',$1,$2)", [name, B])); } catch { threw = true; }
     if (!threw) throw new Error(name + " accepted");
@@ -143,118 +162,130 @@ await expectOk("buzz: photos must be this project's anonymous folder, a random n
 });
 await expectError("buzz: threads cannot be written straight into the table (no forged scores, times or authors)", () => as(B, () => db.query("insert into public.buzz_posts (author_id, alias, title, score, created_at) values ($1,'Student 1','look at me',999, now() + interval '3 days')", [B])), "permission denied");
 await expectError("buzz: replies cannot be written straight into the table", () => as(B, () => db.query("insert into public.buzz_comments (post_id, author_id, alias, body) values ($1,$2,'Student 1','x')", [buzz, B])), "permission denied");
-await expectError("buzz: signed-out visitors cannot post", () => asAnon(() => db.query("select public.buzz_create(p_topic => 'other', p_title => 'hello there')")), "");
-await expectOk("buzz: publication jitter. Others see a new thread only after its delay, the author sees it at once, and only the published time is shown", async () => {
+await expectError("buzz: signed-out visitors cannot post", () => asAnon(() => db.query("select public.buzz_v2_create($1, '{\"title\":\"hello there\"}'::jsonb)", [A])), "permission denied");
+await expectError("buzz: signed-in users cannot skip the moderated write API either", () => as(B, () => db.query("select public.buzz_v2_create($1, '{\"title\":\"hello there\"}'::jsonb)", [B])), "permission denied");
+await expectOk("buzz: publication jitter. Others see a new thread only after its delay, the author sees it at once, and only the published time (to the minute) is shown", async () => {
   await db.exec("update public.buzz_secrets set thread_jitter_seconds = 3600, reply_jitter_seconds = 3600");
-  const hidden = await create(C, "thoughts", "Delayed thread");
-  const r = await reply(C, buzz, "delayed reply");
+  const hidden = (await create(C, "Delayed thread")).id;
+  const r = (await reply(C, buzz, "delayed reply")).id;
   await db.query("update public.buzz_posts set visible_at = now() + interval '30 minutes' where id=$1", [hidden]);
   await db.query("update public.buzz_comments set visible_at = now() + interval '30 minutes' where id=$1", [r]);
-  if ((await as(B, () => db.query("select 1 from public.buzz_get($1)", [hidden]))).rows.length !== 0) throw new Error("visible early");
-  const own = await as(C, () => one(db.query("select created_at from public.buzz_get($1)", [hidden]))); if (!own || new Date(own.created_at) > new Date(Date.now() + 5000)) throw new Error("author cannot see it, or sees a future time");
-  if ((await as(B, () => db.query("select 1 from public.buzz_comments_list($1) where body='delayed reply'", [buzz]))).rows.length !== 0) throw new Error("reply visible early");
-  if ((await as(B, () => one(db.query("select comment_count from public.buzz_get($1)", [buzz])))).comment_count !== 0) throw new Error("count reveals an unpublished reply");
-  let threw = false; try { await reply(B, hidden, "guessing the id"); } catch { threw = true; } if (!threw) throw new Error("could reply to an unpublished thread");
-  threw = false; try { await reply(B, buzz, "answering a reply nobody can see yet", r); } catch { threw = true; } if (!threw) throw new Error("could attach to an unpublished parent");
+  // (the reply's notification is scheduled with it, as buzz_v2_reply does)
+  await db.query("update public.notifications n set created_at = public.buzz_floor_minute(now() + interval '30 minutes'), visible_at = public.buzz_ceil_minute(now() + interval '30 minutes') from public.buzz_notification_refs x where x.notification_id = n.id and x.entity_id = $1", [r]);
+  if (!(await fails(() => thread(B, hidden))) || (await feed(B)).some((x) => x.id === hidden)) throw new Error("visible early");
+  const own = (await thread(C, hidden)).root; if (own.createdAt > Date.now() + 5000) throw new Error("the author cannot see it, or sees a future time");
+  if ((await thread(B, buzz)).replies.items.some((x) => x.id === r)) throw new Error("reply visible early");
+  if ((await thread(B, buzz)).root.replyCount !== 0) throw new Error("count reveals an unpublished reply");
+  if (!(await fails(() => reply(B, hidden, "guessing the id")))) throw new Error("could reply to an unpublished thread");
+  if (!(await fails(() => reply(B, buzz, "answering a reply nobody can see yet", r)))) throw new Error("could attach to an unpublished parent");
   // The thread author (A) is not told, and cannot clock the reply, until it is published.
   if ((await as(A, () => db.query("select 1 from public.notifications where link=$1", [`/buzz/${buzz}`]))).rows.length !== 0) throw new Error("author notified before the reply was published");
   if ((await as(A, () => one(db.query("select public.unread_notification_count() as n")))).n !== Number((await as(A, () => one(db.query("select count(*) n from public.notifications where read_at is null")))).n)) throw new Error("badge counts a hidden notification");
   const note = await one(db.query("select n.created_at, n.visible_at, c.visible_at as reply_visible, c.created_at as reply_real from public.notifications n, public.buzz_comments c where n.link=$1 and c.id=$2", [`/buzz/${buzz}`, r]));
-  if (+note.created_at === +note.reply_real) throw new Error("the notification carries the real reply time");
+  if (+note.created_at === +note.reply_real || +note.created_at % 60000 !== 0 || +note.visible_at % 60000 !== 0) throw new Error("the notification carries the real reply time");
   // Hot ranking must not move when an unpublished reply lands.
-  const hotBefore = (await as(B, () => db.query("select id from public.buzz_feed(p_sort => 'hot')"))).rows.map((x) => x.id).join();
-  for (let i = 0; i < 6; i++) { const x = await reply(C, buzz2, "pile-on " + i); await db.query("update public.buzz_comments set visible_at = now() + interval '30 minutes' where id=$1", [x]); await as(C, () => db.query("select public.buzz_delete_comment($1)", [x])); }
-  const extra = await reply(C, buzz2, "unpublished"); await db.query("update public.buzz_comments set visible_at = now() + interval '30 minutes' where id=$1", [extra]);
-  if ((await as(B, () => db.query("select id from public.buzz_feed(p_sort => 'hot')"))).rows.map((x) => x.id).join() !== hotBefore) throw new Error("an unpublished reply moved the hot ranking");
-  await as(C, () => db.query("select public.buzz_delete_comment($1)", [extra]));
+  const at = new Date().toISOString();
+  const hot = async () => JSON.stringify((await as(B, () => one(db.query("select public.buzz_v2_feed('global', 'hot', 'day', null, 50, 0, $1) as r", [at])))).r.items.map((x) => [x.id, x.replyCount]));
+  const hotBefore = await hot();
+  for (let i = 0; i < 6; i++) { const x = (await reply(C, buzz2, "pile-on " + i)).id; await db.query("update public.buzz_comments set visible_at = now() + interval '30 minutes' where id=$1", [x]); await del(C, x); }
+  const extra = (await reply(C, buzz2, "unpublished")).id; await db.query("update public.buzz_comments set visible_at = now() + interval '30 minutes' where id=$1", [extra]);
+  if ((await hot()) !== hotBefore) throw new Error("an unpublished reply moved the hot ranking");
+  await del(C, extra);
   await db.query("update public.buzz_posts set visible_at = now() - interval '1 second' where id=$1", [hidden]);
-  const pub = await as(B, () => one(db.query("select created_at from public.buzz_get($1)", [hidden]))); if (!pub) throw new Error("not visible after its delay");
+  const pub = (await thread(B, hidden)).root; if (!pub) throw new Error("not visible after its delay");
   const real = await one(db.query("select created_at, visible_at from public.buzz_posts where id=$1", [hidden]));
-  if (+pub.created_at !== +real.visible_at || +pub.created_at === +real.created_at) throw new Error("the real creation time is exposed");
-  await as(C, () => db.query("select public.buzz_delete($1)", [hidden]));
-  await as(C, () => db.query("select public.buzz_delete_comment($1)", [r]));
+  if (pub.createdAt !== Math.floor(+real.visible_at / 60000) * 60000 || pub.createdAt === +real.created_at) throw new Error("the real creation time is exposed");
+  await del(C, hidden);
+  await del(C, r);
   await db.query("delete from public.notifications where link=$1", [`/buzz/${buzz}`]);
   await db.exec("update public.buzz_secrets set thread_jitter_seconds = 0, reply_jitter_seconds = 0");
 });
-await expectOk("buzz: tiny campuses are not tagged (a campus tag would point at a handful of people), and untagged threads show everywhere", async () => {
+await expectOk("buzz: a tiny campus is never named next to a buzz (it would point at a handful of people); a big one is; campus buzzes stay on their campus", async () => {
   const uni = (await one(db.query("select id from public.universities limit 1"))).id;
   await db.query("update public.profiles set university_id=$1 where id=$2", [uni, C]);
-  const id = await as(C, () => one(db.query("select public.buzz_create(p_topic => 'campus', p_title => 'Small campus thread', p_university_id => $1) as id", [uni]))).then((r) => r.id);
-  const row = await as(B, () => one(db.query("select university_id from public.buzz_feed(p_university_id => $1) where id=$2", [uni, id])));
-  if (!row || row.university_id !== null) throw new Error(JSON.stringify(row));
-  await db.exec("update public.buzz_secrets set min_campus_size = 1");
-  const id2 = await as(C, () => one(db.query("select public.buzz_create(p_topic => 'campus', p_title => 'Big campus thread', p_university_id => $1) as id", [uni]))).then((r) => r.id);
-  if ((await as(B, () => one(db.query("select university_id from public.buzz_get($1)", [id2])))).university_id !== uni) throw new Error("campus tag missing on a big campus");
-  await db.exec("update public.buzz_secrets set min_campus_size = 20");
-  for (const x of [id, id2]) await as(C, () => db.query("select public.buzz_delete($1)", [x]));
+  const small = await create(C, "Small campus thread");
+  if ((await thread(B, small.id)).root.campusShortName !== null) throw new Error("a tiny campus was named");
+  await db.exec("update public.buzz_secrets set min_campus_named = 1");
+  const name = (await one(db.query("select coalesce(short_name, name) as n from public.universities where id=$1", [uni]))).n;
+  if ((await thread(B, small.id)).root.campusShortName !== name) throw new Error("campus tag missing on a big campus");
+  const campus = await create(C, "Campus-only thread", { scope: "campus" });
+  if ((await feed(B)).some((x) => x.id === campus.id) || (await thread(C, campus.id)).root.campusShortName !== null) throw new Error("a campus buzz outside its campus feed");
+  await db.exec("update public.buzz_secrets set min_campus_named = 50");
+  for (const x of [small.id, campus.id]) await del(C, x);
 });
 
 // ---- buzz: votes, replies, moderation ---------------------------------------------------
-await expectOk("buzz_vote: up, switch to down, clear; one vote per person; others' votes are private", async () => {
-  const v = (s) => as(B, () => one(db.query("select * from public.buzz_vote($1,$2)", [buzz, s])));
-  let r = await v(1); if (r.score !== 1 || r.my_vote !== 1) throw new Error("up " + JSON.stringify(r));
+await expectOk("buzz_v2_vote: up, switch to down, clear; one vote per person; others' votes are private", async () => {
+  const v = (s) => as(B, () => one(db.query("select public.buzz_v2_vote($1,$2) as r", [buzz, s]))).then((r) => r.r);
+  let r = await v(1); if (r.score !== 1 || r.myVote !== 1) throw new Error("up " + JSON.stringify(r));
   r = await v(1); if (r.score !== 1) throw new Error("double up " + JSON.stringify(r));
-  r = await v(-1); if (r.score !== -1 || r.my_vote !== -1) throw new Error("down " + JSON.stringify(r));
-  r = await v(0); if (r.score !== 0 || r.my_vote !== 0) throw new Error("clear " + JSON.stringify(r));
-  await v(1); await as(C, () => db.query("select * from public.buzz_vote($1,1)", [buzz]));
-  const f = await as(B, () => one(db.query("select score, my_vote from public.buzz_get($1)", [buzz]))); if (f.score !== 2 || f.my_vote !== 1) throw new Error("get " + JSON.stringify(f));
+  r = await v(-1); if (r.score !== -1 || r.myVote !== -1) throw new Error("down " + JSON.stringify(r));
+  r = await v(0); if (r.score !== 0 || r.myVote !== 0) throw new Error("clear " + JSON.stringify(r));
+  await v(1); await as(C, () => db.query("select public.buzz_v2_vote($1,1)", [buzz]));
+  const f = (await thread(B, buzz)).root; if (f.score !== 2 || f.myVote !== 1) throw new Error("get " + JSON.stringify(f));
+  if ((await thread(A, buzz)).root.myVote !== 0) throw new Error("someone else's vote shows as mine");
 });
-await expectError("buzz_vote: invalid values are rejected", () => as(B, () => db.query("select * from public.buzz_vote($1,5)", [buzz])), "Invalid vote");
-await expectError("buzz_vote: signed-out visitors cannot vote", () => asAnon(() => db.query("select * from public.buzz_vote($1,1)", [buzz])), "");
+await expectError("buzz_v2_vote: invalid values are rejected", () => as(B, () => db.query("select public.buzz_v2_vote($1,5)", [buzz])), "buzz:validation_failed:");
+await expectError("buzz_v2_vote: nobody votes on their own buzz", () => as(A, () => db.query("select public.buzz_v2_vote($1,1)", [buzz])), "buzz:own_item:");
+await expectError("buzz_v2_vote: signed-out visitors cannot vote", () => asAnon(() => db.query("select public.buzz_v2_vote($1,1)", [buzz])), "permission denied");
 await expectError("buzz: votes cannot be written directly", () => as(B, () => db.query("insert into public.buzz_votes (post_id, user_id, value) values ($1,$2,1)", [buzz2, B])), "permission denied");
 let bobReply;
-await expectOk("buzz replies: counted, anonymous, OP flagged, same alias as in the feed, author notified without an actor", async () => {
+await expectOk("buzz replies: counted, anonymous, OP flagged, same alias as in the feed, author notified without an actor (or the reply's words)", async () => {
   const notesBefore = (await one(db.query("select count(*)::int n from public.notifications where user_id=$1 and link=$2", [A, `/buzz/${buzz}`]))).n;
-  bobReply = await reply(B, buzz, "Check your lease, then small claims.");
+  bobReply = (await reply(B, buzz, "Check your lease, then small claims.")).id;
   await reply(A, buzz, "Thanks!", bobReply);
-  const list = (await as(C, () => db.query("select * from public.buzz_comments_list($1)", [buzz]))).rows;
-  if (list.length !== 2 || list[0].is_op || !list[1].is_op || list.some((c) => c.is_mine) || list[1].parent_id !== bobReply) throw new Error(JSON.stringify(list));
-  for (const c of list) if (Object.keys(c).some((k) => /author|user|visible/.test(k)) || Object.values(c).some((v) => v === A || v === B)) throw new Error("author leaked");
-  const opAlias = (await as(C, () => one(db.query("select alias from public.buzz_get($1)", [buzz])))).alias;
-  if (list[1].alias !== opAlias || list[0].alias === opAlias) throw new Error("aliases inconsistent");
-  if ((await as(B, () => one(db.query("select comment_count from public.buzz_get($1)", [buzz])))).comment_count !== 2) throw new Error("count");
-  const n = await as(A, () => db.query("select actor_id, link from public.notifications where link = $1", [`/buzz/${buzz}`]));
-  if (n.rows.length !== notesBefore + 1 || n.rows.some((r) => r.actor_id !== null)) throw new Error("notification " + JSON.stringify(n.rows));
+  const list = (await thread(C, buzz)).replies.items;
+  if (list.length !== 2 || list[0].isOp || !list[1].isOp || list.some((c) => c.isMine) || list[1].parentId !== bobReply) throw new Error(JSON.stringify(list));
+  for (const c of list) if (Object.keys(c).some((k) => /author|user|visible/i.test(k)) || JSON.stringify(c).includes(A) || JSON.stringify(c).includes(B)) throw new Error("author leaked");
+  const opAlias = (await thread(C, buzz)).root.alias;
+  if (JSON.stringify(list[1].alias) !== JSON.stringify(opAlias) || JSON.stringify(list[0].alias) === JSON.stringify(opAlias)) throw new Error("aliases inconsistent");
+  if ((await thread(B, buzz)).root.replyCount !== 2) throw new Error("count");
+  const n = (await db.query("select actor_id, type, body from public.notifications where user_id=$1 and link = $2", [A, `/buzz/${buzz}`])).rows;
+  if (n.length !== notesBefore + 1 || n.some((r) => r.actor_id !== null || r.type !== "buzz_reply" || /small claims/.test(r.body ?? ""))) throw new Error("notification " + JSON.stringify(n));
 });
-await expectError("buzz replies: a parent from another thread is rejected", () => reply(C, buzz2, "cross-thread", bobReply), "another thread");
-await expectError("buzz replies: empty replies are rejected", () => reply(C, buzz, "   "), "");
-await expectOk("buzz_delete_comment: only the writer or the thread author", async () => {
-  let threw = false; try { await as(C, () => db.query("select public.buzz_delete_comment($1)", [bobReply])); } catch { threw = true; }
-  if (!threw) throw new Error("stranger deleted a reply");
-  await as(A, () => db.query("select public.buzz_delete_comment($1)", [bobReply]));
-  if ((await as(B, () => one(db.query("select comment_count from public.buzz_get($1)", [buzz])))).comment_count !== 0) throw new Error("count after delete (the child reply goes with its parent)");
+await expectError("buzz replies: a parent from another thread is rejected", () => reply(C, buzz2, "cross-thread", bobReply), "buzz:not_found:");
+await expectError("buzz replies: empty replies are rejected", () => reply(C, buzz, "   "), "buzz:validation_failed:");
+await expectOk("buzz_v2_delete: only the writer deletes a reply (the thread's author no longer can); it stays as a placeholder above its answer", async () => {
+  if (!(await fails(() => del(C, bobReply)))) throw new Error("stranger deleted a reply");
+  if (!(await fails(() => del(A, bobReply)))) throw new Error("the thread's author deleted someone else's reply");
+  await del(B, bobReply);
+  const t = await thread(C, buzz);
+  if (t.root.replyCount !== 1) throw new Error("count after delete");
+  const ph = t.replies.items.find((r) => r.id === bobReply);
+  if (!ph || ph.status !== "deleted" || ph.text !== "") throw new Error("placeholder " + JSON.stringify(ph));
 });
 await expectOk("REGRESSION mute-linking: hiding is scoped to one thread, so it cannot reveal which other threads share an author", async () => {
-  const carolReply = await reply(C, buzz2, "I disagree");
+  const carolReply = (await reply(C, buzz2, "I disagree")).id;
   await reply(C, buzz, "me again in another thread");
-  await as(B, () => db.query("select public.buzz_mute(p_post_id => $1)", [buzz]));
-  const feed = (await as(B, () => db.query("select id from public.buzz_feed()"))).rows.map((r) => r.id);
-  if (feed.includes(buzz)) throw new Error("hidden thread still listed");
-  if (!feed.includes(buzz2)) throw new Error("hiding one thread hid another by the same author: threads are linkable");
-  if ((await as(B, () => db.query("select 1 from public.buzz_get($1)", [buzz]))).rows.length !== 0) throw new Error("hidden thread still opens");
-  await as(B, () => db.query("select public.buzz_mute(p_comment_id => $1)", [carolReply]));
-  if ((await as(B, () => db.query("select 1 from public.buzz_comments_list($1) where body='I disagree'", [buzz2]))).rows.length !== 0) throw new Error("hidden reply still shown");
-  if ((await as(A, () => db.query("select 1 from public.buzz_comments_list($1) where body='me again in another thread'", [buzz]))).rows.length !== 1) throw new Error("hide leaked into another thread");
-  if ((await as(C, () => db.query("select 1 from public.buzz_feed()"))).rows.length !== 2) throw new Error("hide affected someone else");
+  await as(B, () => db.query("select public.buzz_v2_hide_thread($1, true)", [buzz]));
+  const ids = (await feed(B)).map((r) => r.id);
+  if (ids.includes(buzz)) throw new Error("hidden thread still listed");
+  if (!ids.includes(buzz2)) throw new Error("hiding one thread hid another by the same author: threads are linkable");
+  if ((await thread(B, buzz)).root.id !== buzz) throw new Error("a hidden thread no longer opens from a link");
+  await as(B, () => db.query("select public.buzz_v2_hide_author($1)", [carolReply]));
+  if (!(await thread(B, buzz2)).replies.items.find((r) => r.id === carolReply).collapsed) throw new Error("hidden reply still shown");
+  if ((await thread(A, buzz)).replies.items.find((r) => r.text === "me again in another thread").collapsed) throw new Error("hide leaked into another thread");
+  if ((await thread(B, buzz)).replies.items.find((r) => r.text === "me again in another thread").collapsed) throw new Error("hide reached the same anon in another thread");
+  if ((await feed(C)).length !== 2) throw new Error("hide affected someone else");
   // The thread author hid Carol in buzz2: her further replies there no longer notify the author.
-  await as(A, () => db.query("select public.buzz_mute(p_comment_id => $1)", [carolReply]));
+  await as(A, () => db.query("select public.buzz_v2_hide_author($1)", [carolReply]));
   const before = (await one(db.query("select count(*)::int n from public.notifications where user_id=$1", [A]))).n;
   await reply(C, buzz2, "still here");
   if ((await one(db.query("select count(*)::int n from public.notifications where user_id=$1", [A]))).n !== before) throw new Error("hidden person still notifies");
 });
-await expectOk("REGRESSION rate limit: five threads an hour, and deleting a thread does not give the slot back", async () => {
+await expectOk("REGRESSION rate limit: six threads an hour, and deleting a thread does not give the slot back", async () => {
   let made = 0, limited = false;
-  try { for (let i = 0; i < 8; i++) { const id = await create(B, "other", `Spam thread number ${i}`); await as(B, () => db.query("select public.buzz_delete($1)", [id])); made++; } } catch (e) { limited = /posting a lot/.test(e.message); }
-  if (!limited || made !== 5) throw new Error(`made ${made}, limited ${limited}`);
+  try { for (let i = 0; i < 9; i++) { const id = (await create(B, `Spam thread number ${i}`)).id; await del(B, id); made++; } } catch (e) { limited = /^buzz:rate_limited:/.test(e.message); }
+  if (!limited || made !== 6) throw new Error(`made ${made}, limited ${limited}`);
 });
 await expectOk("friendly errors instead of raw constraint names", async () => {
-  for (const [q, want] of [["select public.buzz_create('rant', null)", /Titles need/], ["select public.buzz_create('nonsense', 'A fine title')", /Pick a topic/], [`select public.buzz_reply('${buzz2}', '   ')`, /Replies need/]]) {
-    let msg = ""; try { await as(A, () => db.query(q)); } catch (e) { msg = e.message; } if (!want.test(msg)) throw new Error(`${q} -> ${msg}`);
+  for (const [fn, want] of [[() => create(A, ""), /^buzz:validation_failed:Say something first\./], [() => create(A, "x".repeat(101)), /^buzz:validation_failed:Keep the title/], [() => reply(A, buzz2, "   "), /^buzz:validation_failed:Say something first\./]]) {
+    let msg = ""; try { await fn(); } catch (e) { msg = e.message; } if (!want.test(msg)) throw new Error(msg);
   }
 });
 await expectOk("hiding can be undone", async () => {
-  await as(B, () => db.query("select public.buzz_unmute($1)", [buzz]));
-  if ((await as(B, () => db.query("select 1 from public.buzz_get($1)", [buzz]))).rows.length !== 1) throw new Error("thread did not come back");
+  await as(B, () => db.query("select public.buzz_v2_hide_thread($1, false)", [buzz]));
+  if (!(await feed(B)).some((r) => r.id === buzz)) throw new Error("thread did not come back");
 });
 await expectOk("blocked people cannot save your listings (no 'saved your listing' pings), the heartbeat leaves no public trail, has_video cannot be forged", async () => {
   const apt = (await one(db.query("select id from public.apartments where owner_id=$1 limit 1", [A]))).id;
@@ -276,20 +307,24 @@ await expectOk("blocked people cannot save your listings (no 'saved your listing
   if (p.has_video || u.has_video) throw new Error("has_video forged");
   await as(B, () => db.query("delete from public.feed_posts where id=$1", [p.id]));
 });
-await expectOk("buzz: authors delete their own threads (votes, replies and hides go with them); nobody else can; reports accept buzz targets", async () => {
-  await as(B, () => db.query("insert into public.reports (reporter_id, target_type, target_id, reason) values ($1,'buzz',$2,'harassment')", [B, buzz2]));
-  let threw = false; try { await as(B, () => db.query("select public.buzz_delete($1)", [buzz2])); } catch { threw = true; } if (!threw) throw new Error("someone else deleted a thread");
-  await as(A, () => db.query("select public.buzz_delete($1)", [buzz]));
-  const left = await one(db.query("select (select count(*) from public.buzz_votes where post_id=$1) v, (select count(*) from public.buzz_comments where post_id=$1) c, (select count(*) from public.buzz_mutes where post_id=$1) m", [buzz]));
-  if (Number(left.v) + Number(left.c) + Number(left.m) !== 0) throw new Error(JSON.stringify(left));
+await expectOk("buzz: authors delete their own threads (soft: gone for everyone; the votes and replies stay); nobody else can; reports go through buzz_v2_report", async () => {
+  const rep = (await as(B, () => one(db.query("select public.buzz_v2_report($1, 'harassment', null) as r", [buzz2])))).r;
+  if (rep.alreadyReported !== false) throw new Error(JSON.stringify(rep));
+  if ((await feed(B)).some((r) => r.id === buzz2)) throw new Error("a reported thread stays in the reporter's feed");
+  if (!(await fails(() => as(B, () => db.query("insert into public.reports (reporter_id, target_type, target_id, reason) values ($1,'buzz',$2,'harassment')", [B, buzz]))))) throw new Error("a Buzz report went straight into the table");
+  if (!(await fails(() => del(B, buzz2)))) throw new Error("someone else deleted a thread");
+  await del(A, buzz);
+  if (!(await fails(() => thread(C, buzz)))) throw new Error("a deleted thread still opens");
+  const left = await one(db.query("select (select status from public.buzz_posts where id=$1) s, (select count(*) from public.buzz_votes where post_id=$1) v, (select count(*) from public.buzz_comments where post_id=$1) c", [buzz]));
+  if (left.s !== "deleted" || Number(left.v) !== 2 || Number(left.c) < 2) throw new Error(JSON.stringify(left));
 });
 await expectOk("REGRESSION account deletion: a deleted account does not take a tell-tale set of threads with it (they stay, detached, same alias)", async () => {
-  const before = (await as(B, () => db.query("select id, alias from public.buzz_feed(p_sort => 'new')"))).rows;
-  if (!before.some((r) => r.id === buzz2)) throw new Error("setup");
+  const before = (await feed(C)).map((r) => [r.id, r.alias]);
+  if (!before.some(([id]) => id === buzz2)) throw new Error("setup");
   await db.query("delete from auth.users where id=$1", [A]);
-  const after = (await as(B, () => db.query("select id, alias, is_mine from public.buzz_feed(p_sort => 'new')"))).rows;
-  if (JSON.stringify(after.map((r) => [r.id, r.alias])) !== JSON.stringify(before.map((r) => [r.id, r.alias]))) throw new Error("threads changed when the account was deleted");
+  const after = (await feed(C)).map((r) => [r.id, r.alias]);
+  if (JSON.stringify(after) !== JSON.stringify(before)) throw new Error("threads changed when the account was deleted");
   if ((await one(db.query("select author_id from public.buzz_posts where id=$1", [buzz2]))).author_id !== null) throw new Error("author reference kept");
-  if ((await as(B, () => db.query("select 1 from public.buzz_comments_list($1)", [buzz2]))).rows.length === 0) throw new Error("replies lost");
+  if ((await thread(C, buzz2)).replies.items.length === 0) throw new Error("replies lost");
 });
 done("MIGRATION-11");

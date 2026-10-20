@@ -144,7 +144,7 @@ const FRIENDLY: Partial<Record<BuzzErrorCode, string>> = {
 export function toBuzzError(e: unknown, status = 400): BuzzError {
   if (e instanceof BuzzError) return e;
   const raw = typeof e === "object" && e !== null && "message" in e ? String((e as { message: unknown }).message) : typeof e === "string" ? e : "";
-  const m = /buzz:([a-z_]+):(.*)$/s.exec(raw);
+  const m = /buzz:([a-z_]+):([\s\S]*)$/.exec(raw);
   if (m) {
     const code = m[1] as BuzzErrorCode;
     return new BuzzError(code, m[2]!.trim() || FRIENDLY[code] || FRIENDLY.unknown!, code === "not_found" ? 404 : code === "buzz_gate_required" || code === "muted" || code === "suspended" || code === "banned" || code === "locked" ? 403 : code === "rate_limited" ? 429 : status);

@@ -50,7 +50,7 @@ reads "Following" while that feed shows) and Search and the Notifications bell o
 with the finger over a hairline; moving between sections, by tap or swipe, plays no haptic. Under the labels sits the Campus | Global
 toggle, a small segmented pill whose thumb slides to the choice: Campus is your own university, Global every university (and,
 only while Posts has a tab, Following: the posts of people you follow, which switches to Posts); the choice scopes For you,
-Buzz, Posts and Reels alike (`src/lib/home-scope.ts`). Someone without a university has nothing to choose, so the row is not drawn.
+Posts and Reels alike (`src/lib/home-scope.ts`; Buzz has its own Campus | Global, its two feeds being separate). Someone without a university has nothing to choose, so the row is not drawn.
 For now the toggle is hidden everywhere, here and in the viewer (`SCOPE_TOGGLE_SHOWN` in `src/lib/home-scope.ts` is
 `false`): the bar is just its first two rows and every feed stays on your own campus. Its code is all kept; set the flag
 back to `true` to bring it back.
@@ -137,17 +137,9 @@ Chats | Groups, the profile's section tabs or the inbox's All | Unread | Request
 into the Reels feed (only reels, page by page, the other campus choice keeping the page on screen while what follows comes
 from the new choice); a post in For you goes on down For you, its next pages loading as needed; a square in a profile grid
 (Posts, Reels, Saved, Liked) goes on through that grid; a saved post through your saved posts; a post's own screen and a
-post shared in a chat go on into the Reels feed. Words-only posts and listings keep their own screens. A Buzz thread with
-photos or videos opens here too, from the Buzz list (going on through its other threads with media) or from the thread's
-own screen, and stays anonymous: where a post has its author, its page has the topic's icon, the topic and its age ("You"
-on your own), one line with the title in bold before the words (a tap opens all of both), and a rail of upvote with the
-score, downvote (a double tap upvotes),
-replies, share (the link through the system sheet, never a friend card) and "…" (hide, report, or delete your own); the
-replies and "Reply anonymously…" open the thread's own screen over the viewer, or, opened from that screen, close the
-viewer onto it (`viewerItemFromBuzz`, `BuzzRail` in `src/components/home/reel-item.tsx`). Votes, new replies and a thread
-deleted or hidden reach the list, the thread's screen and the viewer's pages alike (`BuzzEvent`). In the Buzz list a thread's
-media sits in the same rounded frame and shape as a post's in For you (`frameAspect`), its dots under it, one video
-playing at a time. The source hands its pages over (`src/lib/reel-viewer.ts`), so the viewer opens at once with the
+post shared in a chat go on into the Reels feed. Words-only posts and listings keep their own screens. Buzz never comes
+here: its anonymous photos open in the plain media viewer and its one video plays in place (see Buzz below). The source
+hands its pages over (`src/lib/reel-viewer.ts`), so the viewer opens at once with the
 row's counts (a grid square, which knows only the post's id, loads its post as it comes near, its picture standing in,
 the same view all along, until the loaded page has drawn its own: no black frame between the two), and
 what you like, save or comment there shows on the row when you come back (`emitPostEngagement` in `src/lib/posts-events.ts`);
@@ -158,7 +150,8 @@ swipe or a tap between pages brings it back too, and Reels never moves it. The s
 row on Explore and the pills under it (the bar with its title and Search stays put): they slide up under the fixed bar
 as the list under them scrolls down, and back as soon as it
 scrolls up. The bottom bar never moves. The choice lives in
-`src/lib/home-scope.ts` and drives For you, Buzz and Posts alike: the pages have no filter chips of their own.
+`src/lib/home-scope.ts` and drives For you and Posts alike: those pages have no filter chips of their own (Buzz keeps its
+own filter bar, see Buzz below).
 Explore (the Housing tab in the code, with a compass icon) works the same way with three pages,
 **Housing | Roommate | Marketplace** (apartments, roommates, items), under its own top bar laid out like the inbox's (`src/app/(tabs)/housing.tsx`): the big
 "Find" title, the three labels with the sliding aurora underline, the inbox's search box (searching the page on screen) with a
@@ -267,13 +260,57 @@ cd apps/mobile
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts (the test account and Leo follow each other, so Leo is a friend to share with; Maya lists CS 3358 and MATH 3398 for this semester, visible to everyone); prints the login, writes e2e/.sim-state.json
 e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you (no Campus | Global toggle signed out), swipes to Buzz, opens Notifications from the bell in Home's top-right corner (signed out: the log-in prompt), Search (the magnifying glass beside the bell: the people list), Messages (bottom tab), Explore (Housing, Roommate, swipe back, Marketplace), Profile (several flows at once is fine)
 EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # your own profile (adds CS 1428 under Classes and removes it, Saved says only you can see it), then likes, comments (write, heart, reply, delete from the hold menu), shares the top post with Leo and finds the card in your chat with him (Messages), votes, replies, the Campus | Global toggle under the labels (skipped while it is hidden), follows and unfollows Maya (her Classes tab shows CS 3358, her Listings tab her apartment), opens your own Followers (Leo) and Maya's Mutual friends (none: Leo follows her one way), as the seeded account
-node e2e/sim-seed-thread.mjs                            # nested replies and votes for 03-buzz-thread.yaml
+SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed-thread.mjs   # nested replies and votes for 03-buzz-thread.yaml (Buzz v2 writes are service-role only)
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards
 ```
 
 The flows that like, vote or post (01 to 03) only ever act as a seeded `ui-sim-…` account and
 stop if someone else is signed in on the simulator (they read the email on the account sheet behind your name on the
 Profile tab, which shows "Edit profile" when you are signed in); 00 and 04 only look.
+
+## Buzz
+
+Buzz is UniVerse's anonymous campus feed, ported screen for screen (`src/components/buzz/`, the Buzz page of Home in
+`src/components/home/buzz-section.tsx`, the screens in `src/app/buzz/`), on the shared Buzz v2 data layer
+(`packages/shared/src/buzz`: `buzz_v2_*` database functions for reads and actions, the website's moderated
+`POST /api/buzz` and `/api/buzz/<id>/replies` for new buzzes and replies, called with the session's access token). It is
+painted in **Phosphor**, UniVerse's incognito world (`phosphor` in `src/lib/palette.ts`: a near-black green canvas, lime
+accents, a coral downvote), the same in Light and Dark, and Phosphor appears nowhere else. As Home's pager comes to Buzz
+its top bar turns Phosphor too, your photo gives way to a plain person glyph (not drawn at all while the pager rests on
+Buzz, so nothing on the Buzz page shows who is looking) and the Buzz label carries a small lime mask
+(`src/components/home/buzz-top-bar.tsx`). Home's bar stays put on Buzz; Buzz's own filter bar slides away instead.
+
+- **Gate.** Signed out, the page asks you to log in. Before the current guidelines are accepted it shows the inline
+  "Before your first buzz" panel (never a sheet), only while the page is the one on screen, and loads nothing else; "Not
+  now" goes back to the section you came from, and swiping through Buzz always works. A thread, Search and My buzzes show
+  it with Back.
+- **Feed.** Under Home's bar a filter bar (the search pill, Hot | New | Top, Campus | Global) slides up as the feed
+  scrolls down and back as it scrolls up; Top adds Today | This week | All time; Hot shows today's prompt with "Answer
+  anonymously"; small campuses get a note; an empty campus Hot feed moves to Global with a banner (cold start). Cards show
+  the alias (an emoji in a dashed ring of its colour, never a photo), "You · Anon X" on your own, the campus on Global,
+  your own items' review status, the title and words (six lines, Show more), 1–4 photos (a tap opens them full screen) or
+  one video (plays in place with the system controls), a poll (results once you vote), the support link, and the vote pill
+  (optimistic, tap again to undo, coral down), replies and share. Community-collapsed cards fold to "Hidden by the
+  community · Tap to view". The FAB (a pen with the mask) and the "+" create sheet's Buzz open the composer.
+- **Composer.** A full-height sheet (the system's page sheet on iPhone): "You're anonymous", today's prompt when answering
+  it, Campus | Global with what each means, an optional title, the words (500), up to 4 photos (re-encoded on the phone,
+  no metadata, stored in the anonymous folder: `src/lib/buzz-photos.ts`) or one video of at most a minute (refused before
+  upload: `src/lib/buzz-video.ts`), a poll (2–4 options, 1/3/7 days, unlocked 24 hours after joining) and "Buzz it". While
+  the account cannot post, "Muted until … · Details" stands in for the actions. A blocked text gets the engine's sheet
+  (Edit, the guidelines, and support resources where they apply); a held one says it is with the safety team.
+- **Thread.** The root large, replies two levels deep (deeper ones flattened with "replying to"), folds, placeholders, the
+  reply bar ("You're anonymous", the "replying to" chip, 500 characters, send) or the locked line. Posts publish after a
+  random delay, so nothing is pushed live: a thread loads again when it comes back on screen, on pull to refresh, after
+  your own reply and every 30 seconds while it is open.
+- **Menus.** Hide this thread · Hide this anon in this thread · Share (the link through the system sheet) · Report (the
+  reasons, a note for "Something else"; the item then leaves your lists) · Delete (your own). Never Block, never a
+  profile, never a handle.
+- **Search, My buzzes, Settings, Notifications.** Search Buzz (Newest | Top, Campus | Global, suggestions); My buzzes
+  (Threads | Replies, your private karma) is reached from Settings → Buzz, never from Home, next to "How Buzz anonymity
+  works"; Settings → Safety → Account status lists warnings, removals and restrictions with "Got it" and appeals. Buzz
+  notifications carry the mask, never a photo.
+- **Memory only.** Drafts, folds, the search and every loaded item live in memory (`src/lib/buzz-store.ts`), never in
+  AsyncStorage or SecureStore, and are wiped the moment the session ends.
 
 ## Look and feel on iPhone
 

@@ -5,6 +5,7 @@ import type { SFSymbol } from "expo-symbols";
 import { Avatar } from "@/components/avatar";
 import { FloatingTabBar, type TabBarAction } from "@/components/floating-tab-bar";
 import { HeaderActions } from "@/components/header-actions";
+import { useHomeRestingOnBuzz } from "@/components/home/buzz-top-bar";
 import { useCreateMenu } from "@/components/home/create-menu";
 import { useSession } from "@/lib/session";
 import { auroraGradient } from "@/lib/theme";
@@ -38,13 +39,15 @@ function icon(route: string) {
 
 /**
  * The Profile tab's icon: your own photo in a circle, like Instagram's, with a thin aurora ring while the tab is on
- * screen; the person icon when you are signed out.
+ * screen; the person icon when you are signed out, and while Home rests on its anonymous Buzz page (nothing on screen
+ * there may show who is looking).
  */
 function ProfileTabIcon({ focused, color, size }: { focused: boolean; color: ColorValue; size: number }) {
   const { profile } = useSession();
   const { colors } = useAppTheme();
   const bounce = useBounceOn(focused);
-  if (!profile) return <Icon name={focused ? ICONS.profile!.on : ICONS.profile!.off} sf={focused ? ICONS.profile!.sfOn : ICONS.profile!.sfOff} size={size} color={color} weight={focused ? "semibold" : "regular"} bounce={bounce} />;
+  const restingOnBuzz = useHomeRestingOnBuzz();
+  if (!profile || restingOnBuzz) return <Icon name={focused ? ICONS.profile!.on : ICONS.profile!.off} sf={focused ? ICONS.profile!.sfOn : ICONS.profile!.sfOff} size={size} color={color} weight={focused ? "semibold" : "regular"} bounce={bounce} />;
   // The ring takes 2pt on each side, so the photo inside stays the size of the other icons' ink; on screen it is the aurora.
   const photo = size - 4;
   return (

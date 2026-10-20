@@ -51,7 +51,7 @@ async function call<T>(supabase: Client, fn: string, args: Record<string, unknow
   const rpc = (supabase.rpc as unknown as Rpc).bind(supabase);
   const { data, error } = await rpc(fn, args);
   if (error) {
-    const m = /ts:([a-z_]+):(.*)$/s.exec(error.message);
+    const m = /ts:([a-z_]+):([\s\S]*)$/.exec(error.message);
     throw m ? new TrustSafetyError(m[1]!, m[2]!.trim()) : new TrustSafetyError("unknown", error.message || "Something went wrong. Try again.");
   }
   return data as T;

@@ -1,6 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
-import { BUZZ_IMAGE_MAX_DIMENSION, BUZZ_IMAGE_QUALITY, uploadImage, type PhotoMeta } from "@apartment-book/shared";
+import { uploadImage, type PhotoMeta } from "@apartment-book/shared";
 import { supabase } from "./supabase";
 
 /**
@@ -13,6 +13,10 @@ import { supabase } from "./supabase";
  *
  * Never upload the picked file itself from here. If re-encoding fails, the photo is not added.
  */
+
+/** The longest side of a re-encoded Buzz photo, and its JPEG quality (the values Buzz has always used). */
+const BUZZ_IMAGE_MAX_DIMENSION = 2560;
+const BUZZ_IMAGE_QUALITY = 0.9;
 
 export type BuzzPickedPhoto = { uri: string; width: number; height: number };
 

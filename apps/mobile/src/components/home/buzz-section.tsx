@@ -1,314 +1,400 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
-import type { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { BUZZ_PAGE_SIZE, BUZZ_SORTS, BUZZ_TOPICS, labelFor, listBuzz, videosFor, type BuzzPost, type BuzzSort, type BuzzTopic } from "@apartment-book/shared";
-import { useActionSheet } from "@/components/action-sheet";
-import { EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Animated, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type FlatList, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { useIsFocused, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import {
+  BUZZ_FEED_COPY,
+  BUZZ_PAGE,
+  BUZZ_SORT_OPTIONS,
+  BUZZ_TOP_WINDOWS,
+  getBuzzFeed,
+  getBuzzMeta,
+  type BuzzFeedSort,
+  type BuzzScope,
+  type BuzzTopWindow,
+} from "@apartment-book/shared";
+import { Icon } from "@/components/icon";
+import { BuzzCardById, BuzzCardSkeleton, CARD_GAP } from "@/components/buzz/card";
+import { BuzzComposer } from "@/components/buzz/composer";
+import { BuzzFab } from "@/components/buzz/fab";
+import { BuzzGatePanel, BuzzSignedOutPanel, useBuzzGate } from "@/components/buzz/gate";
+import { BuzzActionsHost } from "@/components/buzz/item-menu";
+import { BuzzMediaActive } from "@/components/buzz/media";
+import { BuzzToastHost } from "@/components/buzz/toast";
+import { Chip, EmptyState, ErrorState, GUTTER, HERO_SOFT_GRADIENT, P, PButton, PIconButton, R, Segmented, T } from "@/components/buzz/ui";
+import { useBuzzList, type BuzzListPage } from "@/components/buzz/use-buzz-list";
+import { buzzState, feedKey, getBuzzState, onBuzzEvent, useBuzzState, type BuzzDraft, type BuzzUiState } from "@/lib/buzz-store";
 import { AnimatedFlatList } from "@/lib/collapsing-header";
-import { useHomeScope } from "@/lib/home-scope";
-import { buzzAfter, entryOf, openViewer, viewerItemFromBuzz, type ViewerEntry } from "@/lib/reel-viewer";
-import { useTabBarInset } from "@/lib/tab-bar";
-import { errorText } from "@/lib/hooks";
+import { refreshWithHaptic } from "@/lib/haptics";
+import { openHomeSection } from "@/lib/home-section";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
-import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
-import { BUZZ_GUTTER, BuzzCard, BuzzSearchRow, emitBuzzEvent, onBuzzEvent, type BuzzCardProps, type BuzzMediaOpen } from "./buzz-card";
+import { useTabBarInset } from "@/lib/tab-bar";
 import { useTabReselect } from "@/lib/tab-reselect";
-import { refreshWithHaptic } from "@/lib/haptics";
-import { Icon } from "@/components/icon";
 
-const SORT_ICONS: Record<BuzzSort, keyof typeof Ionicons.glyphMap> = { hot: "flame-outline", new: "time-outline", top: "trending-up-outline" };
-
-/** A small rounded filter pill, like the ones under Reddit's search bar. */
-function FilterPill({ label, icon, active, caret, onPress, accessibilityLabel }: { label: string; icon?: keyof typeof Ionicons.glyphMap; active?: boolean; caret?: boolean; onPress: () => void; accessibilityLabel?: string }) {
-  const colors = useColors();
-  const styles = useStyles();
-  const ink = active ? colors.brand : colors.text;
-  return (
-    <Pressable onPress={onPress} style={[styles.filter, active && { backgroundColor: colors.brandSoft }]} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? label} accessibilityState={{ selected: Boolean(active) }}>
-      {icon ? <Icon name={icon} size={15} color={ink} /> : null}
-      <Text style={[styles.filterText, { color: ink }]}>{label}</Text>
-      {caret ? <Icon name="chevron-down" size={14} color={ink} /> : null}
-    </Pressable>
-  );
-}
-
-/** Home → Buzz: anonymous Reddit-style threads. `topInset` is the height of the floating Home bar above the list, which `onScroll` reports its scroll to (the bar slides away with it). */
-type Vote = Parameters<NonNullable<BuzzCardProps["onVote"]>>[0];
-
-/**
- * One thread, memoised: a vote, a new page or the bar sliding away redraws only the rows that changed. The handlers
- * are the list's own stable functions; the per-thread ones are made here, once per drawing of this row.
+/*
+ * Home → Buzz (UniVerse's BuzzPane, design §7.2, SPEC §5.3), in Phosphor whatever the app's theme.
+ *
+ *  - Signed out: a sign-in prompt. Signed in without the current guidelines accepted: the inline gate panel (only while
+ *    the page is the one on screen; otherwise an empty canvas, nothing loaded), "Not now" back to the section before.
+ *  - Accepted: under Home's bar a filter bar (search pill, Hot | New | Top, Campus | Global) that slides up under the bar
+ *    as the feed scrolls down and comes back as it scrolls up; Top adds Today | This week | All time; today's prompt (Hot
+ *    only); the small-campus note; the cold start (an empty campus Hot feed moves to Global with a banner); the cards;
+ *    skeletons, empty states, the error state, more as you scroll ("That's everything for now"); the FAB (pen + mask)
+ *    and the composer. Home's own bar stays put on this page, as on UniVerse: Buzz never feeds its collapse.
+ *
+ * Because posts publish after a random delay (jitter), there is no live push: the feed loads when it comes up, on pull to
+ * refresh and after your own writes.
  */
-const BuzzRow = memo(function BuzzRow({ post, active, onVoteFor, onMuted, onOpenMedia }: { post: BuzzCardProps["post"]; active: boolean; onVoteFor: (id: string, vote: Vote) => void; onMuted: () => void; onOpenMedia: NonNullable<BuzzCardProps["onOpenMedia"]> }) {
-  return <BuzzCard post={post} active={active} onVote={(v) => onVoteFor(post.id, v)} onRemoved={removeThread} onMuted={onMuted} onOpenMedia={onOpenMedia} />;
-});
 
-// The thread and create screens report through the same event bus, so every change takes one path, which this list listens to.
-const voteThread = (id: string, vote: Vote) => emitBuzzEvent({ type: "vote", id, vote });
-const removeThread = (id: string) => emitBuzzEvent({ type: "remove", id });
+const selectSort = (s: BuzzUiState) => s.sort;
+const selectWindow = (s: BuzzUiState) => s.window;
+const selectScope = (s: BuzzUiState) => s.scope;
+const selectColdStart = (s: BuzzUiState) => s.coldStart;
+const selectColdStartDismissed = (s: BuzzUiState) => s.coldStartDismissed;
+const selectMeta = (s: BuzzUiState) => s.meta;
+const selectCampus = (s: BuzzUiState) => s.campus;
+const selectComposerRequest = (s: BuzzUiState) => s.composerRequest;
 
-export function BuzzSection({ active, topInset, onScroll }: { active: boolean; topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
-  const router = useRouter();
-  const show = useActionSheet();
-  const { user, profile } = useSession();
-  const { colors, isDark } = useAppTheme();
-  const styles = useStyles();
-  const [search, setSearch] = useState("");
-  const [q, setQ] = useState("");
-  /** The search the list on screen was loaded with. */
-  const [shownQ, setShownQ] = useState("");
-  const [sort, setSort] = useState<BuzzSort>("hot");
-  const [topic, setTopic] = useState<BuzzTopic | undefined>();
-  const [scope] = useHomeScope();
-  // The campus is chosen from the dropdown in the top bar; someone without a university sees every campus.
-  const universityId = scope.campus === "all" || !profile?.university_id ? undefined : profile.university_id;
+const SCOPES = [
+  { value: "campus" as const, label: "Campus", icon: "school-outline" as const },
+  { value: "global" as const, label: "Global", icon: "globe-outline" as const },
+];
+/** The filter bar's height before it has been measured. */
+const FILTER_GUESS = 104;
+/** How long a feed's meta (today's prompt, the small-campus note) is trusted. */
+const META_FRESH_MS = 5 * 60_000;
 
-  const [items, setItems] = useState<BuzzPost[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [ended, setEnded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [moreError, setMoreError] = useState(false);
-  const seq = useRef(0);
-  const count = useRef(0);
-  count.current = items.length;
+type Row = { id: string };
 
-  // Wait until typing stops before searching.
-  useEffect(() => {
-    const t = setTimeout(() => setQ(search.trim()), 350);
-    return () => clearTimeout(t);
-  }, [search]);
-
-  const load = useCallback(
-    async (mode: "replace" | "more") => {
-      const id = ++seq.current;
-      const offset = mode === "more" ? count.current : 0;
-      try {
-        const page = await listBuzz(supabase, { universityId, topic, sort, q: q || undefined, limit: BUZZ_PAGE_SIZE, offset });
-        if (id !== seq.current) return;
-        setItems((prev) => (mode === "replace" ? page : [...prev, ...page.filter((p) => !prev.some((x) => x.id === p.id))]));
-        if (mode === "replace") setShownQ(q);
-        setEnded(page.length < BUZZ_PAGE_SIZE);
-        setError(null);
-        setMoreError(false);
-      } catch (e) {
-        if (id !== seq.current) return;
-        // A failed "load more" only shows a retry row at the bottom: the list above is still good.
-        if (mode === "more") setMoreError(true);
-        else setError(errorText(e, "Could not load Buzz. Please try again."));
-      } finally {
-        if (id === seq.current) {
-          setLoading(false);
-          setRefreshing(false);
-          setLoadingMore(false);
-        }
-      }
-    },
-    // The signed-in user is part of the key: "You" markers and votes differ per person.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [universityId, topic, sort, q, user?.id],
-  );
-
-  useEffect(() => {
-    setLoading(true);
-    void load("replace");
-  }, [load]);
-
-  // Things that happened on the thread or create screens.
-  useEffect(
-    () =>
-      onBuzzEvent((e) => {
-        if (e.type === "patch") setItems((prev) => prev.map((p) => (p.id === e.post.id ? e.post : p)));
-        else if (e.type === "vote") setItems((prev) => prev.map((p) => (p.id === e.id ? { ...p, score: e.vote.score, myVote: e.vote.myVote } : p)));
-        else if (e.type === "remove") setItems((prev) => prev.filter((p) => p.id !== e.id));
-        else if (e.type === "reload") void load("replace");
-      }),
-    [load],
-  );
-
-  const refresh = useCallback(() => {
-    setRefreshing(true);
-    void load("replace");
-  }, [load]);
-
-  const fetchMore = useCallback(() => {
-    if (loading || refreshing || loadingMore || ended || count.current === 0) return;
-    setMoreError(false);
-    setLoadingMore(true);
-    void load("more");
-  }, [load, loading, refreshing, loadingMore, ended]);
-
-  // Scrolling to the end loads the next page. After a failure the person retries with a tap, so a dead connection is not hammered.
-  const loadMore = useCallback(() => {
-    if (!moreError) fetchMore();
-  }, [fetchMore, moreError]);
-
-  const filtered = Boolean(q || topic);
-  // Rows use Reddit's compact search style only while the list on screen really is a set of search results,
-  // so they do not flip style (and remount) while the person is still typing or the full list is still loading.
-  const searching = shownQ.length > 0;
-  const create = () => router.push(user ? "/create/buzz" : "/(auth)/login");
-  const pickSort = () =>
-    show(
-      BUZZ_SORTS.map((s) => ({ label: s.value === sort ? `${s.label} ✓` : s.label, icon: SORT_ICONS[s.value], onPress: () => setSort(s.value) })),
-      "Sort threads by",
-    );
-  // iOS: an inset keeps the pull-to-refresh spinner below the floating bar. Android: padding + spinner offset.
-  const ios = Platform.OS === "ios";
-  const inset = useMemo(() => ({ top: topInset }), [topInset]);
+export function BuzzSection({ active, topInset }: { active: boolean; topInset: number; onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void }) {
+  const { user, loading } = useSession();
+  const gate = useBuzzGate();
   const tabBar = useTabBarInset();
-  const startOffset = useMemo(() => ({ x: 0, y: -topInset }), [topInset]);
-  // Tapping Home again while Buzz is on screen: back to the top.
-  const listRef = useRef<FlatList<BuzzPost>>(null);
-  // Rows fade in once as they first arrive (not when scrolled back into view).
-  const appearCells = useAppearingCells();
-  // Muting a topic or a poster from a card reloads the feed without them.
-  const reloadAfterMute = useCallback(() => {
-    setRefreshing(true);
-    emitBuzzEvent({ type: "reload" });
-  }, []);
-  useTabReselect(() => listRef.current?.scrollToOffset({ offset: ios ? -topInset : 0, animated: true }), active);
 
-  // One video plays at a time, the first row on screen (at least 60% of it) that has one, as in For you: sound is one
-  // switch for every video, so two playing at once would both be heard.
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const first = viewableItems.find((v) => v.isViewable && videosFor((v.item as BuzzPost).videos).length > 0);
-    setPlayingId(first ? String(first.key) : null);
-  }).current;
-  const viewability = useRef({ itemVisiblePercentThreshold: 60 }).current;
-
-  /** The list on screen and what it was loaded with, read when a picture is tapped. */
-  const latest = useRef({ items, filters: { universityId, topic, sort, q: shownQ || undefined } });
-  latest.current = { items, filters: { universityId, topic, sort, q: shownQ || undefined } };
-  /**
-   * A thread's photos or videos tapped: the viewer opens on them, zooming from the frame, with the list's other threads
-   * that have media around it (a swipe up moves on, then on into the list's next pages); the tapped video plays on there
-   * from where it was. Anonymous all the way: the pages carry the threads as the list has them, nobody's name.
-   */
-  const openInViewer = useCallback(
-    (tapped: BuzzPost, live: BuzzMediaOpen) => {
-      // A video opened full screen is the one that plays here when the viewer closes.
-      if (live.time !== null) setPlayingId(tapped.id);
-      const { items: list, filters } = latest.current;
-      const entries: ViewerEntry[] = [];
-      let index = -1;
-      for (const p of list) {
-        const isTapped = p.id === tapped.id;
-        // The tapped thread with the vote its row shows now (one may still be on its way to the server).
-        const item = viewerItemFromBuzz(isTapped ? { ...p, score: live.vote.score, myVote: live.vote.myVote } : p);
-        if (!item) continue;
-        if (isTapped) index = entries.length;
-        entries.push(entryOf(item, isTapped ? live.slide : undefined, isTapped ? (live.time ?? undefined) : undefined, isTapped ? (live.player ?? undefined) : undefined));
-      }
-      if (index < 0) return;
-      openViewer(router, { entries, index, origin: live.origin, then: { more: buzzAfter({ filters, offset: list.length, seen: new Set(list.map((p) => p.id)) }) } });
-    },
-    [router],
-  );
+  let content = null;
+  if (!loading && !user) content = active ? <Centered topInset={topInset} bottom={tabBar}><BuzzSignedOutPanel /></Centered> : null;
+  else if (gate.status === "accepted") content = <Feed active={active} topInset={topInset} />;
+  else if (!active) content = null;
+  else if (gate.status === "required")
+    content = (
+      <Centered topInset={topInset} bottom={tabBar}>
+        <BuzzGatePanel variant="pane" onDismiss={() => openHomeSection(getBuzzState().previousSection)} />
+      </Centered>
+    );
+  else if (gate.status === "error")
+    content = (
+      <Centered topInset={topInset} bottom={tabBar}>
+        <ErrorState title={BUZZ_FEED_COPY.loadError} message={gate.error} onRetry={gate.retry} />
+      </Centered>
+    );
+  else
+    content = (
+      <View style={{ paddingTop: topInset + 16, paddingHorizontal: GUTTER, gap: CARD_GAP }} accessibilityLabel="Loading Buzz">
+        <BuzzCardSkeleton />
+        <BuzzCardSkeleton />
+      </View>
+    );
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <AnimatedFlatList
-        ref={listRef}
-        data={items}
-        keyExtractor={(p) => p.id}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        // Flat Reddit rows: no cards, no side padding, a hairline between rows.
-        contentContainerStyle={{ paddingBottom: 96 + tabBar, paddingTop: ios ? 0 : topInset }}
-        ItemSeparatorComponent={Hairline}
-        contentInset={ios ? inset : undefined}
-        contentOffset={ios ? startOffset : undefined}
-        scrollIndicatorInsets={ios ? inset : undefined}
-        automaticallyAdjustContentInsets={false}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <View style={styles.searchRow}>
-              <View style={styles.search}>
-                <Icon name="search" size={18} color={colors.muted} />
-                <TextInput value={search} onChangeText={setSearch} placeholder="Search Buzz" placeholderTextColor={colors.faint} keyboardAppearance={isDark ? "dark" : "light"} returnKeyType="search" clearButtonMode="while-editing" autoCorrect={false} style={styles.searchInput} accessibilityLabel="Search Buzz" />
-              </View>
-              <Pressable onPress={create} style={styles.plus} accessibilityRole="button" accessibilityLabel="Post anonymously on Buzz">
-                <Icon name="add" size={26} color={colors.text} />
-              </Pressable>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -BUZZ_GUTTER }} contentContainerStyle={{ gap: 8, paddingHorizontal: BUZZ_GUTTER }} keyboardShouldPersistTaps="handled">
-              <FilterPill label={labelFor(BUZZ_SORTS, sort)} icon={SORT_ICONS[sort]} caret onPress={pickSort} accessibilityLabel={`Sort: ${labelFor(BUZZ_SORTS, sort)}`} />
-              {BUZZ_TOPICS.map((t) => (
-                <FilterPill key={t.value} label={t.label} active={topic === t.value} onPress={() => setTopic(topic === t.value ? undefined : t.value)} />
-              ))}
-            </ScrollView>
-            <View style={styles.notice}>
-              <Icon name="eye-off-outline" size={13} color={colors.muted} />
-              <Text style={styles.noticeText}>Buzz is anonymous. Nobody sees who wrote a post or a reply.</Text>
-            </View>
-            {error && items.length > 0 ? <ErrorBanner message={error} onRetry={refresh} /> : null}
-          </View>
-        }
-        CellRendererComponent={appearCells}
-        windowSize={11}
-        maxToRenderPerBatch={8}
-        renderItem={({ item }) =>
-          searching ? (
-            <BuzzSearchRow post={item} />
-          ) : (
-            <BuzzRow post={item} active={active && playingId === item.id} onVoteFor={voteThread} onMuted={reloadAfterMute} onOpenMedia={openInViewer} />
-          )
-        }
-        ListEmptyComponent={
-          loading ? (
-            <Loading />
-          ) : error ? (
-            <View style={{ paddingHorizontal: BUZZ_GUTTER }}>
-              <ErrorBanner message={error} onRetry={refresh} />
-            </View>
-          ) : filtered ? (
-            <EmptyState icon="search-outline" title="Nothing matches" body="Try another word or clear the topic." />
-          ) : (
-            <EmptyState icon="chatbubbles-outline" title="No Buzz yet" body="Share a thought, a story or a question. Your name is never shown." />
-          )
-        }
-        ListFooterComponent={
-          loadingMore ? (
-            <ActivityIndicator color={colors.brand} style={{ paddingVertical: 12 }} />
-          ) : moreError ? (
-            <Pressable onPress={fetchMore} accessibilityRole="button" style={{ paddingVertical: 12 }}>
-              <Text style={styles.retry}>Could not load more. Tap to try again.</Text>
-            </Pressable>
-          ) : ended && items.length >= BUZZ_PAGE_SIZE ? <Text style={styles.end}>You have reached the end.</Text> : null
-        }
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.6}
-        onViewableItemsChanged={onViewable}
-        viewabilityConfig={viewability}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshWithHaptic(refresh)} progressViewOffset={ios ? undefined : topInset} tintColor={colors.brand} />}
-      />
+    <View style={styles.page}>
+      {/* Home's own status bar follows the app's theme: on Buzz the clock is light over Phosphor. */}
+      {active ? <StatusBar style="light" /> : null}
+      {content}
     </View>
   );
 }
 
-function Hairline() {
-  const styles = useStyles();
-  return <View style={styles.hairline} />;
+/** The gate, the sign-in prompt and the error state: scrollable, under Home's bar, clear of the tab bar. */
+function Centered({ topInset, bottom, children }: { topInset: number; bottom: number; children: ReactNode }) {
+  return (
+    <ScrollView contentContainerStyle={{ paddingTop: topInset + 16, paddingBottom: bottom + 24 }} showsVerticalScrollIndicator={false}>
+      {children}
+    </ScrollView>
+  );
 }
 
-const useStyles = makeStyles((colors) => ({
-  header: { paddingHorizontal: BUZZ_GUTTER, paddingTop: 10, paddingBottom: 8, gap: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  searchRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  search: { flex: 1, height: 42, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.input, borderRadius: 21, paddingHorizontal: 14 },
-  searchInput: { flex: 1, fontSize: 15, color: colors.text, paddingVertical: 0 },
-  plus: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
-  filter: { height: 32, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, borderRadius: 16, backgroundColor: colors.input },
-  filterText: { fontSize: 13, fontWeight: "600" },
-  hairline: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
-  notice: { flexDirection: "row", alignItems: "center", gap: 5 },
-  noticeText: { flex: 1, fontSize: 12, lineHeight: 16, color: colors.muted },
-  retry: { textAlign: "center", color: colors.brand, fontSize: 13, fontWeight: "600" },
-  end: { textAlign: "center", color: colors.faint, fontSize: 12, paddingVertical: 12 },
-}));
+const CardRow = memo(function CardRow({ id }: { id: string }) {
+  return (
+    <View style={styles.cardRow}>
+      <BuzzCardById id={id} />
+    </View>
+  );
+});
+
+function Feed({ active, topInset }: { active: boolean; topInset: number }) {
+  const router = useRouter();
+  const focused = useIsFocused();
+  const tabBar = useTabBarInset();
+  const sort = useBuzzState(selectSort);
+  const window = useBuzzState(selectWindow);
+  const scope = useBuzzState(selectScope);
+  const coldStart = useBuzzState(selectColdStart);
+  const coldStartDismissed = useBuzzState(selectColdStartDismissed);
+  const metaCache = useBuzzState(selectMeta);
+  const campus = useBuzzState(selectCampus);
+  const composerRequest = useBuzzState(selectComposerRequest);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [filterHeight, setFilterHeight] = useState(FILTER_GUESS);
+  const listRef = useRef<FlatList<Row>>(null);
+  const ios = Platform.OS === "ios";
+  const insetTop = topInset + filterHeight;
+
+  /* ---------- the feed ---------- */
+
+  const key = feedKey(scope, sort, window);
+  const load = useCallback(
+    async (offset: number, rankAt: string | null): Promise<BuzzListPage<Row>> => {
+      const page = await getBuzzFeed(supabase, { scope, sort, window, offset, rankAt, limit: BUZZ_PAGE.feed });
+      return { rows: page.items.map((b) => ({ id: b.id })), items: page.items, nextOffset: page.nextOffset, rankAt: page.rankAt };
+    },
+    [scope, sort, window],
+  );
+  const restore = useCallback((k: string) => {
+    const hit = getBuzzState().feeds[k];
+    return hit ? { rows: hit.ids.map((id) => ({ id })), nextOffset: hit.nextOffset, rankAt: hit.rankAt, at: hit.at } : null;
+  }, []);
+  const onLoaded = useCallback((k: string, snap: { rows: Row[]; nextOffset: number | null; rankAt: string | null }) => {
+    buzzState.setFeed(k, { ids: snap.rows.map((r) => r.id), nextOffset: snap.nextOffset, rankAt: snap.rankAt });
+  }, []);
+  const list = useBuzzList<Row>({ key, load, restore, onLoaded });
+  const { remove, reloadQuietly } = list;
+
+  // Hidden, reported or deleted anywhere: gone from here. Your own new buzz: load again.
+  useEffect(
+    () =>
+      onBuzzEvent((e) => {
+        if (e.type === "removed") remove(e.id);
+        else if (e.type === "refresh" && (!e.scope || e.scope === getBuzzState().scope)) reloadQuietly();
+      }),
+    [remove, reloadQuietly],
+  );
+
+  /* ---------- meta: today's prompt, the small-campus note, the campus's name ---------- */
+
+  const meta = metaCache[scope]?.value ?? null;
+  const metaAt = metaCache[scope]?.at ?? 0;
+  useEffect(() => {
+    if (Date.now() - metaAt < META_FRESH_MS) return;
+    let live = true;
+    getBuzzMeta(supabase, scope).then(
+      (m) => live && buzzState.setMeta(scope, m),
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, [scope, metaAt]);
+
+  /* ---------- cold start: the campus Hot feed is empty on its first page → Global with a banner ---------- */
+
+  useEffect(() => {
+    if (scope === "campus" && sort === "hot" && list.key === key && list.status === "ready" && list.rows.length === 0 && !coldStartDismissed) buzzState.setScope("global", { coldStart: true });
+  }, [scope, sort, key, list.key, list.status, list.rows.length, coldStartDismissed]);
+
+  const chooseScope = useCallback((v: BuzzScope) => {
+    buzzState.setScope(v);
+    if (v === "campus") buzzState.dismissColdStart();
+  }, []);
+
+  /* ---------- the composer ---------- */
+
+  const openComposer = useCallback((prefill?: Partial<BuzzDraft>) => {
+    buzzState.prepareDraft(getBuzzState().scope, prefill);
+    setComposerOpen(true);
+  }, []);
+  // Asked for from outside the page (the create menu, an old /create/buzz link): opens once the page is on screen.
+  useEffect(() => {
+    if (!active || !composerRequest) return;
+    const r = buzzState.takeComposerRequest();
+    if (r) openComposer(r.promptId ? { promptId: r.promptId } : undefined);
+  }, [active, composerRequest, openComposer]);
+
+  /* ---------- the filter bar and the FAB slide away as the feed scrolls down ---------- */
+
+  const scrollY = useRef(new Animated.Value(ios ? -insetTop : 0)).current;
+  const onScroll = useMemo(() => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true }), [scrollY]);
+  const hidden = useMemo(() => {
+    const fromTop = (ios ? Animated.add(scrollY, insetTop) : scrollY).interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: "clamp", extrapolateRight: "extend" });
+    return Animated.diffClamp(fromTop, 0, Math.max(1, filterHeight));
+  }, [scrollY, ios, insetTop, filterHeight]);
+  const barY = useMemo(() => Animated.multiply(hidden, -1), [hidden]);
+  // iOS: a list resting at the top stays there when the inset above it changes (the filter bar measured, a new text size).
+  const restingY = useRef<number | null>(null);
+  const placedInset = useRef(insetTop);
+  useEffect(() => {
+    if (!ios || placedInset.current === insetTop) return;
+    const wasAtTop = restingY.current === null || Math.abs(restingY.current + placedInset.current) < 2;
+    placedInset.current = insetTop;
+    if (!wasAtTop) return;
+    scrollY.setValue(-insetTop);
+    listRef.current?.scrollToOffset({ offset: -insetTop, animated: false });
+  }, [ios, insetTop, scrollY]);
+  const noteRest = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    restingY.current = e.nativeEvent.contentOffset.y;
+  }, []);
+  const fabY = useMemo(() => hidden.interpolate({ inputRange: [0, Math.max(1, filterHeight)], outputRange: [0, tabBar + 96], extrapolate: "clamp" }), [hidden, filterHeight, tabBar]);
+  const onFilterLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = Math.round(e.nativeEvent.layout.height);
+    setFilterHeight((prev) => (Math.abs(prev - h) > 1 ? h : prev));
+  }, []);
+
+  // Tapping Home again while Buzz is on screen: back to the top.
+  useTabReselect(() => listRef.current?.scrollToOffset({ offset: ios ? -insetTop : 0, animated: true }), active);
+
+  /* ---------- the list ---------- */
+
+  const where = scope === "campus" ? (campus?.shortName ?? meta?.campus?.shortName ?? "campus") : "Global";
+  const university = campus?.name ?? meta?.campus?.name ?? "your campus";
+  const header = (
+    <View style={styles.header}>
+      {sort === "top" ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.windows} accessibilityLabel="Top window">
+          {BUZZ_TOP_WINDOWS.map((w) => (
+            <Chip key={w.value} label={w.label} selected={window === w.value} onPress={() => buzzState.setWindow(w.value as BuzzTopWindow)} />
+          ))}
+        </ScrollView>
+      ) : null}
+      {coldStart && !coldStartDismissed && scope === "global" ? (
+        <View style={styles.coldStart} accessibilityRole="summary">
+          <Text style={[T.footnote, styles.flex, { color: P.ink }]}>{BUZZ_FEED_COPY.coldStart(university)}</Text>
+          <PButton title={BUZZ_FEED_COPY.coldStartAction} variant="secondary" size="sm" onPress={() => openComposer()} />
+          <PIconButton icon="close" label="Dismiss" onPress={() => buzzState.dismissColdStart()} size={32} iconSize={16} />
+        </View>
+      ) : null}
+      {meta?.smallCampusNote && scope === "campus" ? (
+        <View style={styles.smallCampus}>
+          <Text style={[T.footnote, { color: P.ink3 }]}>{BUZZ_FEED_COPY.smallCampus}</Text>
+        </View>
+      ) : null}
+      {meta?.prompt && sort === "hot" ? (
+        <View style={styles.prompt}>
+          <View style={styles.promptHead}>
+            <Icon name="sparkles" size={15} color={P.accentInk} />
+            <Text style={[T.overline, { color: P.accentInk }]}>{BUZZ_FEED_COPY.promptOverline}</Text>
+          </View>
+          <Text style={[T.headline, { color: P.ink, fontSize: 17, lineHeight: 23 }]}>{meta.prompt.text}</Text>
+          <PButton title={BUZZ_FEED_COPY.promptAction} variant="secondary" size="sm" onPress={() => openComposer({ promptId: meta.prompt!.id })} style={styles.selfStart} />
+        </View>
+      ) : null}
+    </View>
+  );
+
+  const empty =
+    list.status === "loading" || list.status === "idle" ? (
+      <View style={styles.cards} accessibilityLabel="Loading Buzz">
+        <BuzzCardSkeleton />
+        <BuzzCardSkeleton />
+        <BuzzCardSkeleton />
+      </View>
+    ) : list.status === "error" ? (
+      <ErrorState title={BUZZ_FEED_COPY.loadError} message={list.error} onRetry={list.reloadQuietly} />
+    ) : (
+      <FeedEmpty sort={sort} window={window} scope={scope} university={university} onSeeGlobal={() => chooseScope("global")} onCheckNew={() => buzzState.setSort("new")} onPost={() => openComposer()} />
+    );
+
+  const footer = list.loadingMore ? (
+    <View style={[styles.cards, { paddingTop: CARD_GAP }]}>
+      <BuzzCardSkeleton />
+    </View>
+  ) : list.moreError ? (
+    <Pressable onPress={() => void list.loadMore()} accessibilityRole="button" style={styles.end}>
+      <Text style={[T.footnote, { color: P.accentInk }]}>Couldn't load more. Tap to try again.</Text>
+    </Pressable>
+  ) : list.ended && list.rows.length > 0 ? (
+    <View style={styles.end}>
+      <Text style={[T.caption, { color: P.ink4 }]}>{BUZZ_FEED_COPY.end}</Text>
+    </View>
+  ) : null;
+
+  return (
+    <BuzzMediaActive.Provider value={active && focused}>
+      <BuzzActionsHost>
+        <View style={styles.flex}>
+          <AnimatedFlatList
+            ref={listRef}
+            data={list.status === "ready" ? list.rows : []}
+            keyExtractor={(r) => r.id}
+            renderItem={({ item }) => <CardRow id={item.id} />}
+            ItemSeparatorComponent={Separator}
+            ListHeaderComponent={header}
+            ListEmptyComponent={empty}
+            ListFooterComponent={footer}
+            onEndReached={() => {
+              if (!list.moreError) void list.loadMore();
+            }}
+            onEndReachedThreshold={0.8}
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            onScrollEndDrag={noteRest}
+            onMomentumScrollEnd={noteRest}
+            contentContainerStyle={{ paddingTop: ios ? 0 : insetTop, paddingBottom: tabBar + 96 }}
+            contentInset={ios ? { top: insetTop } : undefined}
+            contentOffset={ios ? { x: 0, y: -insetTop } : undefined}
+            scrollIndicatorInsets={ios ? { top: insetTop } : undefined}
+            automaticallyAdjustContentInsets={false}
+            keyboardShouldPersistTaps="handled"
+            indicatorStyle="white"
+            windowSize={9}
+            maxToRenderPerBatch={6}
+            initialNumToRender={6}
+            refreshControl={<RefreshControl refreshing={list.refreshing} onRefresh={refreshWithHaptic(list.refresh)} tintColor={P.accent} colors={[P.accent]} progressBackgroundColor={P.surface2} progressViewOffset={ios ? undefined : insetTop} />}
+          />
+          {/* The filter bar, under Home's bar: it slides up beneath it as the feed scrolls down. */}
+          <Animated.View onLayout={onFilterLayout} style={[styles.filterBar, { top: topInset, transform: [{ translateY: barY }] }]}>
+            <Pressable
+              onPress={() => {
+                buzzState.setSearch({ scope });
+                router.push("/buzz/search" as never);
+              }}
+              accessibilityRole="search"
+              accessibilityLabel={BUZZ_FEED_COPY.searchPlaceholder(where)}
+              style={({ pressed }) => [styles.searchPill, pressed && { opacity: 0.85 }]}
+            >
+              <Icon name="search" size={18} color={P.ink3} />
+              <Text style={[T.body, styles.flex, { color: P.ink3 }]} numberOfLines={1}>
+                {BUZZ_FEED_COPY.searchPlaceholder(where)}
+              </Text>
+            </Pressable>
+            <View style={styles.filters}>
+              <Segmented<BuzzFeedSort> label="Sort" value={sort} options={BUZZ_SORT_OPTIONS} onChange={(v) => buzzState.setSort(v)} />
+              <Segmented<BuzzScope> label="Feed scope" value={scope} options={SCOPES} onChange={chooseScope} />
+            </View>
+          </Animated.View>
+          <BuzzFab onPress={() => openComposer()} bottom={tabBar + 12} translateY={fabY} />
+          <BuzzToastHost bottom={tabBar + 84} enabled={active && focused} />
+        </View>
+        <BuzzComposer visible={composerOpen} onClose={() => setComposerOpen(false)} />
+      </BuzzActionsHost>
+    </BuzzMediaActive.Provider>
+  );
+}
+
+function Separator() {
+  return <View style={{ height: CARD_GAP }} />;
+}
+
+/** UniVerse's FeedEmpty: what an empty feed says, and what it offers. */
+function FeedEmpty({ sort, window, scope, university, onSeeGlobal, onCheckNew, onPost }: { sort: BuzzFeedSort; window: BuzzTopWindow; scope: BuzzScope; university: string; onSeeGlobal: () => void; onCheckNew: () => void; onPost: () => void }) {
+  if (sort === "top" && window === "day") return <EmptyState icon="compass-outline" title={BUZZ_FEED_COPY.topTodayEmpty} action={{ label: BUZZ_FEED_COPY.checkNew, onPress: onCheckNew }} />;
+  if (scope === "campus") return <EmptyState title={BUZZ_FEED_COPY.campusEmpty(university)} action={{ label: BUZZ_FEED_COPY.startFirst, onPress: onPost }} secondary={{ label: BUZZ_FEED_COPY.seeGlobal, onPress: onSeeGlobal }} />;
+  return <EmptyState title={BUZZ_FEED_COPY.globalEmptyTitle} body={BUZZ_FEED_COPY.globalEmptyBody} action={{ label: BUZZ_FEED_COPY.startFirst, onPress: onPost }} />;
+}
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  page: { flex: 1, backgroundColor: P.canvas },
+  selfStart: { alignSelf: "flex-start" },
+  header: { gap: 12, paddingBottom: CARD_GAP },
+  cards: { paddingHorizontal: GUTTER, gap: CARD_GAP },
+  cardRow: { paddingHorizontal: GUTTER },
+  windows: { gap: 8, paddingHorizontal: GUTTER },
+  coldStart: { marginHorizontal: GUTTER, flexDirection: "row", alignItems: "center", gap: 10, paddingLeft: 14, paddingRight: 6, paddingVertical: 10, borderRadius: R.lg, borderCurve: "continuous", borderWidth: 1, borderColor: P.accentLine, backgroundColor: P.surface1, experimental_backgroundImage: HERO_SOFT_GRADIENT },
+  smallCampus: { marginHorizontal: GUTTER, paddingHorizontal: 12, paddingVertical: 8, borderRadius: R.md, borderCurve: "continuous", backgroundColor: P.surface2 },
+  prompt: { marginHorizontal: GUTTER, gap: 12, padding: 16, borderRadius: R.lg, borderCurve: "continuous", borderWidth: 1, borderColor: P.accentLine, backgroundColor: P.surface1, experimental_backgroundImage: HERO_SOFT_GRADIENT },
+  promptHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+  end: { alignItems: "center", paddingVertical: 20 },
+  filterBar: { position: "absolute", left: 0, right: 0, gap: 8, paddingHorizontal: GUTTER, paddingTop: 8, paddingBottom: 10, backgroundColor: P.canvas },
+  searchPill: { height: 42, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, borderRadius: R.pill, backgroundColor: P.surface2 },
+  filters: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+});

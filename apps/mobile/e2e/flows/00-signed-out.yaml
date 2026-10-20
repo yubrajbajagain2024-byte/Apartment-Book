@@ -52,8 +52,9 @@ appId: host.exp.Exponent
     end: "15%,50%"
     duration: 400
 - waitForAnimationToEnd
-- assertVisible: "Search Buzz"
-- assertVisible: "Post anonymously on Buzz"
+# Buzz is for signed-in students only: signed out, its page asks you to log in (nothing of Buzz loads).
+- assertVisible: "Buzz is anonymous campus talk"
+- assertVisible: "Log in"
 - takeScreenshot: e2e/screenshots/01-home-buzz
 - tapOn: "Reels"
 - waitForAnimationToEnd
