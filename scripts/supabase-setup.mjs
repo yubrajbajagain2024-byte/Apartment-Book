@@ -5,6 +5,7 @@
  * Preferred: a personal access token (https://supabase.com/dashboard/account/tokens)
  *   SUPABASE_ACCESS_TOKEN=sbp_xxx SUPABASE_PROJECT_REF=abcdefghij node scripts/supabase-setup.mjs
  * It will: run the migration + seed, fetch the API keys, write apps/web/.env.local,
+ * keep the project URL and service key in Vault for purge_snaps() (migration 28),
  * and set the auth Site URL / redirect URLs.
  *
  * Alternative (database password only):
@@ -130,6 +131,19 @@ async function withManagementApi() {
   const url = `https://${ref}.supabase.co`;
   if (process.env.SKIP_ENV === "1") done("kept existing apps/web/.env.local (SKIP_ENV=1)");
   else writeEnv({ url, anonKey: anon.api_key, siteUrl });
+
+  // purge_snaps() deletes Snap files through the Storage API (pg_net), which takes the service key: it reads that and
+  // the project URL from Vault. Kept there (or refreshed) on every run, so a rotated key is picked up.
+  log("\nSnap cleanup");
+  const hasSetter = firstRow(await runQuery("select to_regprocedure('public.set_snap_purge_credentials(text,text)') is not null as ok"))?.ok;
+  const service = keys.find((k) => k.name === "service_role") ?? keys.find((k) => k.type === "secret");
+  if (!hasSetter) log("  ! migration 28 (Snaps) is not applied yet: nothing to set up");
+  else if (!service?.api_key) log("  ! no service key found: purge_snaps() cannot delete Snap files until one is kept in Vault");
+  else {
+    const quote = (value) => `'${String(value).replace(/'/g, "''")}'`;
+    await runQuery(`select public.set_snap_purge_credentials(${quote(url)}, ${quote(service.api_key)})`);
+    done("purge_snaps() can delete Snap files (project URL and service key kept in Vault)");
+  }
 
   log("\nAuth settings");
   const current = await api("GET", `/v1/projects/${ref}/config/auth`);

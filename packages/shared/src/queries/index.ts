@@ -5,6 +5,7 @@ export * from "./roommates";
 export * from "./items";
 export * from "./saved";
 export * from "./messages";
+export * from "./snaps";
 export * from "./storage";
 export * from "./push-tokens";
 export * from "./media";

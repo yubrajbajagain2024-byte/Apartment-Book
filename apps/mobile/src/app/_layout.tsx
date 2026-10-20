@@ -53,6 +53,10 @@ function ThemedStack() {
             while the page grows over it and the backdrop darkens. It draws its own Back and closes on a swipe from the
             left edge. */}
         <Stack.Screen name="reels/[id]" options={{ headerShown: false, presentation: "transparentModal", animation: "none", gestureEnabled: false, contentStyle: { backgroundColor: "transparent" } }} />
+        {/* Snaps, the same way: the phone's camera opens over whatever is on screen and the Snap then fills it, with Send
+            To (snap/index); a Snap in a chat opens once, full screen (snap/[id]). Both fade in and out on their own. */}
+        <Stack.Screen name="snap/index" options={{ headerShown: false, presentation: "transparentModal", animation: "none", gestureEnabled: false, contentStyle: { backgroundColor: "transparent" } }} />
+        <Stack.Screen name="snap/[id]" options={{ headerShown: false, presentation: "transparentModal", animation: "none", gestureEnabled: false, contentStyle: { backgroundColor: "transparent" } }} />
         <Stack.Screen name="buzz/[id]" options={{ headerShown: false, contentStyle: content }} />
         <Stack.Screen name="messages/[id]" options={{ title: "Chat" }} />
         <Stack.Screen name="messages/new" options={{ title: "New message" }} />

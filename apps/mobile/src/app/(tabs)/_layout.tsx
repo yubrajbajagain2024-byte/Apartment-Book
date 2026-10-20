@@ -96,7 +96,7 @@ export default function TabsLayout() {
   const unread = useUnreadCount(user?.id ?? null);
   const { colors, isDark } = useAppTheme();
   const create = useCreateMenu();
-  const action: TabBarAction = { label: "Create", hint: "A post, a reel or a Buzz thread", icon: createIcon, onPress: create };
+  const action: TabBarAction = { label: "Create", hint: "A post, a reel, a Buzz thread or a Snap", icon: createIcon, onPress: create };
   // The header's own shadow barely shows on black, so in dark a hairline marks its edge. Light keeps its shadow.
   const headerStyle = isDark ? { backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border } : { backgroundColor: colors.bar };
   return (

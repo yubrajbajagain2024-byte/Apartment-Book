@@ -18,6 +18,7 @@ import {
   reportContent,
   sendMessage,
   signMessageMedia,
+  snapOf,
   unblockUser,
   type ConversationMember,
   type ConversationSummary,
@@ -40,6 +41,7 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { useChatActivity } from "@/lib/use-activity-status";
+import { onSnapChange } from "@/lib/snap-events";
 import { Icon } from "@/components/icon";
 
 /** Messages from one person this close together form one run: hugging bubbles, one avatar, one time. */
@@ -280,6 +282,11 @@ function Chat({
           // They are active right now (and their first message is what lets you see their status): ask again.
           refreshActivity.current();
         }
+      })
+      // A Snap opened, or gone, on either side: open_snap() and the Snap cleanup are all that ever change a message.
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${conversation.id}` }, (payload) => {
+        const row = payload.new as Message;
+        setMessages((prev) => prev.map((m) => (m.id === row.id ? { ...m, snap: row.snap ?? null } : m)));
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversation_members", filter: `conversation_id=eq.${conversation.id}` }, (payload) => {
         const row = payload.new as ConversationMember;
@@ -659,6 +666,29 @@ function Chat({
     [resolveMedia],
   );
   const openFile = useCallback((attachment: MessageAttachment) => void openMessageFile(attachment, colors.brand), [colors.brand]);
+  const openSnapViewer = useCallback(
+    (m: ChatMessage) => {
+      const snap = snapOf(m.snap);
+      if (!snap) return;
+      Keyboard.dismiss();
+      router.push({ pathname: "/snap/[id]", params: { id: snap.id } });
+    },
+    [router],
+  );
+  // A Snap opened on this device (or found expired or gone) changes its bubble before the database's update arrives.
+  useEffect(
+    () =>
+      onSnapChange(({ snapId, patch }) => {
+        setMessages((prev) =>
+          prev.map((m) => {
+            const snap = snapOf(m.snap);
+            if (!snap || snap.id !== snapId) return m;
+            return { ...m, snap: { ...snap, ...patch, opened_at: snap.opened_at ?? patch.opened_at ?? null } };
+          }),
+        );
+      }),
+    [],
+  );
   const openProfile = useCallback((profileId: string) => router.push({ pathname: "/profile/[id]", params: { id: profileId } }), [router]);
   const openInfo = useCallback(() => {
     Keyboard.dismiss();
@@ -723,12 +753,13 @@ function Chat({
           resolveMedia={resolveMedia}
           onOpenMedia={openMedia}
           onOpenFile={openFile}
+          onOpenSnap={openSnapViewer}
           onActions={onActions}
           onPressAvatar={openProfile}
         />
       );
     },
-    [messages, userId, isGroup, lastMine, receipt, seenAt, highlightId, mediaWidth, resolveMedia, openMedia, openFile, onActions, openProfile],
+    [messages, userId, isGroup, lastMine, receipt, seenAt, highlightId, mediaWidth, resolveMedia, openMedia, openFile, openSnapViewer, onActions, openProfile],
   );
 
   const headerOptions = useMemo(

@@ -178,7 +178,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
                   </View>
                 </Pressable>
                 {/* The create badge, labelled "Create" like the "+" over Reels: the end-to-end flows start from it. */}
-                <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" accessibilityHint="A post, a reel or a Buzz thread" style={styles.plus}>
+                <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" accessibilityHint="A post, a reel, a Buzz thread or a Snap" style={styles.plus}>
                   <Icon name="add" size={13} color={colors.onBrand} />
                 </Pressable>
               </View>

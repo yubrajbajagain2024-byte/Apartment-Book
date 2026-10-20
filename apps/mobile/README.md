@@ -23,7 +23,7 @@ The bottom bar is Home, Explore, +, Messages, Profile: four tabs (Profile is you
 the tab is on screen; the person icon signed out) and, in the middle, Create: the plain "+" inside a thin Aurora ring
 (cyan, blue, violet, the glow the app keeps for rings, drawn through a ring-shaped mask), nothing filled and no label
 (screen readers hear "Create"); the ring is as tall as a tab's icon and label together and lines up with them. It opens
-the create sheet (Post / Reel / Buzz), the same one as the "+" on your photo in Home's top bar. It floats over the content as a rounded
+the create sheet (Post / Reel / Buzz / Snap), the same one as the "+" on your photo in Home's top bar. It floats over the content as a rounded
 glass pill (`src/app/(tabs)/_layout.tsx`, its size in `src/lib/tab-bar.ts`): on iOS 26 real liquid glass, with what scrolls
 under it blurred through, elsewhere a translucent fill; the tab on screen sits in a soft aurora capsule with its icon filled. When you tap
 another tab the capsule glides there from the old one, never blinking or fading: its leading edge moves a beat ahead of its trailing edge,
@@ -44,7 +44,7 @@ the Buzz page; the fixed pattern lives in `packages/shared/src/for-you.ts` and i
 three pages, For you | Buzz | Reels, sit side by side in a pager (Posts is a section without a tab: `HIDDEN_HOME_SECTIONS` in the shared constants keeps it out of the row and the pager while its feed, the post features and the data stay; its Following filter is reachable on the website's `/?tab=posts`; reels also run through For you): swipe left or right to move
 between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in an aurora
 ring on the left, which opens your profile, with Instagram's small "+" badge on its corner that opens the create sheet
-(Post / Reel / Buzz; over Reels the bar's left slot holds a white "+" instead), the CampConnect wordmark in the middle (it
+(Post / Reel / Buzz / Snap; over Reels the bar's left slot holds a white "+" instead), the CampConnect wordmark in the middle (it
 reads "Following" while that feed shows) and Search and the Notifications bell on the right; then the three labels spread across the row
 (`src/components/sliding-tabs.tsx`): the active one bold with a rounded aurora underline as wide as the label, sliding
 with the finger over a hairline; moving between sections, by tap or swipe, plays no haptic. Under the labels sits the Campus | Global
@@ -220,6 +220,25 @@ read" pill floats above the bottom bar, as in GroupMe: one tap marks every chat 
 `src/lib/use-unread.ts`) and the server catching up behind. Requests holds the direct chats that people you do not follow started with you, until you reply or follow them
 (`src/lib/use-message-requests.ts`: nothing is stored for it, it is read off the chats, the follow stats and whether you
 have written in each, so every device agrees). Searching looks only in the page on screen.
+
+Snaps (`src/app/snap/index.tsx`, `src/app/snap/[id].tsx`, `src/components/snap/`, `src/lib/snap-capture.ts`; the rules
+are migration 28's, see the root README): Snap in the create sheet opens the phone's own camera (a photo, or a video up to
+30 seconds; in the Simulator, which has no camera, the photo library) over whatever is on screen, through a see-through
+screen that shows nothing until there is something to show, so closing the camera lands you where you were. A photo is
+re-encoded as a JPEG at most 1920 px long, without its metadata. The take fills the screen on black (a photo over a blurred
+copy of itself) with close and "take another" (the camera again; it waits for Send To to be fully gone, since iOS presents
+nothing over a sheet that is still leaving) and the Aurora "Send To". That starts the upload (straight from the file, with
+progress) and raises the Send To sheet (`send-to-sheet.tsx`): your direct chats, the most recent first, then your friends,
+a search over both, a ring per person that fills with the Aurora when picked (only what turns on bounces), and a bar that
+rises with who it goes to and the round send button: a spinner and "Sending… 42%", then the plane flies off and a tick
+lands on green, and the Snap fades away. In a chat (`snap-bubble.tsx`) a Snap is a small card, never its picture: "New
+Snap · Tap to view" on an Aurora tile for its recipient, "Delivered" for its sender, then "Opened", "Expired" or
+"Unavailable" on a hollow tile; the chat follows realtime updates of its messages, so both sides change at once. The viewer
+opens it once (`open_snap()`), loads it through Storage's signed-in download with your own session (every request, each
+range of a video too, is checked against the view, so nothing can be loaded after it), keeps a photo in memory only, and closes with a tap, a swipe down, its close button, the end of a video or the app going to the background,
+calling `close_snap()`. Both screens leave on a timer rather than when their fade reports it ended, so an interrupted
+fade can never leave an invisible screen taking the touches. Until migration 28 is applied, sending says Snaps aren't set
+up yet.
 
 A direct chat shows the other person's activity status under their name, like Instagram (`src/lib/use-activity-status.ts`,
 the wording in `packages/shared/src/activity.ts`): a small green dot and "Active now" while they are online, otherwise
