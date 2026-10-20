@@ -1,18 +1,19 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { BUZZ_PAGE_SIZE, BUZZ_SORTS, BUZZ_TOPICS, labelFor, listBuzz, type BuzzPost, type BuzzSort, type BuzzTopic } from "@apartment-book/shared";
+import { BUZZ_PAGE_SIZE, BUZZ_SORTS, BUZZ_TOPICS, labelFor, listBuzz, videosFor, type BuzzPost, type BuzzSort, type BuzzTopic } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
 import { EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList } from "@/lib/collapsing-header";
 import { useHomeScope } from "@/lib/home-scope";
+import { buzzAfter, entryOf, openViewer, viewerItemFromBuzz, type ViewerEntry } from "@/lib/reel-viewer";
 import { useTabBarInset } from "@/lib/tab-bar";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
-import { BUZZ_GUTTER, BuzzCard, BuzzSearchRow, emitBuzzEvent, onBuzzEvent, type BuzzCardProps } from "./buzz-card";
+import { BUZZ_GUTTER, BuzzCard, BuzzSearchRow, emitBuzzEvent, onBuzzEvent, type BuzzCardProps, type BuzzMediaOpen } from "./buzz-card";
 import { useTabReselect } from "@/lib/tab-reselect";
 import { refreshWithHaptic } from "@/lib/haptics";
 import { Icon } from "@/components/icon";
@@ -40,8 +41,8 @@ type Vote = Parameters<NonNullable<BuzzCardProps["onVote"]>>[0];
  * One thread, memoised: a vote, a new page or the bar sliding away redraws only the rows that changed. The handlers
  * are the list's own stable functions; the per-thread ones are made here, once per drawing of this row.
  */
-const BuzzRow = memo(function BuzzRow({ post, onVoteFor, onMuted }: { post: BuzzCardProps["post"]; onVoteFor: (id: string, vote: Vote) => void; onMuted: () => void }) {
-  return <BuzzCard post={post} onVote={(v) => onVoteFor(post.id, v)} onRemoved={removeThread} onMuted={onMuted} />;
+const BuzzRow = memo(function BuzzRow({ post, active, onVoteFor, onMuted, onOpenMedia }: { post: BuzzCardProps["post"]; active: boolean; onVoteFor: (id: string, vote: Vote) => void; onMuted: () => void; onOpenMedia: NonNullable<BuzzCardProps["onOpenMedia"]> }) {
+  return <BuzzCard post={post} active={active} onVote={(v) => onVoteFor(post.id, v)} onRemoved={removeThread} onMuted={onMuted} onOpenMedia={onOpenMedia} />;
 });
 
 // The thread and create screens report through the same event bus, so every change takes one path, which this list listens to.
@@ -123,7 +124,7 @@ export function BuzzSection({ active, topInset, onScroll }: { active: boolean; t
         if (e.type === "patch") setItems((prev) => prev.map((p) => (p.id === e.post.id ? e.post : p)));
         else if (e.type === "vote") setItems((prev) => prev.map((p) => (p.id === e.id ? { ...p, score: e.vote.score, myVote: e.vote.myVote } : p)));
         else if (e.type === "remove") setItems((prev) => prev.filter((p) => p.id !== e.id));
-        else void load("replace");
+        else if (e.type === "reload") void load("replace");
       }),
     [load],
   );
@@ -170,6 +171,44 @@ export function BuzzSection({ active, topInset, onScroll }: { active: boolean; t
     emitBuzzEvent({ type: "reload" });
   }, []);
   useTabReselect(() => listRef.current?.scrollToOffset({ offset: ios ? -topInset : 0, animated: true }), active);
+
+  // One video plays at a time, the first row on screen (at least 60% of it) that has one, as in For you: sound is one
+  // switch for every video, so two playing at once would both be heard.
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const first = viewableItems.find((v) => v.isViewable && videosFor((v.item as BuzzPost).videos).length > 0);
+    setPlayingId(first ? String(first.key) : null);
+  }).current;
+  const viewability = useRef({ itemVisiblePercentThreshold: 60 }).current;
+
+  /** The list on screen and what it was loaded with, read when a picture is tapped. */
+  const latest = useRef({ items, filters: { universityId, topic, sort, q: shownQ || undefined } });
+  latest.current = { items, filters: { universityId, topic, sort, q: shownQ || undefined } };
+  /**
+   * A thread's photos or videos tapped: the viewer opens on them, zooming from the frame, with the list's other threads
+   * that have media around it (a swipe up moves on, then on into the list's next pages); the tapped video plays on there
+   * from where it was. Anonymous all the way: the pages carry the threads as the list has them, nobody's name.
+   */
+  const openInViewer = useCallback(
+    (tapped: BuzzPost, live: BuzzMediaOpen) => {
+      // A video opened full screen is the one that plays here when the viewer closes.
+      if (live.time !== null) setPlayingId(tapped.id);
+      const { items: list, filters } = latest.current;
+      const entries: ViewerEntry[] = [];
+      let index = -1;
+      for (const p of list) {
+        const isTapped = p.id === tapped.id;
+        // The tapped thread with the vote its row shows now (one may still be on its way to the server).
+        const item = viewerItemFromBuzz(isTapped ? { ...p, score: live.vote.score, myVote: live.vote.myVote } : p);
+        if (!item) continue;
+        if (isTapped) index = entries.length;
+        entries.push(entryOf(item, isTapped ? live.slide : undefined, isTapped ? (live.time ?? undefined) : undefined, isTapped ? (live.player ?? undefined) : undefined));
+      }
+      if (index < 0) return;
+      openViewer(router, { entries, index, origin: live.origin, then: { more: buzzAfter({ filters, offset: list.length, seen: new Set(list.map((p) => p.id)) }) } });
+    },
+    [router],
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -219,7 +258,7 @@ export function BuzzSection({ active, topInset, onScroll }: { active: boolean; t
           searching ? (
             <BuzzSearchRow post={item} />
           ) : (
-            <BuzzRow post={item} onVoteFor={voteThread} onMuted={reloadAfterMute} />
+            <BuzzRow post={item} active={active && playingId === item.id} onVoteFor={voteThread} onMuted={reloadAfterMute} onOpenMedia={openInViewer} />
           )
         }
         ListEmptyComponent={
@@ -246,6 +285,8 @@ export function BuzzSection({ active, topInset, onScroll }: { active: boolean; t
         }
         onEndReached={loadMore}
         onEndReachedThreshold={0.6}
+        onViewableItemsChanged={onViewable}
+        viewabilityConfig={viewability}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshWithHaptic(refresh)} progressViewOffset={ios ? undefined : topInset} tintColor={colors.brand} />}
       />
     </View>

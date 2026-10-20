@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
+import { ActivityIndicator, FlatList, PixelRatio, Pressable, StyleSheet, Text, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
 import { Image } from "expo-image";
 import { useIsFocused, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
@@ -12,6 +12,7 @@ import { ReelCommentsSheet } from "@/components/home/reel-comments-sheet";
 import { ShareSheetProvider } from "@/components/share-sheet";
 import { aspectOf, photoFloor, photoLayout, photoTop, ReelItem, surfaceOf, wholeVideo, type ViewerSurface } from "@/components/home/reel-item";
 import { markReelsStale } from "@/components/home/reels-section";
+import { emitBuzzEvent, onBuzzEvent } from "@/components/home/buzz-card";
 import { hapticTap } from "@/lib/haptics";
 import { useHomeScope } from "@/lib/home-scope";
 import { errorText } from "@/lib/hooks";
@@ -44,8 +45,30 @@ const COMMENT_BAR_BOTTOM = 12;
 const LOAD_AHEAD = 3;
 /** The zoom open: critically damped (it never overshoots the screen's edges), about 0.4s. */
 const ZOOM_IN = { damping: 32, stiffness: 270, mass: 1, overshootClamping: true };
-/** The zoom closed: quick off the mark, landing softly on the picture it came from. */
-const ZOOM_OUT_MS = 330;
+/**
+ * The zoom closed: quick off the mark and braking evenly all the way down, so it stops on the picture it came from in the
+ * frame it seems to arrive. A curve with a long soft tail (iOS's 0.32, 0.72, 0, 1) leaves the page creeping the last few
+ * points for a fifth of a second, where its scaled copy of the picture shows softer than the feed's own and shimmers.
+ */
+const ZOOM_OUT_MS = 300;
+const ZOOM_OUT_CURVE = [0.3, 0.7, 0.45, 1] as const;
+/**
+ * Closing onto the tapped picture, the page fades out over the feed's own during the zoom's last HAND_OVER_MS, as it
+ * covers its last few pixels (under 10): the same picture, but the page's is a scaled copy, a little softer (expo-image
+ * filters trilinearly, blending in a half-size mipmap once scaled down). So the crisp one has taken over by the time it
+ * stops: never a soft one standing still, then a pop.
+ */
+const HAND_OVER_MS = 50;
+/** Most of the fade comes last, where the two pictures are a pixel or less apart: no ghost of one beside the other. */
+const HAND_OVER = { duration: HAND_OVER_MS, easing: Easing.in(Easing.cubic) };
+/** Device pixels per point: the opening's edges sit on whole pixels (see frameStyle). */
+const PIXEL = PixelRatio.get();
+
+/** A position on the screen's pixel grid, as layout rounds every edge. */
+function onPixel(v: number): number {
+  "worklet";
+  return Math.round(v * PIXEL) / PIXEL;
+}
 /**
  * The longest the zoom open waits for its page to draw the tapped picture: usually a frame or two (it is the feed's own),
  * and the feed's live picture shows meanwhile, so a late one costs a moment, never a black frame.
@@ -77,9 +100,9 @@ function mergeUnique(current: ViewerEntry[], incoming: ViewerEntry[]): ViewerEnt
 }
 
 /** "post:id" → ["post", "id"]. */
-function splitKey(key: string): [PostTargetType, string] {
+function splitKey(key: string): [string, string] {
   const sep = key.indexOf(":");
-  return [key.slice(0, sep) as PostTargetType, key.slice(sep + 1)];
+  return [key.slice(0, sep), key.slice(sep + 1)];
 }
 
 /**
@@ -288,8 +311,29 @@ export default function ReelViewerScreen() {
     setEntries((prev) => (prev ? prev.map((e) => (e.key === key && e.item ? { ...e, item: { ...e.item, ...patch } } : e)) : prev));
     // The row this page was opened from, and its own screen, follow along.
     const [type, targetId] = splitKey(key);
-    emitPostEngagement(type, targetId, { likes: patch.likes, comments: patch.comments, likedByMe: patch.likedByMe, saved: patch.savedByMe });
+    // A Buzz thread's votes reach its list on their own (see BuzzRail in ReelItem).
+    if (type === "buzz") return;
+    emitPostEngagement(type as PostTargetType, targetId, { likes: patch.likes, comments: patch.comments, likedByMe: patch.likedByMe, saved: patch.savedByMe });
   }, []);
+  /**
+   * A Buzz thread's pages follow what happens to it anywhere: a vote (on its rail here, on its own screen opened over the
+   * viewer, in the list), new words or a new reply count (its screen reloaded), and its end (deleted or hidden), so a page
+   * never shows a stale score or a thread that is gone.
+   */
+  useEffect(
+    () =>
+      onBuzzEvent((e) => {
+        if (e.type === "vote") {
+          setEntries((prev) => (prev ? prev.map((x) => (x.key === `buzz:${e.id}` && x.item?.buzz ? { ...x, item: { ...x.item, buzz: { ...x.item.buzz, score: e.vote.score, myVote: e.vote.myVote } } } : x)) : prev));
+        } else if (e.type === "patch") {
+          const p = e.post;
+          setEntries((prev) => (prev ? prev.map((x) => (x.key === `buzz:${p.id}` && x.item?.buzz ? { ...x, item: { ...x.item, buzz: p, title: p.title, caption: p.body.trim(), comments: p.commentCount } } : x)) : prev));
+        } else if (e.type === "remove") {
+          setEntries((prev) => (prev && prev.some((x) => x.key === `buzz:${e.id}`) ? prev.filter((x) => x.key !== `buzz:${e.id}`) : prev));
+        }
+      }),
+    [],
+  );
   const onRemoved = useCallback((key: string) => {
     // A feed's own player handed over with it stops: its row is going too, and it is released once given back.
     try {
@@ -303,6 +347,8 @@ export default function ReelViewerScreen() {
     if (type === "post") {
       emitPostRemoved(targetId);
       markReelsStale();
+    } else if (type === "buzz") {
+      emitBuzzEvent({ type: "remove", id: targetId });
     }
   }, []);
   const onOpenComments = useCallback((item: ViewerItem, typing = false) => {
@@ -310,6 +356,8 @@ export default function ReelViewerScreen() {
     setCommentsKey(viewerKey(item));
   }, []);
   const commentsItem = commentsKey ? (entries?.find((e) => e.key === commentsKey)?.item ?? null) : null;
+  /** The sheet is only ever a post's: a Buzz thread's replies open on its own screen (see openReplies). */
+  const commentsReel = useMemo(() => (commentsItem && commentsItem.sourceType !== "buzz" ? { sourceType: commentsItem.sourceType, sourceId: commentsItem.sourceId, author: commentsItem.author, comments: commentsItem.comments } : null), [commentsItem]);
   const onCommentCount = useCallback(
     (delta: number) => {
       if (!commentsKey || !commentsItem) return;
@@ -337,6 +385,23 @@ export default function ReelViewerScreen() {
   }).current;
 
   const leave = useCallback(() => (router.canGoBack() ? router.back() : router.replace("/(tabs)")), [router]);
+  /**
+   * A page's comments: a post's in the sheet over the page. A Buzz thread's replies on its own screen, pushed over the
+   * viewer (Back comes back here); opened from that very screen, they are right behind, so the viewer closes onto them
+   * (`typing`: with the reply box open, once the thread is back on screen).
+   */
+  const openReplies = useCallback(
+    (item: ViewerItem, typing = false) => {
+      if (!item.buzz) return onOpenComments(item, typing);
+      if (handed?.repliesBehind) {
+        if (typing) emitBuzzEvent({ type: "reply", id: item.sourceId });
+        leave();
+        return;
+      }
+      router.push({ pathname: "/buzz/[id]", params: typing ? { id: item.sourceId, reply: "1" } : { id: item.sourceId } });
+    },
+    [onOpenComments, handed, leave, router],
+  );
 
   // The top row: Back and the toggle, under the status bar. A page's own content (a photo) starts below it.
   const rowTop = insets.top + TOP_GAP;
@@ -406,7 +471,7 @@ export default function ReelViewerScreen() {
   // The post the viewer was opened from keeps its feed row on the same photo as the page (it is hidden behind it), so a
   // swipe back uncovers that photo, and the page lands on it.
   useEffect(() => {
-    if (startItem?.sourceType === "post" && startItem.media.length > 1) emitPostSlide(startItem.sourceId, startSlide);
+    if ((startItem?.sourceType === "post" || startItem?.sourceType === "buzz") && startItem.media.length > 1) emitPostSlide(startItem.sourceId, startSlide);
   }, [startItem, startSlide]);
   const focusY = useSharedValue(focus.y);
   const focusW = useSharedValue(focus.width);
@@ -458,7 +523,7 @@ export default function ReelViewerScreen() {
    * Whether the page can be seen at all (1) or not (0). Opened from a picture, it waits unseen until the zoom starts
    * (the screen still shows the tapped picture itself, the feed's own), which is once it has drawn that picture
    * (onStartShown): the zoom never opens on a black frame or a photo still fading in. A moment at most: PICTURE_WAIT_MS.
-   * Unseen again in the frame the zoom closed lands (see afterLanding).
+   * Unseen again by the time the zoom closed lands: faded out over the feed's own picture in its last moment (HAND_OVER_MS).
    */
   const seen = useSharedValue(reduceMotion || origin === null ? 1 : 0);
   const zoomStarted = useRef(reduceMotion);
@@ -524,11 +589,16 @@ export default function ReelViewerScreen() {
     const pullRadius = Math.min(pulled * 5, 1) * PULL_RADIUS;
     const topRadius = from.topRadius * (1 - t) + pullRadius;
     const bottomRadius = from.bottomRadius * (1 - t) + pullRadius;
+    // Its edges on whole pixels, where layout would round them anyway, and the page inside is placed from these very edges
+    // (see pageStyle): rounded behind its back, the opening would nudge the picture up to half a pixel either way each
+    // frame, a jitter that shows as shimmer while it moves slowly.
+    const left = onPixel(from.x * (1 - t));
+    const top = onPixel(from.y * (1 - t));
     return {
-      left: from.x * (1 - t),
-      top: from.y * (1 - t),
-      width: from.width + (screenW - from.width) * t,
-      height: from.height + (screenH - from.height) * t,
+      left,
+      top,
+      width: onPixel(from.x * (1 - t) + from.width + (screenW - from.width) * t) - left,
+      height: onPixel(from.y * (1 - t) + from.height + (screenH - from.height) * t) - top,
       borderTopLeftRadius: topRadius,
       borderTopRightRadius: topRadius,
       borderBottomLeftRadius: bottomRadius,
@@ -552,9 +622,9 @@ export default function ReelViewerScreen() {
     const scale = start + (1 - start) * t;
     const anchor = fy + (screenH / 2 - fy) * t;
     // The page's point `anchor` sits on the middle of the picture's frame as it grows to the screen, measured from the
-    // opening's corner (the page's own origin).
-    const midX = (from.x + from.width / 2) * (1 - t) + (screenW / 2) * t - frame.x * (1 - t);
-    const midY = (from.y + from.height / 2) * (1 - t) + (screenH / 2) * t - frame.y * (1 - t);
+    // opening's corner (the page's own origin), on its pixel as frameStyle puts it.
+    const midX = (from.x + from.width / 2) * (1 - t) + (screenW / 2) * t - onPixel(frame.x * (1 - t));
+    const midY = (from.y + from.height / 2) * (1 - t) + (screenH / 2) * t - onPixel(frame.y * (1 - t));
     return { transform: [{ translateX: midX - screenW / 2 }, { translateY: midY - screenH / 2 - scale * (anchor - screenH / 2) }, { scale }] };
   });
   // A page pulled sideways uncovers the screen it was opened from, and sheds its words and buttons on the way.
@@ -595,17 +665,18 @@ export default function ReelViewerScreen() {
       }
       return;
     }
-    if (startItem.sourceType !== "post") return;
+    // A post's row or a Buzz thread's: each listens for its own id.
+    if (startItem.sourceType !== "post" && startItem.sourceType !== "buzz") return;
     const time = clocks.current.get(`${startEntry.key}#${startSlide}`)?.();
     if (typeof time === "number" && Number.isFinite(time)) emitPostSlide(startItem.sourceId, startSlide, time);
   }, [startEntry, startItem, startSlide]);
 
   /**
-   * Leaves once the page is out of sight. In the frame the zoom closed lands, the page is hidden (`seen`): it sits exactly
-   * on the tapped picture, which the feed is still drawing live underneath, so nothing visible changes. Only two frames
-   * later (the hidden page surely on screen by then, not just set) does the viewer really go: the copy of the screen that
-   * react-native-screens keeps up while a modal goes away is then see-through, and the feed's video plays on in it
-   * instead of a frozen frame that then skips ahead.
+   * Leaves once the page is out of sight. The zoom closed lands exactly on the tapped picture, which the feed is still
+   * drawing live underneath, and the page has faded out over it in the zoom's last moment (`seen`, HAND_OVER_MS), so
+   * nothing visible changes. Only two frames later (the hidden page surely on screen by then, not just set) does the
+   * viewer really go: the copy of the screen that react-native-screens keeps up while a modal goes away is then
+   * see-through, and the feed's video plays on in it instead of a frozen frame that then skips ahead.
    */
   const afterLanding = useCallback((go: () => void) => {
     requestAnimationFrame(() => requestAnimationFrame(() => go()));
@@ -632,14 +703,17 @@ export default function ReelViewerScreen() {
         return land();
       }
       zoomUI.value = 1;
-      toOrigin.value = origin !== null && isStartAt(visibleRef.current) ? 1 : 0;
+      const home = origin !== null && isStartAt(visibleRef.current);
+      toOrigin.value = home ? 1 : 0;
       chrome.value = withTiming(0, { duration: 110 });
       drag.value = withTiming(0, { duration: ZOOM_OUT_MS });
-      open.value = withTiming(0, { duration: ZOOM_OUT_MS, easing: Easing.bezier(0.32, 0.72, 0, 1) }, (finished) => {
+      open.value = withTiming(0, { duration: ZOOM_OUT_MS, easing: Easing.bezier(...ZOOM_OUT_CURVE) }, (finished) => {
         if (!finished) return;
         seen.value = 0;
         runOnJS(land)();
       });
+      // Onto the tapped picture, the feed's own takes over in the last moment (anywhere else the page fades out as it goes).
+      if (home) seen.value = withDelay(ZOOM_OUT_MS - HAND_OVER_MS, withTiming(0, HAND_OVER));
     },
     [reduceMotion, origin, isStartAt, toOrigin, chrome, drag, open, seen, zoomUI, handBack, afterLanding],
   );
@@ -702,7 +776,7 @@ export default function ReelViewerScreen() {
       const home = hasOrigin && onStartPage.value === 1;
       toOrigin.value = home ? 1 : 0;
       chrome.value = withTiming(0, { duration: 110 });
-      const easing = Easing.bezier(0.32, 0.72, 0, 1);
+      const easing = Easing.bezier(...ZOOM_OUT_CURVE);
       const away = Math.sign(drag.value || velocityX || 1) * screenW;
       drag.value = withTiming(home ? 0 : away, { duration: ZOOM_OUT_MS, easing });
       open.value = withTiming(0, { duration: ZOOM_OUT_MS, easing }, (finished) => {
@@ -710,6 +784,7 @@ export default function ReelViewerScreen() {
         seen.value = 0;
         runOnJS(swipeLeave)();
       });
+      if (home) seen.value = withDelay(ZOOM_OUT_MS - HAND_OVER_MS, withTiming(0, HAND_OVER));
     },
     [closingUI, swipeClosing, reduceMotion, seen, zoomUI, swipeLeave, hasOrigin, onStartPage, toOrigin, chrome, drag, screenW, open],
   );
@@ -767,7 +842,7 @@ export default function ReelViewerScreen() {
                     near={index === visible || (opened && index - visible >= -1 && index - visible <= 2)}
                     playing={focused && index === visible && !(closingNow && !isStartAt(index))}
                     onPatch={onPatch}
-                    onOpenComments={onOpenComments}
+                    onOpenComments={openReplies}
                     onRemoved={onRemoved}
                     initialSlide={entry.slide}
                     startAt={entry.startAt}
@@ -781,8 +856,8 @@ export default function ReelViewerScreen() {
                   {/* "Add comment…" under the name and the rail, like Instagram's: a tap opens the comments with the keyboard up.
                       Dark glass over a video; on a photo's page, the theme's own text field. */}
                   <Animated.View key="comment" pointerEvents="box-none" style={[styles.commentBar, { bottom: barBottom }, chromeStyle]}>
-                    <Pressable onPress={() => onOpenComments(entry.item!, true)} style={({ pressed }) => [styles.commentInput, surfaceAt(index) === "page" && styles.commentInputPage, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Add comment" accessibilityHint="Opens the comments, ready to type">
-                      <Text style={[styles.commentPlaceholder, surfaceAt(index) === "page" && styles.commentPlaceholderPage]}>Add comment…</Text>
+                    <Pressable onPress={() => openReplies(entry.item!, true)} style={({ pressed }) => [styles.commentInput, surfaceAt(index) === "page" && styles.commentInputPage, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel={entry.item.buzz ? "Reply anonymously" : "Add comment"} accessibilityHint={entry.item.buzz ? "Opens the thread, ready to type" : "Opens the comments, ready to type"}>
+                      <Text style={[styles.commentPlaceholder, surfaceAt(index) === "page" && styles.commentPlaceholderPage]}>{entry.item.buzz ? "Reply anonymously…" : "Add comment…"}</Text>
                     </Pressable>
                   </Animated.View>
                 </>
@@ -896,7 +971,7 @@ export default function ReelViewerScreen() {
         </View>
       ) : null}
 
-      <ReelCommentsSheet reel={commentsItem} focusComposer={commentsTyping} onClose={() => setCommentsKey(null)} onCountChange={onCommentCount} />
+      <ReelCommentsSheet reel={commentsReel} focusComposer={commentsTyping} onClose={() => setCommentsKey(null)} onCountChange={onCommentCount} />
     </View>
     </ViewerClockContext.Provider>
     </ViewerSwipeContext.Provider>

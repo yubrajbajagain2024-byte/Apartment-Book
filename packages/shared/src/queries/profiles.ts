@@ -100,8 +100,8 @@ export type PeopleSearchOptions = {
 };
 
 /**
- * The Search tab: find accounts by name, like Instagram. With an empty query it lists people (newest first when
- * asked), so the tab is never blank. Returns enough for an avatar, a name and the verified badge (university domain).
+ * The people search (the app's Search button on Home, the website's /search): find accounts by name, like Instagram.
+ * With an empty query it lists people (newest first when asked), so it is never blank. Returns enough for an avatar, a name and the verified badge (university domain).
  */
 export async function searchPeople(supabase: Client, query: string, opts: PeopleSearchOptions = {}): Promise<PosterSummary[]> {
   const q = query.replace(/[%_,()"'\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);

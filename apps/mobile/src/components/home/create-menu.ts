@@ -4,8 +4,8 @@ import { useSession } from "@/lib/session";
 
 /**
  * What every create button on Home opens: the "What would you like to share?" sheet with Post, Reel and Buzz (anonymous).
- * Signed out it goes to the login screen instead. Shared by the "+" badge on your photo in the top bar and the "+" the
- * bar shows over the Reels video.
+ * Signed out it goes to the login screen instead. Shared by the "+" in the middle of the bottom bar, the "+" badge on
+ * your photo in Home's top bar and the "+" that bar shows over the Reels video.
  */
 export function useCreateMenu(): () => void {
   const router = useRouter();

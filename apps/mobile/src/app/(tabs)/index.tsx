@@ -113,8 +113,11 @@ export default function HomeScreen() {
   const [barHeight, setBarHeight] = useState(insets.top + HOME_TOP_BAR_HEIGHT);
   /** The bar slides away as the page on screen scrolls down and back as soon as it scrolls up (Instagram): For you, Buzz and Posts each feed it their scroll; Reels (full-screen video) never moves it. */
   const { translateY: barShift, select: followPage, reveal: revealBar, onScroll: onPageScroll, hidden: barHidden } = useCollapsingHeader(ORDER.length, barHeight, START === REELS ? -1 : START);
-  /** Between the top bar (as far as it has slid away) and the floating tab bar: what a tapped picture zooms open from. */
-  const openingBand = useCallback(() => ({ top: Math.max(0, barHeight - barHidden()), bottom: windowHeight - tabBarInset(insets) }), [barHeight, barHidden, windowHeight, insets]);
+  /**
+   * Between the top bar (as far as it has slid away) and the floating tab bar: what a tapped picture zooms open from. Never
+   * above the status bar's strip, which stays drawn over the feed when the bar has slid away.
+   */
+  const openingBand = useCallback(() => ({ top: Math.max(insets.top, barHeight - barHidden()), bottom: windowHeight - tabBarInset(insets) }), [barHeight, barHidden, windowHeight, insets]);
   const [pageHeight, setPageHeight] = useState(0);
 
   const section: HomeSection = ORDER[index] ?? DEFAULT_HOME_SECTION;
