@@ -51,6 +51,9 @@ with the finger over a hairline; moving between sections, by tap or swipe, plays
 toggle, a small segmented pill whose thumb slides to the choice: Campus is your own university, Global every university (and,
 only while Posts has a tab, Following: the posts of people you follow, which switches to Posts); the choice scopes For you,
 Buzz, Posts and Reels alike (`src/lib/home-scope.ts`). Someone without a university has nothing to choose, so the row is not drawn.
+For now the toggle is hidden everywhere, here and in the viewer (`SCOPE_TOGGLE_SHOWN` in `src/lib/home-scope.ts` is
+`false`): the bar is just its first two rows and every feed stays on your own campus. Its code is all kept; set the flag
+back to `true` to bring it back.
 Tapping any reel, or the photo or video of any post (photos, videos or both), anywhere in the app opens it full screen in
 the viewer (`src/app/reels/[id].tsx`), like Instagram. It does not slide in: the tapped picture itself grows out of its
 place in the feed, the grid or the chat to fill the screen while the screen behind fades to the page's colour (black
@@ -82,7 +85,7 @@ a subtle, dimmed blur of itself. A photo is never stretched or cropped (`photoLa
 screen at the top, under the top row, on the theme's own colour (white in light, black in dark), which stays free below it
 for the name, the words and the comment bar, all in the theme's ink; a photo too tall to leave that space (9:16, a phone
 screenshot) is shown full screen on black like a video instead. Over every page, one top row with Back at the left and the
-Campus | Global toggle in the middle (for reels and For you); the creator's name, the words and the heart, comments, share,
+Campus | Global toggle in the middle (for reels and For you, while the toggle is shown); the creator's name, the words and the heart, comments, share,
 save and "…" rail sit at the bottom (as on the Reels page), over a video's shades and gradual frost
 (`src/components/progressive-blur.tsx`: expo-blur through a gradient mask, left out on a build without them), and under
 them an "Add comment…" bar on every page opens the comments sheet straight into typing. Share opens the same share sheet
@@ -129,7 +132,7 @@ with their videos loaded and waiting (from the moment the zoom open has finished
 has its player, frost and pictures, since a large photo or poster is decoded and resized on the main thread as it
 arrives, which made the zoom drop frames; profiled with Instruments), a video's still is its very first frame (Mux `time=0`) so the player takes over
 without a jump, and in dark mode the top row keeps one style over photos and videos alike. The bottom tab bar plays no
-haptic, and neither do Home's For you | Buzz | Reels, Explore's Room | Roommate | Marketplace and its "+", Messages'
+haptic, and neither do Home's For you | Buzz | Reels, Explore's Housing | Roommate | Marketplace and its "+", Messages'
 Chats | Groups, the profile's section tabs or the inbox's All | Unread | Requests pills. A swipe up moves on: a reel goes on
 into the Reels feed (only reels, page by page, the other campus choice keeping the page on screen while what follows comes
 from the new choice); a post in For you goes on down For you, its next pages loading as needed; a square in a profile grid
@@ -151,19 +154,19 @@ what you like, save or comment there shows on the row when you come back (`emitP
 a post deleted there leaves the feeds too.
 The bar scrolls like Instagram's (`src/lib/collapsing-header.ts`): it slides up out of the way as the page on screen
 scrolls down, by as much as the page moved, and slides back the moment the page scrolls up, however far down it is; a
-swipe or a tap between pages brings it back too, and Reels never moves it. The same goes for the Room | Roommate | Marketplace
+swipe or a tap between pages brings it back too, and Reels never moves it. The same goes for the Housing | Roommate | Marketplace
 row on Explore and the pills under it (the bar with its title and Search stays put): they slide up under the fixed bar
 as the list under them scrolls down, and back as soon as it
 scrolls up. The bottom bar never moves. The choice lives in
 `src/lib/home-scope.ts` and drives For you, Buzz and Posts alike: the pages have no filter chips of their own.
-Housing (the Explore tab, with a compass icon) works the same way with three pages,
-**Room | Roommate | Marketplace** (apartments, roommates, items), under its own top bar laid out like the inbox's (`src/app/(tabs)/housing.tsx`): the big
+Explore (the Housing tab in the code, with a compass icon) works the same way with three pages,
+**Housing | Roommate | Marketplace** (apartments, roommates, items), under its own top bar laid out like the inbox's (`src/app/(tabs)/housing.tsx`): the big
 "Find" title, the three labels with the sliding aurora underline, the inbox's search box (searching the page on screen) with a
 round filter button beside it (`src/components/housing/filter-sheet.tsx`: a sheet of the page's own filters, applied on "Show
 results", counted on the button; rooms sort, bedrooms, rent, distance from campus, furnished, pets and video tours; roommate
 posts a budget cap, who the post is open to, distance and video; items sort, condition and price), and the
-pills that narrow the page (All on Room, All | Has a room | Looking for a room on Roommate, All and the item
-categories on Marketplace); the labels and the pills slide up under the title as the page scrolls. It opens on Room, a swipe or a tap on the label above the
+pills that narrow the page (All on Housing, All | Has a room | Looking for a room on Roommate, All and the item
+categories on Marketplace); the labels and the pills slide up under the title as the page scrolls. It opens on Housing, a swipe or a tap on the label above the
 pager moves to Roommate or the Marketplace and back (silently, by tap or swipe, like Home's), and the floating "+"
 (no haptic either) follows the visible page ("List an apartment",
 "Create roommate post" or "Sell an item"). The order comes from `HOUSING_SECTIONS` in `packages/shared/src/constants.ts`.
@@ -243,8 +246,8 @@ screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.de
 ```bash
 cd apps/mobile
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts (the test account and Leo follow each other, so Leo is a friend to share with; Maya lists CS 3358 and MATH 3398 for this semester, visible to everyone); prints the login, writes e2e/.sim-state.json
-e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you (no Campus | Global toggle signed out), swipes to Buzz, opens Notifications from the bell in Home's top-right corner (signed out: the log-in prompt), Search (the magnifying glass beside the bell: the people list), Messages (bottom tab), Explore (Room, Roommate, swipe back, Marketplace), Profile (several flows at once is fine)
-EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # your own profile (adds CS 1428 under Classes and removes it, Saved says only you can see it), then likes, comments (write, heart, reply, delete from the hold menu), shares the top post with Leo and finds the card in your chat with him (Messages), votes, replies, the Campus | Global toggle under the labels, follows and unfollows Maya (her Classes tab shows CS 3358, her Listings tab her apartment), opens your own Followers (Leo) and Maya's Mutual friends (none: Leo follows her one way), as the seeded account
+e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you (no Campus | Global toggle signed out), swipes to Buzz, opens Notifications from the bell in Home's top-right corner (signed out: the log-in prompt), Search (the magnifying glass beside the bell: the people list), Messages (bottom tab), Explore (Housing, Roommate, swipe back, Marketplace), Profile (several flows at once is fine)
+EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # your own profile (adds CS 1428 under Classes and removes it, Saved says only you can see it), then likes, comments (write, heart, reply, delete from the hold menu), shares the top post with Leo and finds the card in your chat with him (Messages), votes, replies, the Campus | Global toggle under the labels (skipped while it is hidden), follows and unfollows Maya (her Classes tab shows CS 3358, her Listings tab her apartment), opens your own Followers (Leo) and Maya's Mutual friends (none: Leo follows her one way), as the seeded account
 node e2e/sim-seed-thread.mjs                            # nested replies and votes for 03-buzz-thread.yaml
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards
 ```
@@ -284,7 +287,7 @@ feel native:
   Global toggle over a reel, Back and the menu over a profile cover) are Liquid Glass on iOS 26
   (`src/components/glass.tsx`). Everything else is solid, including the floating Create button and the Mark all as read
   pill. Reduce Transparency swaps every glass surface for a solid fill.
-- **Scrolling.** The For you, Buzz, Room and Roommate feeds draw each row through a memoised component with stable
+- **Scrolling.** The For you, Buzz, Housing and Roommate feeds draw each row through a memoised component with stable
   handlers, so a scroll only redraws the rows whose content changed, and they keep about four screens of rows mounted
   instead of ten. Photos show the tiny blurred preview saved at upload at once and fade the full photo in over it. On
   Home, a strip in the bar's colour stays under the status bar while the bar slides away, so nothing passes under the clock.

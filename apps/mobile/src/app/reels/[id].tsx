@@ -14,7 +14,7 @@ import { aspectOf, photoFloor, photoLayout, photoTop, ReelItem, surfaceOf, whole
 import { markReelsStale } from "@/components/home/reels-section";
 import { emitBuzzEvent, onBuzzEvent } from "@/components/home/buzz-card";
 import { hapticTap } from "@/lib/haptics";
-import { useHomeScope } from "@/lib/home-scope";
+import { SCOPE_TOGGLE_SHOWN, useHomeScope } from "@/lib/home-scope";
 import { errorText } from "@/lib/hooks";
 import { emitPostEngagement, emitPostRemoved, emitPostSlide } from "@/lib/posts-events";
 import { dropHanded, entryOf, loadViewerItems, peekHanded, posterAt, viewerItemFromPost, viewerItemFromReel, viewerKey, type ViewerEntry, type ViewerItem, type ViewerOrigin, type ViewerSource } from "@/lib/reel-viewer";
@@ -955,7 +955,7 @@ export default function ReelViewerScreen() {
         <View pointerEvents="box-none" style={styles.row}>
           {/* Back on clear glass over a video, as the system draws its bar buttons over media; over a photo's page, the bar's own glass. */}
           <GlassIconButton icon="chevron-back" label="Back" onPress={leave} variant={lightTop ? "bar" : "media"} size={40} iconSize={19} haptic={false} hitSlop={8} style={styles.back} />
-          {scoped && segments.length > 1 ? <ScopeToggle segments={segments} value={chosen} onChange={choose} overVideo={!lightTop} shadow={lightTop ? undefined : styles.shadow} /> : null}
+          {SCOPE_TOGGLE_SHOWN && scoped && segments.length > 1 ? <ScopeToggle segments={segments} value={chosen} onChange={choose} overVideo={!lightTop} shadow={lightTop ? undefined : styles.shadow} /> : null}
         </View>
       </Animated.View>
 

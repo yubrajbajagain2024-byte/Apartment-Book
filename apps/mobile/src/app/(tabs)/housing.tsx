@@ -24,7 +24,7 @@ function pageOf(section: string | undefined): number {
 /** The title row (or the search box in its place), fixed under the safe area. */
 const TITLE_ROW = 52;
 /**
- * The Room | Roommate | Marketplace row, the search box and the pills under it: they float over the pager and slide up
+ * The Housing | Roommate | Marketplace row, the search box and the pills under it: they float over the pager and slide up
  * under the title as the page on screen scrolls. The search box is the inbox's: a 46pt pill with 12pt above and below.
  */
 const TABS_ROW = 44;
@@ -40,9 +40,9 @@ const PEEK = 36;
 type Pill = { key: string; label: string; icon?: keyof typeof Ionicons.glyphMap; selected: boolean; onPress: () => void };
 
 /**
- * Explore, laid out like the Messages tab: the big "Find" title, then Room | Roommate | Marketplace above the pager with
+ * Explore, laid out like the Messages tab: the big "Find" title, then Housing | Roommate | Marketplace above the pager with
  * Home's sliding violet underline (each label centred in an equal third of the row), the inbox's search box under them
- * (it searches the page on screen), and the pills that narrow that page: All on Room, All | Has a room | Looking for a
+ * (it searches the page on screen), and the pills that narrow that page: All on Housing, All | Has a room | Looking for a
  * room on Roommate, All and the item categories on Marketplace. The three pages sit side by side in a pager (a swipe or
  * a tap on a label moves between them, silently, like Home's); the labels, the box and
  * the pills float over it and slide up under the title as the page on screen scrolls down, back as soon as it scrolls up

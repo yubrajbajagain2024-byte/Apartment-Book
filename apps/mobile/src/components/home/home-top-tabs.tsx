@@ -8,7 +8,7 @@ import { Avatar } from "@/components/avatar";
 import { HEADER_ACTION_GAP, HEADER_ACTION_SIZE, HeaderActions } from "@/components/header-actions";
 import { SlidingTabs } from "@/components/sliding-tabs";
 import { hapticTap } from "@/lib/haptics";
-import { useHomeScope } from "@/lib/home-scope";
+import { SCOPE_TOGGLE_SHOWN, useHomeScope } from "@/lib/home-scope";
 import { useSession } from "@/lib/session";
 import { auroraGradient, radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
@@ -18,7 +18,7 @@ import { GlassBackdrop } from "@/components/glass";
 
 /** Height of each of the bar's first two rows: the wordmark row, then the labels row. */
 const ROW = 44;
-/** The third row: the Campus | Global toggle, a 32pt pill with 6pt above and below. */
+/** The third row: the Campus | Global toggle, a 32pt pill with 6pt above and below (none while it is hidden). */
 const TOGGLE_ROW = 44;
 /**
  * Breathing room between the status bar (the safe area's top inset) and the first row, so the photo ring and the bell sit
@@ -28,7 +28,7 @@ const TOGGLE_ROW = 44;
 const TOP_GAP = 8;
 /** The side margin of the rows: the ring and the bell keep this clear of the screen's edges. */
 const SIDE_PAD = 16;
-export const HOME_TOP_BAR_HEIGHT = TOP_GAP + ROW * 2 + TOGGLE_ROW;
+export const HOME_TOP_BAR_HEIGHT = TOP_GAP + ROW * 2 + (SCOPE_TOGGLE_SHOWN ? TOGGLE_ROW : 0);
 /** Your photo on the left of the bar: the picture, the gap around it and the gradient ring. */
 const PHOTO = 32;
 const PHOTO_GAP = 2;
@@ -199,7 +199,9 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
         <View style={styles.row}>
           <SlidingTabs sections={HOME_TABS} section={section} onSelect={onSelect} scrollX={scrollX} pageWidth={pageWidth} tint={ink} tintGradient={overVideo ? undefined : auroraGradient(colors.auroraGlow, 90)} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} fontSize={LABEL_SIZE} spread />
         </View>
-        {segments.length > 1 ? (
+        {/* Temporarily hidden everywhere (SCOPE_TOGGLE_SHOWN): the bar is then its first two rows, as it is for anyone with
+            no university to choose. */}
+        {SCOPE_TOGGLE_SHOWN && segments.length > 1 ? (
           <View style={styles.toggleRow}>
             <ScopeToggle segments={segments} value={chosen} onChange={choose} overVideo={overVideo} shadow={overVideo ? styles.shadow : undefined} />
           </View>

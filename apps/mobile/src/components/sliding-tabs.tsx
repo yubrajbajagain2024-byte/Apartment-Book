@@ -9,7 +9,7 @@ import { Icon } from "@/components/icon";
 // Close to a typical label width, so the scaled bar keeps its rounded ends.
 const BASE_WIDTH = 48;
 /**
- * How far the labels follow the phone's text size: enough to read, not enough for three labels (Explore's Room | Roommate |
+ * How far the labels follow the phone's text size: enough to read, not enough for three labels (Explore's Housing | Roommate |
  * Marketplace, each centred in a third of the row) to overflow their tabs and clip, which would also leave the underline
  * narrower than its label.
  */
