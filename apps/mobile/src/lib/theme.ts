@@ -6,7 +6,7 @@ export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };
 /**
  * Apple's text styles at the default size, with UIKit's line heights: one scale for every screen, so a heading, a
  * list row and a caption read the same wherever they appear. Titles are bold (700), like the system's navigation large
- * titles; nothing in the app goes heavier except the CampConnect wordmark. The system font (SF Pro) brings its own
+ * titles; nothing in the app goes heavier except the UniBuzz wordmark. The system font (SF Pro) brings its own
  * optical tracking, so none of these set letterSpacing.
  */
 export const textStyle = {

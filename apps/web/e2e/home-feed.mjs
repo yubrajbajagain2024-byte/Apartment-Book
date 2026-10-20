@@ -42,8 +42,8 @@ try {
   await step("signed out: \"/\" lands on For you with For you | Buzz | Reels on top, in that order (Posts keeps /?tab=posts but has no tab); the feed blends posts and reels, never a Buzz thread", async () => {
     await D.goto(BASE + "/"); await D.waitForLoadState("domcontentloaded");
     const tabs = await D.locator("nav[aria-label='Home sections'] a").allInnerTexts();
-    const order = tabs.map((t) => t.trim()).filter(Boolean); if (order.join("|") !== "For you|Buzz|Reels") throw new Error("tabs: " + order.join("|"));
-    if (!(await D.locator("nav[aria-label='Home sections'] [data-testid='home-tab-foryou'][aria-current='page']").count())) throw new Error("For you is not the active tab");
+    const order = tabs.map((t) => t.trim()).filter(Boolean); if (order.join("|") !== "Orbit|Buzz|Reels") throw new Error("tabs: " + order.join("|"));
+    if (!(await D.locator("nav[aria-label='Home sections'] [data-testid='home-tab-foryou'][aria-current='page']").count())) throw new Error("Orbit is not the active tab");
     // The landing tab keeps the clean address; Posts moved to ?tab=posts (homeSectionHref in the shared package).
     const hrefs = await D.locator("nav[aria-label='Home sections'] a").evaluateAll((links) => links.map((a) => a.getAttribute("href"))); if (hrefs.join(" ") !== "/ /?tab=buzz /?tab=reels") throw new Error("tab links: " + hrefs.join(" "));
     const feed = D.getByTestId("for-you-feed"); await feed.waitFor();

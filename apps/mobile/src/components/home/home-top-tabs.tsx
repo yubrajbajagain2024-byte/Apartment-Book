@@ -104,7 +104,7 @@ export function campusSegments(profile: { university_id: string | null; universi
 /**
  * Floating top bar of Home, X style, in three rows. Row 1: your photo in a gradient ring on the left, which opens your
  * profile, with Instagram's small "+" badge on its corner that opens the create sheet (Post / Reel / Buzz); the
- * CampConnect wordmark in the middle (it reads "Following" while that feed shows); on the right Search (the people search)
+ * UniBuzz wordmark in the middle (it reads "Following" while that feed shows); on the right Search (the people search)
  * and then the Notifications bell (it opens the notifications screen; its badge counts the unread). Row 2: the Home tabs (For you | Buzz | Reels) spread across the row
  * with X's sliding underline (violet, as wide as the label) over a hairline. Row 3: the Campus | Global toggle, a small
  * segmented pill whose thumb slides to the choice (see useHomeScope: it scopes For you, Buzz, Posts and Reels alike;

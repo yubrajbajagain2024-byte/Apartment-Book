@@ -16,11 +16,11 @@ env:
 # profile, with "Edit profile" under the numbers.
 - tapOn: "Profile.*"
 - extendedWaitUntil:
-    visible: "Join CampConnect|Edit profile"
+    visible: "Join UniBuzz|Edit profile"
     timeout: 30000
 - runFlow:
     when:
-      visible: "Join CampConnect"
+      visible: "Join UniBuzz"
     commands:
       - tapOn: "Log in"
       - tapOn: "you@txstate.edu"
@@ -315,7 +315,7 @@ env:
 - extendedWaitUntil:
     visible: "Home.*"
     timeout: 15000
-- tapOn: "For you"
+- tapOn: "Orbit"
 - waitForAnimationToEnd
 - scrollUntilVisible:
     element: "1 of 3"
@@ -378,10 +378,10 @@ env:
 - waitForAnimationToEnd
 # The top bar slid away with the scroll (Instagram style): a scroll up brings it back.
 - scrollUntilVisible:
-    element: "For you"
+    element: "Orbit"
     direction: UP
     timeout: 15000
-- tapOn: "For you"
+- tapOn: "Orbit"
 - waitForAnimationToEnd
 - runFlow:
     when:

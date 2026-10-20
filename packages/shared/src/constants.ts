@@ -1,6 +1,6 @@
-export const APP_NAME = "CampConnect";
+export const APP_NAME = "UniBuzz";
 /** The wordmark in the app's Home top bar (Instagram puts its logotype there), with the feed dropdown next to it. */
-export const HOME_BRAND = "CampConnect";
+export const HOME_BRAND = "UniBuzz";
 /** The line under the wordmark at every signed-out entry point, verbatim. */
 export const APP_TAGLINE =
   "A private social network for university life — connecting students, clubs, events, campus news, housing, roommates, and the student marketplace in one place.";
@@ -151,10 +151,10 @@ export const REELS_PAGE_SIZE = 8;
 export const BUZZ_PAGE_SIZE = 20;
 /**
  * The sections of Home, left to right, like TikTok's top tabs: swiping the page moves between them.
- * "For you" is the landing tab and blends Posts and Reels (see blendForYou); Buzz threads show only on the Buzz tab.
+ * "Orbit" (internally `foryou`) is the landing tab and blends Posts and Reels (see blendForYou); Buzz threads show only on the Buzz tab.
  */
 export const HOME_SECTIONS = [
-  { value: "foryou", label: "For you" },
+  { value: "foryou", label: "Orbit" },
   { value: "buzz", label: "Buzz" },
   { value: "posts", label: "Posts" },
   { value: "reels", label: "Reels" },
@@ -166,7 +166,7 @@ export const DEFAULT_HOME_SECTION: HomeSection = "foryou";
  * its feed and its data, and the For you blend keeps carrying posts (and reels); it just has no tab of its own.
  */
 export const HIDDEN_HOME_SECTIONS: readonly HomeSection[] = ["posts"];
-/** The tabs Home shows, left to right: For you | Buzz | Reels. */
+/** The tabs Home shows, left to right: Orbit | Buzz | Reels. */
 export const HOME_TABS = HOME_SECTIONS.filter((s) => !HIDDEN_HOME_SECTIONS.includes(s.value));
 /**
  * Where a Home section lives on the website. The landing section keeps the clean "/" address, the others

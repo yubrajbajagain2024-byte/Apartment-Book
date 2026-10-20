@@ -137,7 +137,7 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
               userId={author.id}
               currentUserId={currentUserId}
               returnTo={href}
-              prefill={`Hi ${author.full_name.split(" ")[0]}! I saw your ${reel ? "reel" : "post"} on CampConnect and wanted to say hi.`}
+              prefill={`Hi ${author.full_name.split(" ")[0]}! I saw your ${reel ? "reel" : "post"} on UniBuzz and wanted to say hi.`}
               variant="action"
               label={`Message ${author.full_name.split(" ")[0]}`}
               className="h-auto w-full justify-start gap-3 px-2.5 py-2 font-medium text-gray-900"

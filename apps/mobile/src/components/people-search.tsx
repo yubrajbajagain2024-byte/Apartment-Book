@@ -44,7 +44,7 @@ export function PeopleSearch({ autoFocus = false }: { autoFocus?: boolean }) {
   const people = data ?? NOBODY;
   const stats = useFollowStatsMany(people, me ?? null);
   const needLogin = () => router.push("/(auth)/login");
-  const section = q ? "People" : profile?.university ? `People at ${profile.university.name}` : "New on CampConnect";
+  const section = q ? "People" : profile?.university ? `People at ${profile.university.name}` : "New on UniBuzz";
 
   return (
     <View style={styles.screen}>

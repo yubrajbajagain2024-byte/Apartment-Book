@@ -44,7 +44,7 @@ the Buzz page; the fixed pattern lives in `packages/shared/src/for-you.ts` and i
 three pages, For you | Buzz | Reels, sit side by side in a pager (Posts is a section without a tab: `HIDDEN_HOME_SECTIONS` in the shared constants keeps it out of the row and the pager while its feed, the post features and the data stay; its Following filter is reachable on the website's `/?tab=posts`; reels also run through For you): swipe left or right to move
 between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in an aurora
 ring on the left, which opens your profile, with Instagram's small "+" badge on its corner that opens the create sheet
-(Post / Reel / Buzz / Snap; over Reels the bar's left slot holds a white "+" instead), the CampConnect wordmark in the middle (it
+(Post / Reel / Buzz / Snap; over Reels the bar's left slot holds a white "+" instead), the UniBuzz wordmark in the middle (it
 reads "Following" while that feed shows) and Search and the Notifications bell on the right; then the three labels spread across the row
 (`src/components/sliding-tabs.tsx`): the active one bold with a rounded aurora underline as wide as the label, sliding
 with the finger over a hairline; moving between sections, by tap or swipe, plays no haptic. Under the labels sits the Campus | Global
@@ -280,7 +280,7 @@ Profile tab, which shows "Edit profile" when you are signed in); 00 and 04 only 
 The app keeps its own look (the brand blue, white or black surfaces, the system font) and adds what makes an iPhone app
 feel native:
 
-- **The Aurora.** CampConnect's signature is a gradient, cyan → sky blue → periwinkle → violet (`aurora`,
+- **The Aurora.** UniBuzz's signature is a gradient, cyan → sky blue → periwinkle → violet (`aurora`,
   `auroraGlow` and `auroraWash` in `src/lib/palette.ts`, drawn with `auroraGradient` from `src/lib/theme.ts`). It is used
   sparingly: primary buttons (the compact ones that repeat down a list stay solid blue), the send buttons, the floating
   "+", the active tab's underline in Home, Explore, Messages and on a profile, the selected segment, the soft capsule
@@ -293,7 +293,7 @@ feel native:
   alignment: filled when on, outlined when off. A like, a save, a vote and a newly chosen tab bounce once. Android keeps Ionicons.
 - **Type.** One scale of Apple's text styles (`textStyle` in `src/lib/theme.ts`): the Search, Find and Messages titles
   are iOS Large Titles (34pt bold), names and screen titles are Title 2, sheet titles are Headline. Nothing is heavier
-  than bold except the CampConnect wordmark, and the system font keeps its own tracking.
+  than bold except the UniBuzz wordmark, and the system font keeps its own tracking.
 - **Buttons.** One `Button` (`src/components/ui.tsx`), an iOS 26 capsule in three sizes: compact (34pt) in list rows,
   regular (44pt) for most actions, large (50pt) for the action that ends a form or a sheet. Semibold labels, a spring
   press and a soft haptic on the primary ones.

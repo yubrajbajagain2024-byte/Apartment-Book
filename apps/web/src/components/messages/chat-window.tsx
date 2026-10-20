@@ -95,7 +95,7 @@ function SharedPostCard({ shared, pending }: { shared: SharedPost; pending?: boo
 }
 
 /**
- * A Snap: never its picture here. It opens once, in the CampConnect app; the card says whether it is waiting there,
+ * A Snap: never its picture here. It opens once, in the UniBuzz app; the card says whether it is waiting there,
  * opened, expired or gone (and to its sender, delivered), on an Aurora tile while it is new and a hollow one after.
  */
 function SnapCard({ snap, mine }: { snap: MessageSnap; mine: boolean }) {
@@ -104,7 +104,7 @@ function SnapCard({ snap, mine }: { snap: MessageSnap; mine: boolean }) {
   const video = snap.kind === "video";
   const SnapIcon = mine ? Send : video ? Video : Camera;
   const title = !mine && fresh ? "New Snap" : video ? "Video Snap" : "Snap";
-  const status = !mine && fresh ? "Open the CampConnect app to view it" : snapStatusText(snap, mine);
+  const status = !mine && fresh ? "Open the UniBuzz app to view it" : snapStatusText(snap, mine);
   return (
     <div data-testid="snap" data-snap-state={state} className={cn("mb-1 flex min-w-48 items-center gap-2.5 rounded-2xl py-2 pl-2 pr-4", mine ? "bg-brand-50" : "bg-gray-100")}>
       <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", fresh ? "bg-brand-600 bg-aurora text-white" : "border-[1.5px] border-gray-200 text-gray-400")}>

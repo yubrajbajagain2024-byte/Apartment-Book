@@ -15,7 +15,7 @@ appId: host.exp.Exponent
 # opens the account sheet, titled with the signed-in email.
 - tapOn: "Profile.*"
 - extendedWaitUntil:
-    visible: "Join CampConnect|Edit profile"
+    visible: "Join UniBuzz|Edit profile"
     timeout: 30000
 - runFlow:
     when:

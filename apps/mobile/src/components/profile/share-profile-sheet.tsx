@@ -51,7 +51,7 @@ export function ShareProfileSheet({ visible, onClose, profileId, name, username,
   const canShare = Platform.OS !== "web" || typeof web?.share === "function";
   const first = name.trim().split(/\s+/)[0] || name;
   const label = own ? "QR code for your profile" : `QR code for ${first}'s profile`;
-  const words = `${name}${username ? ` (@${username})` : ""} on CampConnect`;
+  const words = `${name}${username ? ` (@${username})` : ""} on UniBuzz`;
 
   async function share() {
     try {

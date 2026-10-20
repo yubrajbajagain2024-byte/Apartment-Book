@@ -1,12 +1,12 @@
 /**
- * The two CampConnect palettes. Every colour on screen comes from one of these through useColors() / makeStyles(),
+ * The two UniBuzz palettes. Every colour on screen comes from one of these through useColors() / makeStyles(),
  * so a theme switch repaints the whole app at once. Same keys in both; screens never pick a hex code themselves.
  *
  * Light: white background, black text, light grey borders, blue accents.
  * Dark: pure black background and bars, white text, dark grey cards and borders, the same blue accents.
  */
 export type ThemeColors = {
-  /** The CampConnect blue (the aurora's blue stop): links, icons, active chips, and fills where a gradient would be fussy. */
+  /** The UniBuzz blue (the aurora's blue stop): links, icons, active chips, and fills where a gradient would be fussy. */
   brand: string;
   brandDark: string;
   /** A faint blue wash behind brand icons and selected chips. */
@@ -16,7 +16,7 @@ export type ThemeColors = {
   /** The violet accent: the slide dots under a photo, the group mark in the inbox. */
   accent: string;
   /**
-   * CampConnect's signature, the Aurora: cyan, sky blue, periwinkle, violet, as four gradient stops (see auroraGradient in
+   * UniBuzz's signature, the Aurora: cyan, sky blue, periwinkle, violet, as four gradient stops (see auroraGradient in
    * theme.ts). Used sparingly, on what matters most: primary buttons, the send buttons, the floating "+", the active
    * tab's underline, the selected segment and the rings around a profile photo. `aurora` fills what carries white words,
    * deep enough that a label passes 4.5:1 across the middle where it sits (the same in both themes); `auroraGlow` draws

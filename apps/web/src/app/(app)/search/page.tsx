@@ -42,7 +42,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           <PhoneSearchBox />
           <p className="text-sm text-gray-600">Find people by name, or apartments, roommates and items.</p>
         </div>
-        <PeopleSection title={campus && profile?.university?.name ? `People at ${profile.university.name}` : "New on CampConnect"} people={people} stats={stats} viewerId={user?.id ?? null} signedIn={signedIn} testId="search-people" emptyTitle="Nobody to show yet" />
+        <PeopleSection title={campus && profile?.university?.name ? `People at ${profile.university.name}` : "New on UniBuzz"} people={people} stats={stats} viewerId={user?.id ?? null} signedIn={signedIn} testId="search-people" emptyTitle="Nobody to show yet" />
       </div>
     );
   }

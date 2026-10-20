@@ -5,7 +5,7 @@ import type { FeedMedia, FeedPostWithAuthor, FollowListView, ProfileClass, Profi
 // -----------------------------------------------------------------------------
 export const PROFILE_VISIBILITIES: ProfileVisibility[] = ["public", "friends", "private"];
 export const PROFILE_VISIBILITY_OPTIONS: { value: ProfileVisibility; label: string; description: string }[] = [
-  { value: "public", label: "Everyone", description: "Anyone on CampConnect" },
+  { value: "public", label: "Everyone", description: "Anyone on UniBuzz" },
   { value: "friends", label: "Friends", description: "People you follow who follow you back" },
   { value: "private", label: "Only me", description: "Nobody else can see it" },
 ];
