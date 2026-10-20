@@ -1,0 +1,18 @@
+{
+  "name": "@apartment-book/moderation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Server-only text moderation engine for Buzz (ported from UniVerse). Never import it from the app or from client components.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
