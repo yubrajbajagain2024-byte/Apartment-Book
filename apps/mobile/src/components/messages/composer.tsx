@@ -21,9 +21,14 @@ const VoiceRecorder = VOICE_AVAILABLE ? (require("./voice-recorder") as typeof i
 const SHOW_EVENT = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
 const HIDE_EVENT = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
 
-/** The glass capsule's corner, and the round controls inside it. */
-const CAPSULE = 20;
-const CONTROL = 30;
+/**
+ * The bar's sizes: the "+" circle and the capsule are the system's 44pt touch target, the capsule fully rounded; the
+ * microphone and Send inside it are 34pt circles, centred on its first line however tall the text grows.
+ */
+const BAR = 44;
+const CAPSULE = BAR / 2;
+const CONTROL = 34;
+const CONTROL_INSET = (BAR - CONTROL) / 2;
 
 /** Animate the next layout change along with the keyboard (iPhone tells how long it takes). */
 function followKeyboard(e: KeyboardEvent) {
@@ -74,7 +79,7 @@ function FloatingBar({ onHeight, children }: { onHeight?: (height: number) => vo
     onHeight?.(h);
   }
   return (
-    <View style={[styles.bar, { paddingBottom: keyboard ? 8 : Math.max(insets.bottom, 12) }]} onLayout={measured}>
+    <View style={[styles.bar, { paddingBottom: keyboard ? 10 : Math.max(insets.bottom, 14) }]} onLayout={measured}>
       <ProgressiveBlur edge="bottom" height={height + 28} intensity={50} tint={isDark ? "dark" : "light"} />
       {children}
     </View>
@@ -87,7 +92,7 @@ function GlassPanel({ children, style }: { children: ReactNode; style?: object }
   const { colors } = useAppTheme();
   return (
     <View style={[styles.panel, { borderColor: colors.glassEdge }, style]}>
-      <GlassBackdrop variant="float" radius={18} />
+      <GlassBackdrop variant="float" radius={20} />
       {children}
     </View>
   );
@@ -202,7 +207,7 @@ export function Composer({
     <FloatingBar onHeight={onHeight}>
       {panels}
       <View style={styles.row}>
-        <GlassIconButton icon="add" label="Attach a photo, video or file" variant="float" size={38} iconSize={22} weight="medium" disabled={busy} onPress={attach}>
+        <GlassIconButton icon="add" label="Attach a photo, video or file" variant="float" size={BAR} iconSize={24} weight="medium" disabled={busy} onPress={attach}>
           {busy ? <ActivityIndicator color={colors.text} /> : undefined}
         </GlassIconButton>
         <View style={[styles.capsule, { borderColor: colors.glassEdge }]}>
@@ -212,7 +217,7 @@ export function Composer({
             value={value}
             onChangeText={onChangeText}
             placeholder={placeholder}
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.muted}
             keyboardAppearance={isDark ? "dark" : "light"}
             multiline
             // The web's text area starts two rows tall; phones start at one line and grow.
@@ -233,7 +238,7 @@ export function Composer({
               accessibilityRole="button"
               accessibilityLabel="Record a voice message"
             >
-              <Icon name="mic" size={19} color={colors.muted} weight="medium" />
+              <Icon name="mic" size={22} color={colors.muted} weight="medium" />
             </Pressable>
           ) : (
             <Pressable
@@ -245,7 +250,7 @@ export function Composer({
               accessibilityLabel="Send"
               accessibilityState={{ disabled: !canSend }}
             >
-              <Icon name="arrow-up" size={17} color={colors.onBrand} weight="bold" />
+              <Icon name="arrow-up" size={19} color={colors.onBrand} weight="bold" />
             </Pressable>
           )}
         </View>
@@ -275,27 +280,28 @@ export function ComposerNotice({ title, body, action, onHeight }: { title: strin
 }
 
 const useStyles = makeStyles((colors) => ({
-  bar: { paddingHorizontal: 10, paddingTop: 6, gap: 8 },
-  row: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
-  panel: { borderRadius: 18, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
+  bar: { paddingHorizontal: 12, paddingTop: 8, gap: 10 },
+  row: { flexDirection: "row", alignItems: "flex-end", gap: 10 },
+  panel: { borderRadius: 20, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
   stripPanel: { paddingBottom: 8 },
-  replyRow: { flexDirection: "row", alignItems: "center", paddingVertical: 4, paddingRight: 6 },
-  replyClose: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  capsule: { flex: 1, flexDirection: "row", alignItems: "flex-end", minHeight: 38, borderRadius: CAPSULE, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
+  replyRow: { flexDirection: "row", alignItems: "center", paddingVertical: 6, paddingLeft: 2, paddingRight: 6 },
+  replyClose: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  capsule: { flex: 1, flexDirection: "row", alignItems: "flex-end", minHeight: BAR, borderRadius: CAPSULE, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
+  // One line of 17pt text sits centred in the 44pt capsule (11 + 22 + 11); it grows to about six lines, then scrolls.
   input: {
     flex: 1,
-    minHeight: 38,
-    maxHeight: 132,
-    paddingLeft: 14,
-    paddingRight: 4,
-    paddingTop: 8,
-    paddingBottom: 8,
+    minHeight: BAR,
+    maxHeight: 154,
+    paddingLeft: 17,
+    paddingRight: 6,
+    paddingTop: 11,
+    paddingBottom: 11,
     fontSize: 17,
     lineHeight: 22,
     color: colors.text,
     textAlignVertical: "center",
   },
-  control: { width: CONTROL, height: CONTROL, borderRadius: CONTROL / 2, marginRight: 4, marginBottom: 4, alignItems: "center", justifyContent: "center" },
+  control: { width: CONTROL, height: CONTROL, borderRadius: CONTROL / 2, marginRight: CONTROL_INSET, marginBottom: CONTROL_INSET, alignItems: "center", justifyContent: "center" },
   send: {},
   notice: { alignItems: "center", gap: 4, paddingHorizontal: 24, paddingTop: 14, paddingBottom: 14 },
   noticeTitle: { fontSize: 15, fontWeight: "700", color: colors.text, textAlign: "center" },

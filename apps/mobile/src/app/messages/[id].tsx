@@ -8,6 +8,7 @@ import {
   getConversation,
   getMemberStatus,
   isBlocked,
+  formatMessageTime,
   isSameDay,
   listMessages,
   markConversationRead,
@@ -48,8 +49,10 @@ import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { useChatActivity } from "@/lib/use-activity-status";
 import { onSnapChange } from "@/lib/snap-events";
 
-/** Messages from one person this close together form one run: hugging bubbles, one name, one time. */
+/** Messages from one person this close together form one run: hugging bubbles, one name. */
 const RUN_GAP_MS = 5 * 60 * 1000;
+/** Quiet for this long, and the next message gets a day and time stamp above it, as a new day's first message does. */
+const STAMP_GAP_MS = 30 * 60 * 1000;
 /** Jumping to an older message (from search, or a reply's quote) loads pages this big, at most this many of them. */
 const JUMP_PAGE_SIZE = 100;
 const JUMP_MAX_PAGES = 10;
@@ -218,6 +221,8 @@ function Chat({
   const [signTick, setSignTick] = useState(0);
   const [block, setBlock] = useState<BlockState>("none");
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  /** The message whose exact time shows under it (tapped); one at a time. */
+  const [revealedId, setRevealedId] = useState<string | null>(null);
   const [viewer, setViewer] = useState<{ items: MediaViewerItem[]; index: number } | null>(null);
   const [windowTop, setWindowTop] = useState<number | null>(null);
   const [jumpTick, setJumpTick] = useState(0);
@@ -582,6 +587,10 @@ function Chat({
     animateLayout();
     setReplyTo(null);
   }, []);
+  const revealTime = useCallback((m: ChatMessage) => {
+    animateLayout();
+    setRevealedId((current) => (current === m.id ? null : m.id));
+  }, []);
   const jumpFromQuote = useCallback(
     (messageId: string) => {
       hapticTap();
@@ -752,15 +761,20 @@ function Chat({
       );
       return;
     }
+    // The menu is headed by the message's exact time (a hold is the other way to see it, for photos and the like).
+    const when = formatMessageTime(m.created_at);
     // A sent message of mine offers only Reply: deleting it would leave its text in the inbox and in the other side's chat.
     if (m.sender_id === userId) {
-      show([{ label: "Reply", icon: "arrow-undo-outline", onPress: () => startReply(m) }]);
+      show([{ label: "Reply", icon: "arrow-undo-outline", onPress: () => startReply(m) }], when);
       return;
     }
-    show([
-      { label: "Reply", icon: "arrow-undo-outline", onPress: () => startReply(m) },
-      { label: "Report message", icon: "flag-outline", destructive: true, onPress: () => reportMessage(m) },
-    ]);
+    show(
+      [
+        { label: "Reply", icon: "arrow-undo-outline", onPress: () => startReply(m) },
+        { label: "Report message", icon: "flag-outline", destructive: true, onPress: () => reportMessage(m) },
+      ],
+      when,
+    );
   }
 
   // Rows get one stable handler, so typing in the message field never re-renders the list.
@@ -858,18 +872,20 @@ function Chat({
       const previous = messages[i - 1];
       const next = messages[i + 1];
       const mine = m.sender_id === userId;
-      const showDay = !previous || !isSameDay(previous.created_at, m.created_at);
+      // A stamp above the first message of a day and above any message after half an hour's quiet.
+      const stamp = !previous || !isSameDay(previous.created_at, m.created_at) || Date.parse(m.created_at) - Date.parse(previous.created_at) >= STAMP_GAP_MS;
       const arrived = arriving.current.get(m.id);
       return (
         <MessageRow
           message={m}
           mine={mine}
           isGroup={isGroup}
-          showDay={showDay}
-          firstInGroup={!previous || showDay || !sameRun(previous, m)}
+          stamp={stamp}
+          firstInGroup={!previous || stamp || !sameRun(previous, m)}
           lastInGroup={!next || !isSameDay(m.created_at, next.created_at) || !sameRun(m, next)}
           receipt={mine && lastMine?.id === m.id ? receipt : null}
           seenBy={seenAt.get(m.id)}
+          revealed={revealedId === m.id}
           highlighted={highlightId === m.id}
           appear={arrived !== undefined && Date.now() - arrived < APPEAR_FOR_MS}
           mediaWidth={mediaWidth}
@@ -880,12 +896,13 @@ function Chat({
           onOpenSnap={openSnapViewer}
           onActions={onActions}
           onReply={startReply}
+          onReveal={revealTime}
           onJumpTo={jumpFromQuote}
           onPressSender={openProfile}
         />
       );
     },
-    [messages, userId, isGroup, lastMine, receipt, seenAt, highlightId, mediaWidth, resolveMedia, resolveReply, openMedia, openFile, openSnapViewer, onActions, startReply, jumpFromQuote, openProfile],
+    [messages, userId, isGroup, lastMine, receipt, seenAt, highlightId, revealedId, mediaWidth, resolveMedia, resolveReply, openMedia, openFile, openSnapViewer, onActions, startReply, revealTime, jumpFromQuote, openProfile],
   );
 
   const notice =

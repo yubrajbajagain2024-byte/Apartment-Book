@@ -221,16 +221,24 @@ read" pill floats above the bottom bar, as in GroupMe: one tap marks every chat 
 (`src/lib/use-message-requests.ts`: nothing is stored for it, it is read off the chats, the follow stats and whether you
 have written in each, so every device agrees). Searching looks only in the page on screen.
 
+A shared post, reel or listing in a chat is a photo bubble too, as a sent photo would be: its picture fills the chat's photo width
+(4:5 for a post or a listing, taller for a reel) with who posted it and its words on a shade along the bottom, and no label of what
+it is; one without a picture stays a card of its words. A tap opens it as before (`SharedPostBubble` in `message-bubble.tsx`).
+
 A chat (`src/app/messages/[id].tsx`) is laid out like the Messages app. Its floating top bar (`src/components/messages/chat-header.tsx`)
-has Back in a glass circle on the left, the other person's photo (or the group mark) in the middle with their name in a glass pill
-under it (the chevron, the pill and the photo all open the chat's details) and their activity line under that, and Search and Info in
-glass circles on the right; nothing solid sits behind it, the messages scroll under it through a blur that fades in towards the top
-of the screen. The bubbles (`message-bubble.tsx`) have no photos beside them: the day label reads "Today 14:05", a group shows the
-sender's name above a run of theirs, the words sit in 18pt-cornered blue (yours) or grey bubbles at the body size, and under the
-last of a run the time, or under your newest message "Sending…", "Sent" or "Delivered" (seen shows as the readers' small photos).
-A message that arrives, or that you send, rises in on a spring. The message bar (`composer.tsx`) floats too: "+" in a glass
-circle (photo or video, camera, file), a see-through glass capsule holding the field and, at its end, the microphone or, once
-something is typed or picked, the blue Send; picked files and the message being answered sit on glass panels above it. With the
+is one row: Back in a 44pt glass circle on the left, then the other person's photo (with the green dot while they are active; a group
+shows its mark), their name in bold with a chevron and their activity line ("Active now", "Active 5 min ago", or "4 members") under
+it, and Search and Info in 44pt glass circles on the right. The photo and the name open the chat's details, as Info does. Nothing
+solid sits behind it: the messages scroll under it through a blur that fades in towards the top of the screen. The bubbles (`message-bubble.tsx`) have no photos beside them and, as in Instagram, no times under them: a small centred stamp
+("Today 14:05", "Yesterday 09:30", "Mon, 3 Mar 10:15", in the phone's own time zone) sits above the first message of each day and
+above any message that comes after half an hour's quiet; a tap on a message's words shows its exact time under it until the next tap
+(a hold shows it as the menu's title, for photos, voice messages and the like too); your newest message says "Sending…", "Sent" or
+"Delivered" under it; and "Seen", with the readers' small photos, sits under the last message they read. A group shows the sender's
+name above a run of theirs, and the words sit in 18pt-cornered blue (yours) or grey bubbles at the body size.
+A message that arrives, or that you send, rises in on a spring. The message bar (`composer.tsx`) floats too: "+" in a 44pt glass
+circle (photo or video, camera, file), a fully rounded 44pt see-through glass capsule holding the 17pt field (it grows to about six
+lines, then scrolls) and, at its end, a 34pt microphone or, once something is typed or picked, the blue Send; the voice recorder
+that stands in for it while you record keeps the same sizes; picked files and the message being answered sit on glass panels above it. With the
 keyboard down the bar keeps the home-indicator space; with it up the bar rides on the keyboard, the newest message staying in view.
 
 Swipe a message to the right (`swipe-to-reply.tsx`, in direct and group chats alike; a hold offers Reply too) to answer it: a reply
@@ -263,9 +271,12 @@ nothing over a sheet that is still leaving) and the Aurora "Send To". That start
 progress) and raises the Send To sheet (`send-to-sheet.tsx`): your direct chats, the most recent first, then your friends,
 a search over both, a ring per person that fills with the Aurora when picked (only what turns on bounces), and a bar that
 rises with who it goes to and the round send button: a spinner and "Sending… 42%", then the plane flies off and a tick
-lands on green, and the Snap fades away. In a chat (`snap-bubble.tsx`) a waiting Snap is a bubble at its own shape showing only a 32-pixel
-preview made when it was taken, blurred past recognition, with "Tap to view" (its recipient) or "Delivered" (its sender);
-then just "Opened", "Expired" or "Unavailable" on a small card, the preview gone from the message; the chat follows realtime updates of its messages, so both sides change at once. The viewer
+lands on green, and the Snap fades away. In a chat (`snap-bubble.tsx`) a Snap is the same large bubble as a sent photo, at the Snap's own shape, and never its picture: while it
+waits it shows only its 32-pixel preview, scaled up and blurred past recognition under frosted glass (a real blur where the build has
+expo-blur), with "Tap to view" or "Delivered" on a glass mark in the middle and "Snap" in the corner; tapping opens it full screen once
+(a photo until you tap, swipe it down or close it; a video plays through once with a bar along the top). Opened, expired or gone, the
+bubble keeps its shape at seven tenths of the size and goes quiet, a frosted surface carrying "Opened", "Expired" or "Unavailable", the
+preview gone from the message; the chat follows realtime updates of its messages, so both sides change at once. The viewer
 opens it once (`open_snap()`), loads it through Storage's signed-in download with your own session (every request, each
 range of a video too, is checked against the view, so nothing can be loaded after it), keeps a photo in memory only, and closes with a tap, a swipe down, its close button, the end of a video or the app going to the background,
 calling `close_snap()`. Both screens leave on a timer rather than when their fade reports it ended, so an interrupted
