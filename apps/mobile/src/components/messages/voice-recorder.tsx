@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Linking, Pressable, Text, View } from "react-native";
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 import { File as DeviceFile } from "expo-file-system";
-import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from "expo-audio";
+import { requestRecordingPermissionsAsync, useAudioRecorder, useAudioRecorderState } from "expo-audio";
+import { GlassBackdrop } from "@/components/glass";
 import { Icon } from "@/components/icon";
 import { useReduceMotion } from "@/lib/accessibility";
 import { hapticTap } from "@/lib/haptics";
@@ -10,9 +11,8 @@ import { formatDuration, type PendingAttachment } from "@/lib/message-attachment
 import { auroraGradient } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { VOICE_MAX_SECONDS, VOICE_MIN_SECONDS } from "@/lib/voice";
+import { VOICE_RECORDING_OPTIONS, playbackSession, recordingSession } from "@/lib/voice-audio";
 
-/** Mono AAC at 64 kbps: clear speech, about half a megabyte a minute. */
-const VOICE_OPTIONS = { ...RecordingPresets.HIGH_QUALITY, numberOfChannels: 1, bitRate: 64000, isMeteringEnabled: true };
 /** How many level bars the live meter keeps. */
 const METER_BARS = 32;
 
@@ -23,15 +23,15 @@ function level(db: number | undefined): number {
 }
 
 /**
- * The message bar while a voice message is being recorded, in place of the field: discard on the left, the red dot and
- * the time, the voice's level moving as you speak, and the send button. It starts recording as it appears (asking for
- * the microphone the first time) and stops at five minutes, sending what it has.
+ * The message bar while a voice message is being recorded, in place of the field: discard on the left, a glass
+ * capsule with the red dot, the time and the voice's level moving as you speak, and the send button. It starts
+ * recording as it appears (asking for the microphone the first time) and stops at five minutes, sending what it has.
  */
 export function VoiceRecorder({ onCancel, onSend }: { onCancel: () => void; onSend: (item: PendingAttachment) => void }) {
   const styles = useStyles();
   const { colors } = useAppTheme();
   const reduceMotion = useReduceMotion();
-  const recorder = useAudioRecorder(VOICE_OPTIONS);
+  const recorder = useAudioRecorder(VOICE_RECORDING_OPTIONS);
   const state = useAudioRecorderState(recorder, 80);
   const [levels, setLevels] = useState<number[]>(() => Array(METER_BARS).fill(0.08));
   const [ready, setReady] = useState(false);
@@ -54,7 +54,7 @@ export function VoiceRecorder({ onCancel, onSend }: { onCancel: () => void; onSe
         onCancel();
         return;
       }
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recordingSession();
       await recorder.prepareToRecordAsync();
       if (cancelled) return;
       recorder.record();
@@ -70,7 +70,7 @@ export function VoiceRecorder({ onCancel, onSend }: { onCancel: () => void; onSe
       cancelled = true;
       // Left without sending (the chat closed): the recording is thrown away.
       if (!finished.current) void recorder.stop().catch(() => {});
-      void setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+      void playbackSession();
     };
     // Once, as the bar appears.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,7 +100,8 @@ export function VoiceRecorder({ onCancel, onSend }: { onCancel: () => void; onSe
     } catch {
       // Stopped already.
     }
-    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+    // Back to the playback session at once, so the next voice message plays loud through the speaker.
+    await playbackSession();
     const uri = recorder.uri;
     if (!send || !uri || duration < VOICE_MIN_SECONDS) {
       onCancel();
@@ -138,7 +139,8 @@ export function VoiceRecorder({ onCancel, onSend }: { onCancel: () => void; onSe
       <Pressable onPress={() => void finish(false)} hitSlop={8} style={styles.side} accessibilityRole="button" accessibilityLabel="Discard voice message">
         <Icon name="trash-outline" size={22} color={colors.red} />
       </Pressable>
-      <View style={styles.track}>
+      <View style={[styles.track, { borderColor: colors.glassEdge }]}>
+        <GlassBackdrop variant="float" radius={20} />
         <Animated.View style={[styles.dot, { backgroundColor: colors.red }, dot]} />
         <Text style={styles.time}>{formatDuration(seconds) || "0:00"}</Text>
         <View style={styles.meter} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -155,19 +157,19 @@ export function VoiceRecorder({ onCancel, onSend }: { onCancel: () => void; onSe
         accessibilityRole="button"
         accessibilityLabel="Send voice message"
       >
-        <Icon name="send" size={17} color={colors.onBrand} />
+        <Icon name="arrow-up" size={18} color={colors.onBrand} weight="bold" />
       </Pressable>
     </View>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
-  row: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 10, paddingTop: 8 },
-  side: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
-  track: { flex: 1, height: 40, borderRadius: 20, backgroundColor: colors.input, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 8, overflow: "hidden" },
+  row: { flexDirection: "row", alignItems: "center", gap: 8 },
+  side: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
+  track: { flex: 1, height: 40, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 8, overflow: "hidden" },
   dot: { width: 9, height: 9, borderRadius: 4.5 },
   time: { fontSize: 15, fontWeight: "600", color: colors.text, fontVariant: ["tabular-nums"], minWidth: 38 },
   meter: { flex: 1, height: 26, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 2 },
   bar: { width: 3, borderRadius: 1.5 },
-  send: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  send: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
 }));

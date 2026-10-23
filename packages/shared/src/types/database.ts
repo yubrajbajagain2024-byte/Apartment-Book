@@ -622,6 +622,11 @@ export type Database = {
           attachments: Json;
           /** Migration 28: {id, kind, expires_at, opened_at} when the message is a Snap; read it with snapOf(). Set only by send_snap(). */
           snap: Json | null;
+          /**
+           * Migration 31: {id, sender_id, kind, text} when the message answers another one of the chat; read it with
+           * replyOf(). Send only {id}: a trigger builds the rest from the original and refuses anything else.
+           */
+          reply_to: Json | null;
           created_at: string;
         };
         Insert: {
@@ -633,6 +638,7 @@ export type Database = {
           shared_post?: Json | null;
           attachments?: Json;
           snap?: Json | null;
+          reply_to?: Json | null;
           created_at?: string;
         };
         Update: {
@@ -644,6 +650,7 @@ export type Database = {
           shared_post?: Json | null;
           attachments?: Json;
           snap?: Json | null;
+          reply_to?: Json | null;
           created_at?: string;
         };
         Relationships: [

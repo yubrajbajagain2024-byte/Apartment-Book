@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { requireOptionalNativeModule } from "expo";
 
 /**
@@ -12,6 +14,64 @@ export const VOICE_MAX_SECONDS = 300;
 
 /** Shorter than this, a recording is dropped rather than sent (a tap on the microphone by mistake). */
 export const VOICE_MIN_SECONDS = 0.6;
+
+/** The playback speeds a voice message offers, in the order a tap on the speed pill cycles through them. */
+export const VOICE_RATES = [1, 1.5, 2] as const;
+export type VoiceRate = (typeof VOICE_RATES)[number];
+
+/** "1×", "1.5×", "2×". */
+export function voiceRateLabel(rate: VoiceRate): string {
+  return `${rate}×`;
+}
+
+/**
+ * The chosen speed, one for every voice message (as in WhatsApp): changing it on one bubble changes the next one too,
+ * and it is remembered across launches. Read with useVoiceRate(); cycleVoiceRate() moves to the next speed.
+ */
+const RATE_KEY = "campconnect.voiceRate";
+let rate: VoiceRate = 1;
+const listeners = new Set<() => void>();
+const isRate = (v: unknown): v is VoiceRate => (VOICE_RATES as readonly number[]).includes(v as number);
+
+AsyncStorage.getItem(RATE_KEY).then(
+  (stored) => {
+    const parsed = stored ? Number(stored) : NaN;
+    if (isRate(parsed) && parsed !== rate) {
+      rate = parsed;
+      listeners.forEach((l) => l());
+    }
+  },
+  () => {},
+);
+
+export function getVoiceRate(): VoiceRate {
+  return rate;
+}
+
+export function setVoiceRate(next: VoiceRate) {
+  if (next === rate) return;
+  rate = next;
+  listeners.forEach((l) => l());
+  AsyncStorage.setItem(RATE_KEY, String(next)).catch(() => {});
+}
+
+/** The next speed after the current one: 1× → 1.5× → 2× → 1×. */
+export function cycleVoiceRate(): VoiceRate {
+  const next = VOICE_RATES[(VOICE_RATES.indexOf(rate) + 1) % VOICE_RATES.length];
+  setVoiceRate(next);
+  return next;
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+export function useVoiceRate(): VoiceRate {
+  return useSyncExternalStore(subscribe, getVoiceRate, getVoiceRate);
+}
 
 /** 24 bar heights (0.15 to 1) for a voice message's waveform, the same for the same file every time. */
 export function voiceBars(seed: string, count = 24): number[] {

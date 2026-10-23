@@ -29,6 +29,11 @@ export type ThemeColors = {
   /** The floating bottom bar where there is no liquid glass (Android, iOS before 26): a translucent fill, and the hairline around the pill everywhere. */
   glass: string;
   glassEdge: string;
+  /**
+   * The thin wash under the see-through glass of a chat's floating header pill and message bar: just enough for words
+   * to read over whatever scrolls under them, the glass (or the blur before iOS 26) doing the rest.
+   */
+  floatFill: string;
   /** Screen background. */
   bg: string;
   /** Cards and rows that sit on the screen. Bars use `bar`. */
@@ -126,6 +131,7 @@ export const lightColors: ThemeColors = {
   auroraWash: ["rgba(44,198,234,0.20)", "rgba(74,157,251,0.18)", "rgba(131,148,249,0.18)", "rgba(164,124,248,0.20)"],
   glass: "rgba(255,255,255,0.92)",
   glassEdge: "rgba(0,0,0,0.1)",
+  floatFill: "rgba(255,255,255,0.42)",
   bg: "#ffffff",
   card: "#ffffff",
   bar: "#ffffff",
@@ -182,6 +188,7 @@ export const darkColors: ThemeColors = {
   auroraWash: ["rgba(44,198,234,0.26)", "rgba(74,157,251,0.24)", "rgba(131,148,249,0.24)", "rgba(164,124,248,0.26)"],
   glass: "rgba(22,22,24,0.92)",
   glassEdge: "rgba(255,255,255,0.14)",
+  floatFill: "rgba(28,28,30,0.42)",
   bg: "#000000",
   card: "#1c1c1e",
   bar: "#000000",

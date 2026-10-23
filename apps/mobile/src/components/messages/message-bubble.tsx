@@ -1,26 +1,32 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import Reanimated, { FadeInDown } from "react-native-reanimated";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
   extractLinks,
+  formatTimeOfDay,
   formatDayLabel,
   formatMessageTime,
+  replyOf,
   sharedPostLabel,
   sharedPostOf,
   snapOf,
   type MessageAttachment,
+  type MessageReply,
   type ProfileSummary,
   type SharedPost,
 } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
+import { useReduceMotion } from "@/lib/accessibility";
 import { openChatLink, sharedPostHref, type ChatMessage, type OutgoingFiles, type UploadStatus } from "@/lib/message-attachments";
 import { entryForPost, measureOrigin, openViewer } from "@/lib/reel-viewer";
 import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { AttachmentFileRow } from "./attachment-file-row";
 import { AttachmentGrid, type GridMedia } from "./attachment-grid";
-import { Icon } from "@/components/icon";
+import { ReplyQuote, type ReplyContext } from "./reply-quote";
+import { SwipeToReply } from "./swipe-to-reply";
 import { SnapBubble } from "@/components/snap/snap-bubble";
 import { VOICE_AVAILABLE } from "@/lib/voice";
 
@@ -115,32 +121,50 @@ function linkParts(text: string): { text: string; url?: string }[] {
   return parts;
 }
 
+/** How a new message comes in: it rises from the bar and settles, on a spring that never overshoots. */
+const ARRIVE = FadeInDown.springify().damping(24).stiffness(300).mass(0.8);
+
 export type MessageRowProps = {
   message: ChatMessage;
   mine: boolean;
   isGroup: boolean;
   /** First message of its day: the day label goes above it. */
   showDay: boolean;
-  /** First / last of a run of messages from the same person close together: rounder corners, the name, the avatar and the time. */
+  /** First / last of a run of messages from the same person close together: the name above the first, the time under the last. */
   firstInGroup: boolean;
   lastInGroup: boolean;
-  /** Only on my newest message: sending, sent or delivered (seen shows as avatars instead). */
+  /** Only on my newest message: "Sending…", "Sent" or "Delivered" under it (seen shows as avatars instead). */
   receipt: "sending" | "sent" | "delivered" | "seen" | null;
   seenBy?: ProfileSummary[];
-  /** Briefly lit after jumping here from search. */
+  /** Briefly lit after jumping here from search or from a reply's quote. */
   highlighted: boolean;
+  /** Arrived (or was sent) while the chat was open: it rises in. */
+  appear: boolean;
   mediaWidth: number;
   resolveMedia: MediaResolver;
+  /** Who wrote the message a quote points at, and its picture when it is on screen. */
+  resolveReply: (reply: MessageReply) => ReplyContext;
   onOpenMedia: (message: ChatMessage, index: number) => void;
   onOpenFile: (attachment: MessageAttachment) => void;
   /** A Snap from someone else, tapped while it is new: its one view. */
   onOpenSnap?: (message: ChatMessage) => void;
   /** Long press (and a tap on a message that was not sent): retry, delete or report. */
   onActions: (message: ChatMessage) => void;
-  onPressAvatar: (userId: string) => void;
+  /** A swipe to the right on the message. */
+  onReply: (message: ChatMessage) => void;
+  /** A tap on a reply's quote: show the message it answers. */
+  onJumpTo: (messageId: string) => void;
+  /** A tap on a sender's name in a group. */
+  onPressSender: (userId: string) => void;
 };
 
-/** One message in the chat: day label, avatar, shared post, photos and videos, files, a Snap, words, time and receipts. */
+/**
+ * One message in the chat, laid out like the Messages app's: the day label ("Today 14:05"), in a group the sender's
+ * name above a run of theirs, the quote of what it answers, a shared post, photos and videos, files, a Snap, a voice
+ * message, the words in a blue (mine) or grey bubble, and under the last of a run the time, or under my newest message
+ * where it stands. No photos beside the bubbles: the chat's header says who you are talking to. A swipe to the right
+ * answers it.
+ */
 export function MessageRow({
   message: m,
   mine,
@@ -151,19 +175,25 @@ export function MessageRow({
   receipt,
   seenBy,
   highlighted,
+  appear,
   mediaWidth,
   resolveMedia,
+  resolveReply,
   onOpenMedia,
   onOpenFile,
   onOpenSnap,
   onActions,
-  onPressAvatar,
+  onReply,
+  onJumpTo,
+  onPressSender,
 }: MessageRowProps) {
   const colors = useColors();
   const styles = useStyles();
   const router = useRouter();
+  const reduceMotion = useReduceMotion();
   const shared = sharedPostOf(m.shared_post);
   const snap = snapOf(m.snap);
+  const reply = replyOf(m.reply_to);
   const media = messageMedia(m, resolveMedia);
   const files = messageFiles(m);
   const voices = messageVoices(m, resolveMedia);
@@ -171,28 +201,26 @@ export function MessageRow({
   const actions = m.pending ? undefined : () => onActions(m);
   const retry = m.failed ? () => onActions(m) : undefined;
   const sender = m.sender;
-  // Runs of bubbles from one person hug each other, like X and Messenger: the inner corners are tighter.
-  const corners = mine
-    ? { borderTopRightRadius: firstInGroup ? 18 : 6, borderBottomRightRadius: lastInGroup ? 18 : 6 }
-    : { borderTopLeftRadius: firstInGroup ? 18 : 6, borderBottomLeftRadius: lastInGroup ? 18 : 6 };
   const textColor = m.failed ? colors.dangerText : mine ? colors.onBrand : colors.text;
+  const receiptLabel = receipt === "sending" ? sendingLabel(m.outgoing) : receipt === "sent" ? "Sent" : receipt === "delivered" ? "Delivered" : null;
+  const footer = m.failed ? null : m.pending ? sendingLabel(m.outgoing) : receiptLabel ? receiptLabel : lastInGroup ? formatMessageTime(m.created_at) : null;
 
   return (
-    <View>
-      {showDay ? <Text style={styles.day}>{formatDayLabel(m.created_at)}</Text> : null}
+    <Reanimated.View entering={appear && !reduceMotion ? ARRIVE : undefined}>
+      {showDay ? (
+        <Text style={styles.day} accessibilityRole="header">
+          <Text style={styles.dayStrong}>{formatDayLabel(m.created_at)}</Text> {formatTimeOfDay(m.created_at)}
+        </Text>
+      ) : null}
       <Highlight active={highlighted}>
         <View style={[styles.line, mine && styles.lineMine, firstInGroup && !showDay && styles.groupStart]}>
-          {!mine ? (
-            <View style={styles.avatarSlot}>
-              {lastInGroup && sender ? (
-                <Pressable onPress={() => onPressAvatar(sender.id)} hitSlop={4} accessibilityRole="button" accessibilityLabel={`${sender.full_name}'s profile`}>
-                  <Avatar name={sender.full_name} url={sender.avatar_url} size="sm" online={false} />
-                </Pressable>
-              ) : null}
-            </View>
-          ) : null}
-          <View style={[styles.stack, mine ? styles.stackMine : styles.stackTheirs]}>
-            {!mine && isGroup && firstInGroup ? <Text style={styles.sender}>{sender?.full_name ?? "Unknown"}</Text> : null}
+          <SwipeToReply enabled={!m.pending && !m.failed} onReply={() => onReply(m)} style={[styles.stack, mine ? styles.stackMine : styles.stackTheirs]}>
+            {!mine && isGroup && firstInGroup ? (
+              <Text style={styles.sender} numberOfLines={1} onPress={sender ? () => onPressSender(sender.id) : undefined} accessibilityRole={sender ? "button" : undefined}>
+                {sender?.full_name ?? "Unknown"}
+              </Text>
+            ) : null}
+            {reply ? <ReplyQuote reply={reply} context={resolveReply(reply)} tone={mine ? "mine" : "theirs"} onPress={() => onJumpTo(reply.id)} style={styles.quote} /> : null}
             {shared ? <SharedPostCard shared={shared} dimmed={Boolean(m.pending)} onLongPress={actions} /> : null}
             {media.length > 0 ? <AttachmentGrid media={media} width={mediaWidth} onOpen={(i) => onOpenMedia(m, i)} onLongPress={actions} /> : null}
             {files.map((f) => (
@@ -205,17 +233,17 @@ export function MessageRow({
                 style={{ width: mediaWidth }}
               />
             ))}
-            {snap ? <SnapBubble snap={snap} mine={mine} width={mediaWidth} dimmed={Boolean(m.pending)} corners={corners} onOpen={onOpenSnap ? () => onOpenSnap(m) : undefined} onLongPress={actions} /> : null}
+            {snap ? <SnapBubble snap={snap} mine={mine} width={mediaWidth} dimmed={Boolean(m.pending)} onOpen={onOpenSnap ? () => onOpenSnap(m) : undefined} onLongPress={actions} /> : null}
             {voices.map((v) =>
               VoiceBubble ? (
-                <VoiceBubble key={v.key} uri={v.uri} cacheKey={v.key} duration={v.duration} mine={mine} dimmed={Boolean(m.pending)} corners={corners} onLongPress={actions} />
+                <VoiceBubble key={v.key} uri={v.uri} cacheKey={v.key} duration={v.duration} mine={mine} dimmed={Boolean(m.pending)} onLongPress={actions} />
               ) : v.attachment ? (
                 <AttachmentFileRow key={v.key} attachment={v.attachment} onPress={() => onOpenFile(v.attachment as MessageAttachment)} onLongPress={actions} style={{ width: mediaWidth }} />
               ) : null,
             )}
             {showText ? (
               <Pressable onPress={retry} onLongPress={actions} delayLongPress={350} accessibilityHint={m.failed ? "Not sent. Tap for options." : undefined}>
-                <View style={[styles.bubble, mine ? styles.mine : styles.theirs, corners, m.pending && styles.dim, m.failed && styles.failed]}>
+                <View style={[styles.bubble, mine ? styles.mine : styles.theirs, m.pending && styles.dim, m.failed && styles.failed]}>
                   <Text style={[styles.text, { color: textColor }]} selectable={false}>
                     {linkParts(m.content).map((part, i) =>
                       part.url ? (
@@ -230,37 +258,26 @@ export function MessageRow({
                 </View>
               </Pressable>
             ) : null}
-            {lastInGroup || m.pending || m.failed ? (
-              m.failed ? (
-                <Text style={[styles.time, styles.failedTime]} onPress={retry} accessibilityRole="button">
-                  Not sent · Tap to retry
-                </Text>
-              ) : (
-                <Text style={styles.time}>{m.pending ? sendingLabel(m.outgoing) : formatMessageTime(m.created_at)}</Text>
-              )
+            {m.failed ? (
+              <Text style={[styles.footer, styles.failedFooter]} onPress={retry} accessibilityRole="button">
+                Not sent · Tap to retry
+              </Text>
+            ) : footer ? (
+              <Text style={[styles.footer, receiptLabel && !m.pending && styles.receipt]} accessibilityLabel={receiptLabel ?? undefined}>
+                {footer}
+              </Text>
             ) : null}
-          </View>
-          {mine && receipt && receipt !== "seen" ? (
-            <View style={styles.receipt} accessibilityLabel={receipt === "sending" ? "Sending" : receipt === "sent" ? "Sent" : "Delivered"}>
-              {receipt === "sending" ? (
-                <Icon name="ellipse-outline" size={13} color={colors.faint} />
-              ) : receipt === "sent" ? (
-                <Icon name="checkmark-circle-outline" size={14} color={colors.faint} />
-              ) : (
-                <Icon name="checkmark-circle" size={14} color={colors.faint} />
-              )}
-            </View>
-          ) : null}
+          </SwipeToReply>
         </View>
       </Highlight>
       {seenBy && seenBy.length > 0 ? (
         <View style={styles.seen} accessibilityLabel={`Seen by ${seenBy.map((p) => p.full_name).join(", ")}`}>
           {seenBy.map((p) => (
-            <Avatar key={p.id} name={p.full_name} url={p.avatar_url} size="xs" online={false} />
+            <Avatar key={p.id} name={p.full_name} url={p.avatar_url} size={16} online={false} />
           ))}
         </View>
       ) : null}
-    </View>
+    </Reanimated.View>
   );
 }
 
@@ -333,26 +350,27 @@ function SharedPostCard({ shared, dimmed, onLongPress }: { shared: SharedPost; d
 }
 
 const useStyles = makeStyles((colors) => ({
-  day: { textAlign: "center", fontSize: 11, color: colors.faint, marginTop: 14, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 },
-  line: { flexDirection: "row", alignItems: "flex-end", gap: 6, marginTop: 2 },
+  day: { textAlign: "center", fontSize: 11, lineHeight: 14, color: colors.faint, marginTop: 18, marginBottom: 8 },
+  dayStrong: { fontWeight: "700" },
+  line: { flexDirection: "row", marginTop: 2 },
   lineMine: { flexDirection: "row-reverse" },
-  groupStart: { marginTop: 10 },
-  avatarSlot: { width: 32 },
-  stack: { maxWidth: "78%", gap: 3 },
+  groupStart: { marginTop: 12 },
+  stack: { maxWidth: "76%", gap: 2 },
   stackMine: { alignItems: "flex-end" },
   stackTheirs: { alignItems: "flex-start" },
-  sender: { fontSize: 12, color: colors.muted, marginLeft: 4 },
-  bubble: { borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8 },
+  sender: { fontSize: 12, lineHeight: 16, color: colors.muted, marginLeft: 12, marginBottom: 1 },
+  quote: { marginHorizontal: 6 },
+  bubble: { borderRadius: 18, borderCurve: "continuous", paddingHorizontal: 14, paddingVertical: 8 },
   mine: { backgroundColor: colors.brand },
   theirs: { backgroundColor: colors.input },
   dim: { opacity: 0.6 },
   failed: { backgroundColor: colors.dangerSoft },
-  text: { fontSize: 15, lineHeight: 20 },
+  text: { fontSize: 17, lineHeight: 22 },
   link: { textDecorationLine: "underline" },
-  time: { fontSize: 12, color: colors.faint, marginHorizontal: 4 },
-  failedTime: { color: colors.red, fontWeight: "600" },
-  receipt: { width: 16, alignItems: "center", marginBottom: 18 },
-  seen: { flexDirection: "row", justifyContent: "flex-end", gap: 2, paddingRight: 2, marginTop: 2 },
+  footer: { fontSize: 11, lineHeight: 14, color: colors.faint, marginHorizontal: 6, marginTop: 2 },
+  receipt: { fontWeight: "600" },
+  failedFooter: { color: colors.red, fontWeight: "600" },
+  seen: { flexDirection: "row", justifyContent: "flex-end", gap: 2, paddingRight: 2, marginTop: 3 },
   highlight: { position: "absolute", top: -3, bottom: -3, left: -8, right: -8, borderRadius: radius.md, borderCurve: "continuous", backgroundColor: colors.brandSoft },
   card: { width: 240, maxWidth: "100%", borderRadius: radius.lg, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.card, overflow: "hidden" },
   // 4:5 would be 300pt tall at this width, so the picture is capped at 200 and cropped.

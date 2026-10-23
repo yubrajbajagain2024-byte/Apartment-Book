@@ -34,6 +34,15 @@ export function formatMessageTime(iso: string): string {
   }
 }
 
+/** The time of day alone, "14:05", for a chat's day separators ("Today 14:05"). */
+export function formatTimeOfDay(iso: string): string {
+  try {
+    return format(new Date(iso), "HH:mm");
+  } catch {
+    return "";
+  }
+}
+
 /** "Today", "Yesterday" or "Mon, 3 Mar" for chat day separators. */
 export function formatDayLabel(iso: string): string {
   const date = new Date(iso);

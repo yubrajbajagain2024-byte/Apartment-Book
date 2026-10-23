@@ -58,7 +58,8 @@ function ThemedStack() {
         <Stack.Screen name="snap/index" options={{ headerShown: false, presentation: "transparentModal", animation: "none", gestureEnabled: false, contentStyle: { backgroundColor: "transparent" } }} />
         <Stack.Screen name="snap/[id]" options={{ headerShown: false, presentation: "transparentModal", animation: "none", gestureEnabled: false, contentStyle: { backgroundColor: "transparent" } }} />
         <Stack.Screen name="buzz/[id]" options={{ headerShown: false, contentStyle: content }} />
-        <Stack.Screen name="messages/[id]" options={{ title: "Chat" }} />
+        {/* A chat draws its own floating bar (Back, the person's photo and name, Search and Info on glass), so the messages scroll under it. */}
+        <Stack.Screen name="messages/[id]" options={{ headerShown: false, contentStyle: content }} />
         <Stack.Screen name="messages/new" options={{ title: "New message" }} />
         <Stack.Screen name="messages/info/[id]" options={{ title: "Chat info" }} />
         <Stack.Screen name="messages/search/[id]" options={{ title: "Search" }} />

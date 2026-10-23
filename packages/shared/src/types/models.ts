@@ -26,7 +26,7 @@ export type ConversationMember = Tables<"conversation_members">;
  * `attachments` is optional: rows from a database without migration 20 have none. The shared queries always fill it.
  * `snap` too (migration 28): read it with snapOf().
  */
-export type Message = Omit<Tables<"messages">, "attachments" | "snap"> & { attachments?: MessageAttachment[]; snap?: Json | null };
+export type Message = Omit<Tables<"messages">, "attachments" | "snap" | "reply_to"> & { attachments?: MessageAttachment[]; snap?: Json | null; reply_to?: Json | null };
 export type DevicePushToken = Tables<"device_push_tokens">;
 export type Media = Tables<"media">;
 export type PostLike = Tables<"post_likes">;
