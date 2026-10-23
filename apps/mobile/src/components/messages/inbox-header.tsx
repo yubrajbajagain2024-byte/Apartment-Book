@@ -30,7 +30,7 @@ const TABS_ROW = 44;
  * Requests pills that narrow the page (Requests on Chats only, each pill carrying its count). A hairline under it all
  * appears once the list underneath has scrolled. Signed out, the bar shows only the title.
  */
-export function InboxHeader({ signedIn, page, onPage, scrollX, pageWidth, requestCount, filter, unreadChats, onFilter, scrolled, onNewChat, children }: { signedIn: boolean; page: InboxPage; onPage: (page: InboxPage) => void; scrollX: Animated.Value; pageWidth: number; requestCount: number; filter: InboxFilter; unreadChats: number; onFilter: (filter: InboxFilter) => void; scrolled: boolean; onNewChat: () => void; children?: ReactNode }) {
+export function InboxHeader({ signedIn, page, onPage, scrollX, pageWidth, requestCount, filter, unreadChats, pageUnread, onFilter, scrolled, onNewChat, children }: { signedIn: boolean; page: InboxPage; onPage: (page: InboxPage) => void; scrollX: Animated.Value; pageWidth: number; requestCount: number; filter: InboxFilter; unreadChats: number; /** Unread messages on each page, for the red badges on Chats and Groups. */ pageUnread?: Partial<Record<InboxPage, number>>; onFilter: (filter: InboxFilter) => void; scrolled: boolean; onNewChat: () => void; children?: ReactNode }) {
   const styles = useStyles();
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -57,7 +57,7 @@ export function InboxHeader({ signedIn, page, onPage, scrollX, pageWidth, reques
       </View>
       {signedIn ? (
         <View style={styles.tabs}>
-          <SlidingTabs sections={INBOX_PAGES} section={page} onSelect={onPage} scrollX={scrollX} pageWidth={pageWidth} tint={colors.accent} tintGradient={auroraGradient(colors.auroraGlow, 90)} labelColor={colors.text} dimColor={colors.muted} gap={110} fontSize={16} />
+          <SlidingTabs sections={INBOX_PAGES} section={page} onSelect={onPage} scrollX={scrollX} pageWidth={pageWidth} tint={colors.accent} tintGradient={auroraGradient(colors.auroraGlow, 90)} labelColor={colors.text} dimColor={colors.muted} gap={110} fontSize={16} badges={pageUnread} />
         </View>
       ) : null}
       {children}

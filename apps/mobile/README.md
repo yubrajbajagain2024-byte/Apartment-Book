@@ -210,7 +210,7 @@ The Messages tab is the inbox (`src/app/(tabs)/messages.tsx`): the new-message p
 "Messages" title, Chats | Groups with Home's sliding aurora underline, a rounded search box and the All | Unread |
 Requests pills (each with its count; Requests on Chats only), then the two pages side by side in a pager like Home's: a
 swipe or a tap on a label moves between your direct chats and your group chats, silently, as on Home. On Chats the row of
-friends online now sits above the chats (photo, name, the time at the right, the last message under it, a hairline between
+friends online now sits above the chats (photo, name, the time at the right, the last message under it, no line between
 rows; no @usernames anywhere in Messages, names only, though typing a handle still finds the chat). A long press on a row (or Chat
 info) mutes that person's messages everywhere or that group, and a group also offers every group chat at once, each for 1, 8 or
 24 hours or until unmuted (`src/lib/use-mutes.ts`, migration 26: the message and the unread count still arrive, only the notice is
@@ -220,6 +220,38 @@ read" pill floats above the bottom bar, as in GroupMe: one tap marks every chat 
 `src/lib/use-unread.ts`) and the server catching up behind. Requests holds the direct chats that people you do not follow started with you, until you reply or follow them
 (`src/lib/use-message-requests.ts`: nothing is stored for it, it is read off the chats, the follow stats and whether you
 have written in each, so every device agrees). Searching looks only in the page on screen.
+
+A chat (`src/app/messages/[id].tsx`) is laid out like the Messages app. Its floating top bar (`src/components/messages/chat-header.tsx`)
+has Back in a glass circle on the left, the other person's photo (or the group mark) in the middle with their name in a glass pill
+under it (the chevron, the pill and the photo all open the chat's details) and their activity line under that, and Search and Info in
+glass circles on the right; nothing solid sits behind it, the messages scroll under it through a blur that fades in towards the top
+of the screen. The bubbles (`message-bubble.tsx`) have no photos beside them: the day label reads "Today 14:05", a group shows the
+sender's name above a run of theirs, the words sit in 18pt-cornered blue (yours) or grey bubbles at the body size, and under the
+last of a run the time, or under your newest message "Sending…", "Sent" or "Delivered" (seen shows as the readers' small photos).
+A message that arrives, or that you send, rises in on a spring. The message bar (`composer.tsx`) floats too: "+" in a glass
+circle (photo or video, camera, file), a see-through glass capsule holding the field and, at its end, the microphone or, once
+something is typed or picked, the blue Send; picked files and the message being answered sit on glass panels above it. With the
+keyboard down the bar keeps the home-indicator space; with it up the bar rides on the keyboard, the newest message staying in view.
+
+Swipe a message to the right (`swipe-to-reply.tsx`, in direct and group chats alike; a hold offers Reply too) to answer it: a reply
+mark surfaces from under it, the phone ticks when the drag is far enough, and letting go puts the quote ("Replying to Maya", the
+words or "Photo" / "Voice message" / …, with the picture when it is on screen) above the field, with an ✕. The reply carries a
+quote of the original above its bubble (`reply-quote.tsx`), tucked behind it Messenger style; tapping the quote jumps to the
+original, loading older pages on the way as a search result does. The database builds the quote itself from the original
+(`messages.reply_to`, migration 31, `supabase/migrations/20261024000000_message_replies.sql`): the app sends only the
+original's id, the original must be in the same chat, the quote never changes afterwards and stays if the original is deleted;
+`replyOf()`, `replySnapshotOf()` and `replyText()` in `packages/shared/src/message-replies.ts` read and build it the same way.
+
+Voice messages (`src/components/messages/voice-recorder.tsx`, `voice-bubble.tsx`, `src/lib/voice.ts`, `src/lib/voice-audio.ts`;
+expo-audio): with nothing typed or picked, Send is a microphone. A tap records in the bar (discard, a red dot and the time on a
+glass capsule, the voice's level moving as you speak, and Send); it sends at once as an "audio" attachment (mono AAC at 44.1 kHz
+and 96 kbps, the encoder's best quality, up to five minutes) into the chat's private files. A voice message plays in a waveform
+bubble that fills in as it plays, through the loudspeaker at full level (the playback session is always set, and awaited, before
+a play, since the session a recording leaves behind plays through the quiet earpiece path), out loud even on silent, pausing
+other apps' music while it plays; once it has started a speed pill offers 1×, 1.5× and 2× (pitch corrected, kept for every voice
+message and across launches). A build without expo-audio (made before it) shows no microphone and lists voice messages as files.
+Messages' Chats and Groups labels carry red counts of their unread messages (adding up to the tab's badge), refreshed as
+messages arrive and as chats are read here or elsewhere.
 
 Snaps (`src/app/snap/index.tsx`, `src/app/snap/[id].tsx`, `src/components/snap/`, `src/lib/snap-capture.ts`; the rules
 are migration 28's, see the root README): Snap in the create sheet opens the phone's own camera (a photo, or a video up to
@@ -231,9 +263,9 @@ nothing over a sheet that is still leaving) and the Aurora "Send To". That start
 progress) and raises the Send To sheet (`send-to-sheet.tsx`): your direct chats, the most recent first, then your friends,
 a search over both, a ring per person that fills with the Aurora when picked (only what turns on bounces), and a bar that
 rises with who it goes to and the round send button: a spinner and "Sending… 42%", then the plane flies off and a tick
-lands on green, and the Snap fades away. In a chat (`snap-bubble.tsx`) a Snap is a small card, never its picture: "New
-Snap · Tap to view" on an Aurora tile for its recipient, "Delivered" for its sender, then "Opened", "Expired" or
-"Unavailable" on a hollow tile; the chat follows realtime updates of its messages, so both sides change at once. The viewer
+lands on green, and the Snap fades away. In a chat (`snap-bubble.tsx`) a waiting Snap is a bubble at its own shape showing only a 32-pixel
+preview made when it was taken, blurred past recognition, with "Tap to view" (its recipient) or "Delivered" (its sender);
+then just "Opened", "Expired" or "Unavailable" on a small card, the preview gone from the message; the chat follows realtime updates of its messages, so both sides change at once. The viewer
 opens it once (`open_snap()`), loads it through Storage's signed-in download with your own session (every request, each
 range of a video too, is checked against the view, so nothing can be loaded after it), keeps a photo in memory only, and closes with a tap, a swipe down, its close button, the end of a video or the app going to the background,
 calling `close_snap()`. Both screens leave on a timer rather than when their fade reports it ended, so an interrupted

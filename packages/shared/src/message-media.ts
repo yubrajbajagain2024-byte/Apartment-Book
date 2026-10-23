@@ -36,9 +36,15 @@ export const MESSAGE_ATTACHMENT_MIME_TYPES: readonly string[] = [
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "application/zip",
   "application/x-zip-compressed",
+  // Voice messages (migration 29): AAC in an .m4a as phones record it, and MP3.
+  "audio/mp4",
+  "audio/x-m4a",
+  "audio/aac",
+  "audio/mpeg",
 ];
 
-export type MessageAttachmentKind = "image" | "video" | "file";
+/** "audio" is a voice message (migration 29). */
+export type MessageAttachmentKind = "image" | "video" | "audio" | "file";
 
 /** One file sent with a message (an entry of messages.attachments). */
 export type MessageAttachment = {
@@ -53,7 +59,7 @@ export type MessageAttachment = {
   /** Pixels, for photos and videos, so the bubble can keep its shape while the file loads. */
   width?: number | null;
   height?: number | null;
-  /** Seconds, for videos (expo-image-picker reports milliseconds: divide by 1000). */
+  /** Seconds, for videos and voice messages (expo-image-picker reports milliseconds: divide by 1000). */
   duration?: number | null;
 };
 
@@ -76,13 +82,14 @@ export type SharedItem = {
   sharedPost?: SharedPost;
 };
 
-const KINDS: readonly MessageAttachmentKind[] = ["image", "video", "file"];
+const KINDS: readonly MessageAttachmentKind[] = ["image", "video", "audio", "file"];
 
-/** "image" for photos, "video" for videos, "file" for everything else (SVG included: it is not shown as a picture). */
+/** "image" for photos, "video" for videos, "audio" for voice, "file" for everything else (SVG included: it is not shown as a picture). */
 export function attachmentKindOf(mime: string): MessageAttachmentKind {
   const m = typeof mime === "string" ? mime.trim().toLowerCase() : "";
   if (m.startsWith("image/") && !m.startsWith("image/svg")) return "image";
   if (m.startsWith("video/")) return "video";
+  if (m.startsWith("audio/")) return "audio";
   return "file";
 }
 
@@ -109,6 +116,9 @@ const EXTENSION_TYPES: Record<string, string> = {
   ppt: "application/vnd.ms-powerpoint",
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   zip: "application/zip",
+  m4a: "audio/mp4",
+  aac: "audio/aac",
+  mp3: "audio/mpeg",
 };
 
 /**
@@ -217,9 +227,11 @@ export function attachmentPreview(attachments: MessageAttachment[]): string {
   if (n === 0) return "";
   const images = attachments.filter((a) => a.kind === "image").length;
   const videos = attachments.filter((a) => a.kind === "video").length;
+  const voices = attachments.filter((a) => a.kind === "audio").length;
   if (images === n) return n === 1 ? "Sent a photo" : `Sent ${n} photos`;
   if (videos === n) return n === 1 ? "Sent a video" : `Sent ${n} videos`;
-  if (images === 0 && videos === 0) return n === 1 ? "Sent a file" : `Sent ${n} files`;
+  if (voices === n) return n === 1 ? "Sent a voice message" : `Sent ${n} voice messages`;
+  if (images === 0 && videos === 0 && voices === 0) return n === 1 ? "Sent a file" : `Sent ${n} files`;
   return `Sent ${n} attachments`;
 }
 
@@ -305,6 +317,8 @@ export function sharedItemsFromMessages(
       items.push({ ...base, kind: "image", legacyImageUrl: m.image_url });
     }
     for (const attachment of parseAttachments(m.attachments)) {
+      // Voice messages are in neither tab, as in the database's own lists.
+      if (attachment.kind === "audio") continue;
       const wanted = kind === "media" ? attachment.kind !== "file" : attachment.kind === "file";
       if (wanted) items.push({ ...base, kind: attachment.kind, attachment });
     }

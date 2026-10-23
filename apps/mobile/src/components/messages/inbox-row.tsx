@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import type { ConversationSummary, MessageWithSender, ProfileSummary } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { space } from "@/lib/theme";
@@ -47,8 +47,8 @@ export function InboxAvatar({ conversation: c, size = INBOX_AVATAR }: { conversa
 /**
  * One chat in the inbox: the photo, then the name in bold (a small violet people mark after it for a group, a small
  * bell-slash while its notices are muted) with the short time ("3h") at the right, the last message in grey under
- * it (the server writes "Sent a photo" and the like), and for unread chats bolder text and the blue count. A hairline
- * runs under the words, from the photo's right edge. Long press (or the screen reader's action) opens `onMenu`.
+ * it (the server writes "Sent a photo" and the like), and for unread chats bolder text and the blue count. No line
+ * between rows: the spacing alone sets them apart. Long press (or the screen reader's action) opens `onMenu`.
  * The label stays "Chat with <name>": the end-to-end flows tap rows by it.
  */
 export const InboxRow = memo(function InboxRow({ conversation: c, muted = false, now, onOpen, onMenu }: { conversation: ConversationSummary; muted?: boolean; now: number; onOpen: (c: ConversationSummary) => void; onMenu?: (c: ConversationSummary) => void }) {
@@ -189,10 +189,10 @@ export function InboxNote({ text, action, onAction, loading = false }: { text?: 
 }
 
 const useStyles = makeStyles((colors) => ({
-  // The photo is centred against the words; the words carry the row's height, its right gutter and the hairline under it.
+  // The photo is centred against the words; the words carry the row's height and its right gutter.
   row: { flexDirection: "row", alignItems: "center", gap: 14, paddingLeft: GUTTER },
   pressed: { backgroundColor: colors.input },
-  body: { flex: 1, minWidth: 0, gap: 3, paddingVertical: 14, paddingRight: GUTTER, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  body: { flex: 1, minWidth: 0, gap: 3, paddingVertical: 14, paddingRight: GUTTER },
   personBody: { paddingVertical: 10 },
   topLine: { flexDirection: "row", alignItems: "center", gap: 6 },
   // Shrinks first, so a long name ends in "…" while the mark, the bell and the time keep their place.

@@ -13,6 +13,8 @@ import {
   markConversationRead,
   parseAttachments,
   receiptFor,
+  replyOf,
+  replyText,
   sendMessage,
   sharedPostLabel,
   sharedPostOf,
@@ -101,6 +103,21 @@ function SharedPostCard({ shared, pending }: { shared: SharedPost; pending?: boo
 function SnapCard({ snap, mine }: { snap: MessageSnap; mine: boolean }) {
   const state = snapState(snap);
   const fresh = state === "new";
+  if (fresh && snap.preview) {
+    // Waiting, with a preview: the Snap at its own shape, blurred past recognition, as the app shows it.
+    const ratio = snap.width && snap.height ? Math.min(1.8, Math.max(0.65, snap.width / snap.height)) : 0.75;
+    return (
+      <div data-testid="snap" data-snap-state={state} className="relative mb-1 w-60 max-w-full overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: String(ratio) }}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- a tiny data URL, blurred */}
+        <img src={snap.preview} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-125 object-cover blur-xl" />
+        <span className="absolute inset-0 bg-black/20" />
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-4 text-center text-white">
+          <span className="rounded-full bg-black/45 px-4 py-1.5 text-sm font-semibold">{mine ? "Delivered" : "New Snap"}</span>
+          {!mine ? <span className="text-xs font-medium drop-shadow">Open the CampConnect app to view it</span> : null}
+        </span>
+      </div>
+    );
+  }
   const video = snap.kind === "video";
   const SnapIcon = mine ? Send : video ? Video : Camera;
   const title = !mine && fresh ? "New Snap" : video ? "Video Snap" : "Snap";
@@ -113,6 +130,22 @@ function SnapCard({ snap, mine }: { snap: MessageSnap; mine: boolean }) {
       <span className="flex min-w-0 flex-col">
         <span className="text-sm font-semibold text-gray-900">{title}</span>
         <span className="text-xs text-gray-500">{status}</span>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The message a reply answers (sent from the app, migration 31), quoted above the reply: who wrote it and its words, or
+ * what it was ("Photo", "Voice message", …). The snapshot is the database's own, so it reads even if the original is gone.
+ */
+function ReplyQuote({ name, text, mine }: { name: string; text: string; mine: boolean }) {
+  return (
+    <div data-testid="reply-quote" className={cn("mb-[-6px] flex max-w-full gap-2 rounded-2xl border border-gray-200 bg-gray-50 py-1.5 pb-3.5 pl-2 pr-3 text-xs", mine ? "mr-1" : "ml-1")}>
+      <span aria-hidden="true" className="w-0.5 shrink-0 self-stretch rounded-full bg-gray-300" />
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate font-semibold text-gray-500">{name}</span>
+        <span className="line-clamp-2 break-words text-gray-500">{text}</span>
       </span>
     </div>
   );
@@ -372,6 +405,8 @@ export function ChatWindow({
             const shared = sharedPostOf(m.shared_post);
             const attachments = m.attachments ?? [];
             const snap = snapOf(m.snap);
+            const reply = replyOf(m.reply_to);
+            const replyName = reply ? (reply.sender_id === currentUserId ? "You" : (membersById.get(reply.sender_id ?? "")?.full_name ?? "Someone")) : "";
             return (
               <li key={m.id} className="flex flex-col">
                 {showDay && hydrated ? <p className="my-3 text-center text-[11px] font-medium uppercase tracking-wide text-gray-500">{formatDayLabel(m.created_at)}</p> : null}
@@ -383,6 +418,7 @@ export function ChatWindow({
                   ) : null}
                   <div className={cn("flex max-w-[75%] flex-col", mine ? "items-end" : "items-start")}>
                     {!mine && isGroup && !continued ? <span className="mb-0.5 ml-1 text-[11px] text-gray-500">{m.sender?.full_name ?? "Unknown"}</span> : null}
+                    {reply ? <ReplyQuote name={replyName} text={replyText(reply)} mine={mine} /> : null}
                     {/* A shared post, reel or listing sits above the words (a share without words has no bubble at all). */}
                     {shared ? <SharedPostCard shared={shared} pending={m.pending} /> : null}
                     {m.image_url ? (

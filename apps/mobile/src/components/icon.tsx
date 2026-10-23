@@ -88,6 +88,8 @@ const SF: Partial<Record<IconName, SFSymbol>> = {
   "images": "photo.fill.on.rectangle.fill",
   "images-outline": "photo.on.rectangle",
   "information-circle-outline": "info.circle",
+  "mic": "mic.fill",
+  "mic-outline": "mic",
   "laptop-outline": "laptopcomputer",
   "link": "link",
   "link-outline": "link",

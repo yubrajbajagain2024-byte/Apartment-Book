@@ -27,6 +27,8 @@ export type SendSnapInput = {
   /** Seconds, for a video. */
   duration: number | null;
   recipientIds: string[];
+  /** A tiny JPEG data URL shown blurred until it is opened (isSnapPreview()); left out when there is none. */
+  preview?: string | null;
 };
 
 export type SentSnap = {
@@ -41,7 +43,7 @@ const num = (value: Json | undefined): number | null => (typeof value === "numbe
 
 /** Sends an uploaded Snap: one message in my direct chat with each person (all or nothing). */
 export async function sendSnap(supabase: Client, input: SendSnapInput): Promise<SentSnap> {
-  const { data, error } = await supabase.rpc("send_snap", {
+  const call = (withPreview: boolean) => supabase.rpc("send_snap", {
     p_path: input.path,
     p_kind: input.kind,
     p_mime: input.mime,
@@ -49,7 +51,11 @@ export async function sendSnap(supabase: Client, input: SendSnapInput): Promise<
     p_height: input.height ? Math.round(input.height) : null,
     p_duration: input.kind === "video" && input.duration ? Math.round(input.duration * 10) / 10 : null,
     p_recipient_ids: input.recipientIds,
+    ...(withPreview && input.preview ? { p_preview: input.preview } : {}),
   });
+  let { data, error } = await call(true);
+  // A database from before migration 29 has no preview argument (PostgREST: no such function): send without one.
+  if (error && input.preview && (error.code === "PGRST202" || /p_preview/.test(error.message ?? ""))) ({ data, error } = await call(false));
   if (error) throw error;
   const result = obj(data);
   const sent = Array.isArray(result.sent) ? result.sent : [];

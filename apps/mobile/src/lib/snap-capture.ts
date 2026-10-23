@@ -4,7 +4,8 @@ import { File as DeviceFile } from "expo-file-system";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
-import { SNAP_BUCKET, SNAP_LIMITS, formatFileSize, newSnapToken, snapMediaPath, snapMimeType, type SnapKind, type SnapMime } from "@apartment-book/shared";
+import { createVideoPlayer } from "expo-video";
+import { SNAP_BUCKET, SNAP_LIMITS, formatFileSize, isSnapPreview, newSnapToken, snapMediaPath, snapMimeType, type SnapKind, type SnapMime } from "@apartment-book/shared";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from "./supabase";
 
 // Snaps on this device: taking one with the phone's own camera, getting it ready to send, and uploading it (with
@@ -21,6 +22,8 @@ export type SnapShot = {
   duration: number | null;
   /** Bytes. */
   size: number;
+  /** A tiny JPEG (a data URL) the chats show blurred until it is opened; null when one could not be made. */
+  preview: string | null;
 };
 
 /** Camera access was refused: the screen offers Settings. */
@@ -29,6 +32,37 @@ export class SnapPermissionError extends Error {}
 /** A photo is sent at most this long on its long side (sharp on any phone, quick to send and to open), as a JPEG. */
 const PHOTO_EDGE = 1920;
 const PHOTO_QUALITY = 0.85;
+
+/** The preview is this many pixels on its long side: shown blurred, it gives the colours and nothing else. */
+const PREVIEW_EDGE = 32;
+
+/** A tiny JPEG of a picture (a file or a video frame) as a data URL, or null if it cannot be made. */
+async function tinyPreview(source: Parameters<typeof ImageManipulator.manipulate>[0], width: number, height: number): Promise<string | null> {
+  try {
+    const context = ImageManipulator.manipulate(source);
+    context.resize(width >= height ? { width: PREVIEW_EDGE } : { height: PREVIEW_EDGE });
+    const rendered = await context.renderAsync();
+    const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.5, base64: true });
+    const url = saved.base64 ? `data:image/jpeg;base64,${saved.base64}` : null;
+    return isSnapPreview(url) ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The first frame of a video, as a tiny preview. */
+async function videoPreview(uri: string): Promise<string | null> {
+  const player = createVideoPlayer(null);
+  try {
+    await player.replaceAsync({ uri });
+    const [frame] = await player.generateThumbnailsAsync([0], { maxWidth: 160, maxHeight: 160 });
+    return frame ? await tinyPreview(frame, frame.width, frame.height) : null;
+  } catch {
+    return null;
+  } finally {
+    player.release();
+  }
+}
 
 /** The Simulator has no camera: there a Snap comes from the photo library instead, so the flow can still be tried. */
 export const SNAP_CAMERA_AVAILABLE = Platform.OS !== "web" && Device.isDevice;
@@ -77,7 +111,8 @@ async function prepareSnap(asset: ImagePicker.ImagePickerAsset): Promise<SnapSho
     if (seconds !== null && seconds > SNAP_LIMITS.maxVideoSeconds + 0.5) throw new Error(`Snaps can be up to ${SNAP_LIMITS.maxVideoSeconds} seconds long. Try a shorter video.`);
     const size = asset.fileSize || fileSize(asset.uri);
     if (size > SNAP_LIMITS.maxBytes) throw new Error(`This video is over ${formatFileSize(SNAP_LIMITS.maxBytes)}. Try a shorter one.`);
-    return { uri: asset.uri, kind: "video", mime, width: asset.width || null, height: asset.height || null, duration: seconds ?? SNAP_LIMITS.maxVideoSeconds, size };
+    const preview = Platform.OS === "web" ? null : await videoPreview(asset.uri);
+    return { uri: asset.uri, kind: "video", mime, width: asset.width || null, height: asset.height || null, duration: seconds ?? SNAP_LIMITS.maxVideoSeconds, size, preview };
   }
   // Photos are always re-encoded: a JPEG (iPhone photos are often HEIC), no longer than PHOTO_EDGE, without metadata.
   const width = asset.width || 0;
@@ -87,7 +122,8 @@ async function prepareSnap(asset: ImagePicker.ImagePickerAsset): Promise<SnapSho
   const rendered = await context.renderAsync();
   const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: PHOTO_QUALITY, base64: false });
   if (!saved.uri) throw new Error("Couldn't prepare this photo. Try again.");
-  return { uri: saved.uri, kind: "image", mime: "image/jpeg", width: saved.width || null, height: saved.height || null, duration: null, size: fileSize(saved.uri) };
+  const preview = await tinyPreview(saved.uri, saved.width || 1, saved.height || 1);
+  return { uri: saved.uri, kind: "image", mime: "image/jpeg", width: saved.width || null, height: saved.height || null, duration: null, size: fileSize(saved.uri), preview };
 }
 
 /** An upload under way: where the file goes, the promise of it being there, and a way to stop it. */

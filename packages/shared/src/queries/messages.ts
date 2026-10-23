@@ -196,7 +196,8 @@ export async function listMessages(
 
 /**
  * `sharedPost` attaches a post, reel or listing card and `attachments` files already uploaded to MESSAGE_MEDIA_BUCKET
- * (each path from messageAttachmentPath()); with either, the text may be empty.
+ * (each path from messageAttachmentPath()); with either, the text may be empty. `replyTo` is the id of a message of
+ * the same chat this one answers (migration 31): the database snapshots it onto the message (see replyOf()).
  */
 export async function sendMessage(
   supabase: Client,
@@ -207,6 +208,7 @@ export async function sendMessage(
     imageUrl?: string | null;
     sharedPost?: SharedPost | null;
     attachments?: MessageAttachment[];
+    replyTo?: string | null;
   },
 ): Promise<MessageWithSender> {
   const attachments = input.attachments ?? [];
@@ -220,8 +222,9 @@ export async function sendMessage(
       image_url: input.imageUrl ?? null,
       // Only shares carry the column, so plain messages keep working on a database that has not run migration 17 yet.
       ...(input.sharedPost ? { shared_post: input.sharedPost as unknown as Json } : {}),
-      // Likewise only messages with files send attachments (migration 20).
+      // Likewise only messages with files send attachments (migration 20), and only replies reply_to (migration 31).
       ...(attachments.length > 0 ? { attachments: attachments as unknown as Json } : {}),
+      ...(input.replyTo ? { reply_to: { id: input.replyTo } as unknown as Json } : {}),
     })
     .select(MESSAGE_SELECT)
     .single();

@@ -1,7 +1,6 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, View, useWindowDimensions, type ListRenderItem } from "react-native";
-import { Stack, useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { HeaderHeightContext } from "expo-router/react-navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, LayoutAnimation, Platform, Text, TextInput, View, useWindowDimensions, type ListRenderItem } from "react-native";
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import {
   MESSAGE_ATTACHMENT_LIMITS,
   MESSAGES_PAGE_SIZE,
@@ -15,6 +14,8 @@ import {
   parseAttachments,
   receiptFor,
   recordContact,
+  replyOf,
+  replySnapshotOf,
   reportContent,
   sendMessage,
   signMessageMedia,
@@ -25,28 +26,31 @@ import {
   type MemberStatus,
   type Message,
   type MessageAttachment,
+  type MessageReply,
   type ProfileSummary,
 } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
-import { Avatar } from "@/components/avatar";
+import { ChatHeader } from "@/components/messages/chat-header";
 import { shareVideoThumbnail } from "@/components/messages/attachment-thumb";
-import { Composer, ComposerNotice } from "@/components/messages/composer";
+import { Composer, ComposerNotice, type ComposerReply } from "@/components/messages/composer";
 import { MediaViewer, type MediaViewerItem } from "@/components/messages/media-viewer";
 import { MessageRow, messageMedia, type MediaResolver } from "@/components/messages/message-bubble";
+import type { ReplyContext } from "@/components/messages/reply-quote";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { reduceMotionEnabled } from "@/lib/accessibility";
 import { hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText, useQuery } from "@/lib/hooks";
 import { openMessageFile, removeUploadedFiles, uploadAttachment, type ChatMessage, type OutgoingFiles, type PendingAttachment, type UploadStatus } from "@/lib/message-attachments";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { motion } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { useChatActivity } from "@/lib/use-activity-status";
 import { onSnapChange } from "@/lib/snap-events";
-import { Icon } from "@/components/icon";
 
-/** Messages from one person this close together form one run: hugging bubbles, one avatar, one time. */
+/** Messages from one person this close together form one run: hugging bubbles, one name, one time. */
 const RUN_GAP_MS = 5 * 60 * 1000;
-/** Jumping to an older message (from search) loads pages this big, at most this many of them. */
+/** Jumping to an older message (from search, or a reply's quote) loads pages this big, at most this many of them. */
 const JUMP_PAGE_SIZE = 100;
 const JUMP_MAX_PAGES = 10;
 /** Signed photo and video links last an hour and are renewed well before that; a failed one is retried after a minute. */
@@ -55,6 +59,8 @@ const RESIGN_AFTER_MS = 45 * 60 * 1000;
 const RETRY_UNSIGNED_MS = 60 * 1000;
 /** Big files go up one at a time (each is held in memory while it uploads); small ones three at a time. */
 const BIG_FILE_BYTES = 15 * 1024 * 1024;
+/** A message that just arrived rises in; one drawn again later (scrolled away and back) simply appears. */
+const APPEAR_FOR_MS = 2500;
 
 type BlockState = "none" | "byMe" | "byThem";
 type SignedUrl = { url: string | null; at: number };
@@ -63,12 +69,25 @@ export default function ChatScreen() {
   const { id, prefill, targetType, targetId, at } = useLocalSearchParams<{ id: string; prefill?: string; targetType?: string; targetId?: string; at?: string }>();
   const { user, loading: sessionLoading } = useSession();
   const router = useRouter();
+  const navigation = useNavigation();
+  const styles = useStyles();
   const userId = user?.id ?? "";
   const { data: conversation, loading } = useQuery(() => (userId ? getConversation(supabase, id, userId) : Promise.resolve(null)), [id, userId]);
   useEffect(() => {
     if (!sessionLoading && !user) router.replace("/(auth)/login");
   }, [sessionLoading, user, router]);
-  if (sessionLoading || loading || !conversation) return sessionLoading || loading || !user ? <Loading /> : <EmptyState icon="chatbubbles-outline" title="Conversation not found" />;
+  const back = useCallback(() => {
+    if (navigation.canGoBack()) router.back();
+    else router.replace("/(tabs)/messages");
+  }, [navigation, router]);
+  if (sessionLoading || loading || !conversation) {
+    return (
+      <View style={styles.screen}>
+        {sessionLoading || loading || !user ? <Loading /> : <EmptyState icon="chatbubbles-outline" title="Conversation not found" />}
+        <ChatHeader conversation={null} subtitle="" activeNow={false} keepSubtitleRoom={false} onBack={back} onOpenInfo={() => {}} onOpenSearch={() => {}} onHeight={() => {}} />
+      </View>
+    );
+  }
   return (
     <Chat
       key={conversation.id}
@@ -77,6 +96,7 @@ export default function ChatScreen() {
       prefill={prefill}
       contact={targetType && targetId ? { type: targetType as "apartment" | "item" | "roommate", id: targetId } : null}
       jumpTo={typeof at === "string" && at ? at : null}
+      onBack={back}
     />
   );
 }
@@ -153,18 +173,26 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 
 const firstName = (name: string | null | undefined) => (name ?? "").trim().split(/\s+/)[0] || "this person";
 
+/** The bar growing or shrinking (a reply or files appearing above the field) moves the messages up or down smoothly. */
+function animateLayout() {
+  if (reduceMotionEnabled()) return;
+  LayoutAnimation.configureNext(LayoutAnimation.create(motion.base, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity));
+}
+
 function Chat({
   conversation,
   userId,
   prefill,
   contact,
   jumpTo,
+  onBack,
 }: {
   conversation: ConversationSummary;
   userId: string;
   prefill?: string;
   contact: { type: "apartment" | "item" | "roommate"; id: string } | null;
   jumpTo: string | null;
+  onBack: () => void;
 }) {
   const { colors } = useAppTheme();
   const styles = useStyles();
@@ -174,8 +202,6 @@ function Chat({
   const navigationRef = useRef(navigation);
   navigationRef.current = navigation;
   const show = useActionSheet();
-  // The stack header's height (status bar included); never throws, unlike useHeaderHeight().
-  const headerHeight = useContext(HeaderHeightContext) ?? 0;
   const { width: windowWidth } = useWindowDimensions();
   const mediaWidth = Math.min(Math.round(windowWidth * 0.66), 300);
 
@@ -187,6 +213,7 @@ function Chat({
   const [memberStatus, setMemberStatus] = useState<Record<string, MemberStatus>>(conversation.memberStatus);
   const [text, setText] = useState("");
   const [picked, setPicked] = useState<PendingAttachment[]>([]);
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [signed, setSigned] = useState<Record<string, SignedUrl>>({});
   const [signTick, setSignTick] = useState(0);
   const [block, setBlock] = useState<BlockState>("none");
@@ -194,9 +221,13 @@ function Chat({
   const [viewer, setViewer] = useState<{ items: MediaViewerItem[]; index: number } | null>(null);
   const [windowTop, setWindowTop] = useState<number | null>(null);
   const [jumpTick, setJumpTick] = useState(0);
+  // How much of the list the floating header and bar cover: the list keeps that much clear at each end.
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [barHeight, setBarHeight] = useState(0);
 
   const rootRef = useRef<View>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const inputRef = useRef<TextInput>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
   const hasOlderRef = useRef(hasOlder);
@@ -211,6 +242,15 @@ function Chat({
   const jumping = useRef<symbol | null>(null);
   const scrollAttempts = useRef(0);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Messages that came in (or went out) while the chat was open, each for a moment: they rise in rather than appear. */
+  const arriving = useRef(new Map<string, number>());
+  const alive = useRef(true);
+  useEffect(
+    () => () => {
+      alive.current = false;
+    },
+    [],
+  );
 
   const membersById = useMemo(() => new Map(conversation.members.map((m) => [m.id, m])), [conversation.members]);
   const other = conversation.otherMembers[0];
@@ -223,9 +263,14 @@ function Chat({
   const refreshActivity = useRef(activity.refresh);
   refreshActivity.current = activity.refresh;
 
+  function noteArrival(ids: string[]) {
+    const now = Date.now();
+    for (const id of ids) arriving.current.set(id, now);
+  }
+
   // ---------------------------------------------------------------------------
   // Keyboard: the bar sits right on top of the keyboard. KeyboardAvoidingView measures the overlap from the top of the
-  // window, so it needs how far down the window this screen starts: measured, with the header height until then.
+  // window, so it needs how far down the window this screen starts: measured (it draws its own header, so normally 0).
   // ---------------------------------------------------------------------------
   const measure = useCallback(() => {
     rootRef.current?.measureInWindow((_x, y) => {
@@ -239,8 +284,7 @@ function Chat({
       return () => clearTimeout(timer);
     }, [measure]),
   );
-  // The header here is opaque, so the screen always starts below it: a 0 can only be a measurement taken too early.
-  const keyboardOffset = windowTop ? windowTop : headerHeight;
+  const keyboardOffset = windowTop ?? 0;
 
   // Opening the keyboard keeps the newest message in view (the list is inverted: offset 0 is the bottom).
   useEffect(() => {
@@ -276,6 +320,7 @@ function Chat({
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversation.id}` }, (payload) => {
         // Realtime rows carry attachments as raw JSON.
         const row = chatMessageOf(payload.new as Message & { attachments?: unknown }, membersById);
+        if (row.sender_id !== userId) noteArrival([row.id]);
         setMessages((prev) => addFromServer(prev, [row], userId));
         if (row.sender_id !== userId) {
           markConversationRead(supabase, conversation.id).catch(() => {});
@@ -329,19 +374,38 @@ function Chat({
   }, [conversation.id]);
 
   // ---------------------------------------------------------------------------
-  // Jump to a message (?at=<id>, from search): load older pages until it is there, then scroll to it and light it up.
+  // Jumping to a message (?at=<id> from search; a tap on a reply's quote): load older pages until it is there, then
+  // scroll to it and light it up.
   // ---------------------------------------------------------------------------
-  useEffect(() => {
-    if (!loaded || !jumpTo) return;
-    let cancelled = false;
-    const run = Symbol("jump");
-    jumping.current = run;
-    void (async () => {
+  const scrollToMessage = useCallback((target: string) => {
+    const list = messagesRef.current;
+    const i = list.findIndex((m) => m.id === target);
+    if (i < 0) return;
+    scrollAttempts.current = 0;
+    try {
+      listRef.current?.scrollToIndex({ index: list.length - 1 - i, animated: true, viewPosition: 0.5 });
+    } catch {
+      // onScrollToIndexFailed takes over.
+    }
+    setHighlightId(target);
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => setHighlightId(null), 2400);
+  }, []);
+  useEffect(() => () => void (highlightTimer.current && clearTimeout(highlightTimer.current)), []);
+
+  const jumpToMessage = useCallback(
+    async (target: string): Promise<boolean> => {
+      if (messagesRef.current.some((m) => m.id === target)) {
+        scrollToMessage(target);
+        return true;
+      }
+      const run = Symbol("jump");
+      jumping.current = run;
       try {
         // A page the list itself is loading finishes first; from here on this loop does the paging.
         for (let waited = 0; olderBusy.current && waited < 40; waited++) await sleep(150);
-        if (cancelled) return;
-        let found = messagesRef.current.some((m) => m.id === jumpTo);
+        if (!alive.current) return false;
+        let found = messagesRef.current.some((m) => m.id === target);
         let more = hasOlderRef.current;
         let oldest = messagesRef.current.find((m) => !m.pending && !m.failed)?.created_at ?? null;
         for (let page = 0; !found && more && oldest && page < JUMP_MAX_PAGES; page++) {
@@ -362,42 +426,30 @@ function Chat({
           more = older.length >= JUMP_PAGE_SIZE;
           setHasOlder(more);
           oldest = older[0]?.created_at ?? null;
-          found = older.some((r) => r.id === jumpTo);
-          if (cancelled) return;
+          found = older.some((r) => r.id === target);
+          if (!alive.current) return false;
         }
-        if (cancelled) return;
         if (!found) {
           Alert.alert("Message not found", "It may have been deleted, or it's too far back in this chat.");
-          return;
+          return false;
         }
-        pendingJump.current = jumpTo;
+        pendingJump.current = target;
         setJumpTick((n) => n + 1);
-        // Done with it: the same message can then be jumped to again (search hands it back with dismissTo).
-        navigationRef.current.setParams({ at: undefined });
+        return true;
       } finally {
         if (jumping.current === run) jumping.current = null;
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [loaded, jumpTo, conversation.id]);
+    },
+    [conversation.id, scrollToMessage],
+  );
 
-  const scrollToMessage = useCallback((target: string) => {
-    const list = messagesRef.current;
-    const i = list.findIndex((m) => m.id === target);
-    if (i < 0) return;
-    scrollAttempts.current = 0;
-    try {
-      listRef.current?.scrollToIndex({ index: list.length - 1 - i, animated: true, viewPosition: 0.5 });
-    } catch {
-      // onScrollToIndexFailed takes over.
-    }
-    setHighlightId(target);
-    if (highlightTimer.current) clearTimeout(highlightTimer.current);
-    highlightTimer.current = setTimeout(() => setHighlightId(null), 2400);
-  }, []);
-  useEffect(() => () => void (highlightTimer.current && clearTimeout(highlightTimer.current)), []);
+  useEffect(() => {
+    if (!loaded || !jumpTo) return;
+    void jumpToMessage(jumpTo).then(() => {
+      // Done with it: the same message can then be jumped to again (search hands it back with dismissTo).
+      if (alive.current) navigationRef.current.setParams({ at: undefined });
+    });
+  }, [loaded, jumpTo, jumpToMessage]);
 
   useEffect(() => {
     const target = pendingJump.current;
@@ -503,6 +555,42 @@ function Chat({
   const resolveMedia = useCallback<MediaResolver>((a) => ({ uri: signed[a.path]?.url ?? null, cacheKey: a.path, missing: signed[a.path] !== undefined && !signed[a.path].url }), [signed]);
 
   // ---------------------------------------------------------------------------
+  // Replies: who wrote the quoted message, and its first photo when the chat has it on screen.
+  // ---------------------------------------------------------------------------
+  const messagesById = useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
+  const resolveReply = useCallback(
+    (reply: MessageReply): ReplyContext => {
+      const name = reply.sender_id === userId ? "You" : (membersById.get(reply.sender_id ?? "")?.full_name ?? "Someone");
+      const original = messagesById.get(reply.id);
+      const picture = original ? messageMedia(original, resolveMedia).find((media) => media.kind === "image" && media.uri) : undefined;
+      return { name, thumbnail: picture?.uri ?? null, thumbnailKey: picture?.cacheKey };
+    },
+    [userId, membersById, messagesById, resolveMedia],
+  );
+  const composerReply = useMemo<ComposerReply | null>(() => {
+    if (!replyTo) return null;
+    const reply = replySnapshotOf(replyTo);
+    return { reply, context: resolveReply(reply) };
+  }, [replyTo, resolveReply]);
+
+  const startReply = useCallback((m: ChatMessage) => {
+    animateLayout();
+    setReplyTo(m);
+    inputRef.current?.focus();
+  }, []);
+  const cancelReply = useCallback(() => {
+    animateLayout();
+    setReplyTo(null);
+  }, []);
+  const jumpFromQuote = useCallback(
+    (messageId: string) => {
+      hapticTap();
+      void jumpToMessage(messageId);
+    },
+    [jumpToMessage],
+  );
+
+  // ---------------------------------------------------------------------------
   // Sending: text right away; files are uploaded first (each tile shows its progress), then the message goes out.
   // ---------------------------------------------------------------------------
   const patchMessage = useCallback((id: string, change: (m: ChatMessage) => ChatMessage) => {
@@ -546,7 +634,7 @@ function Chat({
           if (failure) throw failure;
           attachments = items.map((item) => uploaded[item.id]);
         }
-        const saved = await sendMessage(supabase, { conversationId: conversation.id, senderId: userId, content: message.content, attachments });
+        const saved = await sendMessage(supabase, { conversationId: conversation.id, senderId: userId, content: message.content, attachments, replyTo: replyOf(message.reply_to)?.id ?? null });
         setMessages((prev) => {
           // Realtime may have delivered it already.
           if (prev.some((m) => m.id === saved.id)) return prev.filter((m) => m.id !== id);
@@ -568,6 +656,23 @@ function Chat({
     const body = text.trim();
     const items = picked;
     if (!body && items.length === 0) return;
+    setText("");
+    setPicked([]);
+    if (replyTo) animateLayout();
+    setReplyTo(null);
+    sendNew(body, items, replyTo);
+  }
+
+  /** A voice message just recorded: sent on its own, at once (answering the quoted message, if one is up). */
+  function sendVoice(item: PendingAttachment) {
+    if (block !== "none") return;
+    if (replyTo) animateLayout();
+    setReplyTo(null);
+    sendNew("", [item], replyTo);
+  }
+
+  /** A message of mine on screen at once (sending), then delivered: words, files or both, answering `answering` if any. */
+  function sendNew(body: string, items: PendingAttachment[], answering: ChatMessage | null) {
     const me = membersById.get(userId) ?? { id: userId, full_name: "You", avatar_url: null };
     const message: ChatMessage = {
       id: `temp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
@@ -577,20 +682,26 @@ function Chat({
       image_url: null,
       shared_post: null,
       attachments: [],
+      reply_to: answering ? replySnapshotOf(answering) : null,
       created_at: new Date().toISOString(),
       sender: me,
       pending: true,
       outgoing: items.length > 0 ? { items, status: Object.fromEntries(items.map((item) => [item.id, "waiting" as UploadStatus])), uploaded: {} } : undefined,
     };
+    noteArrival([message.id]);
     setMessages((prev) => [...prev, message]);
-    setText("");
-    setPicked([]);
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
     void deliver(message);
   }
 
   function addPicked(items: PendingAttachment[]) {
+    if (picked.length === 0) animateLayout();
     setPicked((prev) => [...prev, ...items].slice(0, MESSAGE_ATTACHMENT_LIMITS.maxItems));
+  }
+
+  function removePicked(itemId: string) {
+    if (picked.length === 1) animateLayout();
+    setPicked((prev) => prev.filter((p) => p.id !== itemId));
   }
 
   // ---------------------------------------------------------------------------
@@ -606,6 +717,10 @@ function Chat({
     if (m.content) setText((t) => (t.trim() ? `${t} ${m.content}` : m.content));
     const items = m.outgoing?.items ?? [];
     if (items.length > 0) setPicked((prev) => [...prev, ...items.filter((item) => !prev.some((p) => p.id === item.id))].slice(0, MESSAGE_ATTACHMENT_LIMITS.maxItems));
+    // The message it was answering, when that is still on screen.
+    const reply = replyOf(m.reply_to);
+    const original = reply ? messagesRef.current.find((x) => x.id === reply.id) : undefined;
+    if (original) setReplyTo(original);
   }
 
   function reportMessage(m: ChatMessage) {
@@ -625,8 +740,6 @@ function Chat({
 
   function messageActions(m: ChatMessage) {
     if (m.pending) return;
-    // A sent message of mine has no actions: deleting it would leave its text in the inbox and in the other side's chat.
-    if (!m.failed && m.sender_id === userId) return;
     hapticTap();
     if (m.failed) {
       show(
@@ -639,7 +752,15 @@ function Chat({
       );
       return;
     }
-    show([{ label: "Report message", icon: "flag-outline", destructive: true, onPress: () => reportMessage(m) }]);
+    // A sent message of mine offers only Reply: deleting it would leave its text in the inbox and in the other side's chat.
+    if (m.sender_id === userId) {
+      show([{ label: "Reply", icon: "arrow-undo-outline", onPress: () => startReply(m) }]);
+      return;
+    }
+    show([
+      { label: "Reply", icon: "arrow-undo-outline", onPress: () => startReply(m) },
+      { label: "Report message", icon: "flag-outline", destructive: true, onPress: () => reportMessage(m) },
+    ]);
   }
 
   // Rows get one stable handler, so typing in the message field never re-renders the list.
@@ -738,6 +859,7 @@ function Chat({
       const next = messages[i + 1];
       const mine = m.sender_id === userId;
       const showDay = !previous || !isSameDay(previous.created_at, m.created_at);
+      const arrived = arriving.current.get(m.id);
       return (
         <MessageRow
           message={m}
@@ -749,66 +871,21 @@ function Chat({
           receipt={mine && lastMine?.id === m.id ? receipt : null}
           seenBy={seenAt.get(m.id)}
           highlighted={highlightId === m.id}
+          appear={arrived !== undefined && Date.now() - arrived < APPEAR_FOR_MS}
           mediaWidth={mediaWidth}
           resolveMedia={resolveMedia}
+          resolveReply={resolveReply}
           onOpenMedia={openMedia}
           onOpenFile={openFile}
           onOpenSnap={openSnapViewer}
           onActions={onActions}
-          onPressAvatar={openProfile}
+          onReply={startReply}
+          onJumpTo={jumpFromQuote}
+          onPressSender={openProfile}
         />
       );
     },
-    [messages, userId, isGroup, lastMine, receipt, seenAt, highlightId, mediaWidth, resolveMedia, openMedia, openFile, openSnapViewer, onActions, openProfile],
-  );
-
-  const headerOptions = useMemo(
-    () => ({
-      headerTitle: () => (
-        <Pressable
-          onPress={openInfo}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={`${conversation.title}${!isGroup && subtitle ? `, ${subtitle}` : ""}. Chat details`}
-          style={[styles.headerTitle, { maxWidth: windowWidth - 180 }]}
-        >
-          {isGroup ? (
-            <View style={styles.groupAvatar}>
-              <Icon name="people" size={17} color={colors.brand} />
-            </View>
-          ) : (
-            <Avatar name={other?.full_name} url={other?.avatar_url} size="sm" userId={other?.id} ringColor={colors.bar} />
-          )}
-          <View style={styles.headerText}>
-            <Text style={styles.headerName} numberOfLines={1}>
-              {conversation.title}
-            </Text>
-            {subtitle ? (
-              <View style={styles.headerSubRow}>
-                {activeNow ? <View style={styles.activeDot} /> : null}
-                <Text style={[styles.headerSub, activeNow && { color: colors.successText }]} numberOfLines={1}>
-                  {subtitle}
-                </Text>
-              </View>
-            ) : activity.waiting ? (
-              // Nothing to show yet, but maybe in a moment: the line keeps its place, so the name does not jump.
-              <Text style={styles.headerSub}> </Text>
-            ) : null}
-          </View>
-        </Pressable>
-      ),
-      headerRight: () => (
-        <View style={styles.headerButtons}>
-          <Pressable onPress={openSearch} hitSlop={8} accessibilityRole="button" accessibilityLabel="Search in this chat" style={styles.headerButton}>
-            <Icon name="search" size={22} color={colors.brand} />
-          </Pressable>
-          <Pressable onPress={openInfo} hitSlop={8} accessibilityRole="button" accessibilityLabel="Chat details" style={styles.headerButton}>
-            <Icon name="information-circle-outline" size={26} color={colors.brand} />
-          </Pressable>
-        </View>
-      ),
-    }),
-    [openInfo, openSearch, conversation.title, isGroup, other?.full_name, other?.avatar_url, other?.id, subtitle, activeNow, activity.waiting, colors, styles, windowWidth],
+    [messages, userId, isGroup, lastMine, receipt, seenAt, highlightId, mediaWidth, resolveMedia, resolveReply, openMedia, openFile, openSnapViewer, onActions, startReply, jumpFromQuote, openProfile],
   );
 
   const notice =
@@ -820,15 +897,17 @@ function Chat({
 
   return (
     <View ref={rootRef} onLayout={measure} collapsable={false} style={styles.screen}>
-      <Stack.Screen options={headerOptions} />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "web" ? undefined : "padding"} keyboardVerticalOffset={keyboardOffset}>
+        {/* The list runs under the floating bar (and under the header above), keeping that much of its ends clear;
+            the list is inverted, so its paddingTop is at the bottom of the screen and its paddingBottom at the top. */}
         <FlatList
           ref={listRef}
           data={data}
           inverted
           keyExtractor={(m) => m.id}
           renderItem={renderItem}
-          contentContainerStyle={styles.list}
+          style={[styles.flex, { marginBottom: -barHeight }]}
+          contentContainerStyle={[styles.list, { paddingTop: barHeight + 6, paddingBottom: headerHeight + 6 }]}
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           keyboardShouldPersistTaps="handled"
           onScroll={(e) => {
@@ -858,11 +937,33 @@ function Chat({
           }
         />
         {notice ? (
-          <ComposerNotice title={notice.title} body={notice.body} action={"action" in notice ? notice.action : undefined} />
+          <ComposerNotice title={notice.title} body={notice.body} action={"action" in notice ? notice.action : undefined} onHeight={setBarHeight} />
         ) : (
-          <Composer value={text} onChangeText={setText} items={picked} onAddItems={addPicked} onRemoveItem={(itemId) => setPicked((prev) => prev.filter((p) => p.id !== itemId))} onSend={send} />
+          <Composer
+            value={text}
+            onChangeText={setText}
+            items={picked}
+            onAddItems={addPicked}
+            onRemoveItem={removePicked}
+            onSend={send}
+            onSendVoice={sendVoice}
+            reply={composerReply}
+            onCancelReply={cancelReply}
+            inputRef={inputRef}
+            onHeight={setBarHeight}
+          />
         )}
       </KeyboardAvoidingView>
+      <ChatHeader
+        conversation={conversation}
+        subtitle={subtitle}
+        activeNow={activeNow}
+        keepSubtitleRoom={activity.waiting}
+        onBack={onBack}
+        onOpenInfo={openInfo}
+        onOpenSearch={openSearch}
+        onHeight={setHeaderHeight}
+      />
       <MediaViewer visible={viewer !== null} items={viewer?.items ?? []} index={viewer?.index ?? 0} onClose={() => setViewer(null)} />
     </View>
   );
@@ -871,18 +972,9 @@ function Chat({
 const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
-  list: { paddingHorizontal: 12, paddingVertical: 10 },
+  list: { paddingHorizontal: 12 },
   older: { marginVertical: 12 },
   emptyBox: { padding: 24, alignItems: "center" },
   errorBox: { padding: 16 },
   empty: { textAlign: "center", color: colors.muted, padding: 24 },
-  headerTitle: { flexDirection: "row", alignItems: "center", gap: 8 },
-  headerText: { flexShrink: 1 },
-  headerName: { fontWeight: "700", fontSize: 16, color: colors.text },
-  headerSubRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  headerSub: { flexShrink: 1, fontSize: 12, color: colors.muted },
-  activeDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.green },
-  headerButtons: { flexDirection: "row", alignItems: "center", gap: 14 },
-  headerButton: { paddingHorizontal: 2 },
-  groupAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
 }));
