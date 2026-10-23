@@ -568,6 +568,19 @@ function Chat({
     const body = text.trim();
     const items = picked;
     if (!body && items.length === 0) return;
+    setText("");
+    setPicked([]);
+    sendNew(body, items);
+  }
+
+  /** A voice message just recorded: sent on its own, at once. */
+  function sendVoice(item: PendingAttachment) {
+    if (block !== "none") return;
+    sendNew("", [item]);
+  }
+
+  /** A message of mine on screen at once (sending), then delivered: words, files or both. */
+  function sendNew(body: string, items: PendingAttachment[]) {
     const me = membersById.get(userId) ?? { id: userId, full_name: "You", avatar_url: null };
     const message: ChatMessage = {
       id: `temp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
@@ -583,8 +596,6 @@ function Chat({
       outgoing: items.length > 0 ? { items, status: Object.fromEntries(items.map((item) => [item.id, "waiting" as UploadStatus])), uploaded: {} } : undefined,
     };
     setMessages((prev) => [...prev, message]);
-    setText("");
-    setPicked([]);
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
     void deliver(message);
   }
@@ -860,7 +871,7 @@ function Chat({
         {notice ? (
           <ComposerNotice title={notice.title} body={notice.body} action={"action" in notice ? notice.action : undefined} />
         ) : (
-          <Composer value={text} onChangeText={setText} items={picked} onAddItems={addPicked} onRemoveItem={(itemId) => setPicked((prev) => prev.filter((p) => p.id !== itemId))} onSend={send} />
+          <Composer value={text} onChangeText={setText} items={picked} onAddItems={addPicked} onRemoveItem={(itemId) => setPicked((prev) => prev.filter((p) => p.id !== itemId))} onSend={send} onSendVoice={sendVoice} />
         )}
       </KeyboardAvoidingView>
       <MediaViewer visible={viewer !== null} items={viewer?.items ?? []} index={viewer?.index ?? 0} onClose={() => setViewer(null)} />

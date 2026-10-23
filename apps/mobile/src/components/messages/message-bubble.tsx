@@ -22,6 +22,10 @@ import { AttachmentFileRow } from "./attachment-file-row";
 import { AttachmentGrid, type GridMedia } from "./attachment-grid";
 import { Icon } from "@/components/icon";
 import { SnapBubble } from "@/components/snap/snap-bubble";
+import { VOICE_AVAILABLE } from "@/lib/voice";
+
+// expo-audio is loaded only where this build has it (an older installed build shows voice messages as files).
+const VoiceBubble = VOICE_AVAILABLE ? (require("./voice-bubble") as typeof import("./voice-bubble")).VoiceBubble : null;
 
 /**
  * A sent photo or video as something drawable: a signed URL with the storage path as its cache key, or null while
@@ -42,13 +46,13 @@ export function messageMedia(m: ChatMessage, resolve: MediaResolver): GridMedia[
   const outgoing = m.outgoing;
   if (outgoing) {
     for (const item of outgoing.items) {
-      if (item.kind === "file") continue;
+      if (item.kind !== "image" && item.kind !== "video") continue;
       media.push({ key: item.id, kind: item.kind, uri: item.uri, width: item.width, height: item.height, duration: item.duration, status: m.pending || m.failed ? (outgoing.status[item.id] ?? "waiting") : undefined });
     }
     return media;
   }
   for (const a of m.attachments ?? []) {
-    if (a.kind === "file") continue;
+    if (a.kind !== "image" && a.kind !== "video") continue;
     const shown = resolve(a);
     media.push({ key: a.path, kind: a.kind, uri: shown.uri, cacheKey: shown.cacheKey, width: a.width, height: a.height, duration: a.duration, missing: shown.missing });
   }
@@ -56,6 +60,17 @@ export function messageMedia(m: ChatMessage, resolve: MediaResolver): GridMedia[
 }
 
 type FileEntry = { key: string; attachment: MessageAttachment; status?: UploadStatus };
+
+type VoiceEntry = { key: string; uri: string | null; duration: number | null | undefined; attachment: MessageAttachment | null };
+
+/** A message's voice messages: the recording on this device while it sends, then the sent file through its signed link. */
+function messageVoices(m: ChatMessage, resolve: MediaResolver): VoiceEntry[] {
+  const outgoing = m.outgoing;
+  if (outgoing) {
+    return outgoing.items.filter((item) => item.kind === "audio").map((item) => ({ key: item.id, uri: item.uri, duration: item.duration, attachment: outgoing.uploaded[item.id] ?? null }));
+  }
+  return (m.attachments ?? []).filter((a) => a.kind === "audio").map((a) => ({ key: a.path, uri: resolve(a).uri, duration: a.duration, attachment: a }));
+}
 
 /** A message's other files (PDFs, documents, …), with their upload state while sending. */
 function messageFiles(m: ChatMessage): FileEntry[] {
@@ -151,6 +166,7 @@ export function MessageRow({
   const snap = snapOf(m.snap);
   const media = messageMedia(m, resolveMedia);
   const files = messageFiles(m);
+  const voices = messageVoices(m, resolveMedia);
   const showText = Boolean(m.content) && !(m.image_url && m.content === WEBSITE_PHOTO_TEXT);
   const actions = m.pending ? undefined : () => onActions(m);
   const retry = m.failed ? () => onActions(m) : undefined;
@@ -189,7 +205,14 @@ export function MessageRow({
                 style={{ width: mediaWidth }}
               />
             ))}
-            {snap ? <SnapBubble snap={snap} mine={mine} dimmed={Boolean(m.pending)} corners={corners} onOpen={onOpenSnap ? () => onOpenSnap(m) : undefined} onLongPress={actions} /> : null}
+            {snap ? <SnapBubble snap={snap} mine={mine} width={mediaWidth} dimmed={Boolean(m.pending)} corners={corners} onOpen={onOpenSnap ? () => onOpenSnap(m) : undefined} onLongPress={actions} /> : null}
+            {voices.map((v) =>
+              VoiceBubble ? (
+                <VoiceBubble key={v.key} uri={v.uri} cacheKey={v.key} duration={v.duration} mine={mine} dimmed={Boolean(m.pending)} corners={corners} onLongPress={actions} />
+              ) : v.attachment ? (
+                <AttachmentFileRow key={v.key} attachment={v.attachment} onPress={() => onOpenFile(v.attachment as MessageAttachment)} onLongPress={actions} style={{ width: mediaWidth }} />
+              ) : null,
+            )}
             {showText ? (
               <Pressable onPress={retry} onLongPress={actions} delayLongPress={350} accessibilityHint={m.failed ? "Not sent. Tap for options." : undefined}>
                 <View style={[styles.bubble, mine ? styles.mine : styles.theirs, corners, m.pending && styles.dim, m.failed && styles.failed]}>

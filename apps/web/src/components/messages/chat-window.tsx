@@ -101,6 +101,21 @@ function SharedPostCard({ shared, pending }: { shared: SharedPost; pending?: boo
 function SnapCard({ snap, mine }: { snap: MessageSnap; mine: boolean }) {
   const state = snapState(snap);
   const fresh = state === "new";
+  if (fresh && snap.preview) {
+    // Waiting, with a preview: the Snap at its own shape, blurred past recognition, as the app shows it.
+    const ratio = snap.width && snap.height ? Math.min(1.8, Math.max(0.65, snap.width / snap.height)) : 0.75;
+    return (
+      <div data-testid="snap" data-snap-state={state} className="relative mb-1 w-60 max-w-full overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: String(ratio) }}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- a tiny data URL, blurred */}
+        <img src={snap.preview} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-125 object-cover blur-xl" />
+        <span className="absolute inset-0 bg-black/20" />
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-4 text-center text-white">
+          <span className="rounded-full bg-black/45 px-4 py-1.5 text-sm font-semibold">{mine ? "Delivered" : "New Snap"}</span>
+          {!mine ? <span className="text-xs font-medium drop-shadow">Open the CampConnect app to view it</span> : null}
+        </span>
+      </div>
+    );
+  }
   const video = snap.kind === "video";
   const SnapIcon = mine ? Send : video ? Video : Camera;
   const title = !mine && fresh ? "New Snap" : video ? "Video Snap" : "Snap";

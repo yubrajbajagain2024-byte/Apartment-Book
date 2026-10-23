@@ -1450,7 +1450,7 @@ export type Database = {
       };
       /** Returns {snap_id, expires_at, sent: [{recipient_id, conversation_id, message_id}]}. */
       send_snap: {
-        Args: { p_path: string; p_kind: string; p_mime: string; p_width: number | null; p_height: number | null; p_duration: number | null; p_recipient_ids: string[] };
+        Args: { p_path: string; p_kind: string; p_mime: string; p_width: number | null; p_height: number | null; p_duration: number | null; p_recipient_ids: string[]; p_preview?: string | null };
         Returns: Json;
       };
       /** Returns {id, path, kind, mime, width, height, duration, sent_at, opened_at, view_until, conversation_id, message_id, sender: {id, full_name, avatar_url}}. */

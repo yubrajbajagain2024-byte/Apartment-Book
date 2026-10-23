@@ -165,6 +165,8 @@ export default function MessagesScreen() {
       .channel(`chats:${userId}:${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => void refresh())
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => void refresh())
+      // Read on another screen or device: the counts and badges follow at once.
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversation_members", filter: `user_id=eq.${userId}` }, () => void refresh())
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -185,6 +187,16 @@ export default function MessagesScreen() {
   const byId = useMemo(() => new Map(conversations.map((c) => [c.id, c])), [conversations]);
   // The Unread pill's count: the chats with unread messages on the page on screen (requests not counted; they have their own pill).
   const unreadChats = useMemo(() => conversations.filter((c) => inInbox(c, page, "unread", requestIds)).length, [conversations, page, requestIds]);
+  // The red badges on Chats and Groups: unread messages in each (requests included), adding up to the Messages tab's badge.
+  const pageUnread = useMemo(() => {
+    let chats = 0;
+    let groups = 0;
+    for (const c of conversations) {
+      if (c.type === "group") groups += c.unreadCount;
+      else chats += c.unreadCount;
+    }
+    return { chats, groups };
+  }, [conversations]);
   useEffect(() => setAllChatMatches(false), [query]);
   // Groups has no Requests pill: moving there with it chosen shows every group.
   const filterOn = useCallback((p: InboxPage): InboxFilter => (p === "groups" && filter === "requests" ? "all" : filter), [filter]);
@@ -386,7 +398,7 @@ export default function MessagesScreen() {
 
   return (
     <View style={styles.screen}>
-      <InboxHeader signedIn={Boolean(user)} page={page} onPage={selectPage} scrollX={scrollX} pageWidth={width} requestCount={requestCount} filter={filter} unreadChats={unreadChats} onFilter={setFilter} scrolled={scrolled} onNewChat={newChat}>
+      <InboxHeader signedIn={Boolean(user)} page={page} onPage={selectPage} scrollX={scrollX} pageWidth={width} requestCount={requestCount} filter={filter} unreadChats={unreadChats} pageUnread={pageUnread} onFilter={setFilter} scrolled={scrolled} onNewChat={newChat}>
         {user ? <InboxSearchField value={text} onChangeText={setText} placeholder={placeholder} inputRef={inputRef} onFocusChange={setSearchFocused} showCancel={searchFocused || text.length > 0} onCancel={cancelSearch} accessibilityLabel="Search chats and messages" /> : null}
       </InboxHeader>
       {!user ? (

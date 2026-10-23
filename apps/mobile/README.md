@@ -221,6 +221,14 @@ read" pill floats above the bottom bar, as in GroupMe: one tap marks every chat 
 (`src/lib/use-message-requests.ts`: nothing is stored for it, it is read off the chats, the follow stats and whether you
 have written in each, so every device agrees). Searching looks only in the page on screen.
 
+Voice messages (`src/components/messages/voice-recorder.tsx`, `voice-bubble.tsx`, `src/lib/voice.ts`; expo-audio): with
+nothing typed or picked, Send is a microphone. A tap records in the bar (discard, a red dot and the time, the voice's level
+moving as you speak, and Send); it sends at once as an "audio" attachment (mono AAC, up to five minutes) into the chat's
+private files. A voice message plays in a waveform bubble that fills in as it plays, out loud even on silent. A build
+without expo-audio (made before it) shows no microphone and lists voice messages as files. Messages' Chats and Groups
+labels carry red counts of their unread messages (adding up to the tab's badge), refreshed as messages arrive and as
+chats are read here or elsewhere.
+
 Snaps (`src/app/snap/index.tsx`, `src/app/snap/[id].tsx`, `src/components/snap/`, `src/lib/snap-capture.ts`; the rules
 are migration 28's, see the root README): Snap in the create sheet opens the phone's own camera (a photo, or a video up to
 30 seconds; in the Simulator, which has no camera, the photo library) over whatever is on screen, through a see-through
@@ -231,9 +239,9 @@ nothing over a sheet that is still leaving) and the Aurora "Send To". That start
 progress) and raises the Send To sheet (`send-to-sheet.tsx`): your direct chats, the most recent first, then your friends,
 a search over both, a ring per person that fills with the Aurora when picked (only what turns on bounces), and a bar that
 rises with who it goes to and the round send button: a spinner and "Sending… 42%", then the plane flies off and a tick
-lands on green, and the Snap fades away. In a chat (`snap-bubble.tsx`) a Snap is a small card, never its picture: "New
-Snap · Tap to view" on an Aurora tile for its recipient, "Delivered" for its sender, then "Opened", "Expired" or
-"Unavailable" on a hollow tile; the chat follows realtime updates of its messages, so both sides change at once. The viewer
+lands on green, and the Snap fades away. In a chat (`snap-bubble.tsx`) a waiting Snap is a bubble at its own shape showing only a 32-pixel
+preview made when it was taken, blurred past recognition, with "Tap to view" (its recipient) or "Delivered" (its sender);
+then just "Opened", "Expired" or "Unavailable" on a small card, the preview gone from the message; the chat follows realtime updates of its messages, so both sides change at once. The viewer
 opens it once (`open_snap()`), loads it through Storage's signed-in download with your own session (every request, each
 range of a video too, is checked against the view, so nothing can be loaded after it), keeps a photo in memory only, and closes with a tap, a swipe down, its close button, the end of a video or the app going to the background,
 calling `close_snap()`. Both screens leave on a timer rather than when their fade reports it ended, so an interrupted

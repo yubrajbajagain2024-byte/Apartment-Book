@@ -50,7 +50,24 @@ export type MessageSnap = {
   opened_at: string | null;
   /** It went before its recipient opened it: it expired, or its sender's account was deleted. */
   gone?: boolean;
+  /** The picture's shape in pixels, so the chat shows it at its own size (migration 29). */
+  width?: number | null;
+  height?: number | null;
+  /**
+   * A tiny JPEG data URL the chat shows blurred until the Snap is opened. The database takes it off the message the
+   * moment it is opened or goes.
+   */
+  preview?: string | null;
 };
+
+/** The longest preview the database takes, and its form. */
+export const SNAP_PREVIEW_MAX_LENGTH = 8000;
+const PREVIEW = /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/;
+
+/** Whether a string is a preview the database would take. */
+export function isSnapPreview(value: unknown): value is string {
+  return typeof value === "string" && value.length <= SNAP_PREVIEW_MAX_LENGTH && PREVIEW.test(value);
+}
 
 /**
  * Where a Snap stands: new (not opened yet, still openable), opened, expired (not opened in time), or unavailable (it
@@ -72,6 +89,11 @@ export function snapOf(value: unknown): MessageSnap | null {
   if (!isDate(v.expires_at)) return null;
   const snap: MessageSnap = { id: v.id.toLowerCase(), kind: v.kind, expires_at: v.expires_at, opened_at: isDate(v.opened_at) ? v.opened_at : null };
   if (v.gone === true) snap.gone = true;
+  if (typeof v.width === "number" && v.width > 0 && typeof v.height === "number" && v.height > 0) {
+    snap.width = v.width;
+    snap.height = v.height;
+  }
+  if (isSnapPreview(v.preview)) snap.preview = v.preview;
   return snap;
 }
 

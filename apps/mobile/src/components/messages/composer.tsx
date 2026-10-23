@@ -9,6 +9,10 @@ import { ATTACHMENT_LIMIT_TEXT, captureMedia, pickDocuments, pickLibraryMedia, t
 import { auroraGradient } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { AttachmentStrip } from "./attachment-strip";
+import { VOICE_AVAILABLE } from "@/lib/voice";
+
+// expo-audio is loaded only where this build has it.
+const VoiceRecorder = VOICE_AVAILABLE ? (require("./voice-recorder") as typeof import("./voice-recorder")).VoiceRecorder : null;
 import { Icon } from "@/components/icon";
 
 const SHOW_EVENT = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -55,7 +59,8 @@ function BottomBar({ children }: { children: ReactNode }) {
 
 /**
  * X-style message bar: attach (photo or video, camera, file) on the left, the growing "Message" field, and Send. Picked
- * files wait in a strip above the field until they are sent with the message.
+ * files wait in a strip above the field until they are sent with the message. With nothing typed or picked, Send is a
+ * microphone (where the build can record): a tap records a voice message in the bar, sent with its own send button.
  */
 export function Composer({
   value,
@@ -64,6 +69,7 @@ export function Composer({
   onAddItems,
   onRemoveItem,
   onSend,
+  onSendVoice,
   placeholder = "Message",
 }: {
   value: string;
@@ -72,14 +78,18 @@ export function Composer({
   onAddItems: (items: PendingAttachment[]) => void;
   onRemoveItem: (id: string) => void;
   onSend: () => void;
+  /** A voice message just recorded: sent at once. Without it there is no microphone. */
+  onSendVoice?: (item: PendingAttachment) => void;
   placeholder?: string;
 }) {
   const { colors, isDark } = useAppTheme();
   const styles = useStyles();
   const show = useActionSheet();
   const [busy, setBusy] = useState(false);
+  const [recording, setRecording] = useState(false);
   const remaining = MESSAGE_ATTACHMENT_LIMITS.maxItems - items.length;
   const canSend = value.trim().length > 0 || items.length > 0;
+  const canRecord = Boolean(VoiceRecorder && onSendVoice) && !canSend;
 
   async function add(pick: () => Promise<PickResult>) {
     setBusy(true);
@@ -107,6 +117,20 @@ export function Composer({
     ]);
   }
 
+  if (recording && VoiceRecorder && onSendVoice) {
+    return (
+      <BottomBar>
+        <VoiceRecorder
+          onCancel={() => setRecording(false)}
+          onSend={(item) => {
+            setRecording(false);
+            onSendVoice(item);
+          }}
+        />
+      </BottomBar>
+    );
+  }
+
   return (
     <BottomBar>
       {items.length > 0 ? <AttachmentStrip items={items} onRemove={onRemoveItem} /> : null}
@@ -127,9 +151,25 @@ export function Composer({
           style={styles.input}
           accessibilityLabel="Message"
         />
-        <Pressable onPress={onSend} disabled={!canSend} hitSlop={6} style={[styles.send, !canSend && { opacity: 0.4 }]} accessibilityRole="button" accessibilityLabel="Send" accessibilityState={{ disabled: !canSend }}>
-          <Icon name="send" size={17} color={colors.onBrand} />
-        </Pressable>
+        {canRecord ? (
+          <Pressable
+            onPress={() => {
+              Keyboard.dismiss();
+              hapticTap();
+              setRecording(true);
+            }}
+            hitSlop={6}
+            style={styles.mic}
+            accessibilityRole="button"
+            accessibilityLabel="Record a voice message"
+          >
+            <Icon name="mic" size={22} color={colors.brand} />
+          </Pressable>
+        ) : (
+          <Pressable onPress={onSend} disabled={!canSend} hitSlop={6} style={[styles.send, !canSend && { opacity: 0.4 }]} accessibilityRole="button" accessibilityLabel="Send" accessibilityState={{ disabled: !canSend }}>
+            <Icon name="send" size={17} color={colors.onBrand} />
+          </Pressable>
+        )}
       </View>
     </BottomBar>
   );
@@ -172,6 +212,7 @@ const useStyles = makeStyles((colors) => ({
     textAlignVertical: "center",
   },
   send: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.aurora, 135), alignItems: "center", justifyContent: "center" },
+  mic: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   notice: { alignItems: "center", gap: 4, paddingHorizontal: 24, paddingTop: 14, paddingBottom: 6 },
   noticeTitle: { fontSize: 15, fontWeight: "700", color: colors.text, textAlign: "center" },
   noticeBody: { fontSize: 13, color: colors.muted, textAlign: "center" },
