@@ -188,7 +188,7 @@ select public.admin_overview_stats();                             -- must fail w
 BASE=http://localhost:3001 ADMIN_E2E_EMAIL=… ADMIN_E2E_PASSWORD=… ADMIN_E2E_TOTP_SECRET=<setup key> node apps/admin/e2e/admin.mjs
 ```
 
-**5. Vercel project for the admin app (dashboard, not the CLI).** The repository root is linked to the website's project, so do not run `vercel deploy` there. Add New → Project → import the same GitHub repository → **Root Directory `apps/admin`** → project name e.g. `campconnect-admin`. Environment variables for Production (and Preview if you want previews):
+**5. Vercel project for the admin app.** Fastest: `vercel login` once, then `npm run deploy:admin` (a plan that changes nothing) and `npm run deploy:admin -- --apply`. The script creates or updates the `campconnect-admin` project with Root Directory `apps/admin`, sets only the public variables below, refuses to run if worker secrets are present, deploys the committed branch without touching the website's `.vercel` link, and probes the result (login page, noindex, worker endpoint off). The manual route, in the dashboard: The repository root is linked to the website's project, so do not run `vercel deploy` there. Add New → Project → import the same GitHub repository → **Root Directory `apps/admin`** → project name e.g. `campconnect-admin`. Environment variables for Production (and Preview if you want previews):
 
 | Variable | Value |
 | --- | --- |
