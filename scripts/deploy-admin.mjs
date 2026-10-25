@@ -203,10 +203,10 @@ async function main() {
     log("\nPlan complete. Nothing was changed. Run again with --apply to create the project and deploy.");
     return;
   }
-  await api(`/v10/projects/${project.id}/env?upsert=true&${team}`, {
-    method: "POST",
-    body: vars.map(([key, value]) => ({ key, value, type: "encrypted", target: ["production", "preview"] })),
-  });
+  // One request per variable: the CLI turns a JSON array body into "Invalid JSON".
+  for (const [key, value] of vars) {
+    await api(`/v10/projects/${project.id}/env?upsert=true&${team}`, { method: "POST", body: { key, value, type: "encrypted", target: ["production", "preview"] } });
+  }
   ok(`set ${vars.map(([k]) => k).join(", ")}`);
 
   // ---- deploy ------------------------------------------------------------------------------------
