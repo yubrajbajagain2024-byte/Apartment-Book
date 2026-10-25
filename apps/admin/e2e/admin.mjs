@@ -4,6 +4,7 @@
 // Optional accounts (their checks are skipped with a note when unset):
 //   ADMIN_E2E_EMAIL + ADMIN_E2E_PASSWORD   a staff account; ADMIN_E2E_TOTP_SECRET is its authenticator key (base32) for the 2FA step
 //   E2E_USER_EMAIL + E2E_USER_PASSWORD     an ordinary (non-staff) account, which must land on /no-access
+//   VERCEL_BYPASS                          bypass secret when Vercel Deployment Protection guards the deployment
 import fs from "node:fs";
 import { createHmac } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -32,7 +33,9 @@ async function login(page, email, password, next = "/") {
 const expectLogin = (page, next) => { const u = new URL(page.url()); if (u.pathname !== "/login" || u.searchParams.get("next") !== next) throw new Error("url: " + page.url()); };
 
 const browser = await chromium.launch();
-async function newPage() { const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } }); const page = await ctx.newPage(); page.setDefaultTimeout(30000); page.on("pageerror", (e) => errors.push(e.message)); page.on("console", (m) => { if (m.type() === "error") errors.push(m.text().slice(0, 300)); }); return page; }
+// VERCEL_BYPASS: a "Protection Bypass for Automation" secret, when Vercel Deployment Protection is on for the admin project.
+const BYPASS = process.env.VERCEL_BYPASS ? { "x-vercel-protection-bypass": process.env.VERCEL_BYPASS, "x-vercel-set-bypass-cookie": "true" } : undefined;
+async function newPage() { const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, extraHTTPHeaders: BYPASS }); const page = await ctx.newPage(); page.setDefaultTimeout(30000); page.on("pageerror", (e) => errors.push(e.message)); page.on("console", (m) => { if (m.type() === "error") errors.push(m.text().slice(0, 300)); }); return page; }
 try {
   const D = await newPage();
   await step("signed out: every page goes to /login with next= pointing back", async () => {
