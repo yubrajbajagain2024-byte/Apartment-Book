@@ -9,14 +9,18 @@
   ],
   "scripts": {
     "dev": "turbo run dev",
+    "dev:web": "npm run dev --workspace=web",
+    "dev:admin": "npm run dev --workspace=admin",
     "build": "turbo run build",
     "start": "npm run start --workspace=web",
+    "start:admin": "npm run start --workspace=admin",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "db:setup": "node scripts/supabase-setup.mjs",
     "db:check": "node scripts/e2e-check.mjs",
     "check": "turbo run typecheck lint build",
-    "db:test": "node supabase/tests/home-feed.test.mjs && node supabase/tests/buzz-reply-votes.test.mjs"
+    "db:test": "node supabase/tests/home-feed.test.mjs && node supabase/tests/buzz-reply-votes.test.mjs && node supabase/tests/admin.test.mjs && node supabase/tests/moderation-support.test.mjs && node supabase/tests/launch-checklist.test.mjs && node supabase/tests/admin-dashboard.test.mjs && node supabase/tests/permissions-audit.test.mjs",
+    "db:rehearse": "node supabase/tests/staging-rehearsal.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -24,6 +28,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "@electric-sql/pglite-postgis": "^0.2.8",
+    "@electric-sql/pglite-socket": "0.2.11",
     "dotenv": "^17.4.2",
     "pg": "^8.23.0",
     "playwright": "^1.63.0",

@@ -18,10 +18,9 @@ export async function Navbar() {
   let unreadNotifications = 0;
   if (user) {
     const supabase = await createClient();
-    [unread, unreadNotifications] = await Promise.all([
-      getTotalUnread(supabase).catch(() => 0),
-      getUnreadNotificationCount(supabase).catch(() => 0),
-    ]);
+    const [totalUnread, notificationCount] = await Promise.all([getTotalUnread(supabase).catch(() => 0), getUnreadNotificationCount(supabase).catch(() => 0)]);
+    unread = totalUnread;
+    unreadNotifications = notificationCount;
   }
   const displayName = profile?.full_name || user?.email?.split("@")[0] || "You";
 

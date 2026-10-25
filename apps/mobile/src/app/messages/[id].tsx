@@ -104,7 +104,7 @@ function Chat({ conversation, userId, prefill, contact }: { conversation: Conver
     if (!body) return;
     const tempId = `temp-${Date.now()}`;
     const me = membersById.get(userId) ?? { id: userId, full_name: "You", avatar_url: null };
-    setMessages((prev) => [...prev, { id: tempId, conversation_id: conversation.id, sender_id: userId, content: body, image_url: null, created_at: new Date().toISOString(), sender: me, pending: true }]);
+    setMessages((prev) => [...prev, { id: tempId, conversation_id: conversation.id, sender_id: userId, content: body, image_url: null, hidden_at: null, hidden_reason: null, created_at: new Date().toISOString(), sender: me, pending: true }]);
     setText("");
     try {
       const saved = await sendMessage(supabase, { conversationId: conversation.id, senderId: userId, content: body });

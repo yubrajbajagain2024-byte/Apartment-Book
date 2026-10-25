@@ -74,7 +74,11 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
   });
   if (error) {
     const friendly =
-      error.message === "Invalid login credentials" ? "Incorrect email or password." : error.message;
+      error.message === "Invalid login credentials"
+        ? "Incorrect email or password."
+        : /banned/i.test(error.message)
+          ? "This account is suspended. Check the notice in your profile or contact support."
+          : error.message;
     return { error: friendly, values };
   }
 
@@ -84,13 +88,12 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
 export async function signInWithGoogleAction(formData: FormData): Promise<void> {
   const next = safeNextPath(String(formData.get("next") ?? ""));
   const supabase = await createClient();
-  const domains = await getAllowedEmailDomains(supabase).catch(() => [] as string[]);
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
       redirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(next)}`,
-      // Ask Google to show only accounts from the university domain.
-      queryParams: domains.length === 1 ? { hd: domains[0] } : undefined,
+      // No domain hint: invited staff may use a non-university Google account. The database
+      // refuses every other outside address, with the friendly message below.
     },
   });
   if (error || !data.url) {

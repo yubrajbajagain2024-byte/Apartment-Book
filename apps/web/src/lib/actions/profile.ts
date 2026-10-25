@@ -49,11 +49,25 @@ export async function addUniversityAction(_prev: FormState, formData: FormData):
   return { success: `${parsed.data.name} was added. You can now select it above.` };
 }
 
-/** Permanently delete the signed-in user's account, then sign out. */
-export async function deleteAccountAction(): Promise<void> {
+/**
+ * Permanently delete the signed-in user's account, then sign out. Staff accounts can be
+ * refused by the database (the only owner, or no verified second factor in this session);
+ * the reason comes back to the form instead of an error page.
+ */
+export async function deleteAccountAction(): Promise<{ error?: string }> {
   await requireUser("/settings/profile");
   const supabase = await createClient();
-  await deleteMyAccount(supabase);
+  try {
+    await deleteMyAccount(supabase);
+  } catch (error) {
+    const message = errorMessage(error, "Could not delete your account. Please try again.");
+    return {
+      error:
+        message === "Two-factor authentication required"
+          ? "Staff accounts cannot be deleted from the website. Ask an owner to remove you from the team in the admin app first, then delete your account here."
+          : message,
+    };
+  }
   await supabase.auth.signOut();
   redirect("/?deleted=1");
 }

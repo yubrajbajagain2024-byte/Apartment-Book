@@ -188,6 +188,8 @@ export function ChatWindow({
       sender_id: currentUserId,
       content: body,
       image_url: imageUrl ?? null,
+      hidden_at: null,
+      hidden_reason: null,
       created_at: new Date().toISOString(),
       sender: me,
       pending: true,

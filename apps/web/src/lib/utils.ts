@@ -28,9 +28,19 @@ export function errorMessage(error: unknown, fallback = "Something went wrong. P
   return fallback;
 }
 
-/** Only allow same-site relative paths for post-login redirects. */
+/**
+ * Only allow same-site relative paths for post-login redirects. Browsers (and Next's
+ * server-action redirect) parse the value as a URL: tabs and newlines are dropped and a
+ * backslash reads as a slash, so "/\evil.com" or "/<tab>/evil.com" would leave the site.
+ * Resolve it the way they do and insist on the same origin.
+ */
 export function safeNextPath(next: string | null | undefined, fallback = "/"): string {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return fallback;
+  if (!next || next[0] !== "/" || next[1] === "/" || next[1] === "\\") return fallback;
+  try {
+    if (new URL(next, "http://x").origin !== "http://x") return fallback;
+  } catch {
+    return fallback;
+  }
   return next;
 }
 

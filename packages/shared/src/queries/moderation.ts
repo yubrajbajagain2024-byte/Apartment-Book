@@ -1,4 +1,5 @@
 import type { Client } from "../types/models";
+import { getMyStaffAccess } from "./admin";
 
 export type ReportTargetType = "apartment" | "item" | "roommate" | "profile" | "message" | "comment" | "post" | "buzz" | "buzz_comment";
 export type ReportReason = "spam" | "scam" | "harassment" | "inappropriate" | "other";
@@ -59,9 +60,22 @@ async function removeMyUploads(supabase: Client, userId: string): Promise<void> 
   }
 }
 
-/** Permanently delete the signed-in user's account, their uploads and everything they posted. Sign out afterwards. */
+/** Shown to the only owner who tries to delete their account (the database refuses it too, with the same meaning). */
+export const LAST_OWNER_DELETE_MESSAGE = "You are the only owner of Apartment Book. Make someone else an owner in the admin app before deleting your account.";
+
+/**
+ * Permanently delete the signed-in user's account, their uploads and everything they posted. Sign out afterwards.
+ * Staff accounts are checked first: the database refuses to delete the only owner and asks staff for a
+ * verified second factor (which only the admin app's session has, so staff leave the team first and
+ * then delete), and that refusal must come before any upload is removed.
+ */
 export async function deleteMyAccount(supabase: Client): Promise<void> {
   const { data } = await supabase.auth.getUser();
+  const staff = await getMyStaffAccess(supabase).catch(() => null);
+  if (staff) {
+    if (!staff.mfaVerified) throw new Error("Two-factor authentication required");
+    if (staff.lastOwner) throw new Error(LAST_OWNER_DELETE_MESSAGE);
+  }
   if (data.user) await removeMyUploads(supabase, data.user.id).catch(() => {});
   const { error } = await supabase.rpc("delete_my_account");
   if (error) throw error;

@@ -1,7 +1,7 @@
 import { boot, read, expectOk, expectError, done } from "./harness.mjs";
 const { db, mk, as, asAnon } = await boot();
 await expectOk("the Home-feed migrations re-run cleanly, in order", async () => {
-  for (const f of ["20260920000000_home_feed.sql", "20260921000000_buzz_storage_folder.sql", "20260922000000_buzz_reply_votes.sql"]) await db.exec(read(`migrations/${f}`));
+  for (const f of ["20260920000000_home_feed.sql", "20260921000000_buzz_storage_folder.sql", "20260922000000_buzz_reply_votes.sql", "20261024000000_moderation_support.sql"]) await db.exec(read(`migrations/${f}`)); // 15 last: 11-13 recreate functions it hardens
 });
 // Publication jitter off for most checks (it has its own test below).
 await db.exec("update public.buzz_secrets set thread_jitter_seconds = 0, reply_jitter_seconds = 0");
