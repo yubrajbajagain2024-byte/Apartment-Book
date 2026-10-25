@@ -11,7 +11,7 @@ const fails = async (fn, re) => { try { await fn(); } catch (e) { if (re.test(e.
 const asService = async (fn) => { await db.exec("set role service_role;"); try { return await fn(); } finally { await db.exec("reset role;"); } };
 const ORIGIN = "https://dskbzoqreandwwpxiplh.supabase.co/storage/v1/object/public/uploads/";
 
-await expectOk("migration 17 re-runs cleanly", () => db.exec(read("migrations/20261026000000_hardening.sql")));
+await expectOk("migration 17 re-runs cleanly", () => db.exec(read("migrations/20261103100100_hardening.sql")));
 
 // ---- a small world --------------------------------------------------------------------------------
 await db.exec("update public.buzz_secrets set thread_jitter_seconds = 0, reply_jitter_seconds = 0");
@@ -60,12 +60,14 @@ const nullCall = (f) => {
   const args = f.args.trim() ? f.args.split(",").map((a) => { const parts = a.trim().split(" "); parts.shift(); return `null::${parts.join(" ")}`; }).join(", ") : "";
   return /^(TABLE|SETOF)/i.test(f.result) ? `select * from public.${f.name}(${args})` : `select public.${f.name}(${args})`;
 };
-await expectOk("called by a student (with or without a second factor) every admin_* function answers 'Not allowed'; admin_me answers 'not staff'", async () => {
+/** Staff functions say "Not allowed"; the business portal's (main's migration 39, require_admin()) say "Only CampConnect admins can do this". */
+const REFUSED = /Not allowed|Only CampConnect admins can do this/;
+await expectOk("called by a student (with or without a second factor) every admin_* function is refused; admin_me answers 'not staff'", async () => {
   for (const f of adminApi) {
     const q = nullCall(f);
     if (f.name === "admin_me") { if ((await as(S, () => rows(db.query(q)), MFA)).length !== 0) throw new Error("admin_me returned a row for a student"); continue; }
-    await fails(() => as(S, () => db.query(q)), /Not allowed/).catch((e) => { throw new Error(`${f.name} (aal1): ${e.message}`); });
-    await fails(() => as(S, () => db.query(q), MFA), /Not allowed/).catch((e) => { throw new Error(`${f.name} (aal2): ${e.message}`); });
+    await fails(() => as(S, () => db.query(q)), REFUSED).catch((e) => { throw new Error(`${f.name} (aal1): ${e.message}`); });
+    await fails(() => as(S, () => db.query(q), MFA), REFUSED).catch((e) => { throw new Error(`${f.name} (aal2): ${e.message}`); });
   }
 });
 await expectOk("called by a visitor every admin_* function is refused before doing anything", async () => {

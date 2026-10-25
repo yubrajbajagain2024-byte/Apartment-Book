@@ -13,7 +13,7 @@ import { boot, expectOk, done } from "./harness.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const LAST_LIVE = "20261024000000_moderation_support.sql";
-const NEW = ["20261025000000_admin_dashboard.sql", "20261026000000_hardening.sql"];
+const NEW = ["20261103100000_admin_dashboard.sql", "20261103100100_hardening.sql"];
 const PORT = 55433;
 const DB_URL = `postgres://postgres:postgres@127.0.0.1:${PORT}/postgres?sslmode=disable`;
 const ORIGIN = "https://dskbzoqreandwwpxiplh.supabase.co/storage/v1/object/public/uploads/";

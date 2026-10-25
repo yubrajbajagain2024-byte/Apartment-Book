@@ -254,7 +254,7 @@ await expectOk("admin_restrictions_list, admin_user_get and admin_user_search re
 });
 await expectOk("a membership row stays in its conversation: a bare update of conversation_id (no WHERE, no RETURNING) is refused; read receipts still work", async () => {
   const dm = (await as(S3, () => one(db.query("select public.get_or_create_direct_conversation($1) as id", [S2])))).id;
-  await fails(() => as(S3, () => db.query("update public.conversation_members set conversation_id = $1", [conv])), /row-level security/);
+  await fails(() => as(S3, () => db.query("update public.conversation_members set conversation_id = $1", [conv])), /row-level security|permission denied for table conversation_members/);
   if ((await as(S3, () => rows(db.query("select 1 from public.messages where conversation_id=$1", [conv])))).length !== 0) throw new Error("joined a stranger's conversation");
   if ((await as(S3, () => db.query("update public.conversation_members set last_read_at = now() where conversation_id=$1", [dm]))).affectedRows !== 1) throw new Error("read receipt refused");
   if ((await as(S3, () => db.query("update public.conversation_members set last_delivered_at = now()"))).affectedRows !== 1) throw new Error("bare receipt update refused");

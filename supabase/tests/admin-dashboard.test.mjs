@@ -9,7 +9,7 @@ const MFA = { aal: "aal2" };
 const fails = async (fn, re) => { try { await fn(); } catch (e) { if (re.test(e.message)) return; throw new Error(`wrong error: ${e.message}`); } throw new Error("no error"); };
 const ORIGIN = "https://dskbzoqreandwwpxiplh.supabase.co/storage/v1/object/public/uploads/";
 
-await expectOk("migration 16 re-runs cleanly", () => db.exec(read("migrations/20261025000000_admin_dashboard.sql")));
+await expectOk("migration 16 re-runs cleanly", () => db.exec(read("migrations/20261103100000_admin_dashboard.sql")));
 
 // ---- a small world --------------------------------------------------------------------------------
 await db.exec("update public.buzz_secrets set thread_jitter_seconds = 0, reply_jitter_seconds = 0");

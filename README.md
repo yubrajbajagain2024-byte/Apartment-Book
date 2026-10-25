@@ -74,7 +74,7 @@ SKIP_ENV=1 SKIP_SEED=1 SKIP_AUTH=1 ADMIN_OWNER_EMAIL=you@txstate.edu \
 SUPABASE_ACCESS_TOKEN=sbp_xxx SUPABASE_PROJECT_REF=dskbzoqreandwwpxiplh npm run db:setup
 ```
 
-or do it in the Supabase **SQL Editor**: run the three admin migrations in order (`20261023000000_admin.sql`, `20261024000000_moderation_support.sql`, `20261025000000_admin_dashboard.sql`), then
+or do it in the Supabase **SQL Editor**: run the three admin migrations in order (`20261023000000_admin.sql`, `20261024000000_moderation_support.sql`, `20261103100000_admin_dashboard.sql`), then
 
 ```sql
 select public.admin_bootstrap_owner('you@txstate.edu');
@@ -124,9 +124,9 @@ Buzz stays anonymous through all of this: a suspension never changes what Buzz s
 
 ### Dashboard queries (migration 16) and hardening (migration 17)
 
-`20261026000000_hardening.sql` closes two doors found by the production-readiness audit: the API roles lose `TRUNCATE` on every public table (Supabase grants it by default and row-level security does not govern it; the apps never truncate, so nothing changes for them), and `delete_my_account()` is no longer callable by `anon`.
+`20261103100100_hardening.sql` closes two doors found by the production-readiness audit: the API roles lose `TRUNCATE` on every public table (Supabase grants it by default and row-level security does not govern it; the apps never truncate, so nothing changes for them), and `delete_my_account()` is no longer callable by `anon`.
 
-`20261025000000_admin_dashboard.sql` adds four **read-only** functions for the admin app, all behind `staff_require('moderator')`: `admin_overview_stats()` (the overview counts), `admin_users_list(filter, limit, before)` (browse people newest first: all, suspended or staff), `admin_hidden_content_list(type, limit, before)` (everything hidden, across the eight tables, newest hide first) and `admin_report_get(id)` (one report for the review page, same shape and same Buzz rule as the queue). The hidden-content list carries no Buzz author and shows a Buzz row's published time, never its real `created_at`. Until the migration is applied, the admin app shows a short "database update needed" notice where these are used and keeps working from the older functions (search, the suspended list, the report queue).
+`20261103100000_admin_dashboard.sql` adds four **read-only** functions for the admin app, all behind `staff_require('moderator')`: `admin_overview_stats()` (the overview counts), `admin_users_list(filter, limit, before)` (browse people newest first: all, suspended or staff), `admin_hidden_content_list(type, limit, before)` (everything hidden, across the eight tables, newest hide first) and `admin_report_get(id)` (one report for the review page, same shape and same Buzz rule as the queue). The hidden-content list carries no Buzz author and shows a Buzz row's published time, never its real `created_at`. Until the migration is applied, the admin app shows a short "database update needed" notice where these are used and keeps working from the older functions (search, the suspended list, the report queue).
 
 ### The media worker
 
@@ -160,18 +160,22 @@ The admin app is its own Vercel project (the website's project stays as it is): 
 
 ### Launch checklist
 
+**Status on 2026-10-25.** The admin app is deployed as its own Vercel project, `campconnect-admin` (Root Directory `apps/admin`, not connected to Git), at **https://campconnect-admin.vercel.app**, with only public variables: the media worker is inert. The live database has migrations 14 and 15 (applied 2026-10-25 15:11 UTC); 16 and 17 are not applied yet, so the Overview, Users browsing and the hidden-content list show a "database update needed" notice and fall back to the older functions. The owner account (`<owner email>`) already exists and is the only owner.
+
+**Production's history is not this branch's.** `main` gained 26 migrations while this work was on its branch, and the live database ran them around the admin ones: main's migrations through 36 (`20261029000000_push.sql`), then 14 and 15, then main's 37 onwards. Main keeps exact copies of 14 and 15 in `supabase/applied-outside-repo/` with a review and a plan to bring them into `supabase/migrations` under `20261029100000_admin.sql` and `20261029100100_moderation_support.sql` (with the matching rows in `public._migrations` renamed in the same step). Migrations 16 and 17 were therefore renamed to `20261103100000_admin_dashboard.sql` and `20261103100100_hardening.sql` so that their versions sort after main's newest and collide with nothing; 14 and 15 keep their names on this branch because that is how production tracks them. `npm run db:live-order` takes `origin/main`, puts the four admin migrations at their production positions and runs every suite of both branches.
+
 Every step is reversible except the migrations (which only add read-only functions and remove privileges nothing uses) and turning the media worker on (which moves and deletes files). Nothing here touches the website's Vercel project.
 
 **0. Rehearse locally (already green on this branch).** `npm run db:rehearse` builds a database in production's current state (migrations 1-15 applied and tracked, data, a pending owner invitation, a hidden item with its media job pending), runs the real setup script against it over the Postgres protocol, and checks: the dry run lists exactly 16 and 17; a gap in the tracking table makes the script refuse; a failing migration leaves nothing behind; the upgrade applies both; a re-run applies nothing; no table changed in size; no media job ran; the owner's dashboard account claims the invitation; password-only, forged aal2 and half-finished authenticators are refused; a verified authenticator opens everything; removing it locks everything again; students can still read, post, message and report. `npm run db:test` runs the other seven suites.
 
-**1. Dry run against production (read-only).** Create a Supabase access token (Account → Access Tokens), then:
+**1. Dry run against production (read-only).** First `git fetch origin && npm run db:live-order` (all suites must pass). Then create a Supabase access token (Account → Access Tokens) and run:
 
 ```bash
 DRY_RUN=1 SKIP_ENV=1 SKIP_SEED=1 SKIP_AUTH=1 \
 SUPABASE_ACCESS_TOKEN=sbp_xxx SUPABASE_PROJECT_REF=dskbzoqreandwwpxiplh npm run db:setup
 ```
 
-It must list exactly `20261025000000_admin_dashboard.sql` and `20261026000000_hardening.sql`. If it lists anything else, or refuses because an older migration is not tracked, stop: compare `select name from public._migrations order by name` with `supabase/migrations/` before doing anything.
+It must list exactly `20261103100000_admin_dashboard.sql` and `20261103100100_hardening.sql` (run from this branch, the script only knows this branch's files; main's migrations already on production are left alone). If it lists anything else, or refuses because an older migration is not tracked, stop: compare `select name from public._migrations order by name` with `supabase/migrations/` before doing anything.
 
 **2. Apply the two migrations.** Optional safety net first: Database → Backups (Pro plan) or a `pg_dump`. Then the same command without `DRY_RUN=1`. Each migration runs in its own transaction with its tracking row. Check in the SQL Editor:
 
@@ -182,7 +186,7 @@ select public.admin_overview_stats();                             -- must fail w
 
 **3. Supabase Auth settings (dashboard).** Authentication → Multi-Factor: TOTP on. Providers → Email: Confirm email on; minimum password length 12 recommended. URL Configuration → Redirect URLs: add `http://localhost:3001/auth/callback` now and `https://<admin domain>/auth/callback` after step 5. Leave the Site URL pointing at the website.
 
-**4. Owner account and two-factor, locally first.** Authentication → Users → Add user → `<owner email>`, a strong password, **Auto Confirm User** on. The pending owner invitation is claimed the moment the account exists (no need to run the bootstrap again). Then `npm run dev:admin`, open http://localhost:3001, sign in, and you land on Security: scan the QR code, enter the code, and keep a copy of the setup key in your password manager (it is the only way back in besides another owner removing the factor). Do this right after creating the account: until an authenticator is enrolled, anyone holding the password could enrol theirs. Confirm the Overview shows counts with no "database update needed" notice and that Audit log shows "Joined the team from an invitation" and "Two-factor authentication turned on". Optional end-to-end check with the same account:
+**4. Owner account and two-factor.** The owner account already exists (it claimed its invitation at 15:22 UTC). If you do not know its password, set a new one in the Supabase SQL Editor (a recovery email would land on the website, which has no set-password page): `update auth.users set encrypted_password = extensions.crypt('<new password>', extensions.gen_salt('bf')) where email = '<owner email>';` Then sign in at https://campconnect-admin.vercel.app (or locally: `npm run dev:admin`, http://localhost:3001) and you land on Security: scan the QR code, enter the code, and keep a copy of the setup key in your password manager (it is the only way back in besides another owner removing the factor). Do this right after creating the account: until an authenticator is enrolled, anyone holding the password could enrol theirs. Confirm the Overview shows counts with no "database update needed" notice and that Audit log shows "Joined the team from an invitation" and "Two-factor authentication turned on". Optional end-to-end check with the same account:
 
 ```bash
 BASE=http://localhost:3001 ADMIN_E2E_EMAIL=… ADMIN_E2E_PASSWORD=… ADMIN_E2E_TOTP_SECRET=<setup key> node apps/admin/e2e/admin.mjs
@@ -204,6 +208,11 @@ Do **not** add `SUPABASE_SERVICE_ROLE_KEY`, `MUX_TOKEN_ID`, `MUX_TOKEN_SECRET` o
 **7. Team.** Add a second owner first (the only owner cannot step back or delete their account), then admins and moderators. Each person enrols an authenticator on first sign-in.
 
 **8. Merge.** `step-admin` sits on top of the unmerged `step-home-feed`; merging it to `main` deploys the website with the new Home and without any admin routes. The website needs no new environment variables. Delete the Supabase access token after step 2.
+
+**Coordination with main (for whoever maintains `main`'s migrations).**
+- The admin app is a separate deployment and adds nothing to `apps/web`; merging `step-admin` brings `apps/admin`, the shared admin queries and the admin migrations. Merge `main` into it first; conflicts are expected in the shared package, the README, the setup script and the test harness (this branch's harness adds `service_role`, `auth.users` confirmation/ban columns, `auth.mfa_factors`, `auth.jwt()` and `boot({ upTo })`).
+- When 14 and 15 move into `supabase/migrations` under main's proposed names, delete this branch's copies under their old names in the same change and rename their `public._migrations` rows at the same time, or the setup script will try to apply them again. This branch's setup script refuses to run when a pending migration is older than the newest applied one, which catches a half-done rename.
+- **Business portal admin (main's migration 39) does not require two-factor.** `require_admin()` checks only `profiles.role = 'admin'`, so approving businesses, recording paid promotions ("Sponsored") and granting "Verified Partner" work with a password alone, from the website at `/business/admin`; suspended staff keep it too, and removing someone from `staff` does not take the role back (39 copied staff owners and admins into it once). Suggested fix, in a new migration after 39: have `require_admin()` call `staff_require('admin')` where the staff table exists (role, suspension and aal2 with a verified factor in one check), and move those screens into the admin app.
 
 ## Video tours (Mux)
 
@@ -273,7 +282,7 @@ apartment-book/
 │  ├─ migrations/…                         # one file per later step, applied in name order
 │  ├─ migrations/20261023000000_admin.sql  # migration 14: staff roles, invites, audit log, the two-factor gate
 │  ├─ migrations/20261024000000_moderation_support.sql  # migration 15: account restrictions, hidden content, report review, media jobs
-│  ├─ migrations/20261025000000_admin_dashboard.sql     # migration 16: read-only dashboard queries for the admin app
+│  ├─ migrations/20261103100000_admin_dashboard.sql     # migration 16: read-only dashboard queries for the admin app
 │  ├─ tests/                               # database tests in PGlite (npm run db:test): admin, moderation-support, launch-checklist…
 │  └─ seed.sql                             # starter list of universities
 ├─ scripts/                   # supabase-setup.mjs (one-shot setup), e2e-check.mjs (live backend check)
