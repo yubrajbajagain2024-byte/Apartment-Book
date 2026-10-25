@@ -18,12 +18,15 @@ export function ApartmentForm({
   userId,
   defaultUniversityId,
   initial,
+  cancelHref,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   universities: University[];
   userId: string;
   defaultUniversityId?: string | null;
   initial?: Apartment;
+  /** Where Cancel goes; the listing (or the Housing page) unless the form lives somewhere else, like the business portal. */
+  cancelHref?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const v = state?.values;
@@ -152,7 +155,7 @@ export function ApartmentForm({
       </Card>
 
       <div className="flex items-center justify-end gap-3">
-        <LinkButton href={initial ? `/apartments/${initial.id}` : "/apartments"} variant="ghost">
+        <LinkButton href={cancelHref ?? (initial ? `/apartments/${initial.id}` : "/apartments")} variant="ghost">
           Cancel
         </LinkButton>
         <Button type="submit" size="lg" loading={pending}>

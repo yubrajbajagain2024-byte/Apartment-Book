@@ -380,11 +380,17 @@ export function ChatWindow({
   currentUserId,
   initialMessages,
   prefill,
+  teamIds,
 }: {
   conversation: ConversationSummary;
   currentUserId: string;
   initialMessages: MessageWithSender[];
   prefill?: string;
+  /**
+   * The business portal's inbox: the team answering together. Their messages sit on the viewer's side, in a lighter
+   * blue and with the teammate's name, so they never read as the student's.
+   */
+  teamIds?: string[];
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [memberStatus, setMemberStatus] = useState<
@@ -728,6 +734,8 @@ export function ChatWindow({
           {messages.map((m, index) => {
             const previous = messages[index - 1];
             const mine = m.sender_id === currentUserId;
+            const teammate = !mine && Boolean(m.sender_id && teamIds?.includes(m.sender_id));
+            const ours = mine || teammate;
             const showDay =
               !previous || !isSameDay(previous.created_at, m.created_at);
             const continued =
@@ -753,11 +761,11 @@ export function ChatWindow({
                 <div
                   className={cn(
                     "flex items-end gap-2",
-                    mine ? "flex-row-reverse" : "flex-row",
+                    ours ? "flex-row-reverse" : "flex-row",
                     continued && "mt-0",
                   )}
                 >
-                  {!mine ? (
+                  {!ours ? (
                     <span className="w-8 shrink-0">
                       {!continued ? (
                         <Avatar
@@ -771,12 +779,17 @@ export function ChatWindow({
                   <div
                     className={cn(
                       "flex max-w-[75%] flex-col",
-                      mine ? "items-end" : "items-start",
+                      ours ? "items-end" : "items-start",
                     )}
                   >
                     {!mine && isGroup && !continued ? (
                       <span className="mb-0.5 ml-1 text-[11px] text-gray-500">
                         {m.sender?.full_name ?? "Unknown"}
+                      </span>
+                    ) : null}
+                    {teammate && !isGroup && !continued ? (
+                      <span className="mb-0.5 mr-1 text-[11px] text-gray-500" data-testid="teammate-name">
+                        {m.sender?.full_name ?? "Teammate"}
                       </span>
                     ) : null}
                     {reply ? (
@@ -825,7 +838,9 @@ export function ChatWindow({
                           "whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm",
                           mine
                             ? "bg-brand-600 text-white"
-                            : "bg-gray-100 text-gray-900",
+                            : teammate
+                              ? "bg-brand-100 text-brand-900"
+                              : "bg-gray-100 text-gray-900",
                           m.pending && "opacity-60",
                           m.failed && "bg-red-100 text-red-800",
                         )}

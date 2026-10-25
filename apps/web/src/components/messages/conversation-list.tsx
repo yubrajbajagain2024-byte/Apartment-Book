@@ -10,8 +10,13 @@ import { createClient, ensureRealtimeAuth, uniqueChannelName } from "@/lib/supab
 import { cn, timeAgo } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { OnlineDot } from "@/components/presence/online-dot";
+import { useMessagesPaths } from "./messages-paths";
 
 export function ConversationAvatar({ conversation, size = "md" }: { conversation: ConversationSummary; size?: "sm" | "md" | "lg" }) {
+  // A student's inquiry chat shows the business, not whichever team member answered last.
+  if (conversation.business) {
+    return <Avatar name={conversation.business.name} src={conversation.business.logo_url} size={size === "md" ? "lg" : size} />;
+  }
   if (conversation.type === "group") {
     return (
       <span className={cn("flex shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700", size === "lg" ? "h-14 w-14" : size === "md" ? "h-12 w-12" : "h-8 w-8")}>
@@ -31,6 +36,7 @@ export function ConversationAvatar({ conversation, size = "md" }: { conversation
 export function ConversationList({ conversations, currentUserId }: { conversations: ConversationSummary[]; currentUserId: string }) {
   const pathname = usePathname();
   const router = useRouter();
+  const paths = useMessagesPaths();
   const hydrated = useHydrated();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [marking, setMarking] = useState(false);
@@ -77,35 +83,43 @@ export function ConversationList({ conversations, currentUserId }: { conversatio
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-4 py-3">
-        <h1 className="text-xl font-bold">Chats</h1>
+        <h1 className="text-xl font-bold">{paths.audience === "business" ? "Inquiries" : "Chats"}</h1>
         <div className="flex items-center gap-1">
           {unreadIds.length > 0 ? (
             <button type="button" onClick={markAllRead} disabled={marking} className="h-9 rounded-full px-3 text-sm font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-50">
               Mark all as read
             </button>
           ) : null}
-          <Link href="/messages/new" className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200" aria-label="New message">
-            <SquarePen className="h-5 w-5" />
-          </Link>
+          {paths.newChat ? (
+            <Link href={paths.newChat} className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200" aria-label="New message">
+              <SquarePen className="h-5 w-5" />
+            </Link>
+          ) : null}
         </div>
       </div>
       <ul className="scrollbar-thin flex-1 overflow-y-auto px-2 pb-2">
         {conversations.length === 0 ? (
           <li className="px-3 py-8 text-center text-sm text-gray-500">
-            No conversations yet. Message a listing owner, or{" "}
-            <Link href="/messages/new" className="font-medium text-brand-600 hover:underline">
-              start a new chat
-            </Link>
-            .
+            {paths.newChat ? (
+              <>
+                No conversations yet. Message a listing owner, or{" "}
+                <Link href={paths.newChat} className="font-medium text-brand-600 hover:underline">
+                  start a new chat
+                </Link>
+                .
+              </>
+            ) : (
+              paths.emptyText
+            )}
           </li>
         ) : null}
         {conversations.map((c) => {
-          const active = pathname === `/messages/${c.id}`;
+          const active = pathname === `${paths.base}/${c.id}`;
           const unread = c.unreadCount > 0;
           return (
             <li key={c.id}>
               <Link
-                href={`/messages/${c.id}`}
+                href={`${paths.base}/${c.id}`}
                 className={cn("flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-100", active && "bg-brand-50 hover:bg-brand-50")}
               >
                 <ConversationAvatar conversation={c} />

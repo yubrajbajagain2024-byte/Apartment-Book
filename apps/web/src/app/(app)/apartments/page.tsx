@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Building2, List, Map as MapIcon, Plus } from "lucide-react";
+import { Building2, ChevronRight, List, Map as MapIcon, Plus, Tag } from "lucide-react";
 import {
   DEFAULT_MAP_CENTER,
   formatDistance,
@@ -8,6 +8,7 @@ import {
   getSavedIds,
   isRecent,
   listApartments,
+  listDeals,
   listApartmentsForMap,
   listUniversities,
   milesToKm,
@@ -74,7 +75,7 @@ export default async function ApartmentsPage({
 
   // A photo strip above the feed: closest to campus when a university is chosen, otherwise the newest.
   const showRail = view === "list" && !values.q && filters.page === 1;
-  const [universities, result, savedIds, mapListings, railListings] = await Promise.all([
+  const [universities, result, savedIds, mapListings, railListings, deals] = await Promise.all([
     listUniversities(supabase),
     listApartments(supabase, filters),
     user ? getSavedIds(supabase, user.id, "apartment") : Promise.resolve(new Set<string>()),
@@ -82,6 +83,8 @@ export default async function ApartmentsPage({
     showRail
       ? listApartments(supabase, { universityId, sort: universityId ? "distance" : "newest", pageSize: 14 }).then((r) => r.data)
       : Promise.resolve([] as ApartmentWithOwner[]),
+    // Live offers from approved businesses for this campus, behind one quiet link above the feed.
+    showRail ? listDeals(supabase, { universityId: universityId ?? null, limit: 20 }).catch(() => []) : Promise.resolve([]),
   ]);
   const railItems: RailItem[] = railListings
     .filter((a) => a.images.length > 0)
@@ -167,6 +170,21 @@ export default async function ApartmentsPage({
         </div>
 
         {showRail ? <PhotoRail title={universityId ? "Closest to campus" : "Just listed"} items={railItems} /> : null}
+
+        {deals.length > 0 ? (
+          <Link href={universityId ? "/deals" : "/deals?university=all"} className="flex items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-sm ring-1 ring-gray-200 hover:bg-gray-50" data-testid="deals-link">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+              <Tag className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-gray-900">
+                {deals.length} student {deals.length === 1 ? "deal" : "deals"} {universityId ? "near campus" : "from local businesses"}
+              </span>
+              <span className="block truncate text-xs text-gray-500">{deals.slice(0, 3).map((d) => d.business?.name).filter(Boolean).join(" · ")}</span>
+            </span>
+            <ChevronRight className="h-5 w-5 text-gray-400" />
+          </Link>
+        ) : null}
 
         <ApartmentFilters universities={universities} values={filterValues} hasFilters={hasFilters} />
 

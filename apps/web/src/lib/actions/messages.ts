@@ -13,6 +13,8 @@ import {
   listFriends,
   recordContact,
   renameGroup,
+  startBusinessInquiry,
+  startListingConversation,
   sendSharedPost,
   sharedPostOf,
   type SharedPost,
@@ -31,15 +33,20 @@ export async function startDirectConversationAction(formData: FormData): Promise
   if (!otherUserId || otherUserId === user.id) redirect(returnTo);
 
   const supabase = await createClient();
+  const targetType = String(formData.get("targetType") ?? "");
+  const targetId = String(formData.get("targetId") ?? "");
+  // A listing from the business portal opens the business's inquiry chat (the whole team answers), not a chat with one person.
+  const businessId = String(formData.get("businessId") ?? "") || null;
   let conversationId: string;
   try {
-    conversationId = await getOrCreateDirectConversation(supabase, otherUserId);
+    conversationId =
+      businessId && targetType === "apartment" && targetId
+        ? await startListingConversation(supabase, { targetType, targetId, posterId: otherUserId, businessId })
+        : await getOrCreateDirectConversation(supabase, otherUserId);
   } catch (error) {
     redirect(`${returnTo}?error=${encodeURIComponent(errorMessage(error))}`);
   }
   // Count this as a contact on the listing (owner stats). Never blocks the chat.
-  const targetType = String(formData.get("targetType") ?? "");
-  const targetId = String(formData.get("targetId") ?? "");
   if ((targetType === "apartment" || targetType === "item" || targetType === "roommate") && targetId) {
     await recordContact(supabase, targetType, targetId).catch(() => {});
   }
@@ -47,20 +54,38 @@ export async function startDirectConversationAction(formData: FormData): Promise
   redirect(`/messages/${conversationId}${query}`);
 }
 
+/** "Message" on a deal: the business's inquiry chat, with the whole team, prefilled with what the student asks about. */
+export async function startDealInquiryAction(formData: FormData): Promise<void> {
+  const dealId = String(formData.get("dealId") ?? "");
+  const prefill = String(formData.get("prefill") ?? "").slice(0, 300);
+  await requireUser("/deals");
+  let conversationId: string;
+  try {
+    conversationId = await startBusinessInquiry(await createClient(), "deal", dealId);
+  } catch (error) {
+    redirect(`/deals?error=${encodeURIComponent(errorMessage(error))}`);
+  }
+  redirect(`/messages/${conversationId}${prefill ? `?prefill=${encodeURIComponent(prefill)}` : ""}`);
+}
+
 /**
- * Desktop chat dock: open (or create) the 1:1 chat and return its id instead of
+ * Desktop chat dock: open (or create) the 1:1 chat, or a business listing's inquiry chat, and return its id instead of
  * navigating. Records the listing contact like the redirecting version.
  */
 export async function openDirectConversationAction(
   otherUserId: string,
   target?: { type: "apartment" | "item" | "roommate"; id: string } | null,
+  businessId?: string | null,
 ): Promise<{ conversationId?: string; error?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "Sign in to send messages" };
   if (!otherUserId || otherUserId === user.id) return { error: "Invalid user" };
   try {
     const supabase = await createClient();
-    const conversationId = await getOrCreateDirectConversation(supabase, otherUserId);
+    const conversationId =
+      businessId && target?.type === "apartment"
+        ? await startListingConversation(supabase, { targetType: "apartment", targetId: target.id, posterId: otherUserId, businessId })
+        : await getOrCreateDirectConversation(supabase, otherUserId);
     if (target) await recordContact(supabase, target.type, target.id).catch(() => {});
     return { conversationId };
   } catch (error) {

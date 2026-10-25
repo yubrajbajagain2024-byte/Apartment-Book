@@ -1,6 +1,6 @@
 import { memo, useMemo, useRef, useState } from "react";
 import { RefreshControl, Text, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type ListViewToken } from "react-native";
-import { formatDistance, formatPrice, isVerifiedPoster, KM_PER_MILE, listApartments, listingMedia, videosFor, type ApartmentWithOwner, type PostEngagement } from "@apartment-book/shared";
+import { formatDistance, formatPrice, isVerifiedPoster, KM_PER_MILE, listApartments, listingMedia, listingPoster, businessLabel, videosFor, type ApartmentWithOwner, type PostEngagement } from "@apartment-book/shared";
 import type { RoomFilters } from "@/components/housing/filter-sheet";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
 import { Badge, EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
@@ -24,7 +24,8 @@ const ApartmentRow = memo(function ApartmentRow({ a, saved, engagement, playing 
       targetType="apartment"
       targetId={a.id}
       path={`/apartments/${a.id}`}
-      poster={{ id: a.owner.id, name: a.owner.full_name, avatarUrl: a.owner.avatar_url, verified: isVerifiedPoster(a.owner) }}
+      poster={{ ...listingPoster(a.owner, a.business), verified: !a.business && isVerifiedPoster(a.owner), badge: businessLabel(a.business, a.sponsored) }}
+      businessId={a.business?.id ?? null}
       subtitle={[a.distance_km !== null ? `${formatDistance(a.distance_km)} from campus` : null, a.city].filter(Boolean).join(" · ")}
       title={a.title}
       lead={`${formatPrice(a.price_per_month, a.currency)}/mo · ${a.bedrooms === 0 ? "Studio" : `${a.bedrooms} bd`} · ${a.bathrooms} ba`}

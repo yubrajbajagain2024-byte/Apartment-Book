@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { APP_NAME, getOrCreateDirectConversation, reportContent, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type PostTargetType, type SharedPost, REPORT_REASONS } from "@apartment-book/shared";
+import { APP_NAME, getOrCreateDirectConversation, inquiryPrefill, startListingConversation, reportContent, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type PostTargetType, type SharedPost, REPORT_REASONS } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
 import { shortDate } from "@/lib/short-date";
 import { SITE_URL, supabase } from "@/lib/supabase";
@@ -17,7 +17,10 @@ export type PostCardProps = {
   targetId: string;
   /** Web path, e.g. /roommates/abc, used for sharing and for opening the detail screen. */
   path: string;
-  poster: { id: string; name: string; avatarUrl: string | null; verified: boolean };
+  /** `badge`: a business listing ("Sponsored" / "Verified Partner"); the business is the poster and has no profile to open. */
+  poster: { id: string; name: string; avatarUrl: string | null; verified: boolean; badge?: string | null };
+  /** The business behind a portal listing: Message opens its inquiry chat with the whole team. */
+  businessId?: string | null;
   subtitle?: string;
   /** Listings have a title; Home-feed posts do not. */
   title?: string;
@@ -69,8 +72,10 @@ export function PostCard(props: PostCardProps) {
     if (!user) return needLogin();
     if (own) return router.push("/messages");
     try {
-      const id = await getOrCreateDirectConversation(supabase, poster.id);
-      router.push({ pathname: "/messages/[id]", params: { id, prefill: title ? `Hi ${poster.name.split(" ")[0]}! I saw your post "${title}" and I'd like to chat.` : `Hi ${poster.name.split(" ")[0]}! I saw your post and I'd like to chat.`, ...(props.targetType === "post" ? {} : { targetType: props.targetType, targetId: props.targetId }) } });
+      const business = props.businessId && props.targetType === "apartment" ? props.businessId : null;
+      const id = business ? await startListingConversation(supabase, { targetType: "apartment", targetId: props.targetId, posterId: poster.id, businessId: business }) : await getOrCreateDirectConversation(supabase, poster.id);
+      const prefill = business && title ? inquiryPrefill(poster.name, title) : title ? `Hi ${poster.name.split(" ")[0]}! I saw your post "${title}" and I'd like to chat.` : `Hi ${poster.name.split(" ")[0]}! I saw your post and I'd like to chat.`;
+      router.push({ pathname: "/messages/[id]", params: { id, prefill, ...(props.targetType === "post" ? {} : { targetType: props.targetType, targetId: props.targetId }) } });
     } catch (e) {
       alert(e instanceof Error ? e.message : "Could not open the chat");
     }
@@ -112,7 +117,7 @@ export function PostCard(props: PostCardProps) {
 
   return (
     <View style={styles.post} accessibilityLabel={`Post: ${title ?? description?.slice(0, 40) ?? "post"}`}>
-      <PostHeader name={poster.name} avatarUrl={poster.avatarUrl} userId={poster.id} verified={poster.verified} meta={meta} onOpen={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })} onMenu={menu} />
+      <PostHeader name={poster.name} avatarUrl={poster.avatarUrl} userId={poster.id} verified={poster.verified} badge={poster.badge} meta={meta} onOpen={() => (poster.badge ? openDetail() : router.push({ pathname: "/profile/[id]", params: { id: poster.id } }))} onMenu={menu} />
 
       {/* The words come before the picture, Facebook style; a tap on them opens the listing. */}
       <Pressable onPress={() => openDetail()} style={styles.body}>

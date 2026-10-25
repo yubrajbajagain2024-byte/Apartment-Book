@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Bath, BedDouble, MapPin } from "lucide-react";
-import { formatDistance, formatPrice, photosFor, timeAgo, type ApartmentWithOwner } from "@apartment-book/shared";
+import { businessLabel, formatDistance, formatPrice, isPlainBusinessLabel, photosFor, timeAgo, type ApartmentWithOwner } from "@apartment-book/shared";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { SaveBurst, SaveToggleButton, useSaveToggle } from "@/components/common/save-button";
@@ -73,8 +73,9 @@ export function ApartmentCard({
         </div>
         {apartment.university ? <p className="truncate text-xs text-gray-500">Near {apartment.university.name}</p> : null}
         <div className="mt-auto flex items-center gap-2 pt-2 text-xs text-gray-500">
-          <Avatar name={apartment.owner.full_name} src={apartment.owner.avatar_url} size="xs" />
-          <span className="truncate">{apartment.owner.full_name}</span>
+          <Avatar name={apartment.business?.name ?? apartment.owner.full_name} src={apartment.business ? apartment.business.logo_url : apartment.owner.avatar_url} size="xs" />
+          <span className="truncate">{apartment.business?.name ?? apartment.owner.full_name}</span>
+          {apartment.business ? <Badge tone={isPlainBusinessLabel(businessLabel(apartment.business, apartment.sponsored)) ? "gray" : "blue"}>{businessLabel(apartment.business, apartment.sponsored)}</Badge> : null}
           <span aria-hidden="true">·</span>
           <span className="shrink-0" suppressHydrationWarning>
             {timeAgo(apartment.created_at)}

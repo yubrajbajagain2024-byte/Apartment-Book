@@ -70,6 +70,8 @@ export function conversationTitle(
   otherMembers: { full_name: string }[],
 ): string {
   if (type === "group") return name || "Group chat";
+  // A student's inquiry chat is named after the business (migration 39); its team is the other side.
+  if (name) return name;
   if (otherMembers.length === 0) return "Deleted user";
   return otherMembers.map((m) => m.full_name).join(", ");
 }

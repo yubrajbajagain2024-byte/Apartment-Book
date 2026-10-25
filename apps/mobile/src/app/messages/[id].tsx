@@ -276,7 +276,8 @@ function Chat({
   const otherId = other?.id ?? null;
   const isGroup = conversation.type === "group";
   // Under the other person's name: "Active now" or when they were last active, when that may be shown.
-  const activity = useChatActivity(isGroup ? null : otherId, conversation.id);
+  const business = conversation.business;
+  const activity = useChatActivity(isGroup || business ? null : otherId, conversation.id);
   const activeNow = Boolean(activity.line?.online);
   // For the realtime handler below, which outlives renders.
   const refreshActivity = useRef(activity.refresh);
@@ -912,7 +913,8 @@ function Chat({
     };
   }, [conversation.id]);
   const inLiveCall = liveCall?.participants.some((p) => p.user_id === userId && p.state === "joined") ?? false;
-  const canCall = block === "none";
+  // A business answers in writing; its team is never rung.
+  const canCall = block === "none" && !business;
   const startAudioCall = useCallback(() => {
     Keyboard.dismiss();
     void place(conversation.id, "audio");
@@ -957,7 +959,7 @@ function Chat({
     () => (lastMine ? (lastMine.pending ? ("sending" as const) : receiptFor(lastMine.created_at, others.map((o) => o.status))) : null),
     [lastMine, others],
   );
-  const subtitle = isGroup ? `${conversation.members.length} members` : (activity.line?.label ?? "");
+  const subtitle = isGroup ? `${conversation.members.length} members` : business ? (business.verified_partner ? "Verified Partner" : "Business") : (activity.line?.label ?? "");
 
   // Newest first: the list is inverted, so it opens at the bottom and stays there as the keyboard comes and goes.
   const data = useMemo(() => [...messages].reverse(), [messages]);

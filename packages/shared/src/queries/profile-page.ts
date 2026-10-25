@@ -25,6 +25,11 @@ const MISSING = new Set(["PGRST202", "PGRST204", "42883", "42703"]);
 export function isMissingInDatabase(error: unknown): boolean {
   return typeof error === "object" && error !== null && MISSING.has(String((error as { code?: unknown }).code ?? ""));
 }
+/** PostgREST's answer for a table, a relationship (an embed) or a column the database does not have yet. */
+const MISSING_RELATION = new Set(["42P01", "PGRST200", "PGRST205", "42703"]);
+export function isMissingRelation(error: unknown): boolean {
+  return typeof error === "object" && error !== null && MISSING_RELATION.has(String((error as { code?: unknown }).code ?? ""));
+}
 /** What a visitor reads when the owner changes a setting the database cannot hold yet. */
 export const LISTINGS_VISIBILITY_NOT_READY = "Listings privacy needs the latest server update. Your listings stay hidden from others until then.";
 

@@ -1,6 +1,6 @@
 import { Alert, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { AMENITIES, deleteApartment, formatDate, formatDistance, formatPrice, getApartment, labelFor, listingMedia } from "@apartment-book/shared";
+import { AMENITIES, deleteApartment, formatDate, formatDistance, formatPrice, getApartment, labelFor, listingMedia, listingPoster, businessLabel } from "@apartment-book/shared";
 import { Fact, ListingDetail, useDetailStyles } from "@/components/listing-detail";
 import { Badge, Button, EmptyState, Loading } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
@@ -21,7 +21,7 @@ export default function ApartmentScreen() {
       title={a.title}
       lead={`${formatPrice(a.price_per_month, a.currency)} / month`}
       media={listingMedia(a.images, a.image_meta, a.videos)}
-      poster={{ id: a.owner.id, name: a.owner.full_name, avatarUrl: a.owner.avatar_url }}
+      poster={{ ...listingPoster(a.owner, a.business), badge: businessLabel(a.business, a.sponsored), businessId: a.business?.id ?? null }}
       createdAt={a.created_at}
       focusComments={comment === "1"}
       facts={

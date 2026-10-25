@@ -13,9 +13,9 @@ export type VideoVsPhotoStats = {
 
 /**
  * Count a view of a listing. Signed-in viewers are deduplicated by user, others
- * by the `viewerKey` the client keeps (one per browser/app install). Once per day.
+ * by the `viewerKey` the client keeps (one per browser/app install). Once per day. Deals count too (migration 39).
  */
-export async function recordView(supabase: Client, targetType: PostTargetType, targetId: string, viewerKey?: string | null): Promise<void> {
+export async function recordView(supabase: Client, targetType: PostTargetType | "deal", targetId: string, viewerKey?: string | null): Promise<void> {
   const { error } = await supabase.rpc("record_view", { p_target_type: targetType, p_target_id: targetId, p_viewer_key: viewerKey ?? null });
   if (error) throw error;
 }
