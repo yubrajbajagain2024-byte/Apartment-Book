@@ -28,6 +28,7 @@
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -65,8 +66,20 @@ function vercel(args, { input, env } = {}) {
 /** Authenticated Vercel API call through the CLI. Returns parsed JSON, or null for a 404 when allowed. */
 async function api(route, { method = "GET", body, allow404 = false } = {}) {
   const args = ["api", route, "--raw", "-X", method];
-  if (body !== undefined) args.push("--input", "-");
-  const r = await vercel(args, { input: body === undefined ? undefined : JSON.stringify(body) });
+  // The CLI does not read a body from stdin reliably ("Invalid JSON"), so it goes through a private temp file.
+  let bodyDir;
+  if (body !== undefined) {
+    bodyDir = fs.mkdtempSync(path.join(os.tmpdir(), "deploy-admin-"));
+    const file = path.join(bodyDir, "body.json");
+    fs.writeFileSync(file, JSON.stringify(body), { mode: 0o600 });
+    args.push("--input", file);
+  }
+  let r;
+  try {
+    r = await vercel(args);
+  } finally {
+    if (bodyDir) fs.rmSync(bodyDir, { recursive: true, force: true });
+  }
   const text = `${r.out}\n${r.err}`;
   if (r.code !== 0) {
     if (allow404 && /\b404\b|not[_ ]found/i.test(text)) return null;
