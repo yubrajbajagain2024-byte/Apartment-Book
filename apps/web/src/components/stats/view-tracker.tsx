@@ -6,8 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 
 const KEY = "ab-viewer-key";
 
-/** Counts one view per viewer per day for a listing (signed in or not). */
-export function ViewTracker({ targetType, targetId }: { targetType: PostTargetType; targetId: string }) {
+/** Counts one view per viewer per day for a listing or a deal (signed in or not). */
+export function ViewTracker({ targetType, targetId }: { targetType: PostTargetType | "deal"; targetId: string }) {
   useEffect(() => {
     let viewerKey: string | null = null;
     try {

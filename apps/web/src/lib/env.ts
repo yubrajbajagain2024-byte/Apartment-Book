@@ -16,3 +16,24 @@ export function getSiteUrl(): string {
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return "http://localhost:3000";
 }
+
+/**
+ * Where the business portal lives: its own address (NEXT_PUBLIC_BUSINESS_SITE_URL, e.g. https://business.campconnect.com,
+ * served from that host's root), or /business on the site itself when none is set (local work, previews).
+ */
+export function getBusinessSiteUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_BUSINESS_SITE_URL;
+  if (configured) return configured.replace(/\/$/, "");
+  return `${getSiteUrl()}/business`;
+}
+
+/** The host the portal answers on at its root, lower case and without a port; null when it has no address of its own. */
+export function getBusinessHost(): string | null {
+  const configured = process.env.NEXT_PUBLIC_BUSINESS_SITE_URL;
+  if (!configured) return null;
+  try {
+    return new URL(configured).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}

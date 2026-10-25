@@ -2,7 +2,7 @@ import { type ReactNode, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { getOrCreateDirectConversation, getPostEngagement, hasPublicComments, listingChatPrefill, recordContact, recordView, reportContent, REPORT_REASONS, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType } from "@apartment-book/shared";
+import { getOrCreateDirectConversation, inquiryPrefill, startListingConversation, getPostEngagement, hasPublicComments, listingChatPrefill, recordContact, recordView, reportContent, REPORT_REASONS, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { radius, textStyle } from "@/lib/theme";
@@ -15,7 +15,7 @@ import { PhotoCarousel } from "./photo-carousel";
 import { PostActions } from "./post-bits";
 import { firstImageOf, useShareSheet } from "./share-sheet";
 import { useQuery } from "@/lib/hooks";
-import { Button } from "./ui";
+import { Badge, Button } from "./ui";
 import { Icon } from "@/components/icon";
 
 /**
@@ -43,7 +43,8 @@ export function ListingDetail({
   title: string;
   lead?: string;
   media: FeedMedia[];
-  poster: { id: string; name: string; avatarUrl: string | null };
+  /** `badge` and `businessId`: a listing posted from the business portal. The business is the poster (no profile to open) and Message opens its inquiry chat. */
+  poster: { id: string; name: string; avatarUrl: string | null; badge?: string | null; businessId?: string | null };
   createdAt: string;
   facts?: ReactNode;
   children?: ReactNode;
@@ -81,9 +82,11 @@ export function ListingDetail({
     if (!user) return needLogin();
     if (own) return router.push("/messages");
     try {
-      const id = await getOrCreateDirectConversation(supabase, poster.id);
+      const business = poster.businessId && targetType === "apartment" ? poster.businessId : null;
+      const id = business ? await startListingConversation(supabase, { targetType, targetId, posterId: poster.id, businessId: business }) : await getOrCreateDirectConversation(supabase, poster.id);
       recordContact(supabase, targetType, targetId).catch(() => {});
-      router.push({ pathname: "/messages/[id]", params: { id, prefill: publicComments ? `Hi ${poster.name.split(" ")[0]}! I saw "${title}" and I'd like to chat.` : listingChatPrefill(poster.name, title) } });
+      const prefill = business ? inquiryPrefill(poster.name, title) : publicComments ? `Hi ${poster.name.split(" ")[0]}! I saw "${title}" and I'd like to chat.` : listingChatPrefill(poster.name, title);
+      router.push({ pathname: "/messages/[id]", params: { id, prefill } });
     } catch (e) {
       Alert.alert("Message", e instanceof Error ? e.message : "Could not open the chat");
     }
@@ -148,10 +151,11 @@ export function ListingDetail({
       {media.length === 0 ? actionBar : null}
 
       <View style={[styles.section, { paddingVertical: 12 }]}>
-        <Pressable onPress={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.id} ringColor={aurora ? colors.bg : colors.card} />
+        <Pressable disabled={Boolean(poster.badge)} onPress={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.badge ? undefined : poster.id} online={poster.badge ? false : undefined} ringColor={aurora ? colors.bg : colors.card} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: "700", color: colors.text }}>{poster.name}</Text>
+            {poster.badge ? <Badge label={poster.badge} tone={poster.badge === "Business" ? "gray" : poster.badge === "Verified Partner" ? "green" : "blue"} /> : null}
             <Text style={{ fontSize: 12, color: colors.muted }}>Posted {new Date(createdAt).toLocaleDateString()}</Text>
           </View>
           {!own ? <Button title="Message" size="compact" icon="chatbubble-ellipses-outline" onPress={() => void message()} /> : null}

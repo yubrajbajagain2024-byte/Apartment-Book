@@ -29,6 +29,29 @@ export type ConversationMember = Tables<"conversation_members">;
 export type Message = Omit<Tables<"messages">, "attachments" | "snap" | "reply_to" | "call"> & { attachments?: MessageAttachment[]; snap?: Json | null; reply_to?: Json | null; call?: Json | null };
 export type DevicePushToken = Tables<"device_push_tokens">;
 export type Media = Tables<"media">;
+/** Migration 39: the business portal. */
+export type Business = Tables<"businesses">;
+export type BusinessMember = Tables<"business_members">;
+export type BusinessInvite = Tables<"business_invites">;
+export type Deal = Tables<"deals">;
+/** What a listing or a chat shows of the business behind it. */
+export type BusinessSummary = Pick<Business, "id" | "name" | "logo_url" | "verified_partner">;
+/** `sponsored`: a paid promotion is running now (the deal_sponsored computed field); missing before migration 39. */
+export type DealWithBusiness = Deal & { business: BusinessSummary | null; sponsored?: boolean };
+export type ListingPromotion = Tables<"listing_promotions">;
+export type AdminPromotionRow = Database["public"]["Functions"]["admin_list_promotions"]["Returns"][number];
+/** A listing or deal of a business that an admin can promote. */
+export type PromotionTarget = Database["public"]["Functions"]["admin_business_targets"]["Returns"][number];
+export type BusinessMemberWithProfile = BusinessMember & { profile: ProfileSummary | null };
+/** The signed-in person's business and their place on its team. */
+export type MyBusiness = { business: Business; role: "owner" | "staff" };
+export type BusinessListingStats = Database["public"]["Functions"]["business_listing_stats"]["Returns"][number];
+export type BusinessDealStats = Database["public"]["Functions"]["business_deal_stats"]["Returns"][number];
+export type BusinessOverview = Database["public"]["Functions"]["business_overview"]["Returns"][number];
+export type AdminBusinessRow = Database["public"]["Functions"]["admin_list_businesses"]["Returns"][number];
+export type BusinessDecision = "approved" | "rejected" | "suspended" | "pending";
+/** What a student may open a chat with a business from. */
+export type InquiryTargetType = "apartment" | "deal";
 export type PostLike = Tables<"post_likes">;
 export type PostComment = Tables<"post_comments">;
 export type MediaStatus = "uploading" | "processing" | "ready" | "failed";
@@ -155,6 +178,10 @@ export type PosterSummary = ProfileSummary & {
 export type ApartmentWithOwner = Apartment & {
   owner: PosterSummary;
   university: UniversitySummary | null;
+  /** The business it was posted for from the portal (migration 39); missing on a database before it, null for a student's own. */
+  business?: BusinessSummary | null;
+  /** A paid promotion is running now (the listing_sponsored computed field). The only thing that makes a listing "Sponsored". */
+  sponsored?: boolean;
 };
 
 export type RoommatePostWithAuthor = RoommatePost & {
@@ -253,7 +280,9 @@ export type ConversationSummary = {
   unreadCount: number;
   /** A course chat: the section of the course, one semester, that fills it from the class list. Null for any other chat. */
   courseGroup: Pick<CourseGroup, "id" | "term" | "code" | "section"> | null;
-  /** Group name, or the other person's name for direct chats. */
+  /** An inquiry chat (migration 39): the business the student is talking to, whose team makes up the other side. Null for any other chat. */
+  business: BusinessSummary | null;
+  /** Group name, the business's name for an inquiry, or the other person's name for direct chats. */
   title: string;
 };
 

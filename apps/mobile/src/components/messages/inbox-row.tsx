@@ -19,6 +19,8 @@ const GUTTER = 20;
 export function InboxAvatar({ conversation: c, size = INBOX_AVATAR }: { conversation: ConversationSummary; size?: number }) {
   const styles = useStyles();
   const colors = useColors();
+  // A chat with a business (an inquiry from one of its listings): its logo or initials, no presence dot (a team answers).
+  if (c.business) return <Avatar name={c.business.name} url={c.business.logo_url} size={size} online={false} />;
   if (c.type !== "group") {
     const other = c.otherMembers[0];
     return <Avatar name={other?.full_name ?? c.title} url={other?.avatar_url} size={size} userId={other?.id} />;

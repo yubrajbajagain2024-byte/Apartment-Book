@@ -24,6 +24,7 @@ export function MessageButton({
   variant = "primary",
   tone = "primary",
   target,
+  businessId,
 }: {
   userId: string;
   currentUserId: string | null;
@@ -37,6 +38,8 @@ export function MessageButton({
   tone?: "primary" | "secondary";
   /** The listing this button sits on, so the contact is counted in its stats. Home-feed posts have no contact stats. */
   target?: { type: PostTargetType; id: string };
+  /** A listing from the business portal: the button opens the business's inquiry chat with its whole team. */
+  businessId?: string | null;
 }) {
   const dock = useChatDock();
   const router = useRouter();
@@ -65,7 +68,7 @@ export function MessageButton({
     if (!dock || !desktop) return; // let the form submit and navigate
     e.preventDefault();
     startTransition(async () => {
-      const result = await openDirectConversationAction(userId, listing);
+      const result = await openDirectConversationAction(userId, listing, businessId);
       if (result.conversationId) dock.openChat(result.conversationId, { prefill });
       else router.push(`/messages`);
     });
@@ -79,6 +82,7 @@ export function MessageButton({
       {prefill ? <input type="hidden" name="prefill" value={prefill} /> : null}
       {listing ? <input type="hidden" name="targetType" value={listing.type} /> : null}
       {listing ? <input type="hidden" name="targetId" value={listing.id} /> : null}
+      {listing && businessId ? <input type="hidden" name="businessId" value={businessId} /> : null}
       {variant === "action" ? (
         <button type="submit" onClick={onClick} disabled={pending} className={cn(actionClasses, className)}>
           <MessageCircle className="h-5 w-5" /> {label}

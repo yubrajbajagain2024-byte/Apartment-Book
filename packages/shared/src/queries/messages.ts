@@ -1,5 +1,5 @@
 import { MESSAGES_PAGE_SIZE } from "../constants";
-import type { Client, ConversationSummary, CourseGroup, ConversationType, MemberStatus, MessageWithSender, ProfileSummary, SharedPost } from "../types/models";
+import type { BusinessSummary, Client, ConversationSummary, CourseGroup, ConversationType, MemberStatus, MessageWithSender, ProfileSummary, SharedPost } from "../types/models";
 import type { Json } from "../types/database";
 import {
   MESSAGE_ATTACHMENT_LIMITS,
@@ -63,6 +63,31 @@ async function courseGroupsFor(supabase: Client, conversationIds: string[]): Pro
   return groups;
 }
 
+/**
+ * The business behind each inquiry chat (migration 39), by conversation id; asked for on its own, like the course groups,
+ * and never fatal on a database before it. A business students may not see any more (suspended, say) stays a business
+ * chat, under the name the chat keeps, so it never turns into a direct chat with one of its people.
+ */
+async function businessesFor(supabase: Client, conversationIds: string[]): Promise<Map<string, BusinessSummary>> {
+  const out = new Map<string, BusinessSummary>();
+  if (conversationIds.length === 0) return out;
+  try {
+    const { data, error } = await supabase
+      .from("conversations")
+      .select("id, name, business_id, business:businesses!conversations_business_id_fkey(id, name, logo_url, verified_partner)")
+      .in("id", conversationIds)
+      .not("business_id", "is", null);
+    if (error || !data) return out;
+    for (const row of data) {
+      if (row.business) out.set(row.id, row.business as BusinessSummary);
+      else if (row.business_id) out.set(row.id, { id: row.business_id, name: row.name ?? "Business", logo_url: null, verified_partner: false });
+    }
+  } catch {
+    // The inbox does not depend on it.
+  }
+  return out;
+}
+
 /** All conversations the user belongs to, newest activity first, with unread counts. */
 export async function listConversations(supabase: Client, userId: string): Promise<ConversationSummary[]> {
   const { data: memberships, error } = await supabase
@@ -76,10 +101,11 @@ export async function listConversations(supabase: Client, userId: string): Promi
   const conversationIds = memberships.map((m) => m.conversation_id);
   if (conversationIds.length === 0) return [];
 
-  const [{ data: members, error: membersError }, { data: unread, error: unreadError }, courseGroups] = await Promise.all([
+  const [{ data: members, error: membersError }, { data: unread, error: unreadError }, courseGroups, businesses] = await Promise.all([
     supabase.from("conversation_members").select(MEMBER_SELECT).in("conversation_id", conversationIds),
     supabase.rpc("get_unread_counts"),
     courseGroupsFor(supabase, conversationIds),
+    businessesFor(supabase, conversationIds),
   ]);
   if (membersError) throw membersError;
   if (unreadError) throw unreadError;
@@ -112,6 +138,7 @@ export async function listConversations(supabase: Client, userId: string): Promi
       memberStatus: memberStatusOf(rows),
       unreadCount: unreadByConversation.get(c.id) ?? 0,
       courseGroup: courseGroups.get(c.id) ?? null,
+      business: businesses.get(c.id) ?? null,
       title: conversationTitle(c.type as ConversationType, c.name, otherMembers),
     });
   }
@@ -137,9 +164,10 @@ export async function getConversation(
   if (error) throw error;
   if (!c) return null;
 
-  const [{ data: members, error: membersError }, courseGroups] = await Promise.all([
+  const [{ data: members, error: membersError }, courseGroups, businesses] = await Promise.all([
     supabase.from("conversation_members").select(MEMBER_SELECT).eq("conversation_id", conversationId),
     courseGroupsFor(supabase, [conversationId]),
+    businessesFor(supabase, [conversationId]),
   ]);
   if (membersError) throw membersError;
 
@@ -158,6 +186,7 @@ export async function getConversation(
     memberStatus: memberStatusOf(rows),
     unreadCount: 0,
     courseGroup: courseGroups.get(conversationId) ?? null,
+    business: businesses.get(conversationId) ?? null,
     title: conversationTitle(c.type as ConversationType, c.name, otherMembers),
   };
 }

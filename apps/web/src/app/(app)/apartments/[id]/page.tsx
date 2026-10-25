@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Bath, BedDouble, CalendarDays, Clock, ExternalLink, MapPin, Phone, School } from "lucide-react";
-import { AMENITIES, formatDistance, formatPrice, getApartment, getListingStats, getVideoVsPhotoStats, isSaved, labelFor, listingMedia, photosFor } from "@apartment-book/shared";
+import { AMENITIES, formatDistance, formatPrice, getApartment, getListingStats, getVideoVsPhotoStats, inquiryPrefill, isSaved, labelFor, listingMedia, businessLabel, isPlainBusinessLabel, photosFor } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, timeAgo } from "@/lib/utils";
@@ -40,6 +40,8 @@ export default async function ApartmentPage({ params, searchParams }: Props) {
   if (!apartment) notFound();
 
   const saved = user ? await isSaved(supabase, user.id, "apartment", apartment.id) : false;
+  // Posted from the business portal: the business is the poster, its team answers, and there is no student profile to open.
+  const business = apartment.business ?? null;
   const isOwner = user?.id === apartment.owner_id;
   const [stats, comparison] = isOwner
     ? await Promise.all([
@@ -145,22 +147,36 @@ export default async function ApartmentPage({ params, searchParams }: Props) {
         <aside className="flex flex-col gap-4 lg:sticky lg:top-20 lg:self-start">
           <Card>
             <CardBody className="flex flex-col gap-4">
-              <Link href={`/profile/${apartment.owner.id}`} className="flex items-center gap-3">
-                <Avatar name={apartment.owner.full_name} src={apartment.owner.avatar_url} size="lg" />
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-gray-900">{apartment.owner.full_name}</p>
-                  <p className="text-xs text-gray-500">Posted {timeAgo(apartment.created_at)}</p>
+              {business ? (
+                <div className="flex items-center gap-3" data-testid="sponsor">
+                  <Avatar name={business.name} src={business.logo_url} size="lg" />
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-gray-900">{business.name}</p>
+                    <p className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
+                      <Badge tone={isPlainBusinessLabel(businessLabel(business, apartment.sponsored)) ? "gray" : business.verified_partner && !apartment.sponsored ? "green" : "blue"}>{businessLabel(business, apartment.sponsored)}</Badge>
+                      <span>Posted {timeAgo(apartment.created_at)}</span>
+                    </p>
+                  </div>
                 </div>
-              </Link>
+              ) : (
+                <Link href={`/profile/${apartment.owner.id}`} className="flex items-center gap-3">
+                  <Avatar name={apartment.owner.full_name} src={apartment.owner.avatar_url} size="lg" />
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-gray-900">{apartment.owner.full_name}</p>
+                    <p className="text-xs text-gray-500">Posted {timeAgo(apartment.created_at)}</p>
+                  </div>
+                </Link>
+              )}
               {!isOwner ? (
                 <div className="flex flex-col gap-2">
                   <MessageButton
                     userId={apartment.owner.id}
                     currentUserId={user?.id ?? null}
                     returnTo={path}
-                    prefill={`Hi! I'm interested in "${apartment.title}". Is it still available?`}
-                    label="Message owner"
+                    prefill={business ? inquiryPrefill(business.name, apartment.title) : `Hi! I'm interested in "${apartment.title}". Is it still available?`}
+                    label={business ? `Message ${business.name}` : "Message owner"}
                     target={{ type: "apartment", id: apartment.id }}
+                    businessId={business?.id ?? null}
                   />
                   <SaveButton targetType="apartment" targetId={apartment.id} initialSaved={saved} signedIn={Boolean(user)} />
                   {apartment.contact_phone ? (

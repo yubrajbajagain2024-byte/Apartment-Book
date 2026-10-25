@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { formatDistance, formatPrice, isVerifiedPoster, listApartments, listingMedia, type ApartmentFilters, type ApartmentWithOwner } from "@apartment-book/shared";
+import { formatDistance, formatPrice, inquiryPrefill, isVerifiedPoster, listApartments, listingMedia, listingPoster, businessLabel, type ApartmentFilters, type ApartmentWithOwner } from "@apartment-book/shared";
 import { createClient } from "@/lib/supabase/client";
 import { PostCard } from "@/components/posts/post-card";
 import { PostFeed } from "@/components/posts/post-feed";
@@ -40,7 +40,8 @@ export function ApartmentFeed({
           href={`/apartments/${a.id}`}
           targetType="apartment"
           targetId={a.id}
-          poster={{ id: a.owner.id, name: a.owner.full_name, avatarUrl: a.owner.avatar_url, verified: isVerifiedPoster(a.owner) }}
+          poster={{ ...listingPoster(a.owner, a.business), verified: !a.business && isVerifiedPoster(a.owner), badge: businessLabel(a.business, a.sponsored) }}
+          businessId={a.business?.id ?? null}
           subtitle={[a.distance_km !== null ? `${formatDistance(a.distance_km)} from campus` : null, a.city || a.address].filter(Boolean).join(" · ")}
           media={listingMedia(a.images, a.image_meta, a.videos)}
           title={a.title}
@@ -50,7 +51,7 @@ export function ApartmentFeed({
           saved={saved.has(a.id)}
           signedIn={signedIn}
           currentUserId={currentUserId}
-          messagePrefill={`Hi! I'm interested in "${a.title}". Is it still available?`}
+          messagePrefill={a.business ? inquiryPrefill(a.business.name, a.title) : `Hi! I'm interested in "${a.title}". Is it still available?`}
           priority={i < 2}
           compact={compact}
         />

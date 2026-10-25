@@ -1,4 +1,4 @@
-import { isMissingInDatabase, LISTINGS_VISIBILITY_NOT_READY } from "./profile-page";
+import { isMissingInDatabase, isMissingRelation, LISTINGS_VISIBILITY_NOT_READY } from "./profile-page";
 import type { Client, PosterSummary, Profile, ProfileSummary, ProfileVisibility, ProfileWithUniversity } from "../types/models";
 
 export const PROFILE_SUMMARY_COLUMNS = "id, full_name, avatar_url";
@@ -81,16 +81,28 @@ export async function searchProfiles(
   opts: { excludeIds?: string[]; limit?: number } = {},
 ): Promise<ProfileSummary[]> {
   const q = query.replace(/[%_,()"'\\]/g, " ").trim();
-  let request = supabase
-    .from("profiles")
-    .select(PROFILE_SUMMARY_COLUMNS)
-    .order("full_name")
-    .limit(opts.limit ?? 10);
-  if (q) request = request.or(nameOrHandle(q, query));
-  const { data, error } = await request;
+  const build = (studentsOnly: boolean) => {
+    let request = supabase
+      .from("profiles")
+      .select(PROFILE_SUMMARY_COLUMNS)
+      .order("full_name")
+      .limit(opts.limit ?? 10);
+    if (q) request = request.or(nameOrHandle(q, query));
+    return studentsOnly ? request.not("role", "in", BUSINESS_ROLES_FILTER) : request;
+  };
+  const { data, error } = await studentsOnly(build);
   if (error) throw error;
   const exclude = new Set(opts.excludeIds ?? []);
   return data.filter((p) => !exclude.has(p.id));
+}
+
+/** Business accounts (migration 39) stay out of people search: nobody messages, follows or adds them to groups. */
+const BUSINESS_ROLES_FILTER = "(business_owner,business_staff)";
+/** The search with that filter; on a database before migration 39 (no role column) the plain one. */
+async function studentsOnly<T extends { error: { code?: string } | null }>(build: (studentsOnly: boolean) => PromiseLike<T>): Promise<T> {
+  const result = await build(true);
+  if (result.error && isMissingRelation(result.error)) return build(false);
+  return result;
 }
 
 export type PeopleSearchOptions = {
@@ -110,14 +122,17 @@ export type PeopleSearchOptions = {
 export async function searchPeople(supabase: Client, query: string, opts: PeopleSearchOptions = {}): Promise<PosterSummary[]> {
   const q = query.replace(/[%_,()"'\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
   const exclude = new Set(opts.excludeIds ?? []);
-  let request = supabase
-    .from("profiles")
-    .select("id, full_name, avatar_url, university:universities(email_domain)")
-    .limit((opts.limit ?? 30) + exclude.size);
-  if (q) request = request.or(nameOrHandle(q, query));
-  if (opts.universityId) request = request.eq("university_id", opts.universityId);
-  request = opts.sort === "newest" ? request.order("created_at", { ascending: false }) : request.order("full_name");
-  const { data, error } = await request;
+  const build = (onlyStudents: boolean) => {
+    let request = supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url, university:universities(email_domain)")
+      .limit((opts.limit ?? 30) + exclude.size);
+    if (q) request = request.or(nameOrHandle(q, query));
+    if (opts.universityId) request = request.eq("university_id", opts.universityId);
+    if (onlyStudents) request = request.not("role", "in", BUSINESS_ROLES_FILTER);
+    return opts.sort === "newest" ? request.order("created_at", { ascending: false }) : request.order("full_name");
+  };
+  const { data, error } = await studentsOnly(build);
   if (error) throw error;
   return (data as unknown as PosterSummary[]).filter((p) => !exclude.has(p.id)).slice(0, opts.limit ?? 30);
 }

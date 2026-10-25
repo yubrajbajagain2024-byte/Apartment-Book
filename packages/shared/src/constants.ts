@@ -233,3 +233,35 @@ export const MUTE_DURATIONS = [
   { value: "24h", label: "24 hours", hours: 24 },
   { value: "forever", label: "Until unmuted", hours: null },
 ] as const;
+
+/** The business portal (business.campconnect.com): businesses post listings and deals, and answer students' inquiries. */
+export const BUSINESS_PORTAL_NAME = "CampConnect Business";
+export const BUSINESS_PORTAL_TAGLINE = "Reach students where they already look for housing, food and deals around campus.";
+export const BUSINESS_CATEGORIES = [
+  { value: "housing", label: "Housing & property" },
+  { value: "food", label: "Food & drink" },
+  { value: "retail", label: "Retail" },
+  { value: "services", label: "Services" },
+  { value: "fitness", label: "Fitness & wellness" },
+  { value: "entertainment", label: "Entertainment" },
+  { value: "education", label: "Education & tutoring" },
+  { value: "other", label: "Other" },
+] as const;
+export type BusinessCategoryValue = (typeof BUSINESS_CATEGORIES)[number]["value"];
+export const BUSINESS_CATEGORY_VALUES = BUSINESS_CATEGORIES.map((c) => c.value) as [BusinessCategoryValue, ...BusinessCategoryValue[]];
+export function businessCategoryLabel(value: string | null | undefined): string {
+  return BUSINESS_CATEGORIES.find((c) => c.value === value)?.label ?? "Other";
+}
+export const BUSINESS_STATUSES = [
+  { value: "pending", label: "Awaiting review" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+  { value: "suspended", label: "Suspended" },
+] as const;
+export const DEAL_STATUSES = [
+  { value: "active", label: "Live" },
+  { value: "paused", label: "Paused" },
+  { value: "archived", label: "Archived" },
+] as const;
+export type DealStatusValue = (typeof DEAL_STATUSES)[number]["value"];
+export const DEAL_STATUS_VALUES = DEAL_STATUSES.map((s) => s.value) as [DealStatusValue, ...DealStatusValue[]];
