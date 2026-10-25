@@ -38,6 +38,9 @@ export const SNAP_ERRORS = {
   unavailable: "This Snap isn't available",
 } as const;
 
+/** The body of the notification its sender gets when their Snap is captured (migration 33). */
+export const SNAP_CAPTURE_NOTIFICATION: Record<"screenshot" | "recording", string> = { screenshot: "Took a screenshot of your Snap", recording: "Recorded your Snap" };
+
 export type SnapKind = "image" | "video";
 
 /** What a message carries for a Snap (messages.snap): enough to draw it in the chat, nothing to see. */
@@ -54,11 +57,43 @@ export type MessageSnap = {
   width?: number | null;
   height?: number | null;
   /**
-   * A tiny JPEG data URL the chat shows blurred until the Snap is opened. The database takes it off the message the
-   * moment it is opened or goes.
+   * A tiny JPEG data URL the chat shows blurred, under frosted glass, before and after the Snap is opened (migration 32).
+   * The database takes it off the message if the Snap goes unopened.
    */
   preview?: string | null;
+  /** What happened to the Snap, oldest first (migration 33): delivered, opened, a screenshot, deleted, expired. */
+  activity?: SnapActivity[];
 };
+
+/**
+ * One thing that happened to a Snap, as the database logged it on the message (migration 33). "sent" is never
+ * stored: the message's own time says it. The apps report "delivered" (the chat received it), the one view reports
+ * "opened" (with what its device can detect, see SnapDetection), "screenshot" and "recording" come from that device
+ * while the Snap is open, "deleted" from its sender taking it back (or their account going) and "expired" from the
+ * purge that forgets a Snap nobody opened in time.
+ */
+export type SnapActivityType = "delivered" | "opened" | "screenshot" | "recording" | "deleted" | "expired";
+
+/**
+ * What the device the Snap was opened on can tell about captures, stored on its "opened" entry, so the sender is never
+ * told more than is true: an iPhone detects screenshots and blacks out screen recordings while the Snap is open; an
+ * Android phone blocks screenshots and recordings outright while it is open; "none" is a device that can do neither
+ * (the website, or an app build without the capture module).
+ */
+export type SnapDetection = "ios" | "android" | "none";
+
+export type SnapActivity = {
+  type: SnapActivityType;
+  /** When, ISO 8601. */
+  at: string;
+  /** On "opened": what the viewer's device can detect. */
+  detect?: SnapDetection;
+};
+
+const ACTIVITY_TYPES: readonly SnapActivityType[] = ["delivered", "opened", "screenshot", "recording", "deleted", "expired"];
+const DETECTIONS: readonly SnapDetection[] = ["ios", "android", "none"];
+/** The database keeps at most this many entries per Snap (the newest). */
+export const SNAP_ACTIVITY_MAX = 40;
 
 /** The longest preview the database takes, and its form. */
 export const SNAP_PREVIEW_MAX_LENGTH = 8000;
@@ -94,7 +129,84 @@ export function snapOf(value: unknown): MessageSnap | null {
     snap.height = v.height;
   }
   if (isSnapPreview(v.preview)) snap.preview = v.preview;
+  if (Array.isArray(v.activity)) {
+    const activity: SnapActivity[] = [];
+    for (const entry of v.activity) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+      const e = entry as Record<string, unknown>;
+      if (typeof e.type !== "string" || !(ACTIVITY_TYPES as readonly string[]).includes(e.type) || !isDate(e.at)) continue;
+      const item: SnapActivity = { type: e.type as SnapActivityType, at: e.at };
+      if (typeof e.detect === "string" && (DETECTIONS as readonly string[]).includes(e.detect)) item.detect = e.detect as SnapDetection;
+      activity.push(item);
+    }
+    if (activity.length > 0) snap.activity = activity;
+  }
   return snap;
+}
+
+/** Whether the Snap was taken back (or went with its sender's account) rather than expiring. */
+export function snapWasDeleted(snap: MessageSnap): boolean {
+  return Boolean(snap.gone) && (snap.activity ?? []).some((a) => a.type === "deleted");
+}
+
+/** Whether someone captured the Snap on their screen: a screenshot, or a screen recording, was reported. */
+export function snapWasCaptured(snap: MessageSnap): boolean {
+  return (snap.activity ?? []).some((a) => a.type === "screenshot" || a.type === "recording");
+}
+
+/**
+ * The line for one activity entry, to its sender (`mine`) or its recipient: "Delivered", "Opened", "Screenshot taken",
+ * "Screen recording detected", "Snap deleted", "Expired".
+ */
+export function snapActivityLabel(entry: Pick<SnapActivity, "type">, mine: boolean): string {
+  switch (entry.type) {
+    case "delivered":
+      return "Delivered";
+    case "opened":
+      return "Opened";
+    case "screenshot":
+      return mine ? "Screenshot taken" : "You took a screenshot";
+    case "recording":
+      return mine ? "Screen recording detected" : "You recorded the screen";
+    case "deleted":
+      return mine ? "You deleted this Snap" : "Snap deleted";
+    case "expired":
+      return "Expired";
+  }
+}
+
+/** The activity entry the chat shows under a Snap: a capture outranks everything, else the newest entry. */
+export function snapLatestActivity(snap: MessageSnap): SnapActivity | null {
+  const activity = snap.activity ?? [];
+  if (activity.length === 0) return null;
+  for (let i = activity.length - 1; i >= 0; i--) {
+    const a = activity[i];
+    if (a.type === "screenshot" || a.type === "recording") return a;
+  }
+  return activity[activity.length - 1];
+}
+
+/**
+ * What the sender can be told about captures, from what the viewer's device reported when the Snap was opened (never
+ * more than that device can do), or before it was opened. `detect` null is a Snap not opened yet.
+ */
+export function snapDetectionText(detect: SnapDetection | null | undefined): string {
+  switch (detect) {
+    case "ios":
+      return "Their iPhone reports screenshots; the screen goes black if it is recorded or mirrored while the Snap is open.";
+    case "android":
+      return "Their phone blocks screenshots and screen recordings while the Snap is open, so none is possible.";
+    case "none":
+      return "Their device can't detect screenshots or screen recordings, so none would be reported.";
+    default:
+      return "Whether screenshots can be detected depends on the device it is opened on.";
+  }
+}
+
+/** The detection the viewer's device reported on opening, if it has opened the Snap. */
+export function snapDetectionOf(snap: MessageSnap): SnapDetection | null {
+  const opened = (snap.activity ?? []).find((a) => a.type === "opened");
+  return opened?.detect ?? (snap.opened_at ? "none" : null);
 }
 
 export function snapState(snap: MessageSnap, now: number = Date.now()): SnapState {
@@ -114,7 +226,7 @@ export function snapStatusText(snap: MessageSnap, mine: boolean, now: number = D
     case "expired":
       return "Expired";
     case "unavailable":
-      return "Unavailable";
+      return snapWasDeleted(snap) ? "Deleted" : "Unavailable";
     default:
       return mine ? "Delivered" : "Tap to view";
   }

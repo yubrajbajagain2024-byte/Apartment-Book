@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View, type ViewToken } from "react-native";
+import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View, type ListViewToken, type TextInputInstance, type ViewInstance } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
 import { useIsFocused, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -78,7 +78,7 @@ export default function BuzzThreadScreen() {
   /** After posting, the list scrolls to this reply once it is on the list. */
   const [scrollToId, setScrollToId] = useState<string | null>(null);
   const listRef = useRef<FlatList<Row>>(null);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const topIndex = useRef(-1);
   const seq = useRef(0);
   // The post's photo or video plays only while it is on screen and this screen is on top.
@@ -107,7 +107,7 @@ export default function BuzzThreadScreen() {
    * The band of the screen the replies' list shows (under the header, above the reply bar): a photo opened full screen
    * from the post block zooms out of (and back into) only its part in it, as on Home (see OpeningBand).
    */
-  const listBox = useRef<View>(null);
+  const listBox = useRef<ViewInstance>(null);
   const band = useRef<OpeningBand>({ top: 0, bottom: Number.MAX_SAFE_INTEGER });
   const openingBand = useCallback(() => band.current, []);
   const measureBand = useCallback(() => {
@@ -187,7 +187,7 @@ export default function BuzzThreadScreen() {
     setTimeout(() => scrollToReply(target, 0.4), 200);
   }, [scrollToId, rows, scrollToReply]);
 
-  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ListViewToken[] }) => {
     const indexes = viewableItems.map((v) => v.index).filter((i): i is number => typeof i === "number");
     topIndex.current = indexes.length > 0 ? Math.min(...indexes) : -1;
   }).current;

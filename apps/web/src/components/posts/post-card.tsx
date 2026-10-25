@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { BadgeCheck, Bookmark, Video } from "lucide-react";
-import { hasVideo, sharedPostFromListing, timeAgo, type FeedMedia, type PostCommentWithAuthor, type PostEngagement, type PostTargetType, type SharedPost } from "@apartment-book/shared";
+import { hasPublicComments, hasVideo, sharedPostFromListing, timeAgo, type FeedMedia, type PostCommentWithAuthor, type PostEngagement, type PostTargetType, type SharedPost } from "@apartment-book/shared";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { MessageButton } from "@/components/common/message-button";
@@ -224,6 +224,8 @@ function FacebookBody(
   const engagement = props.engagement ?? NO_ENGAGEMENT;
   const like = useLikeToggle(props.targetType, props.targetId, { liked: engagement.likedByMe, likes: engagement.likes }, props.signedIn);
   const [open, setOpen] = useState(Boolean(props.commentsOpen));
+  // Roommate posts have no public comments: their posters are reached in private (the Message button).
+  const publicComments = hasPublicComments(props.targetType);
   const [commentCount, setCommentCount] = useState(engagement.comments);
   // When the feed loads counts after the first paint, pick up the fresh number.
   const [seen, setSeen] = useState(engagement);
@@ -252,13 +254,13 @@ function FacebookBody(
         {props.details ? <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-700">{props.details}</div> : null}
       </div>
       {mediaBlock}
-      <EngagementSummary likes={like.likes} comments={commentCount} onComments={openComments} className={mediaBlock ? undefined : "border-t border-gray-100"} />
+      <EngagementSummary likes={like.likes} comments={publicComments ? commentCount : 0} onComments={publicComments ? openComments : undefined} className={mediaBlock ? undefined : "border-t border-gray-100"} />
       <EngagementBar
         like={like}
-        onComment={openComments}
+        onComment={publicComments ? openComments : undefined}
         message={{ userId: poster.id, currentUserId: props.currentUserId, returnTo: href, prefill: props.messagePrefill, target: { type: props.targetType, id: props.targetId } }}
       />
-      {open ? (
+      {open && publicComments ? (
         <CommentsSection
           targetType={props.targetType}
           targetId={props.targetId}

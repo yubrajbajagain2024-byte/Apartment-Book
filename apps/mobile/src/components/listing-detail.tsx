@@ -1,8 +1,8 @@
 import { type ReactNode, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { getOrCreateDirectConversation, getPostEngagement, recordContact, recordView, reportContent, REPORT_REASONS, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType } from "@apartment-book/shared";
+import { getOrCreateDirectConversation, getPostEngagement, hasPublicComments, listingChatPrefill, recordContact, recordView, reportContent, REPORT_REASONS, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType } from "@apartment-book/shared";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { radius, textStyle } from "@/lib/theme";
@@ -12,12 +12,18 @@ import { Avatar } from "./avatar";
 import { Comments } from "./comments";
 import { EngagementBar, EngagementSummary, useLike, useSave } from "./engagement";
 import { PhotoCarousel } from "./photo-carousel";
+import { PostActions } from "./post-bits";
 import { firstImageOf, useShareSheet } from "./share-sheet";
 import { useQuery } from "@/lib/hooks";
 import { Button } from "./ui";
 import { Icon } from "@/components/icon";
 
-/** Shared detail layout: media, title, facts, body, poster card, like/comment/message, comments. */
+/**
+ * Shared detail layout: media, title, facts, body, poster card, then like / comment / message and the comment thread.
+ * A roommate post has no public comments (see hasPublicComments): it carries the Posts action bar instead, Like with its
+ * count, Share, the Inbox pill that opens a private chat with the poster, and Save at the far right, right under its
+ * photos (under its words when it has none).
+ */
 export function ListingDetail({
   targetType,
   targetId,
@@ -30,6 +36,7 @@ export function ListingDetail({
   children,
   focusComments,
   ownerActions,
+  aurora = false,
 }: {
   targetType: SavedTargetType;
   targetId: string;
@@ -42,9 +49,15 @@ export function ListingDetail({
   children?: ReactNode;
   focusComments?: boolean;
   ownerActions?: ReactNode;
+  /**
+   * The Aurora look (a roommate post): the sections sit on the page itself instead of grey cards, divided by hairlines,
+   * so the screen's few Aurora accents (its preference panels, its status pill, its headings) carry the colour.
+   */
+  aurora?: boolean;
 }) {
   const colors = useColors();
-  const styles = useStyles();
+  const baseStyles = useStyles();
+  const styles = aurora ? { ...baseStyles, section: [baseStyles.section, baseStyles.sectionOnPage] } : baseStyles;
   const { user } = useSession();
   const router = useRouter();
   const show = useActionSheet();
@@ -56,11 +69,12 @@ export function ListingDetail({
   const like = useLike(targetType, targetId, engagement ?? undefined, user?.id ?? null, needLogin);
   const save = useSave(targetType, targetId, savedInitial ?? false, user?.id ?? null, needLogin);
   const [commentCount, setCommentCount] = useState<number | null>(null);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const engagementY = useRef(0);
   /** Bring the likes row, the comment thread and its composer to the top of the screen. */
   const showThread = () => scroll.current?.scrollTo({ y: engagementY.current, animated: true });
   const own = user?.id === poster.id;
+  const publicComments = hasPublicComments(targetType);
   useQuery(() => recordView(supabase, targetType, targetId).catch(() => {}), [targetType, targetId]);
 
   async function message() {
@@ -69,21 +83,19 @@ export function ListingDetail({
     try {
       const id = await getOrCreateDirectConversation(supabase, poster.id);
       recordContact(supabase, targetType, targetId).catch(() => {});
-      router.push({ pathname: "/messages/[id]", params: { id, prefill: `Hi ${poster.name.split(" ")[0]}! I saw "${title}" and I'd like to chat.` } });
+      router.push({ pathname: "/messages/[id]", params: { id, prefill: publicComments ? `Hi ${poster.name.split(" ")[0]}! I saw "${title}" and I'd like to chat.` : listingChatPrefill(poster.name, title) } });
     } catch (e) {
       Alert.alert("Message", e instanceof Error ? e.message : "Could not open the chat");
     }
   }
+  /** The friends sheet; its "Share to…" row is the system share with the same link as before. */
+  function share() {
+    shareSheet.open(sharedPostFromListing({ targetType, targetId, title, caption: lead, imageUrl: firstImageOf(media), author: { id: poster.id, name: poster.name, avatar_url: poster.avatarUrl } }), { url: `${SITE_URL}${path}`, label: title });
+  }
   function menu() {
     show([
       { label: save.saved ? "Unsave" : "Save", icon: save.saved ? "bookmark" : "bookmark-outline", onPress: () => void save.toggle() },
-      {
-        label: "Share",
-        icon: "share-outline",
-        // The friends sheet; its "Share to…" row is the system share with the same link as before.
-        onPress: () =>
-          shareSheet.open(sharedPostFromListing({ targetType, targetId, title, caption: lead, imageUrl: firstImageOf(media), author: { id: poster.id, name: poster.name, avatar_url: poster.avatarUrl } }), { url: `${SITE_URL}${path}`, label: title }),
-      },
+      { label: "Share", icon: "share-outline", onPress: share },
       ...(own
         ? []
         : [
@@ -110,9 +122,16 @@ export function ListingDetail({
   }
 
   const comments = commentCount ?? engagement?.comments ?? 0;
+  // Without public comments: the Posts action bar, the Inbox pill right after Share (your own listing's opens your Inbox).
+  const actionBar = publicComments ? null : (
+    <View style={styles.actionBar}>
+      <PostActions liked={like.liked} likes={like.likes} comments={0} saved={save.saved} onLike={() => void like.toggle()} onShare={share} onSave={() => void save.toggle()} message={{ label: "Inbox", onPress: () => void message() }} messageBeside />
+    </View>
+  );
   return (
     <ScrollView ref={scroll} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
       {media.length > 0 ? <PhotoCarousel media={media} aspect={4 / 5} /> : null}
+      {media.length > 0 ? actionBar : null}
       <View style={styles.section}>
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
           <View style={{ flex: 1 }}>
@@ -126,10 +145,11 @@ export function ListingDetail({
         {facts ? <View style={styles.facts}>{facts}</View> : null}
         {children}
       </View>
+      {media.length === 0 ? actionBar : null}
 
       <View style={[styles.section, { paddingVertical: 12 }]}>
         <Pressable onPress={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.id} ringColor={colors.card} />
+          <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.id} ringColor={aurora ? colors.bg : colors.card} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: "700", color: colors.text }}>{poster.name}</Text>
             <Text style={{ fontSize: 12, color: colors.muted }}>Posted {new Date(createdAt).toLocaleDateString()}</Text>
@@ -139,32 +159,35 @@ export function ListingDetail({
         {own && ownerActions ? <View style={{ marginTop: 12 }}>{ownerActions}</View> : null}
       </View>
 
-      <View style={[styles.section, { paddingHorizontal: 0, paddingVertical: 0 }]} onLayout={(e) => (engagementY.current = e.nativeEvent.layout.y)}>
-        <EngagementSummary likes={like.likes} comments={comments} />
-        <EngagementBar liked={like.liked} likes={like.likes} onLike={() => void like.toggle()} onComment={showThread} onMessage={() => void message()} messageLabel={own ? "Inbox" : "Message"} />
-        <View style={{ padding: 16 }}>
-          <Comments
-            targetType={targetType}
-            targetId={targetId}
-            ownerId={poster.id}
-            autoFocus={focusComments}
-            revealComposer={showThread}
-            onCountChange={(d) => {
-              setCommentCount((n) => Math.max(0, (n ?? engagement?.comments ?? 0) + d));
-              setData((prev) => (prev ? { ...prev, comments: Math.max(0, prev.comments + d) } : prev));
-            }}
-          />
+      {publicComments ? (
+        <View style={[styles.section, { paddingHorizontal: 0, paddingVertical: 0 }]} onLayout={(e) => (engagementY.current = e.nativeEvent.layout.y)}>
+          <EngagementSummary likes={like.likes} comments={comments} />
+          <EngagementBar liked={like.liked} likes={like.likes} onLike={() => void like.toggle()} onComment={showThread} onMessage={() => void message()} messageLabel={own ? "Inbox" : "Message"} />
+          <View style={{ padding: 16 }}>
+            <Comments
+              targetType={targetType}
+              targetId={targetId}
+              ownerId={poster.id}
+              autoFocus={focusComments}
+              revealComposer={showThread}
+              onCountChange={(d) => {
+                setCommentCount((n) => Math.max(0, (n ?? engagement?.comments ?? 0) + d));
+                setData((prev) => (prev ? { ...prev, comments: Math.max(0, prev.comments + d) } : prev));
+              }}
+            />
+          </View>
         </View>
-      </View>
+      ) : null}
     </ScrollView>
   );
 }
 
-export function Fact({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
+/** One line of facts under a listing's title; `accent` draws its icon in the Aurora's ink (a roommate post). */
+export function Fact({ icon, label, accent = false }: { icon: keyof typeof Ionicons.glyphMap; label: string; accent?: boolean }) {
   const colors = useColors();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-      <Icon name={icon} size={16} color={colors.muted} />
+      <Icon name={icon} size={16} color={accent ? colors.auroraInk : colors.muted} />
       <Text style={{ color: colors.text, fontSize: 14 }}>{label}</Text>
     </View>
   );
@@ -173,10 +196,14 @@ export function Fact({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; la
 const useStyles = makeStyles((colors) => ({
   // Hairline top and bottom: on the white light background the 8px gap alone would not separate the sections.
   section: { backgroundColor: colors.card, marginTop: 8, padding: 16, gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  // The Aurora look: on the page itself, one hairline between sections instead of a grey card with a gap.
+  sectionOnPage: { backgroundColor: colors.bg, marginTop: 0, borderTopWidth: 0 },
   title: { ...textStyle.title2, color: colors.text },
   lead: { fontSize: 17, fontWeight: "700", color: colors.brand, marginTop: 2 },
   dots: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   facts: { flexDirection: "row", flexWrap: "wrap", gap: 14, paddingVertical: 4 },
+  // The Posts action bar on the screen itself, as under a post in a feed.
+  actionBar: { paddingBottom: 6 },
 }));
 /**
  * Body text, headings and inset boxes for a detail screen's own content: `const detailStyles = useDetailStyles();` at the top of the screen.

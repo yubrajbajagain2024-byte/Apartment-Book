@@ -42,10 +42,12 @@ await expectOk("usernames: clearing it keeps the old one", async () => {
 });
 
 // --- visibility ----------------------------------------------------------------
-await expectOk("settings: classes start at friends, saved at only me, liked at everyone", async () => {
+await expectOk("settings: classes start at friends, saved and liked at only me (liked since migration 37)", async () => {
   const p = await one(db.query("select classes_visibility, saved_visibility, liked_visibility from public.profiles where id=$1", [A]));
-  if (p.classes_visibility !== "friends" || p.saved_visibility !== "private" || p.liked_visibility !== "public") throw new Error(JSON.stringify(p));
+  if (p.classes_visibility !== "friends" || p.saved_visibility !== "private" || p.liked_visibility !== "private") throw new Error(JSON.stringify(p));
 });
+// The checks below are about the rules, written when Liked started at Everyone: the profiles start there again.
+await db.query("update public.profiles set liked_visibility = 'public'");
 await expectError("settings: only public, friends or private", () => setVis(A, "saved_visibility", "followers"), "profiles_section_visibility_check");
 await expectOk("access: the owner sees everything; a stranger sees only what is public; friends see friends-only parts", async () => {
   let r = await access(A, A); if (!r.classes || !r.saved || !r.liked) throw new Error("owner: " + JSON.stringify(r));

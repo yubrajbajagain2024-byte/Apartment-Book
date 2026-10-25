@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from "react";
-import { Alert, Animated, Pressable, Share, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, Pressable, Share, StyleSheet, Text, View, type ViewInstance } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -392,7 +392,7 @@ function BuzzMedia({ post, media, active, vote, onUpvote, onOpen }: { post: Buzz
   const [slide, setSlide] = useState(0);
   /** The band between Home's floating bars: the zoom opens from the picture's part in it. */
   const openingBand = useContext(OpeningBandContext);
-  const frame = useRef<View>(null);
+  const frame = useRef<ViewInstance>(null);
   /** The viewer moved to another of the thread's photos, or hands back where a video got to: the carousel follows. */
   const [jump, setJump] = useState<{ index: number; time?: number } | null>(null);
   useEffect(() => onPostSlide((id, index, time) => id === post.id && setJump({ index, time })), [post.id]);

@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import { StyleSheet, View, type ColorValue } from "react-native";
-import MaskedView from "@react-native-masked-view/masked-view";
+import { MaskedView } from "@/components/masked-view";
 import type { SFSymbol } from "expo-symbols";
 import { Avatar } from "@/components/avatar";
 import { FloatingTabBar, type TabBarAction } from "@/components/floating-tab-bar";

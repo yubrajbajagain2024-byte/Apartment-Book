@@ -7,6 +7,7 @@ import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
 
 export type ProfileTabKey = "posts" | "classes" | "reels" | "saved" | "liked" | "listings";
+export type ProfileTabMeta = (typeof PROFILE_TABS)[number];
 
 /**
  * Posts first, then the semester's classes, Reels, Saved and Liked, and last the person's Listings (apartments, roommate
@@ -35,7 +36,8 @@ const ICON_SIZE = 24;
  * a short rounded underline, the others outlined and grey, a hairline under the row. The open tab alone carries a small
  * mark of who can see that section (`badges`: a lock for Only me, two people for Friends, a globe for Everyone). A tab
  * with an entry in `locks` is explained to screen readers by it ("Only you can see your saved posts"); `counts` are
- * read out too but not drawn.
+ * read out too but not drawn. `tabs` are the tabs this viewer gets, in order (a visitor gets no tab they may not open:
+ * no icon, no gap), sharing the row equally; page i of the pager is tabs[i].
  *
  * With `scrollX` (the horizontal pager's offset) and `pageWidth`, the whole row follows the pager on the native side:
  * the underline slides page i under tab i, and each tab's filled look and its mark crossfade with the pager the way
@@ -46,6 +48,7 @@ const ICON_SIZE = 24;
  * profile's header leaves the gap, and it goes up with the header.
  */
 export function ProfileTabs({
+  tabs = PROFILE_TABS,
   active,
   onSelect,
   locks,
@@ -55,6 +58,7 @@ export function ProfileTabs({
   pageWidth = 0,
   onLayout,
 }: {
+  tabs?: readonly ProfileTabMeta[];
   active: ProfileTabKey;
   onSelect: (tab: ProfileTabKey) => void;
   locks: Partial<Record<ProfileTabKey, string>>;
@@ -67,26 +71,27 @@ export function ProfileTabs({
   const styles = useStyles();
   const colors = useColors();
   const [rowWidth, setRowWidth] = useState(0);
-  const tabWidth = rowWidth / PROFILE_TABS.length;
+  const tabWidth = rowWidth / Math.max(1, tabs.length);
   // The tabs share the row equally, so page i (offset i * pageWidth) puts the underline i tab widths from the first tab.
   // Until the row and the pager are measured the active tab draws its own underline instead.
   const slide = useMemo(() => {
     if (!scrollX || pageWidth <= 0 || tabWidth <= 0) return null;
-    const last = PROFILE_TABS.length - 1;
+    // One tab: nothing to slide (and an input range needs two different points).
+    const last = Math.max(1, tabs.length - 1);
     return scrollX.interpolate({ inputRange: [0, last * pageWidth], outputRange: [0, last * tabWidth], extrapolate: "clamp" });
-  }, [scrollX, pageWidth, tabWidth]);
+  }, [scrollX, pageWidth, tabWidth, tabs.length]);
   // Tab i's open look (and its mark) is fully drawn within a quarter page of page i and gone from three quarters away;
   // the resting look is the reverse. Only once pageWidth > 0 (a strictly increasing input range).
   const fades = useMemo(() => {
     if (!scrollX || pageWidth <= 0) return null;
-    return PROFILE_TABS.map((_, i) => {
+    return tabs.map((_, i) => {
       const inputRange = [i - 0.75, i - 0.25, i + 0.25, i + 0.75].map((p) => p * pageWidth);
       return {
         on: scrollX.interpolate({ inputRange, outputRange: [0, 1, 1, 0], extrapolate: "clamp" }),
         off: scrollX.interpolate({ inputRange, outputRange: [1, 0, 0, 1], extrapolate: "clamp" }),
       };
     });
-  }, [scrollX, pageWidth]);
+  }, [scrollX, pageWidth, tabs]);
 
   return (
     <View
@@ -98,7 +103,7 @@ export function ProfileTabs({
         onLayout?.(e);
       }}
     >
-      {PROFILE_TABS.map((t, i) => {
+      {tabs.map((t, i) => {
         const selected = t.key === active;
         const lock = locks[t.key];
         const count = counts[t.key];

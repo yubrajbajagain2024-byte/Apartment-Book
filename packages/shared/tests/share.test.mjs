@@ -48,3 +48,16 @@ test("sharedPostFromReel and sharedPostFromListing point at the listing when the
   const posted = sharedPostFromReel({ ...reel, sourceType: "post", sourceId: "c3c3c3c3-0000-4000-8000-000000000003", title: null, caption: "tour" });
   assert.deepEqual([posted.kind, posted.path, posted.caption], ["reel", "/posts/c3c3c3c3-0000-4000-8000-000000000003", "tour"]);
 });
+
+test("roommate posts have no public comments; everything else keeps them", async () => {
+  const { hasPublicComments } = await import("../src/share.ts");
+  assert.equal(hasPublicComments("roommate"), false);
+  for (const t of ["post", "apartment", "item"]) assert.equal(hasPublicComments(t), true, t);
+});
+
+test("listingChatPrefill greets the poster by first name and names the post", async () => {
+  const { listingChatPrefill } = await import("../src/share.ts");
+  assert.equal(listingChatPrefill("Maya Patel", "Room near campus"), 'Hi Maya! I saw your post "Room near campus" and I\'d like to chat.');
+  assert.equal(listingChatPrefill("  Leo  ", null), "Hi Leo! I saw your post and I'd like to chat.");
+  assert.equal(listingChatPrefill("", undefined), "Hi there! I saw your post and I'd like to chat.");
+});

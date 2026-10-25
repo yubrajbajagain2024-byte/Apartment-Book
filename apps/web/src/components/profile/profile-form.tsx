@@ -11,11 +11,12 @@ import { Checkbox, Input, Select, Textarea } from "@/components/ui/input";
 import { AvatarUploader } from "@/components/common/avatar-uploader";
 import { UniversitySelect } from "@/components/common/university-select";
 
-/** The three privacy choices: the form field for each tab. */
+/** The privacy choices: the form field for each tab. */
 const PRIVACY_FIELDS: { section: ProfileSection; name: string }[] = [
   { section: "classes", name: "classesVisibility" },
   { section: "saved", name: "savedVisibility" },
   { section: "liked", name: "likedVisibility" },
+  { section: "listings", name: "listingsVisibility" },
 ];
 
 export function ProfileForm({ profile, universities, welcome }: { profile: ProfileWithUniversity; universities: University[]; welcome: boolean }) {
@@ -67,7 +68,7 @@ export function ProfileForm({ profile, universities, welcome }: { profile: Profi
           <Field label="University" htmlFor="universityId" error={err?.universityId} hint="Listings near your university show first." className="sm:col-span-2">
             <UniversitySelect key={`universityId:${universityId}`} id="universityId" universities={universities} defaultValue={universityId} emptyLabel="Choose your university" />
           </Field>
-          <Field label="Program / major" htmlFor="program" error={err?.program}>
+          <Field label="Major" htmlFor="program" error={err?.program} hint="Shows under your name with your class year and university, like CS ’28 @ Texas State University.">
             <Input id="program" name="program" defaultValue={def("program", profile.program)} placeholder="Computer Science" />
           </Field>
           <Field label="Graduation year" htmlFor="graduationYear" error={err?.graduationYear}>
@@ -92,8 +93,10 @@ export function ProfileForm({ profile, universities, welcome }: { profile: Profi
       <Card>
         <fieldset className="min-w-0" data-testid="privacy-settings">
           <legend className="px-5 pt-4 text-lg font-semibold text-gray-900">Privacy</legend>
-          <p className="px-5 pt-1 text-sm text-gray-600">Choose who can open the Classes, Saved and Liked tabs on your profile. Friends are people you follow who follow you back.</p>
-          <div className="grid gap-4 px-5 py-4 sm:grid-cols-3">
+          <p className="px-5 pt-1 text-sm text-gray-600">
+            Choose who can see the Classes, Saved, Liked and Listings tabs on your profile. Saved, Liked and Listings start as Only me. A tab someone may not see doesn&apos;t show on your profile for them at all; you always see every tab. Friends are people you follow who follow you back.
+          </p>
+          <div className="grid gap-4 px-5 py-4 sm:grid-cols-2">
             {PRIVACY_FIELDS.map(({ section, name }) => {
               const value = def(name, visibility[section]);
               return (

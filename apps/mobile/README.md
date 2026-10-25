@@ -10,12 +10,112 @@ React Native app for iOS and Android. All data access lives in `packages/shared`
 npm install
 
 cd apps/mobile
-npx expo start          # press i for the iOS Simulator (needs Xcode), a for Android
-npx expo start --tunnel # phone anywhere with Expo Go: scan the QR code
+npx expo start               # a development build of the app (see below); press i for the iOS Simulator, a for Android
+npx expo start --go --tunnel # phone anywhere with Expo Go: scan the QR code
 ```
+
+Since `expo-dev-client` is a dependency, a plain `npx expo start` serves development builds; add `--go` for Expo Go.
 
 `.env` holds only public keys (Supabase URL + anon key, website URL). Row-level
 security protects the data, so they are safe to ship.
+
+### Development builds (calls need one)
+
+Expo Go cannot carry a call's sound and picture: the LiveKit media module is compiled only into the app's own builds.
+`eas.json`'s `development` profile makes a **development build** (an `expo-dev-client` app that loads its JavaScript from
+your Metro server, so you keep Fast Refresh): an iOS build for the simulator and an Android APK, built in the cloud by EAS
+(the `apartmentbook` Expo account, project `4e98759f-dbc5-4217-b4cb-ec8030ffce49`; no Xcode, CocoaPods or Android SDK needed
+on your Mac):
+
+```bash
+cd apps/mobile
+npx -y eas-cli@latest build --platform ios --profile development      # simulator build (.tar.gz with ApartmentBook.app)
+npx -y eas-cli@latest build --platform android --profile development  # APK for any Android phone (install it from the link)
+npx expo start                                                         # then open the build: it lists this server
+```
+
+Install the simulator build with `xcrun simctl install booted ApartmentBook.app` (after `tar xzf` of the artifact), launch
+it, and pick the server from its list; a phone installs the APK from the build page's link or QR code. An iOS build for a
+real iPhone (`eas build --platform ios --profile development-device`, the same development build signed for devices)
+needs an Apple Developer Program membership: run it once in interactive mode, sign in with the Apple ID, and EAS makes the
+certificate and provisioning profile and keeps them (in non-interactive mode it stops with "couldn't find any credentials
+suitable for internal distribution"); the phone's UDID has to be registered on the first run (`eas device:create`).
+Pushes (new messages, missed calls, and the ring of an incoming call, migration 36) reach only real devices: the app
+registers its Expo push token on a phone, never in a simulator. A simulator's camera is a stand-in that sends no frames,
+so LiveKit never announces a simulator's video to the others (its audio flows); to see a remote video on a simulator, join
+the call from a browser with a fake camera (`chromium.launch({ channel: "chrome", args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] })`
+with `livekit-client` and a token from the function), which draws in the grid like any phone's.
+
+
+### Your own iPhone, free (no paid Apple Developer Program)
+
+A free Apple ID can sign the app for your own iPhone through Xcode's **Personal Team**. `app.config.js` keeps app.json
+as it is for every other build, and with `CAMPCONNECT_FREE_SIGNING=1` (which `npm run ios:device` sets) it makes the one
+build a free team can sign: its own bundle id (`com.apartmentbook.app.<your Mac user name>`, or `CAMPCONNECT_BUNDLE_ID`),
+and no Push Notifications entitlement, which only paid teams can sign. Everything else is the real app, LiveKit included.
+
+Once, on the Mac:
+
+1. CocoaPods. With macOS's own Ruby 2.6 it installs into your user folder like this (the macOS 15 SDK builds the
+   gems' native parts, and these versions are the last that support Ruby 2.6):
+   ```bash
+   export LANG=en_US.UTF-8 SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk
+   gem install --user-install --no-document ffi -v 1.16.3 --platform ruby
+   for g in concurrent-ruby:1.3.4 i18n:1.14.1 tzinfo:2.0.6 minitest:5.18.1 activesupport:6.1.7.10; do
+     gem install --user-install --no-document --conservative ${g%%:*} -v ${g##*:}; done
+   gem install --user-install --no-document --conservative cocoapods
+   ```
+   `npm run ios:device` (`scripts/ios-device.mjs`) finds it in `~/.gem/ruby/*/bin` itself.
+2. Xcode → Settings → Accounts → **+** → Apple ID: sign in with your Apple ID. It shows "(Personal Team)". Then, in
+   the same window, select the account → **Manage Certificates…** → **+** → **Apple Development** → Done. (Expo CLI
+   signs with the certificate it finds; signing in alone does not make one.)
+
+Once, on the iPhone:
+
+3. Connect it to the Mac with a cable, unlock it and tap **Trust**.
+4. Settings → Privacy & Security → **Developer Mode** → on, and restart when it asks.
+
+Then, from `apps/mobile`, with the iPhone and the Mac on the same Wi-Fi:
+
+```bash
+npm run ios:device              # pick your iPhone; or: npm run ios:device -- "iPhone"
+```
+
+It generates `ios/` (git-ignored) the first time or when it was made for the normal builds, updates it in place when
+app.json or app.config.js changed since (a permission text, a plugin), and puts package.json back as it was each time
+(prebuild would rewrite its `ios` and `android` scripts); then `expo run:ios` builds, signs with your
+Personal Team, installs and opens the app, and runs Metro on port 8083 for it. It also adapts the local copies of a few files that EAS never needs changed, each only when it
+finds the exact published text, and again after a fresh `npm install`:
+
+- **Xcode 26 (Swift 6.2).** SDK 57 is written for Xcode 27. In `expo-modules-jsi` the `SWIFT_RETURNS_RETAINED`
+  annotations on `RuntimeScheduler`'s constructors go (Swift 6.2 refuses them, while already treating those
+  constructors the way they say; a quick compiler probe decides), and in `JavaScriptRuntime.swift` and
+  `expo-modules-core`'s `EventEmitter.swift` the values the code marks `nonisolated(unsafe)` travel in a Sendable
+  wrapper instead, because Swift 6.2 ignores that mark there (a compiler bug Expo works around the same way elsewhere).
+- **A space in the project's path** ("Apartment Book 3"). The expo-constants and expo-updates script phases, a
+  `basename` in expo-constants and the app's "Bundle React Native code and images" phase run a path unquoted; they get
+  the quotes (and `pod install` runs again to pick them up).
+
+The `filter_map` warnings `pod install` prints come from macOS's Ruby 2.6 in Expo's optional lookup of precompiled
+modules; it then builds every module from source, which is what this build does anyway. If it stops with "No code signing certificates", step 2's certificate is missing. The first time the app opens, iOS refuses it until you trust yourself: Settings →
+General → VPN & Device Management → your Apple ID → **Trust**. Allow the local network, microphone and camera when asked.
+
+What a free team cannot do: the copy expires after **7 days** (run `npm run ios:device` again to renew it), at most three
+such apps fit on a phone, and it gets **no push notifications**, so a call rings it only while the app is open or when it
+comes back to the front (the other side's call row and missed-call notification still arrive). Before an EAS build
+nothing needs undoing: `ios/` is git-ignored, so EAS generates its own from app.json. To go back to the normal native
+project locally, delete `ios/` (or run `npx expo prebuild --clean` without the flag).
+
+Someone to call: `SUPABASE_ACCESS_TOKEN=sbp_… node e2e/call-partners.mjs make` makes three throwaway accounts (one for
+your phone, two for simulators or other phones) with a direct chat and a group chat, and prints their logins (`--with
+you@txstate.edu` puts your own account in the chats instead). `… call-partners.mjs bot direct` (or `group`) answers the
+call your phone is making as the first partner and joins from a headless Chrome with a fake camera and microphone, so
+your iPhone has a moving picture and a tone to receive; `… call-partners.mjs clean` deletes them all again.
+
+To drive a simulator build without touching it, point its launcher at Metro and sign in through Metro's debugger: seed
+`expo.devlauncher.recentlyopenedapps` in the app's user defaults with `{"url": "http://127.0.0.1:8081"}` (the launcher opens
+the last server itself; `xcrun simctl openurl` with the app's own scheme pops a system "Open in…?" dialog instead), and
+sign in with `apartmentbook://dev-login?email=…&password=…` once that dialog has been accepted once on that simulator.
 
 ## Home and the tabs
 
@@ -24,7 +124,8 @@ the tab is on screen; the person icon signed out) and, in the middle, Create: th
 (cyan, blue, violet, the glow the app keeps for rings, drawn through a ring-shaped mask), nothing filled and no label
 (screen readers hear "Create"); the ring is as tall as a tab's icon and label together and lines up with them. It opens
 the create sheet (Post / Reel / Buzz / Snap), the same one as the "+" on your photo in Home's top bar. It floats over the content as a rounded
-glass pill (`src/app/(tabs)/_layout.tsx`, its size in `src/lib/tab-bar.ts`): on iOS 26 real liquid glass, with what scrolls
+glass pill, low like Instagram's: just above the home indicator (12pt into the home-indicator inset, 22pt up from the screen's edge on a
+Face ID iPhone; 10pt up where there is no indicator) (`src/app/(tabs)/_layout.tsx`, its size and place in `src/lib/tab-bar.ts`): on iOS 26 real liquid glass, with what scrolls
 under it blurred through, elsewhere a translucent fill; the tab on screen sits in a soft aurora capsule with its icon filled. When you tap
 another tab the capsule glides there from the old one, never blinking or fading: its leading edge moves a beat ahead of its trailing edge,
 so it stretches a touch in flight and settles as it lands. The new tab's symbol bounces once (silently: no haptic), the tab you left returns
@@ -36,8 +137,9 @@ as an idle tab, so the five sit evenly). Search (find
 accounts by name and follow them) is the magnifying glass in the top-right corner of Home's floating top bar, just before
 the Notifications bell (`src/components/header-actions.tsx`): it pushes the people search with the box focused
 (`src/app/find-people.tsx`, the same screen the share sheet's Find people and a profile's Find friends open). The Notifications bell in the top-right corner of Home's floating top bar opens every
-notification the database keeps for you (`src/app/notifications.tsx`: new messages, likes, comments and replies, follows,
-saves of your listings, places near campus, newest first, each unread one marked only by a small blue dot, the row
+notification the database keeps for you (`src/app/notifications.tsx`: likes, comments and replies, follows,
+saves of your listings, places near campus, newest first; new messages and Snaps stay in Messages, with its unread
+counts and the push, each unread one marked only by a small blue dot, the row
 itself like any other in both themes); tapping one marks it read and opens what
 it is about, "Mark all read" sits in the header, and the bell's badge counts the unread live. Home opens on **For you**, a blend of posts and reels (anonymous Buzz threads stay on
 the Buzz page; the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
@@ -191,16 +293,19 @@ at the bottom is the system share sheet. It needs migration 17 (`supabase/migrat
 The Profile tab is your profile, TikTok style (`src/components/profile/`, one `ProfileView` for the tab and for
 `/profile/[id]`): a top bar with Find friends, your name (the account sheet, Log out) and the menu (Settings and privacy,
 Saved, the legal pages, Log out); your photo with a "+" to change it, @username (made from your name at sign-up, changed
-in Settings) with a QR icon, Following | Followers | Likes (every like on your posts, reels and listings), Edit profile /
-Share profile (a sheet with the profile's QR code and Share) / Find friends, the bio and university, then the tabs
+in Settings) with a QR icon under three lines: the full name, the major, class year and university ("CS ’28 @ Texas
+State University", from Settings → Major and Graduation year) and the bio; then Following | Followers | Likes (every like
+on your posts, reels and listings), Edit profile / Share profile (a sheet with the profile's QR code and Share) / Find
+friends, then the tabs
 Posts | Classes | Reels | Saved | Liked | Listings as icons, TikTok style (the open one filled, with the sliding
 underline and a small mark of who can see that section: a lock for Only me, two people for Friends, a globe for
 Everyone; the filled icon and the mark crossfade with the swipe on the native side, like the underline, so they never
 wait for the pager to settle), over a three-column grid with view counts (Listings: your live
 apartments, roommate posts and items for sale, each square with its kind and title). The Classes tab lists classes by semester, this one first (up to 12 each; add your own there with the subject and course number as two boxes, "CS" and "3358", kept as the one code "CS 3358" the database checks, the section, the days and times it meets and the room; a hold on a class card offers Edit (the same form, filled in; Save moves you between course chats when the section changes) and Delete, which asks first, and there is no other way to change or remove one; once a class is in or changed, the form closes and a line under "Add class" says so, the button bringing it back). Listing a section puts you in that section's course chat, a group in Messages shared by everyone at your campus taking it this semester: the first classmate's listing creates it, removing the class leaves it, a notification tells you about both, it cannot be renamed or hand-filled, and it goes with the semester after a week's notice (migration 24).
-Classes, Saved and Liked each have a setting (Everyone, Friends, Only me; friends are people you follow who follow you
-back), changed from the line at the top of the tab or in Settings → Privacy; by default Classes is Friends, Saved is Only
-me and Liked is Everyone, and visitors without access see a lock. Hold one of your own posts or reels in the grid (or use
+Classes, Saved, Liked and Listings each have a setting (Everyone, Friends, Only me; friends are people you follow who
+follow you back), changed from the line at the top of the tab or in Settings → Privacy; by default Classes is Friends and
+Saved, Liked and Listings are Only me (migration 37). A visitor without access gets no tab for that section at all (the
+pager has one page per tab they get), while you always see all six. Hold one of your own posts or reels in the grid (or use
 its ••• menu) to pin it to the top of your profile, three at most. Someone else's profile has Follow, Message and More
 (block, report) instead. It needs migration 18 (`supabase/migrations/20260927000000_profile_page.sql`: usernames, the
 who-can-see settings, `profile_classes`, likes readable only through functions, `profile_stats`, `post_view_counts` and
@@ -228,7 +333,7 @@ it is; one without a picture stays a card of its words. A tap opens it as before
 A chat (`src/app/messages/[id].tsx`) is laid out like the Messages app. Its floating top bar (`src/components/messages/chat-header.tsx`)
 is one row: Back in a 44pt glass circle on the left, then the other person's photo (with the green dot while they are active; a group
 shows its mark), their name in bold with a chevron and their activity line ("Active now", "Active 5 min ago", or "4 members") under
-it, and Search and Info in 44pt glass circles on the right. The photo and the name open the chat's details, as Info does. Nothing
+it, and Audio call, Video call and Info in 40pt glass circles on the right (Search is in the chat's details). The photo and the name open the chat's details, as Info does. Nothing
 solid sits behind it: the messages scroll under it through a blur that fades in towards the top of the screen. The bubbles (`message-bubble.tsx`) have no photos beside them and, as in Instagram, no times under them: a small centred stamp
 ("Today 14:05", "Yesterday 09:30", "Mon, 3 Mar 10:15", in the phone's own time zone) sits above the first message of each day and
 above any message that comes after half an hour's quiet; a tap on a message's words shows its exact time under it until the next tap
@@ -271,17 +376,35 @@ nothing over a sheet that is still leaving) and the Aurora "Send To". That start
 progress) and raises the Send To sheet (`send-to-sheet.tsx`): your direct chats, the most recent first, then your friends,
 a search over both, a ring per person that fills with the Aurora when picked (only what turns on bounces), and a bar that
 rises with who it goes to and the round send button: a spinner and "Sending… 42%", then the plane flies off and a tick
-lands on green, and the Snap fades away. In a chat (`snap-bubble.tsx`) a Snap is the same large bubble as a sent photo, at the Snap's own shape, and never its picture: while it
-waits it shows only its 32-pixel preview, scaled up and blurred past recognition under frosted glass (a real blur where the build has
-expo-blur), with "Tap to view" or "Delivered" on a glass mark in the middle and "Snap" in the corner; tapping opens it full screen once
-(a photo until you tap, swipe it down or close it; a video plays through once with a bar along the top). Opened, expired or gone, the
-bubble keeps its shape at seven tenths of the size and goes quiet, a frosted surface carrying "Opened", "Expired" or "Unavailable", the
-preview gone from the message; the chat follows realtime updates of its messages, so both sides change at once. The viewer
+lands on green, and the Snap fades away. In a chat (`snap-bubble.tsx`) a Snap is the same large bubble as a sent photo, at the Snap's own shape, and never its picture: it
+shows only its 32-pixel preview (of the photo, or the first frame of the video) in its own colours, lightly softened under a
+semi-transparent pane of frosted glass (Liquid Glass on iOS 26, a thin system blur elsewhere, with a hairline of light round its rim), so
+its colours and shapes show softly through and nothing can be made out (with Reduce Transparency there is no pane and the preview is
+blurred heavily instead), with "Tap to view" or "Delivered" on a glass mark in the middle and "Snap" in the corner; tapping opens it full screen once (a photo until
+you tap, swipe it down or close it; a video plays through once with a bar along the top). Once opened the bubble keeps the same blurred
+preview (migration 32 leaves it on the message) at seven tenths of the size, with "Opened" and "You viewed it" / "They viewed it" on the
+mark. A Snap that expired, was deleted or went unopened loses its preview, as before, and shows its status on a plain dark surface (so
+does a Snap sent from an app too old to make a preview); the chat follows realtime updates of its messages, so both sides change at once.
+
+Under the bubble, Snapchat style, the newest thing that happened to the Snap with its time ("Delivered · 14:02", "Opened · 14:05",
+"Screenshot taken · 14:05", "Snap deleted", "Expired"), a quiet grey note for every kind, never a warning, and a tap on it (or Snap activity on a hold) opens the Snap's whole
+story on a sheet (`snap-activity-sheet.tsx`): sent, delivered, opened, every screenshot or recording, deleted, expired, each with its
+time, on both sides of the chat and kept after the Snap is over. The database logs it on the message (`messages.snap.activity`,
+migration 33, `supabase/migrations/20261026000000_snap_activity.sql`): the chat reports "delivered" when a Snap reaches it, the one
+view reports "opened" together with what that phone can detect, the viewer reports a screenshot (`report_snap_capture()`, the sender
+getting a "snap_activity" notification at once), the sender can take a waiting Snap back (Delete Snap on the sheet or the hold menu:
+`delete_snap()`, the file going at once and every chat saying "Snap deleted"), and the purge logs "expired". Detection is only ever what
+the viewing phone can do, and the sheet says so (`src/lib/snap-capture-guard.ts`, expo-screen-capture): an iPhone reports every
+screenshot and blacks out the screen while it is recorded or mirrored (iOS gives apps no recording event, so none is claimed); an
+Android phone blocks screenshots and recordings outright while the Snap is open; a build without the module reports "none", and the
+sender is told that nothing on it would be reported. The viewer
 opens it once (`open_snap()`), loads it through Storage's signed-in download with your own session (every request, each
 range of a video too, is checked against the view, so nothing can be loaded after it), keeps a photo in memory only, and closes with a tap, a swipe down, its close button, the end of a video or the app going to the background,
 calling `close_snap()`. Both screens leave on a timer rather than when their fade reports it ended, so an interrupted
 fade can never leave an invisible screen taking the touches. Until migration 28 is applied, sending says Snaps aren't set
 up yet.
+
+Calls (`src/app/call/[id].tsx`, `src/components/calls/`, `src/lib/calls.ts`, `src/lib/call-sounds.ts`; the rules are migration 35's, see the root README) are **paused** for now: `CALLS_PAUSED` in `src/lib/calls.ts` makes Audio call, Video call, a call row and the incoming ring do nothing but show `coming-soon.tsx`, a small glass "Coming Soon · Audio and video calls" pill under the chat's bar that fades away; start Metro with `EXPO_PUBLIC_CALLS_ENABLED=1` (in a development build) to bring them back. When on: the chat's top bar has Audio call and Video call in glass circles beside Info (Search moved into the chat's details). A call is its own full screen on a dark stage with a soft Aurora wash, like FaceTime: the other person's video filling it (or their photo in a ring while they have no camera) with your own camera in a small window at the top right, mirrored while it is the front one; a group is a grid of two columns, you among them, the people still ringing faded with "ringing" under their names, the one speaking ringed in blue; their name and the call's standing at the top ("Calling…", "Ringing…", "Connecting…", then the running time), and a glass bar along the bottom with mute, speaker, camera, flip camera (while the camera is on) and the people in the call (a group), each filled white when its state is on, and the red End button under it. An audio call starts on the earpiece and a video call on the speaker. `CallProvider` (around the whole app in `_layout.tsx`) watches your own `call_participants` rows over realtime and looks again whenever the app comes to the front: a call ringing you fills the screen over whatever is open (`incoming-call.tsx`: the caller's photo breathing in a ring, "CampConnect Video", Decline and Accept) while the phone rings and buzzes (`assets/sounds/ring.wav`, through expo-audio, the ring respecting the silent switch), for at most 45 seconds; the caller hears a ringback and gives up at 45 seconds ("No answer"), and two short notes mark every end. In the chat a call is a row (`call-row.tsx`: the phone or camera in a circle, "Video call" with "3:24", "No answer", "In progress" or "Calling…" under it, "Missed audio call" in red) that follows the call live, calls back on a tap or joins a call still going on, and a glass pill under the bar offers to Join a call going on in the chat that you are not in (`call-banner.tsx`). A phone whose app is in the background or closed is rung by a push (migration 36; `src/lib/push.ts` keeps a Calls channel on Android with the app's ring and the expo-notifications plugin bundles `assets/sounds/ring.wav` into both apps): while the app is open the push shows nothing (the app rings on its own), and a tap on it opens the incoming call if it is still ringing, as a tap on any other push opens its link (`watchNotificationTaps`, used by `CallProvider`). The media module is only in the app's own builds (`CALLS_AVAILABLE` in `src/lib/calls.ts` looks for it): in Expo Go a call still rings, answers and writes its rows, and the call screen says this copy cannot carry calls, with End. Leaving the call screen in any way hangs up (`leave_call()` runs when it unmounts too), and when everyone else has gone, yours ends on its own.
 
 A direct chat shows the other person's activity status under their name, like Instagram (`src/lib/use-activity-status.ts`,
 the wording in `packages/shared/src/activity.ts`): a small green dot and "Active now" while they are online, otherwise
@@ -318,6 +441,15 @@ The flows that like, vote or post (01 to 03) only ever act as a seeded `ui-sim-�
 stop if someone else is signed in on the simulator (they read the email on the account sheet behind your name on the
 Profile tab, which shows "Edit profile" when you are signed in); 00 and 04 only look.
 
+Roommate posts have no public comments, anywhere: someone looking for a roommate is reached in private. Their screen
+(`src/app/roommates/[id].tsx` through `src/components/listing-detail.tsx`) carries the Posts action bar right under the photos
+(under the words when there are none), the same one as in the Roommates feed: the heart with its count, Share, the outlined Inbox
+pill that opens a private chat with the poster (your own post's opens your Inbox) and the bookmark at the far right; every listing
+detail, the poster card with Message, and the menu (Save, Share, Report) stay. A roommate video tour in Reels has an Inbox button on
+its rail in place of the comments one, and a "Message Maya…" bar in place of "Add comment…"; the chat opens with a first message
+about the post. `hasPublicComments()` in `packages/shared` decides it for the app and the website; posts, reels, apartments,
+marketplace items and Buzz keep their threads.
+
 ## Look and feel on iPhone
 
 The app keeps its own look (the brand blue, white or black surfaces, the system font) and adds what makes an iPhone app
@@ -330,7 +462,15 @@ feel native:
   behind the active tab in the bottom bar, and the rings around your photo in the Home bar, on the Profile tab and on a
   profile page. Under white words the stops are deep enough that a label keeps 4.5:1 across the middle where it sits;
   rings and underlines use a brighter version on black. The solid brand blue is the aurora's blue stop (#166fe5 in
-  light, 4.7:1 on white), for links, icons and active chips.
+  light, 4.7:1 on white), for links, icons and active chips. A roommate post's screen wears it most fully, and still
+  quietly (`src/components/aurora.tsx`): its sections sit on the page instead of grey cards, its preference cards are
+  panels tinted at the Aurora's faintest (`auroraPanel`, with an `auroraEdge` hairline), its status is an Aurora pill, its
+  headings carry a short Aurora bar and its fact icons the Aurora's ink (`auroraInk`); the words keep the theme's own
+  colours, so the contrast is the same as anywhere else. A "No longer looking" status keeps its amber.
+
+- **Dark by default.** Until someone picks a theme in Settings → Theme the app is Dark, on iOS and Android alike
+  (`DEFAULT_THEME_PREFERENCE` in `src/lib/palette.ts`); Light and System Default stay there, and a choice is remembered.
+  Anyone who already picked one keeps it.
 
 - **Icons.** On iOS every icon is the matching SF Symbol (`src/components/icon.tsx`), in Apple's weights and optical
   alignment: filled when on, outlined when off. A like, a save, a vote and a newly chosen tab bounce once. Android keeps Ionicons.

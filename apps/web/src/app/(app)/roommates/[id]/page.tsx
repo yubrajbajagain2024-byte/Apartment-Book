@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, MapPin, School } from "lucide-react";
-import { budgetLabel, formatDistance, GENDER_PREFERENCES, getListingStats, getPostEngagement, getRoommatePost, isSaved, labelFor, listComments, listingMedia, photosFor } from "@apartment-book/shared";
+import { budgetLabel, formatDistance, GENDER_PREFERENCES, getListingStats, getPostEngagement, getRoommatePost, isSaved, labelFor, listingMedia, photosFor } from "@apartment-book/shared";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, timeAgo } from "@/lib/utils";
@@ -31,10 +31,8 @@ export default async function RoommatePostPage({ params }: Props) {
   const supabase = await createClient();
   const [post, user, profile] = await Promise.all([getRoommatePost(supabase, id), getCurrentUser(), getCurrentProfile()]);
   if (!post) notFound();
-  const [engagement, comments] = await Promise.all([
-    getPostEngagement(supabase, "roommate", post.id).catch(() => ({ likes: 0, comments: 0, likedByMe: false })),
-    listComments(supabase, "roommate", post.id).catch(() => []),
-  ]);
+  // Roommate posts have no public comments (hasPublicComments): only the likes are loaded.
+  const engagement = await getPostEngagement(supabase, "roommate", post.id).catch(() => ({ likes: 0, comments: 0, likedByMe: false }));
 
   const saved = user ? await isSaved(supabase, user.id, "roommate", post.id) : false;
   const isOwner = user?.id === post.author_id;
@@ -121,7 +119,7 @@ export default async function RoommatePostPage({ params }: Props) {
               targetId={post.id}
               ownerId={post.author.id}
               engagement={engagement}
-              initialComments={comments}
+              initialComments={[]}
               signedIn={Boolean(user)}
               currentUser={user && profile ? { id: user.id, name: profile.full_name, avatarUrl: profile.avatar_url } : null}
             />

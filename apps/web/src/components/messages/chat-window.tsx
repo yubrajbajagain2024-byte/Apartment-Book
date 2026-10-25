@@ -3,9 +3,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Camera, Check, Circle, ImagePlus, Send, Video } from "lucide-react";
+import {
+  Camera,
+  Check,
+  Circle,
+  ImagePlus,
+  Phone,
+  Send,
+  Video,
+} from "lucide-react";
 import {
   MESSAGES_PAGE_SIZE,
+  callOf,
+  callRowText,
   formatDayLabel,
   getMemberStatus,
   isSameDay,
@@ -18,6 +28,8 @@ import {
   sendMessage,
   sharedPostLabel,
   sharedPostOf,
+  snapActivityLabel,
+  snapLatestActivity,
   snapOf,
   snapState,
   snapStatusText,
@@ -27,6 +39,7 @@ import {
   type MemberStatus,
   type Message,
   type MessageAttachment,
+  type MessageCall,
   type MessageReceipt,
   type MessageWithSender,
   type MessageSnap,
@@ -34,7 +47,11 @@ import {
 } from "@apartment-book/shared";
 import { useHydrated } from "@/lib/hooks";
 import { isOptimizableImage } from "@/lib/images";
-import { createClient, ensureRealtimeAuth, uniqueChannelName } from "@/lib/supabase/client";
+import {
+  createClient,
+  ensureRealtimeAuth,
+  uniqueChannelName,
+} from "@/lib/supabase/client";
 import { cn, errorMessage, formatMessageTime } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
@@ -52,84 +69,242 @@ function attachmentKey(attachments: MessageAttachment[] | undefined): string {
  * Is `temp` our pending copy of the saved `row`? Share-only and file-only messages all have empty text, so the shared
  * post and the files have to match too (a message sent from the app with files never replaces one typed here).
  */
-function isOptimisticCopy(temp: ChatMessage, row: Pick<Message, "content" | "shared_post" | "attachments">): boolean {
+function isOptimisticCopy(
+  temp: ChatMessage,
+  row: Pick<Message, "content" | "shared_post" | "attachments">,
+): boolean {
   return (
     Boolean(temp.pending) &&
     temp.content === row.content &&
-    sharedPostOf(temp.shared_post)?.target_id === sharedPostOf(row.shared_post)?.target_id &&
+    sharedPostOf(temp.shared_post)?.target_id ===
+      sharedPostOf(row.shared_post)?.target_id &&
     attachmentKey(temp.attachments) === attachmentKey(row.attachments)
   );
 }
 
 /** Where each kind of shared thing opens. The card links to one of these plus the id, never to the path stored in the message. */
-const SHARED_TARGET_BASE: Record<SharedPost["target_type"], string> = { post: "/posts/", apartment: "/apartments/", roommate: "/roommates/", item: "/marketplace/" };
+const SHARED_TARGET_BASE: Record<SharedPost["target_type"], string> = {
+  post: "/posts/",
+  apartment: "/apartments/",
+  roommate: "/roommates/",
+  item: "/marketplace/",
+};
 
 /** A post, reel or listing somebody sent: its picture, who posted it, its words and a "View post" footer. The whole card opens it. */
-function SharedPostCard({ shared, pending }: { shared: SharedPost; pending?: boolean }) {
+function SharedPostCard({
+  shared,
+  pending,
+}: {
+  shared: SharedPost;
+  pending?: boolean;
+}) {
   const label = sharedPostLabel(shared);
   return (
     <Link
       href={`${SHARED_TARGET_BASE[shared.target_type]}${encodeURIComponent(shared.target_id)}`}
       data-testid="shared-post"
       aria-label={`${label}: ${shared.title ?? shared.caption ?? shared.author.name}`}
-      className={cn("mb-1 block w-64 max-w-full overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-sm hover:bg-gray-50", pending && "opacity-60")}
+      className={cn(
+        "mb-1 block w-64 max-w-full overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-sm hover:bg-gray-50",
+        pending && "opacity-60",
+      )}
     >
       {/* The snapshot's pictures can point anywhere, and they must never be able to break the chat: next/image only for hosts it serves. */}
       {shared.image_url ? (
         isOptimizableImage(shared.image_url) ? (
           <span className="relative block aspect-[4/5] max-h-52 w-full bg-gray-100">
-            <Image src={shared.image_url} alt="" fill sizes="256px" className="object-cover" />
+            <Image
+              src={shared.image_url}
+              alt=""
+              fill
+              sizes="256px"
+              className="object-cover"
+            />
           </span>
         ) : (
           // eslint-disable-next-line @next/next/no-img-element -- a snapshot URL from a host next/image does not serve
-          <img src={shared.image_url} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" className="aspect-[4/5] max-h-52 w-full bg-gray-100 object-cover" />
+          <img
+            src={shared.image_url}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            className="aspect-[4/5] max-h-52 w-full bg-gray-100 object-cover"
+          />
         )
       ) : null}
       <span className="flex items-center gap-2 px-3 pt-2.5">
-        <Avatar name={shared.author.name} src={isOptimizableImage(shared.author.avatar_url) ? shared.author.avatar_url : null} size="xs" />
-        <span className="truncate text-xs font-semibold text-gray-900">{shared.author.name}</span>
+        <Avatar
+          name={shared.author.name}
+          src={
+            isOptimizableImage(shared.author.avatar_url)
+              ? shared.author.avatar_url
+              : null
+          }
+          size="xs"
+        />
+        <span className="truncate text-xs font-semibold text-gray-900">
+          {shared.author.name}
+        </span>
       </span>
-      {shared.title ? <span className="line-clamp-1 block break-words px-3 pt-1 text-sm font-semibold text-gray-900">{shared.title}</span> : null}
-      {shared.caption ? <span className="line-clamp-2 block break-words px-3 pt-0.5 text-sm text-gray-800">{shared.caption}</span> : null}
-      <span className="mt-2 block border-t border-gray-100 px-3 py-2 text-xs font-semibold text-brand-700">{label}</span>
+      {shared.title ? (
+        <span className="line-clamp-1 block break-words px-3 pt-1 text-sm font-semibold text-gray-900">
+          {shared.title}
+        </span>
+      ) : null}
+      {shared.caption ? (
+        <span className="line-clamp-2 block break-words px-3 pt-0.5 text-sm text-gray-800">
+          {shared.caption}
+        </span>
+      ) : null}
+      <span className="mt-2 block border-t border-gray-100 px-3 py-2 text-xs font-semibold text-brand-700">
+        {label}
+      </span>
     </Link>
   );
 }
 
 /**
- * A Snap: never its picture here. It opens once, in the CampConnect app; the card says whether it is waiting there,
- * opened, expired or gone (and to its sender, delivered), on an Aurora tile while it is new and a hollow one after.
+ * A Snap: never its picture here. It opens once, in the CampConnect app. While the message carries its preview (waiting,
+ * and after it is opened), the card is the Snap at its own shape with that tiny preview softly visible under a pane of
+ * frosted glass, in its own colours, as the app shows it, and the status over it; without one (expired, gone, or sent from an older app) it is
+ * a small card on a neutral tile.
  */
 function SnapCard({ snap, mine }: { snap: MessageSnap; mine: boolean }) {
   const state = snapState(snap);
   const fresh = state === "new";
-  if (fresh && snap.preview) {
-    // Waiting, with a preview: the Snap at its own shape, blurred past recognition, as the app shows it.
-    const ratio = snap.width && snap.height ? Math.min(1.8, Math.max(0.65, snap.width / snap.height)) : 0.75;
+  const label = fresh
+    ? mine
+      ? "Delivered"
+      : "New Snap"
+    : snapStatusText(snap, mine);
+  // Under the card: the newest thing that happened to it (a capture first), as the app shows (migration 33).
+  // A quiet grey note, the same for every kind of entry.
+  const latest = snapLatestActivity(snap);
+  const activity = latest ? (
+    <p
+      data-testid="snap-activity"
+      className="mb-1 px-1 text-[11px] font-medium text-gray-500"
+    >
+      {snapActivityLabel(latest, mine)} · {formatMessageTime(latest.at)}
+    </p>
+  ) : null;
+  if (snap.preview) {
+    const ratio =
+      snap.width && snap.height
+        ? Math.min(1.8, Math.max(0.65, snap.width / snap.height))
+        : 0.75;
     return (
-      <div data-testid="snap" data-snap-state={state} className="relative mb-1 w-60 max-w-full overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: String(ratio) }}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- a tiny data URL, blurred */}
-        <img src={snap.preview} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-125 object-cover blur-xl" />
-        <span className="absolute inset-0 bg-black/20" />
-        <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-4 text-center text-white">
-          <span className="rounded-full bg-black/45 px-4 py-1.5 text-sm font-semibold">{mine ? "Delivered" : "New Snap"}</span>
-          {!mine ? <span className="text-xs font-medium drop-shadow">Open the CampConnect app to view it</span> : null}
-        </span>
-      </div>
+      <>
+        <div
+          data-testid="snap"
+          data-snap-state={state}
+          className={cn(
+            "relative mb-1 max-w-full overflow-hidden rounded-2xl bg-black",
+            fresh ? "w-60" : "w-44",
+          )}
+          style={{ aspectRatio: String(ratio) }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- a tiny data URL, blurred */}
+          <img
+            src={snap.preview}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full scale-110 object-cover blur-[4px]"
+          />
+          {/* A pane of frosted glass over it, as in the app: the colours and shapes show softly through, no detail. */}
+          <span className="absolute inset-0 rounded-2xl bg-white/[0.06] ring-1 ring-inset ring-white/20 backdrop-blur-[6px]" />
+          <span className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-black/15" />
+          <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-4 text-center text-white">
+            <span className="rounded-full bg-black/45 px-4 py-1.5 text-sm font-semibold">
+              {label}
+            </span>
+            {fresh && !mine ? (
+              <span className="text-xs font-medium drop-shadow">
+                Open the CampConnect app to view it
+              </span>
+            ) : null}
+          </span>
+        </div>
+        {activity}
+      </>
     );
   }
   const video = snap.kind === "video";
   const SnapIcon = mine ? Send : video ? Video : Camera;
   const title = !mine && fresh ? "New Snap" : video ? "Video Snap" : "Snap";
-  const status = !mine && fresh ? "Open the CampConnect app to view it" : snapStatusText(snap, mine);
+  const status =
+    !mine && fresh
+      ? "Open the CampConnect app to view it"
+      : snapStatusText(snap, mine);
   return (
-    <div data-testid="snap" data-snap-state={state} className={cn("mb-1 flex min-w-48 items-center gap-2.5 rounded-2xl py-2 pl-2 pr-4", mine ? "bg-brand-50" : "bg-gray-100")}>
-      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", fresh ? "bg-brand-600 bg-aurora text-white" : "border-[1.5px] border-gray-200 text-gray-400")}>
-        <SnapIcon className="h-[18px] w-[18px]" aria-hidden="true" />
+    <>
+      <div
+        data-testid="snap"
+        data-snap-state={state}
+        className={cn(
+          "mb-1 flex min-w-48 items-center gap-2.5 rounded-2xl py-2 pl-2 pr-4",
+          mine ? "bg-brand-50" : "bg-gray-100",
+        )}
+      >
+        <span
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+            fresh
+              ? "bg-gray-800 text-white"
+              : "border-[1.5px] border-gray-200 text-gray-400",
+          )}
+        >
+          <SnapIcon className="h-[18px] w-[18px]" aria-hidden="true" />
+        </span>
+        <span className="flex min-w-0 flex-col">
+          <span className="text-sm font-semibold text-gray-900">{title}</span>
+          <span className="text-xs text-gray-500">{status}</span>
+        </span>
+      </div>
+      {activity}
+    </>
+  );
+}
+
+/**
+ * A call made from the app (migration 35), as its row in the chat: the phone or camera, "Audio call" with how it went
+ * ("3:24", "No answer", "Calling…"), "Missed video call" in red for the one who did not pick up. Calls are made from the
+ * app; the website shows them.
+ */
+function CallCard({ call, mine }: { call: MessageCall; mine: boolean }) {
+  // The message's sender is the one who called, so "mine" says whether the viewer is the caller.
+  const text = callRowText(call, mine ? call.started_by : null);
+  const CallIcon = call.kind === "video" ? Video : Phone;
+  return (
+    <div
+      data-testid="call"
+      data-call-status={call.status}
+      className={cn(
+        "flex min-w-[196px] items-center gap-3 rounded-2xl px-3 py-2 text-sm",
+        mine ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-900",
+      )}
+    >
+      <span
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+          mine ? "bg-white/20" : "bg-white",
+        )}
+      >
+        <CallIcon
+          className={cn("h-4 w-4", text.missed && "text-red-500")}
+          aria-hidden="true"
+        />
       </span>
       <span className="flex min-w-0 flex-col">
-        <span className="text-sm font-semibold text-gray-900">{title}</span>
-        <span className="text-xs text-gray-500">{status}</span>
+        <span className={cn("font-semibold", text.missed && "text-red-600")}>
+          {text.title}
+        </span>
+        {text.detail ? (
+          <span className={cn("text-xs", mine ? "text-white/85" : "text-gray-500")}>
+            {text.detail}
+          </span>
+        ) : null}
       </span>
     </div>
   );
@@ -139,10 +314,27 @@ function SnapCard({ snap, mine }: { snap: MessageSnap; mine: boolean }) {
  * The message a reply answers (sent from the app, migration 31), quoted above the reply: who wrote it and its words, or
  * what it was ("Photo", "Voice message", …). The snapshot is the database's own, so it reads even if the original is gone.
  */
-function ReplyQuote({ name, text, mine }: { name: string; text: string; mine: boolean }) {
+function ReplyQuote({
+  name,
+  text,
+  mine,
+}: {
+  name: string;
+  text: string;
+  mine: boolean;
+}) {
   return (
-    <div data-testid="reply-quote" className={cn("mb-[-6px] flex max-w-full gap-2 rounded-2xl border border-gray-200 bg-gray-50 py-1.5 pb-3.5 pl-2 pr-3 text-xs", mine ? "mr-1" : "ml-1")}>
-      <span aria-hidden="true" className="w-0.5 shrink-0 self-stretch rounded-full bg-gray-300" />
+    <div
+      data-testid="reply-quote"
+      className={cn(
+        "mb-[-6px] flex max-w-full gap-2 rounded-2xl border border-gray-200 bg-gray-50 py-1.5 pb-3.5 pl-2 pr-3 text-xs",
+        mine ? "mr-1" : "ml-1",
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className="w-0.5 shrink-0 self-stretch rounded-full bg-gray-300"
+      />
       <span className="flex min-w-0 flex-col">
         <span className="truncate font-semibold text-gray-500">{name}</span>
         <span className="line-clamp-2 break-words text-gray-500">{text}</span>
@@ -153,9 +345,21 @@ function ReplyQuote({ name, text, mine }: { name: string; text: string; mine: bo
 
 /** Messenger-style state of my newest message: hollow circle (sending), check in a circle (sent), filled check (delivered). */
 function ReceiptIcon({ receipt }: { receipt: MessageReceipt }) {
-  const label = receipt === "sending" ? "Sending" : receipt === "sent" ? "Sent" : "Delivered";
+  const label =
+    receipt === "sending"
+      ? "Sending"
+      : receipt === "sent"
+        ? "Sent"
+        : "Delivered";
   return (
-    <span className="mb-4 flex h-3.5 w-3.5 shrink-0 items-center justify-center self-end" data-testid="receipt" data-receipt={receipt} aria-label={label} title={label} role="img">
+    <span
+      className="mb-4 flex h-3.5 w-3.5 shrink-0 items-center justify-center self-end"
+      data-testid="receipt"
+      data-receipt={receipt}
+      aria-label={label}
+      title={label}
+      role="img"
+    >
       {receipt === "sending" ? (
         <Circle className="h-3.5 w-3.5 text-gray-400" />
       ) : receipt === "sent" ? (
@@ -183,7 +387,9 @@ export function ChatWindow({
   prefill?: string;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
-  const [memberStatus, setMemberStatus] = useState<Record<string, MemberStatus>>(conversation.memberStatus);
+  const [memberStatus, setMemberStatus] = useState<
+    Record<string, MemberStatus>
+  >(conversation.memberStatus);
   const messagesRef = useRef(messages);
   useEffect(() => {
     messagesRef.current = messages;
@@ -192,15 +398,24 @@ export function ChatWindow({
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(initialMessages.length >= MESSAGES_PAGE_SIZE);
+  const [hasMore, setHasMore] = useState(
+    initialMessages.length >= MESSAGES_PAGE_SIZE,
+  );
   const [loadingMore, setLoadingMore] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const hydrated = useHydrated();
-  const membersById = useMemo(() => new Map(conversation.members.map((m) => [m.id, m])), [conversation.members]);
-  const me = membersById.get(currentUserId) ?? { id: currentUserId, full_name: "You", avatar_url: null };
+  const membersById = useMemo(
+    () => new Map(conversation.members.map((m) => [m.id, m])),
+    [conversation.members],
+  );
+  const me = membersById.get(currentUserId) ?? {
+    id: currentUserId,
+    full_name: "You",
+    avatar_url: null,
+  };
   const isGroup = conversation.type === "group";
 
   // Live updates + mark as read.
@@ -215,19 +430,36 @@ export function ChatWindow({
       channel = supabase
         // wait: true holds SUBSCRIBED until the server's change listener is streaming,
         // so a message sent in that first second is not missed.
-        .channel(uniqueChannelName(`conversation:${conversation.id}`), { config: { postgres_changes_options: { wait: true } } })
+        .channel(uniqueChannelName(`conversation:${conversation.id}`), {
+          config: { postgres_changes_options: { wait: true } },
+        })
         .on(
           "postgres_changes",
-          { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversation.id}` },
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `conversation_id=eq.${conversation.id}`,
+          },
           (payload) => {
             // Realtime rows carry the raw JSON of attachments (and none at all before migration 20).
-            const raw = payload.new as Omit<Message, "attachments"> & { attachments?: unknown };
-            const row: Message = { ...raw, attachments: parseAttachments(raw.attachments) };
+            const raw = payload.new as Omit<Message, "attachments"> & {
+              attachments?: unknown;
+            };
+            const row: Message = {
+              ...raw,
+              attachments: parseAttachments(raw.attachments),
+            };
             setMessages((prev) => {
               if (prev.some((m) => m.id === row.id)) return prev;
-              const sender = row.sender_id ? (membersById.get(row.sender_id) ?? null) : null;
+              const sender = row.sender_id
+                ? (membersById.get(row.sender_id) ?? null)
+                : null;
               // Replace an optimistic copy of our own message if one is pending.
-              const withoutTemp = row.sender_id === currentUserId ? prev.filter((m) => !isOptimisticCopy(m, row)) : prev;
+              const withoutTemp =
+                row.sender_id === currentUserId
+                  ? prev.filter((m) => !isOptimisticCopy(m, row))
+                  : prev;
               return [...withoutTemp, { ...row, sender }];
             });
             if (row.sender_id !== currentUserId) {
@@ -237,22 +469,44 @@ export function ChatWindow({
             }
           },
         )
-        // A Snap opened, or gone: open_snap() and the Snap cleanup are all that ever change a message.
+        // A Snap opened, or gone, or a call moving on: the Snap and call functions are all that ever change a message.
         .on(
           "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${conversation.id}` },
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "messages",
+            filter: `conversation_id=eq.${conversation.id}`,
+          },
           (payload) => {
             const row = payload.new as Message;
-            setMessages((prev) => prev.map((m) => (m.id === row.id ? { ...m, snap: row.snap ?? null } : m)));
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === row.id
+                  ? { ...m, snap: row.snap ?? null, call: row.call ?? null }
+                  : m,
+              ),
+            );
           },
         )
         // Other members' read/delivered times, for the receipts under my messages.
         .on(
           "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "conversation_members", filter: `conversation_id=eq.${conversation.id}` },
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "conversation_members",
+            filter: `conversation_id=eq.${conversation.id}`,
+          },
           (payload) => {
             const row = payload.new as ConversationMember;
-            setMemberStatus((prev) => ({ ...prev, [row.user_id]: { lastReadAt: row.last_read_at, lastDeliveredAt: row.last_delivered_at } }));
+            setMemberStatus((prev) => ({
+              ...prev,
+              [row.user_id]: {
+                lastReadAt: row.last_read_at,
+                lastDeliveredAt: row.last_delivered_at,
+              },
+            }));
           },
         )
         .subscribe((status) => {
@@ -260,21 +514,39 @@ export function ChatWindow({
           // Receipts that changed before this subscription was streaming.
           getMemberStatus(supabase, conversation.id)
             .then((fresh) => {
-              if (!cancelled) setMemberStatus((prev) => ({ ...prev, ...fresh }));
+              if (!cancelled)
+                setMemberStatus((prev) => ({ ...prev, ...fresh }));
             })
             .catch(() => {});
           // Anything sent between the page render and this subscription would otherwise be missed.
-          const newest = [...messagesRef.current].reverse().find((m) => !m.pending && !m.failed)?.created_at;
-          listMessages(supabase, conversation.id, newest ? { after: newest } : {})
+          const newest = [...messagesRef.current]
+            .reverse()
+            .find((m) => !m.pending && !m.failed)?.created_at;
+          listMessages(
+            supabase,
+            conversation.id,
+            newest ? { after: newest } : {},
+          )
             .then((rows) => {
               if (cancelled || rows.length === 0) return;
               setMessages((prev) => {
-                const fresh = rows.filter((r) => !prev.some((m) => m.id === r.id));
+                const fresh = rows.filter(
+                  (r) => !prev.some((m) => m.id === r.id),
+                );
                 if (fresh.length === 0) return prev;
-                const withoutTemp = prev.filter((m) => !fresh.some((f) => f.sender_id === currentUserId && isOptimisticCopy(m, f)));
-                return [...withoutTemp, ...fresh].sort((a, b) => a.created_at.localeCompare(b.created_at));
+                const withoutTemp = prev.filter(
+                  (m) =>
+                    !fresh.some(
+                      (f) =>
+                        f.sender_id === currentUserId && isOptimisticCopy(m, f),
+                    ),
+                );
+                return [...withoutTemp, ...fresh].sort((a, b) =>
+                  a.created_at.localeCompare(b.created_at),
+                );
               });
-              if (rows.some((r) => r.sender_id !== currentUserId)) markConversationRead(supabase, conversation.id).catch(() => {});
+              if (rows.some((r) => r.sender_id !== currentUserId))
+                markConversationRead(supabase, conversation.id).catch(() => {});
             })
             .catch(() => {});
         });
@@ -287,22 +559,46 @@ export function ChatWindow({
   }, [conversation.id, currentUserId, membersById]);
 
   // Receipts: where each other member has read up to, and the state of my newest message.
-  const others = conversation.otherMembers.map((m) => ({ member: m, status: memberStatus[m.id] })).filter((x): x is { member: (typeof conversation.otherMembers)[number]; status: MemberStatus } => Boolean(x.status));
+  const others = conversation.otherMembers
+    .map((m) => ({ member: m, status: memberStatus[m.id] }))
+    .filter(
+      (
+        x,
+      ): x is {
+        member: (typeof conversation.otherMembers)[number];
+        status: MemberStatus;
+      } => Boolean(x.status),
+    );
   const seenAt = new Map<string, typeof conversation.otherMembers>();
   for (const { member, status } of others) {
     let target: ChatMessage | undefined;
     for (let i = messages.length - 1; i >= 0; i--) {
       const m = messages[i];
       // Messenger shows "seen" only under messages the reader did not send themselves.
-      if (!m.pending && !m.failed && m.sender_id !== member.id && m.created_at <= status.lastReadAt) {
+      if (
+        !m.pending &&
+        !m.failed &&
+        m.sender_id !== member.id &&
+        m.created_at <= status.lastReadAt
+      ) {
         target = m;
         break;
       }
     }
-    if (target) seenAt.set(target.id, [...(seenAt.get(target.id) ?? []), member]);
+    if (target)
+      seenAt.set(target.id, [...(seenAt.get(target.id) ?? []), member]);
   }
-  const lastMine = [...messages].reverse().find((m) => m.sender_id === currentUserId && !m.failed);
-  const lastMineReceipt: MessageReceipt | null = lastMine ? (lastMine.pending ? "sending" : receiptFor(lastMine.created_at, others.map((o) => o.status))) : null;
+  const lastMine = [...messages]
+    .reverse()
+    .find((m) => m.sender_id === currentUserId && !m.failed);
+  const lastMineReceipt: MessageReceipt | null = lastMine
+    ? lastMine.pending
+      ? "sending"
+      : receiptFor(
+          lastMine.created_at,
+          others.map((o) => o.status),
+        )
+    : null;
 
   // Scroll to the newest message.
   const lastId = messages[messages.length - 1]?.id;
@@ -331,13 +627,25 @@ export function ChatWindow({
     setError(null);
     setSending(true);
     try {
-      const saved = await sendMessage(createClient(), { conversationId: conversation.id, senderId: currentUserId, content: body, imageUrl });
+      const saved = await sendMessage(createClient(), {
+        conversationId: conversation.id,
+        senderId: currentUserId,
+        content: body,
+        imageUrl,
+      });
       setMessages((prev) => {
-        if (prev.some((m) => m.id === saved.id)) return prev.filter((m) => m.id !== tempId);
-        return prev.map((m) => (m.id === tempId ? { ...saved, sender: saved.sender ?? me } : m));
+        if (prev.some((m) => m.id === saved.id))
+          return prev.filter((m) => m.id !== tempId);
+        return prev.map((m) =>
+          m.id === tempId ? { ...saved, sender: saved.sender ?? me } : m,
+        );
       });
     } catch (e) {
-      setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, pending: false, failed: true } : m)));
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempId ? { ...m, pending: false, failed: true } : m,
+        ),
+      );
       setError(errorMessage(e, "Message could not be sent."));
     } finally {
       setSending(false);
@@ -352,8 +660,13 @@ export function ChatWindow({
     const list = listRef.current;
     const previousHeight = list?.scrollHeight ?? 0;
     try {
-      const older = await listMessages(createClient(), conversation.id, { before: oldest.created_at });
-      setMessages((prev) => [...older.filter((o) => !prev.some((p) => p.id === o.id)), ...prev]);
+      const older = await listMessages(createClient(), conversation.id, {
+        before: oldest.created_at,
+      });
+      setMessages((prev) => [
+        ...older.filter((o) => !prev.some((p) => p.id === o.id)),
+        ...prev,
+      ]);
       setHasMore(older.length >= MESSAGES_PAGE_SIZE);
       requestAnimationFrame(() => {
         if (list) list.scrollTop = list.scrollHeight - previousHeight;
@@ -371,7 +684,12 @@ export function ChatWindow({
     setUploading(true);
     setError(null);
     try {
-      const url = await uploadImage(createClient(), { kind: "messages", userId: currentUserId, file, fileName: file.name });
+      const url = await uploadImage(createClient(), {
+        kind: "messages",
+        userId: currentUserId,
+        file,
+        fileName: file.name,
+      });
       await send(text, url);
     } catch (e) {
       setError(errorMessage(e, "Photo upload failed."));
@@ -382,17 +700,27 @@ export function ChatWindow({
 
   return (
     <>
-      <div ref={listRef} className="scrollbar-thin flex-1 overflow-y-auto px-3 py-4 sm:px-6">
+      <div
+        ref={listRef}
+        className="scrollbar-thin flex-1 overflow-y-auto px-3 py-4 sm:px-6"
+      >
         {hasMore ? (
           <div className="mb-4 flex justify-center">
-            <button type="button" onClick={loadMore} disabled={loadingMore} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">
+            <button
+              type="button"
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+            >
               {loadingMore ? "Loading…" : "Load earlier messages"}
             </button>
           </div>
         ) : null}
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-gray-500">
-            <p className="font-medium text-gray-700">This is the start of your conversation.</p>
+            <p className="font-medium text-gray-700">
+              This is the start of your conversation.
+            </p>
             <p className="text-sm">Say hello 👋</p>
           </div>
         ) : null}
@@ -400,60 +728,152 @@ export function ChatWindow({
           {messages.map((m, index) => {
             const previous = messages[index - 1];
             const mine = m.sender_id === currentUserId;
-            const showDay = !previous || !isSameDay(previous.created_at, m.created_at);
-            const continued = previous && previous.sender_id === m.sender_id && !showDay;
+            const showDay =
+              !previous || !isSameDay(previous.created_at, m.created_at);
+            const continued =
+              previous && previous.sender_id === m.sender_id && !showDay;
             const shared = sharedPostOf(m.shared_post);
             const attachments = m.attachments ?? [];
             const snap = snapOf(m.snap);
+            const call = callOf(m.call);
             const reply = replyOf(m.reply_to);
-            const replyName = reply ? (reply.sender_id === currentUserId ? "You" : (membersById.get(reply.sender_id ?? "")?.full_name ?? "Someone")) : "";
+            const replyName = reply
+              ? reply.sender_id === currentUserId
+                ? "You"
+                : (membersById.get(reply.sender_id ?? "")?.full_name ??
+                  "Someone")
+              : "";
             return (
               <li key={m.id} className="flex flex-col">
-                {showDay && hydrated ? <p className="my-3 text-center text-[11px] font-medium uppercase tracking-wide text-gray-500">{formatDayLabel(m.created_at)}</p> : null}
-                <div className={cn("flex items-end gap-2", mine ? "flex-row-reverse" : "flex-row", continued && "mt-0")}>
+                {showDay && hydrated ? (
+                  <p className="my-3 text-center text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                    {formatDayLabel(m.created_at)}
+                  </p>
+                ) : null}
+                <div
+                  className={cn(
+                    "flex items-end gap-2",
+                    mine ? "flex-row-reverse" : "flex-row",
+                    continued && "mt-0",
+                  )}
+                >
                   {!mine ? (
                     <span className="w-8 shrink-0">
-                      {!continued ? <Avatar name={m.sender?.full_name ?? "?"} src={m.sender?.avatar_url} size="sm" /> : null}
+                      {!continued ? (
+                        <Avatar
+                          name={m.sender?.full_name ?? "?"}
+                          src={m.sender?.avatar_url}
+                          size="sm"
+                        />
+                      ) : null}
                     </span>
                   ) : null}
-                  <div className={cn("flex max-w-[75%] flex-col", mine ? "items-end" : "items-start")}>
-                    {!mine && isGroup && !continued ? <span className="mb-0.5 ml-1 text-[11px] text-gray-500">{m.sender?.full_name ?? "Unknown"}</span> : null}
-                    {reply ? <ReplyQuote name={replyName} text={replyText(reply)} mine={mine} /> : null}
+                  <div
+                    className={cn(
+                      "flex max-w-[75%] flex-col",
+                      mine ? "items-end" : "items-start",
+                    )}
+                  >
+                    {!mine && isGroup && !continued ? (
+                      <span className="mb-0.5 ml-1 text-[11px] text-gray-500">
+                        {m.sender?.full_name ?? "Unknown"}
+                      </span>
+                    ) : null}
+                    {reply ? (
+                      <ReplyQuote
+                        name={replyName}
+                        text={replyText(reply)}
+                        mine={mine}
+                      />
+                    ) : null}
                     {/* A shared post, reel or listing sits above the words (a share without words has no bubble at all). */}
-                    {shared ? <SharedPostCard shared={shared} pending={m.pending} /> : null}
+                    {shared ? (
+                      <SharedPostCard shared={shared} pending={m.pending} />
+                    ) : null}
                     {m.image_url ? (
-                      <a href={m.image_url} target="_blank" rel="noopener noreferrer" className="relative mb-1 block h-48 w-48 overflow-hidden rounded-2xl bg-gray-100">
-                        <Image src={m.image_url} alt="Shared photo" fill sizes="192px" className="object-cover" />
+                      <a
+                        href={m.image_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="relative mb-1 block h-48 w-48 overflow-hidden rounded-2xl bg-gray-100"
+                      >
+                        <Image
+                          src={m.image_url}
+                          alt="Shared photo"
+                          fill
+                          sizes="192px"
+                          className="object-cover"
+                        />
                       </a>
                     ) : null}
                     {/* Photos, videos and files sent from the app, above the words (a message of files alone has no bubble). */}
                     {attachments.length > 0 ? (
-                      <MessageAttachments attachments={attachments} mine={mine} senderName={mine ? "You" : (m.sender?.full_name ?? "Unknown")} sentAt={m.created_at} />
+                      <MessageAttachments
+                        attachments={attachments}
+                        mine={mine}
+                        senderName={
+                          mine ? "You" : (m.sender?.full_name ?? "Unknown")
+                        }
+                        sentAt={m.created_at}
+                      />
                     ) : null}
                     {snap ? <SnapCard snap={snap} mine={mine} /> : null}
+                    {call ? <CallCard call={call} mine={mine} /> : null}
                     {m.content && !(m.image_url && m.content === "📷 Photo") ? (
                       <div
                         className={cn(
                           "whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm",
-                          mine ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-900",
+                          mine
+                            ? "bg-brand-600 text-white"
+                            : "bg-gray-100 text-gray-900",
                           m.pending && "opacity-60",
                           m.failed && "bg-red-100 text-red-800",
                         )}
-                        title={hydrated ? formatMessageTime(m.created_at) : undefined}
+                        title={
+                          hydrated ? formatMessageTime(m.created_at) : undefined
+                        }
                       >
                         {m.content}
                       </div>
                     ) : null}
                     <span className="mt-0.5 px-1 text-[11px] text-gray-500">
-                      {m.failed ? "Failed to send" : m.pending ? "Sending…" : hydrated ? formatMessageTime(m.created_at) : "\u00a0"}
+                      {m.failed
+                        ? "Failed to send"
+                        : m.pending
+                          ? "Sending…"
+                          : hydrated
+                            ? formatMessageTime(m.created_at)
+                            : "\u00a0"}
                     </span>
                   </div>
-                  {mine && m.id === lastMine?.id && lastMineReceipt && lastMineReceipt !== "seen" ? <ReceiptIcon receipt={lastMineReceipt} /> : null}
+                  {mine &&
+                  m.id === lastMine?.id &&
+                  lastMineReceipt &&
+                  lastMineReceipt !== "seen" ? (
+                    <ReceiptIcon receipt={lastMineReceipt} />
+                  ) : null}
                 </div>
                 {seenAt.has(m.id) ? (
-                  <div className="flex justify-end gap-0.5 pr-0.5" data-testid="seen-by" aria-label={`Seen by ${seenAt.get(m.id)!.map((p) => p.full_name).join(", ")}`} title={`Seen by ${seenAt.get(m.id)!.map((p) => p.full_name).join(", ")}`}>
+                  <div
+                    className="flex justify-end gap-0.5 pr-0.5"
+                    data-testid="seen-by"
+                    aria-label={`Seen by ${seenAt
+                      .get(m.id)!
+                      .map((p) => p.full_name)
+                      .join(", ")}`}
+                    title={`Seen by ${seenAt
+                      .get(m.id)!
+                      .map((p) => p.full_name)
+                      .join(", ")}`}
+                  >
                     {seenAt.get(m.id)!.map((p) => (
-                      <Avatar key={p.id} name={p.full_name} src={p.avatar_url} size="xs" className="h-4 w-4 text-[8px]" />
+                      <Avatar
+                        key={p.id}
+                        name={p.full_name}
+                        src={p.avatar_url}
+                        size="xs"
+                        className="h-4 w-4 text-[8px]"
+                      />
                     ))}
                   </div>
                 ) : null}
@@ -471,9 +891,22 @@ export function ChatWindow({
           void send(text);
         }}
       >
-        <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-brand-600 hover:bg-brand-50" aria-label="Send a photo">
-          {uploading ? <Spinner className="h-5 w-5" /> : <ImagePlus className="h-5 w-5" />}
-          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" disabled={uploading} onChange={(e) => attachImage(e.target.files)} />
+        <label
+          className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-brand-600 hover:bg-brand-50"
+          aria-label="Send a photo"
+        >
+          {uploading ? (
+            <Spinner className="h-5 w-5" />
+          ) : (
+            <ImagePlus className="h-5 w-5" />
+          )}
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="sr-only"
+            disabled={uploading}
+            onChange={(e) => attachImage(e.target.files)}
+          />
         </label>
         <textarea
           ref={textareaRef}
@@ -491,7 +924,12 @@ export function ChatWindow({
           aria-label="Message"
           className="max-h-32 min-h-10 flex-1 resize-none rounded-2xl bg-gray-100 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-200"
         />
-        <button type="submit" disabled={sending || uploading || text.trim().length === 0} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-40" aria-label="Send">
+        <button
+          type="submit"
+          disabled={sending || uploading || text.trim().length === 0}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-40"
+          aria-label="Send"
+        >
           <Send className="h-5 w-5" />
         </button>
       </form>

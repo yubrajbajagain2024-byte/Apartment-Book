@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View, type ViewToken } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View, type ListViewToken } from "react-native";
 import { useRouter } from "expo-router";
 import { listReels, REELS_PAGE_SIZE, type Reel } from "@apartment-book/shared";
 import { errorText } from "@/lib/hooks";
@@ -189,9 +189,9 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
   );
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 80 }).current;
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const first = viewableItems.find((v) => v.isViewable && v.index !== null);
-    if (first && first.index !== null) setVisible(first.index);
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ListViewToken[] }) => {
+    const first = viewableItems.find((v) => v.isViewable && v.index != null);
+    if (first && first.index != null) setVisible(first.index);
   }).current;
 
   const create = () => router.push(user ? "/create/reel" : "/(auth)/login");

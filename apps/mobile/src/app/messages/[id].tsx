@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, LayoutAnimation, Platform, Text, TextInput, View, useWindowDimensions, type ListRenderItem } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, LayoutAnimation, Platform, Text, TextInput, View, useWindowDimensions, type ListRenderItem, type TextInputInstance, type ViewInstance } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import {
   MESSAGE_ATTACHMENT_LIMITS,
@@ -15,28 +15,38 @@ import {
   parseAttachments,
   receiptFor,
   recordContact,
+  deleteSnap,
   replyOf,
   replySnapshotOf,
   reportContent,
   sendMessage,
   signMessageMedia,
+  snapDelivered,
   snapOf,
+  snapState,
   unblockUser,
+  currentCall,
+  type CallRecord,
   type ConversationMember,
   type ConversationSummary,
   type MemberStatus,
   type Message,
   type MessageAttachment,
+  type MessageCall,
   type MessageReply,
   type ProfileSummary,
 } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
+import { CallBanner } from "@/components/calls/call-banner";
+import { useCalls } from "@/components/calls/call-provider";
+import { CALLS_PAUSED } from "@/lib/calls";
 import { ChatHeader } from "@/components/messages/chat-header";
 import { shareVideoThumbnail } from "@/components/messages/attachment-thumb";
 import { Composer, ComposerNotice, type ComposerReply } from "@/components/messages/composer";
 import { MediaViewer, type MediaViewerItem } from "@/components/messages/media-viewer";
 import { MessageRow, messageMedia, type MediaResolver } from "@/components/messages/message-bubble";
 import type { ReplyContext } from "@/components/messages/reply-quote";
+import { SnapActivitySheet } from "@/components/snap/snap-activity-sheet";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { reduceMotionEnabled } from "@/lib/accessibility";
 import { hapticTap, alertWithHaptic } from "@/lib/haptics";
@@ -87,7 +97,7 @@ export default function ChatScreen() {
     return (
       <View style={styles.screen}>
         {sessionLoading || loading || !user ? <Loading /> : <EmptyState icon="chatbubbles-outline" title="Conversation not found" />}
-        <ChatHeader conversation={null} subtitle="" activeNow={false} keepSubtitleRoom={false} onBack={back} onOpenInfo={() => {}} onOpenSearch={() => {}} onHeight={() => {}} />
+        <ChatHeader conversation={null} subtitle="" activeNow={false} keepSubtitleRoom={false} onBack={back} onOpenInfo={() => {}} onHeight={() => {}} />
       </View>
     );
   }
@@ -224,15 +234,19 @@ function Chat({
   /** The message whose exact time shows under it (tapped); one at a time. */
   const [revealedId, setRevealedId] = useState<string | null>(null);
   const [viewer, setViewer] = useState<{ items: MediaViewerItem[]; index: number } | null>(null);
+  /** The Snap whose story is open in the activity sheet. */
+  const [activityFor, setActivityFor] = useState<ChatMessage | null>(null);
+  /** Snaps this device has already said it received. */
+  const delivered = useRef(new Set<string>());
   const [windowTop, setWindowTop] = useState<number | null>(null);
   const [jumpTick, setJumpTick] = useState(0);
   // How much of the list the floating header and bar cover: the list keeps that much clear at each end.
   const [headerHeight, setHeaderHeight] = useState(0);
   const [barHeight, setBarHeight] = useState(0);
 
-  const rootRef = useRef<View>(null);
+  const rootRef = useRef<ViewInstance>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
   const hasOlderRef = useRef(hasOlder);
@@ -333,10 +347,11 @@ function Chat({
           refreshActivity.current();
         }
       })
-      // A Snap opened, or gone, on either side: open_snap() and the Snap cleanup are all that ever change a message.
+      // A Snap opened, or gone, on either side, or a call moving on (answered, over): the Snap and call functions are
+      // all that ever change a message.
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${conversation.id}` }, (payload) => {
         const row = payload.new as Message;
-        setMessages((prev) => prev.map((m) => (m.id === row.id ? { ...m, snap: row.snap ?? null } : m)));
+        setMessages((prev) => prev.map((m) => (m.id === row.id ? { ...m, snap: row.snap ?? null, call: row.call ?? null } : m)));
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversation_members", filter: `conversation_id=eq.${conversation.id}` }, (payload) => {
         const row = payload.new as ConversationMember;
@@ -763,14 +778,19 @@ function Chat({
     }
     // The menu is headed by the message's exact time (a hold is the other way to see it, for photos and the like).
     const when = formatMessageTime(m.created_at);
+    const snap = snapOf(m.snap);
+    // A Snap's story is a hold away too; its sender can take a waiting one back.
+    const snapActions = snap ? [{ label: "Snap activity", icon: "eye-outline" as const, onPress: () => openSnapActivity(m) }] : [];
+    const deleteSnapAction = snap && m.sender_id === userId && snapState(snap) === "new" ? [{ label: "Delete Snap", icon: "trash-outline" as const, destructive: true, onPress: () => removeSnap(m) }] : [];
     // A sent message of mine offers only Reply: deleting it would leave its text in the inbox and in the other side's chat.
     if (m.sender_id === userId) {
-      show([{ label: "Reply", icon: "arrow-undo-outline", onPress: () => startReply(m) }], when);
+      show([{ label: "Reply", icon: "arrow-undo-outline", onPress: () => startReply(m) }, ...snapActions, ...deleteSnapAction], when);
       return;
     }
     show(
       [
         { label: "Reply", icon: "arrow-undo-outline", onPress: () => startReply(m) },
+        ...snapActions,
         { label: "Report message", icon: "flag-outline", destructive: true, onPress: () => reportMessage(m) },
       ],
       when,
@@ -810,29 +830,104 @@ function Chat({
     },
     [router],
   );
-  // A Snap opened on this device (or found expired or gone) changes its bubble before the database's update arrives.
+  // A Snap opened on this device (or found expired or gone, or captured) changes its bubble before the database's
+  // update arrives; the activity entry is added once (the database's own copy replaces it when it comes).
   useEffect(
     () =>
-      onSnapChange(({ snapId, patch }) => {
+      onSnapChange(({ snapId, patch, activity }) => {
         setMessages((prev) =>
           prev.map((m) => {
             const snap = snapOf(m.snap);
             if (!snap || snap.id !== snapId) return m;
-            return { ...m, snap: { ...snap, ...patch, opened_at: snap.opened_at ?? patch.opened_at ?? null } };
+            const list = snap.activity ?? [];
+            const withActivity = activity && !list.some((a) => a.type === activity.type && a.at === activity.at) ? [...list, activity] : list;
+            return { ...m, snap: { ...snap, ...patch, opened_at: snap.opened_at ?? patch.opened_at ?? null, activity: withActivity.length > 0 ? withActivity : undefined } };
           }),
         );
       }),
     [],
   );
+
+  // Snaps from other people that just reached this device: "Delivered" goes on their activity, once each.
+  useEffect(() => {
+    for (const m of messages) {
+      const snap = snapOf(m.snap);
+      if (!snap || m.sender_id === userId || delivered.current.has(snap.id) || snapState(snap) !== "new") continue;
+      if ((snap.activity ?? []).some((a) => a.type === "delivered")) continue;
+      delivered.current.add(snap.id);
+      snapDelivered(supabase, snap.id).catch(() => delivered.current.delete(snap.id));
+    }
+  }, [messages, userId]);
+
+  const openSnapActivity = useCallback((m: ChatMessage) => setActivityFor(m), []);
+  const activityMessage = activityFor ? (messages.find((m) => m.id === activityFor.id) ?? activityFor) : null;
+  const activitySnap = activityMessage ? snapOf(activityMessage.snap) : null;
+
+  /** The sender takes a waiting Snap back: every chat it went to says "Snap deleted". */
+  function removeSnap(m: ChatMessage) {
+    const snap = snapOf(m.snap);
+    if (!snap) return;
+    alertWithHaptic("warning", "Delete this Snap?", "It will be taken back before it is opened, and the chat will say it was deleted.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          setActivityFor(null);
+          deleteSnap(supabase, snap.id).catch((e) => alertWithHaptic("error", "Couldn't delete the Snap", errorText(e)));
+        },
+      },
+    ]);
+  }
   const openProfile = useCallback((profileId: string) => router.push({ pathname: "/profile/[id]", params: { id: profileId } }), [router]);
   const openInfo = useCallback(() => {
     Keyboard.dismiss();
     router.push({ pathname: "/messages/info/[id]", params: { id: conversation.id } });
   }, [router, conversation.id]);
-  const openSearch = useCallback(() => {
+
+  // ---------------------------------------------------------------------------
+  // Calls: the bar's Audio call and Video call, a call's row tapped (call back, or join), and the banner for a call
+  // going on in this chat that I am not in (kept up with the chat's calls over realtime).
+  // ---------------------------------------------------------------------------
+  const { place, join } = useCalls();
+  const [liveCall, setLiveCall] = useState<CallRecord | null>(null);
+  useEffect(() => {
+    // Paused calls (CALLS_PAUSED): no call goes on, so nothing to look for and no Join banner.
+    if (CALLS_PAUSED) return;
+    let alive = true;
+    const look = () =>
+      currentCall(supabase, conversation.id)
+        .then((c) => {
+          if (alive) setLiveCall(c);
+        })
+        .catch(() => {});
+    look();
+    const channel = supabase
+      .channel(`chat-calls:${conversation.id}:${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "calls", filter: `conversation_id=eq.${conversation.id}` }, () => look())
+      .subscribe();
+    return () => {
+      alive = false;
+      supabase.removeChannel(channel);
+    };
+  }, [conversation.id]);
+  const inLiveCall = liveCall?.participants.some((p) => p.user_id === userId && p.state === "joined") ?? false;
+  const canCall = block === "none";
+  const startAudioCall = useCallback(() => {
     Keyboard.dismiss();
-    router.push({ pathname: "/messages/search/[id]", params: { id: conversation.id } });
-  }, [router, conversation.id]);
+    void place(conversation.id, "audio");
+  }, [place, conversation.id]);
+  const startVideoCall = useCallback(() => {
+    Keyboard.dismiss();
+    void place(conversation.id, "video");
+  }, [place, conversation.id]);
+  const onCall = useCallback(
+    (call: MessageCall) => {
+      if (call.status === "ended") void place(conversation.id, call.kind);
+      else void join(call.id, call.kind);
+    },
+    [place, join, conversation.id],
+  );
 
   // ---------------------------------------------------------------------------
   // Receipts: seen-avatars under the last message each other member read; sent/delivered under my newest.
@@ -894,6 +989,8 @@ function Chat({
           onOpenMedia={openMedia}
           onOpenFile={openFile}
           onOpenSnap={openSnapViewer}
+          onSnapActivity={openSnapActivity}
+          onCall={onCall}
           onActions={onActions}
           onReply={startReply}
           onReveal={revealTime}
@@ -902,7 +999,7 @@ function Chat({
         />
       );
     },
-    [messages, userId, isGroup, lastMine, receipt, seenAt, highlightId, revealedId, mediaWidth, resolveMedia, resolveReply, openMedia, openFile, openSnapViewer, onActions, startReply, revealTime, jumpFromQuote, openProfile],
+    [messages, userId, isGroup, lastMine, receipt, seenAt, highlightId, revealedId, mediaWidth, resolveMedia, resolveReply, openMedia, openFile, openSnapViewer, openSnapActivity, onCall, onActions, startReply, revealTime, jumpFromQuote, openProfile],
   );
 
   const notice =
@@ -938,7 +1035,7 @@ function Chat({
           onScrollToIndexFailed={onScrollToIndexFailed}
           initialNumToRender={20}
           windowSize={15}
-          ListFooterComponent={loadingOlder ? <ActivityIndicator style={styles.older} color={colors.brand} /> : null}
+          ListFooterComponent={loadingOlder ? <ActivityIndicator style={styles.older} color={colors.brand} /> : undefined}
           ListEmptyComponent={
             !loaded ? (
               <View style={styles.emptyBox}>
@@ -978,10 +1075,20 @@ function Chat({
         keepSubtitleRoom={activity.waiting}
         onBack={onBack}
         onOpenInfo={openInfo}
-        onOpenSearch={openSearch}
+        onAudioCall={canCall ? startAudioCall : undefined}
+        onVideoCall={canCall ? startVideoCall : undefined}
         onHeight={setHeaderHeight}
       />
+      {liveCall && !inLiveCall && canCall ? <CallBanner call={liveCall} top={headerHeight + 4} onJoin={() => void join(liveCall.id, liveCall.kind)} /> : null}
       <MediaViewer visible={viewer !== null} items={viewer?.items ?? []} index={viewer?.index ?? 0} onClose={() => setViewer(null)} />
+      <SnapActivitySheet
+        snap={activitySnap}
+        mine={activityMessage?.sender_id === userId}
+        sentAt={activityMessage?.created_at ?? null}
+        visible={activityFor !== null}
+        onClose={() => setActivityFor(null)}
+        onDelete={activityMessage ? () => removeSnap(activityMessage) : undefined}
+      />
     </View>
   );
 }

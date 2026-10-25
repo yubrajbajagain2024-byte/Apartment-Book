@@ -1,21 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Animated,
-  FlatList,
-  Modal,
-  PanResponder,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-  type GestureResponderEvent,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from "react-native";
+import { ActivityIndicator, Animated, FlatList, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from "react-native";
 import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import { useVideoPlayer, VideoView } from "expo-video";
@@ -139,7 +123,7 @@ function Photo({ item, width, height }: { item: MediaViewerItem; width: number; 
 
 /** iPhone: the system's own zooming scroll view (pinch, pan, bounce), plus double tap to zoom in or out. */
 function NativeZoomPhoto({ item, width, height, onZoomChange }: { item: MediaViewerItem; width: number; height: number; onZoomChange: (zoomed: boolean) => void }) {
-  const ref = useRef<ScrollView>(null);
+  const ref = useRef<ScrollViewInstance>(null);
   const zoomed = useRef(false);
   const lastTap = useRef(0);
 

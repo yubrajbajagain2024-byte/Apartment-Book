@@ -8,16 +8,18 @@ import { Icon } from "@/components/icon";
 import { ProgressiveBlur } from "@/components/progressive-blur";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 
-/** The round glass buttons, the system's 44pt touch target. */
+/** Back, in a glass circle: the system's 44pt touch target. */
 const BUTTON = 44;
+/** The three actions on the right (Audio call, Video call, Info): a touch smaller, so a long name keeps its room. */
+const ACTION = 40;
 /** The person's photo beside their name. */
 const AVATAR = 38;
 
 /**
  * A chat's floating top bar, in one row: Back in a glass circle on the left, then who the chat is with (their photo,
  * with the green dot while they are active, their name with a chevron and their activity line under it; a group shows
- * its mark and member count), and Search and Info in glass circles on the right. The photo and the name open the chat's
- * details, as Info does. Nothing solid behind it: the messages scroll under it through a blur that fades in towards the
+ * its mark and member count), and Audio call, Video call and Info in glass circles on the right (Search is in the chat's
+ * details, with everything else about the chat). The photo and the name open the chat's details, as Info does. Nothing solid behind it: the messages scroll under it through a blur that fades in towards the
  * top of the screen, so the clock always has something quiet behind it. `onHeight` tells the chat how much of the list
  * it covers.
  */
@@ -28,7 +30,8 @@ export function ChatHeader({
   keepSubtitleRoom,
   onBack,
   onOpenInfo,
-  onOpenSearch,
+  onAudioCall,
+  onVideoCall,
   onHeight,
 }: {
   conversation: ConversationSummary | null;
@@ -39,7 +42,9 @@ export function ChatHeader({
   keepSubtitleRoom: boolean;
   onBack: () => void;
   onOpenInfo: () => void;
-  onOpenSearch: () => void;
+  /** The call buttons; left out (a chat you cannot call in, e.g. one that blocked you), the bar shows Info alone. */
+  onAudioCall?: () => void;
+  onVideoCall?: () => void;
   onHeight: (height: number) => void;
 }) {
   const styles = useStyles();
@@ -103,8 +108,9 @@ export function ChatHeader({
         )}
         {conversation ? (
           <View style={styles.actions}>
-            <GlassIconButton icon="search" label="Search in this chat" variant="float" size={BUTTON} iconSize={20} weight="medium" onPress={onOpenSearch} />
-            <GlassIconButton icon="information-circle-outline" label="Chat details" variant="float" size={BUTTON} iconSize={23} weight="medium" onPress={onOpenInfo} />
+            {onAudioCall ? <GlassIconButton icon="call" label="Audio call" variant="float" size={ACTION} iconSize={19} weight="medium" onPress={onAudioCall} /> : null}
+            {onVideoCall ? <GlassIconButton icon="videocam" label="Video call" variant="float" size={ACTION} iconSize={21} weight="medium" onPress={onVideoCall} /> : null}
+            <GlassIconButton icon="information-circle-outline" label="Chat details" variant="float" size={ACTION} iconSize={22} weight="medium" onPress={onOpenInfo} />
           </View>
         ) : null}
       </View>
@@ -121,5 +127,5 @@ const useStyles = makeStyles((colors) => ({
   nameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   name: { flexShrink: 1, fontSize: 17, lineHeight: 22, fontWeight: "700", color: colors.text },
   sub: { fontSize: 13, lineHeight: 17, color: colors.muted },
-  actions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  actions: { flexDirection: "row", alignItems: "center", gap: 8 },
 }));

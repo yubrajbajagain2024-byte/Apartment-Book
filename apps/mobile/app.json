@@ -7,15 +7,17 @@
     "icon": "./assets/images/icon.png",
     "scheme": "apartmentbook",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.apartmentbook.app",
       "supportsTablet": false,
       "infoPlist": {
-        "NSCameraUsageDescription": "Apartment Book uses the camera so you can film a video tour or take photos of your place and items.",
+        "NSCameraUsageDescription": "CampConnect uses your camera for video calls, and to take photos and record videos for Snaps, posts and listings, like video tours of your place.",
         "NSPhotoLibraryUsageDescription": "Apartment Book needs your photo library to add photos and videos to your listings and profile.",
-        "NSMicrophoneUsageDescription": "Apartment Book records audio when you film a video tour.",
-        "ITSAppUsesNonExemptEncryption": false
+        "NSMicrophoneUsageDescription": "CampConnect uses the microphone for audio and video calls, voice messages and video tours.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
@@ -28,7 +30,10 @@
         "CAMERA",
         "RECORD_AUDIO",
         "READ_MEDIA_IMAGES",
-        "READ_MEDIA_VIDEO"
+        "READ_MEDIA_VIDEO",
+        "MODIFY_AUDIO_SETTINGS",
+        "BLUETOOTH",
+        "BLUETOOTH_CONNECT"
       ],
       "predictiveBackGestureEnabled": false
     },
@@ -50,19 +55,35 @@
         "expo-image-picker",
         {
           "photosPermission": "Apartment Book needs your photo library to add photos and videos to your listings.",
-          "cameraPermission": "Apartment Book uses the camera to film video tours and take photos."
+          "cameraPermission": "CampConnect uses your camera for video calls, and to take photos and record videos for Snaps, posts and listings, like video tours of your place."
         }
       ],
       [
         "expo-notifications",
         {
-          "color": "#1877f2"
+          "color": "#1877f2",
+          "sounds": [
+            "./assets/sounds/ring.wav"
+          ]
         }
       ],
       "expo-video",
       "expo-secure-store",
       "@react-native-community/datetimepicker",
-      "expo-audio"
+      "expo-audio",
+      [
+        "@livekit/react-native-expo-plugin",
+        {
+          "android": {
+            "audioType": "communication"
+          }
+        }
+      ],
+      "@config-plugins/react-native-webrtc",
+      "expo-font",
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {

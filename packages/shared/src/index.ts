@@ -6,6 +6,7 @@ export * from "./for-you";
 export * from "./share";
 export * from "./message-media";
 export * from "./message-replies";
+export * from "./calls";
 export * from "./snaps";
 export * from "./activity";
 export * from "./profile";

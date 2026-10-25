@@ -42,4 +42,5 @@ example
 /ios
 /android
 .sim-state.json
+.call-partners.json
 e2e/screenshots/

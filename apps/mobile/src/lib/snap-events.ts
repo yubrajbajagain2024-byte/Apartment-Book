@@ -1,10 +1,10 @@
-import type { MessageSnap } from "@apartment-book/shared";
+import type { MessageSnap, SnapActivity } from "@apartment-book/shared";
 
 /**
  * A Snap changed on this device: its viewer opened it, or found it expired or gone. An open chat patches that Snap's
  * bubble at once, before the database's own update arrives over realtime.
  */
-export type SnapChange = { snapId: string; patch: Partial<Pick<MessageSnap, "opened_at" | "expires_at" | "gone">> };
+export type SnapChange = { snapId: string; patch: Partial<Pick<MessageSnap, "opened_at" | "expires_at" | "gone">>; activity?: SnapActivity };
 
 const listeners = new Set<(change: SnapChange) => void>();
 

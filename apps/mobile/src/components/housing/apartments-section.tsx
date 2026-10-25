@@ -1,5 +1,5 @@
 import { memo, useMemo, useRef, useState } from "react";
-import { RefreshControl, Text, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
+import { RefreshControl, Text, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type ListViewToken } from "react-native";
 import { formatDistance, formatPrice, isVerifiedPoster, KM_PER_MILE, listApartments, listingMedia, videosFor, type ApartmentWithOwner, type PostEngagement } from "@apartment-book/shared";
 import type { RoomFilters } from "@/components/housing/filter-sheet";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
@@ -69,7 +69,7 @@ export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filt
   // One video tour plays at a time, the first listing on screen (at least 60% of it) that has one, and only while this
   // half of Explore is the one shown: sound is one switch for every video, so two playing at once would both be heard.
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ListViewToken[] }) => {
     const first = viewableItems.find((v) => v.isViewable && videosFor((v.item as ApartmentWithOwner).videos).length > 0);
     setPlayingId(first ? String(first.key) : null);
   }).current;
@@ -94,7 +94,7 @@ export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filt
         initialNumToRender={3}
         maxToRenderPerBatch={4}
         ListEmptyComponent={feed.loading ? <Loading /> : feed.error ? <View style={{ paddingHorizontal: FEED_HEADER_PADDING }}><ErrorBanner message={feed.error} onRetry={feed.refresh} /></View> : <EmptyState icon={filtered || q ? "search-outline" : "home-outline"} title={filtered || q ? "No apartments match" : "No apartments yet"} body={filtered ? "Try fewer filters." : q ? "Try another word." : "Be the first to list a place."} />}
-        ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : null}
+        ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : undefined}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
         refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={refreshWithHaptic(feed.refresh)} progressViewOffset={inset.progressViewOffset} />}

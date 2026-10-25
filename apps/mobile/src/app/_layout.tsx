@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ActionSheetProvider } from "@/components/action-sheet";
+import { CallProvider } from "@/components/calls/call-provider";
 import { ShareSheetProvider } from "@/components/share-sheet";
 import { PresenceProvider } from "@/lib/presence";
 import { SessionProvider } from "@/lib/session";
@@ -19,7 +20,10 @@ export default function RootLayout() {
             <PresenceProvider>
               <ActionSheetProvider>
                 <ShareSheetProvider>
-                  <ThemedStack />
+                  {/* Calls ring over whatever is on screen, so their provider sits around the whole stack. */}
+                  <CallProvider>
+                    <ThemedStack />
+                  </CallProvider>
                 </ShareSheetProvider>
               </ActionSheetProvider>
             </PresenceProvider>
@@ -60,6 +64,8 @@ function ThemedStack() {
         <Stack.Screen name="buzz/[id]" options={{ headerShown: false, contentStyle: content }} />
         {/* A chat draws its own floating bar (Back, the person's photo and name, Search and Info on glass), so the messages scroll under it. */}
         <Stack.Screen name="messages/[id]" options={{ headerShown: false, contentStyle: content }} />
+        {/* A call fills the screen on its own dark stage, as FaceTime's does, and is left only by hanging up. */}
+        <Stack.Screen name="call/[id]" options={{ headerShown: false, presentation: "fullScreenModal", animation: "fade", gestureEnabled: false, contentStyle: { backgroundColor: "#0b0b14" } }} />
         <Stack.Screen name="messages/new" options={{ title: "New message" }} />
         <Stack.Screen name="messages/info/[id]" options={{ title: "Chat info" }} />
         <Stack.Screen name="messages/search/[id]" options={{ title: "Search" }} />

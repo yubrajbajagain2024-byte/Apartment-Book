@@ -1,9 +1,10 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View, type ViewInstance } from "react-native";
 import Reanimated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
+  callOf,
   extractLinks,
   formatTimeOfDay,
   formatDayLabel,
@@ -13,11 +14,13 @@ import {
   sharedPostOf,
   snapOf,
   type MessageAttachment,
+  type MessageCall,
   type MessageReply,
   type ProfileSummary,
   type SharedPost,
 } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
+import { CallRow } from "@/components/calls/call-row";
 import { useReduceMotion } from "@/lib/accessibility";
 import { openChatLink, sharedPostHref, type ChatMessage, type OutgoingFiles, type UploadStatus } from "@/lib/message-attachments";
 import { entryForPost, measureOrigin, openViewer } from "@/lib/reel-viewer";
@@ -151,6 +154,10 @@ export type MessageRowProps = {
   onOpenFile: (attachment: MessageAttachment) => void;
   /** A Snap from someone else, tapped while it is new: its one view. */
   onOpenSnap?: (message: ChatMessage) => void;
+  /** A tap on the activity line under a Snap: everything that happened to it. */
+  onSnapActivity?: (message: ChatMessage) => void;
+  /** A tap on a call's row: call back, or join the call if it is still going on. */
+  onCall?: (call: MessageCall) => void;
   /** Long press (and a tap on a message that was not sent): retry, delete or report. */
   onActions: (message: ChatMessage) => void;
   /** A swipe to the right on the message. */
@@ -166,7 +173,7 @@ export type MessageRowProps = {
 /**
  * One message in the chat, laid out like the Messages app's: a centred stamp ("Today 14:05") above the first message of
  * a day and above any message that comes after half an hour's quiet, in a group the sender's name above a run of
- * theirs, the quote of what it answers, a shared post, photos and videos, files, a Snap, a voice message, and the words
+ * theirs, the quote of what it answers, a shared post, photos and videos, files, a Snap, a call, a voice message, and the words
  * in a blue (mine) or grey bubble. Nothing under a bubble by default, as in Instagram: a tap on the words shows the
  * message's exact time there (a hold shows it in the menu), my newest message says where it stands ("Sent",
  * "Delivered"), and "Seen" with the readers' small photos sits under the last message they read. Every time is the
@@ -190,6 +197,8 @@ export function MessageRow({
   onOpenMedia,
   onOpenFile,
   onOpenSnap,
+  onSnapActivity,
+  onCall,
   onActions,
   onReply,
   onReveal,
@@ -202,6 +211,7 @@ export function MessageRow({
   const reduceMotion = useReduceMotion();
   const shared = sharedPostOf(m.shared_post);
   const snap = snapOf(m.snap);
+  const call = callOf(m.call);
   const reply = replyOf(m.reply_to);
   const media = messageMedia(m, resolveMedia);
   const files = messageFiles(m);
@@ -247,7 +257,8 @@ export function MessageRow({
                 style={{ width: mediaWidth }}
               />
             ))}
-            {snap ? <SnapBubble snap={snap} mine={mine} width={mediaWidth} dimmed={Boolean(m.pending)} onOpen={onOpenSnap ? () => onOpenSnap(m) : undefined} onLongPress={actions} /> : null}
+            {call ? <CallRow call={call} mine={mine} width={mediaWidth} onPress={onCall ? () => onCall(call) : undefined} onLongPress={actions} /> : null}
+            {snap ? <SnapBubble snap={snap} mine={mine} width={mediaWidth} dimmed={Boolean(m.pending)} onOpen={onOpenSnap ? () => onOpenSnap(m) : undefined} onActivity={onSnapActivity ? () => onSnapActivity(m) : undefined} onLongPress={actions} /> : null}
             {voices.map((v) =>
               VoiceBubble ? (
                 <VoiceBubble key={v.key} uri={v.uri} cacheKey={v.key} duration={v.duration} mine={mine} dimmed={Boolean(m.pending)} onLongPress={actions} />
@@ -333,7 +344,7 @@ function SharedPostBubble({ shared, width, dimmed, onLongPress }: { shared: Shar
   const label = sharedPostLabel(shared);
   const line = shared.title ?? shared.caption;
   /** The picture, measured when it is tapped so the viewer can zoom open from it. */
-  const picture = useRef<View>(null);
+  const picture = useRef<ViewInstance>(null);
   const open = () => {
     if (shared.target_type === "post" && shared.image_url) void measureOrigin(picture.current, PHOTO_RADIUS).then((origin) => openViewer(router, { entries: [entryForPost(shared.target_id, shared.image_url)], index: 0, then: "reels", origin }));
     else router.push(sharedPostHref(shared));

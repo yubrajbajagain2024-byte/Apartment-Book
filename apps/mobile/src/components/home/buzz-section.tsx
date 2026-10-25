@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
+import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type ListViewToken } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { BUZZ_PAGE_SIZE, BUZZ_SORTS, BUZZ_TOPICS, labelFor, listBuzz, videosFor, type BuzzPost, type BuzzSort, type BuzzTopic } from "@apartment-book/shared";
@@ -175,7 +175,7 @@ export function BuzzSection({ active, topInset, onScroll }: { active: boolean; t
   // One video plays at a time, the first row on screen (at least 60% of it) that has one, as in For you: sound is one
   // switch for every video, so two playing at once would both be heard.
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ListViewToken[] }) => {
     const first = viewableItems.find((v) => v.isViewable && videosFor((v.item as BuzzPost).videos).length > 0);
     setPlayingId(first ? String(first.key) : null);
   }).current;
@@ -281,7 +281,7 @@ export function BuzzSection({ active, topInset, onScroll }: { active: boolean; t
             <Pressable onPress={fetchMore} accessibilityRole="button" style={{ paddingVertical: 12 }}>
               <Text style={styles.retry}>Could not load more. Tap to try again.</Text>
             </Pressable>
-          ) : ended && items.length >= BUZZ_PAGE_SIZE ? <Text style={styles.end}>You have reached the end.</Text> : null
+          ) : ended && items.length >= BUZZ_PAGE_SIZE ? <Text style={styles.end}>You have reached the end.</Text> : undefined
         }
         onEndReached={loadMore}
         onEndReachedThreshold={0.6}

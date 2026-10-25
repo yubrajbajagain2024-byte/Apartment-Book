@@ -168,6 +168,8 @@ export type Database = {
           classes_visibility: string;
           saved_visibility: string;
           liked_visibility: string;
+          /** Migration 37: who sees the Listings tab. Missing on a database before it. */
+          listings_visibility: string;
           created_at: string;
           updated_at: string;
         };
@@ -186,6 +188,7 @@ export type Database = {
           classes_visibility?: string;
           saved_visibility?: string;
           liked_visibility?: string;
+          listings_visibility?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -204,6 +207,7 @@ export type Database = {
           classes_visibility?: string;
           saved_visibility?: string;
           liked_visibility?: string;
+          listings_visibility?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -627,6 +631,8 @@ export type Database = {
            * replyOf(). Send only {id}: a trigger builds the rest from the original and refuses anything else.
            */
           reply_to: Json | null;
+          /** Migration 35: {id, kind, status, ended_reason, duration, started_by} when the message is a call's row in the chat; read it with callOf(). Written only by the call functions. */
+          call: Json | null;
           created_at: string;
         };
         Insert: {
@@ -639,6 +645,7 @@ export type Database = {
           attachments?: Json;
           snap?: Json | null;
           reply_to?: Json | null;
+          call?: Json | null;
           created_at?: string;
         };
         Update: {
@@ -651,6 +658,7 @@ export type Database = {
           attachments?: Json;
           snap?: Json | null;
           reply_to?: Json | null;
+          call?: Json | null;
           created_at?: string;
         };
         Relationships: [
@@ -666,6 +674,90 @@ export type Database = {
             columns: ["sender_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      /** Migration 35: an audio or video call in a chat; its rows are written only by the call functions. */
+      calls: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          started_by: string | null;
+          kind: string;
+          status: string;
+          ended_reason: string | null;
+          message_id: string | null;
+          started_at: string;
+          answered_at: string | null;
+          ended_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          started_by?: string | null;
+          kind: string;
+          status?: string;
+          ended_reason?: string | null;
+          message_id?: string | null;
+          started_at?: string;
+          answered_at?: string | null;
+          ended_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          conversation_id?: string;
+          started_by?: string | null;
+          kind?: string;
+          status?: string;
+          ended_reason?: string | null;
+          message_id?: string | null;
+          started_at?: string;
+          answered_at?: string | null;
+          ended_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "calls_conversation_id_fkey";
+            columns: ["conversation_id"];
+            isOneToOne: false;
+            referencedRelation: "conversations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      /** Migration 35: everyone a call rang, and where each of them stands. */
+      call_participants: {
+        Row: {
+          call_id: string;
+          user_id: string;
+          state: string;
+          invited_at: string;
+          joined_at: string | null;
+          left_at: string | null;
+        };
+        Insert: {
+          call_id: string;
+          user_id: string;
+          state?: string;
+          invited_at?: string;
+          joined_at?: string | null;
+          left_at?: string | null;
+        };
+        Update: {
+          call_id?: string;
+          user_id?: string;
+          state?: string;
+          invited_at?: string;
+          joined_at?: string | null;
+          left_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "call_participants_call_id_fkey";
+            columns: ["call_id"];
+            isOneToOne: false;
+            referencedRelation: "calls";
             referencedColumns: ["id"];
           },
         ];
@@ -1161,6 +1253,10 @@ export type Database = {
         Args: { p_owner: string };
         Returns: { classes: boolean; saved: boolean; liked: boolean }[];
       };
+      profile_visible_sections: {
+        Args: { p_owner: string };
+        Returns: { classes: boolean; saved: boolean; liked: boolean; listings: boolean }[];
+      };
       post_like_count: {
         Args: { p_target_type: string; p_target_id: string };
         Returns: number;
@@ -1462,10 +1558,54 @@ export type Database = {
       };
       /** Returns {id, path, kind, mime, width, height, duration, sent_at, opened_at, view_until, conversation_id, message_id, sender: {id, full_name, avatar_url}}. */
       open_snap: {
-        Args: { p_snap_id: string };
+        /** p_detect (migration 33): what the viewer's device can tell about captures, "ios", "android" or "none". */
+        Args: { p_snap_id: string; p_detect?: string | null };
         Returns: Json;
       };
       close_snap: {
+        Args: { p_snap_id: string };
+        Returns: undefined;
+      };
+      /** Migration 35: starts a call in a chat (or joins the one going on there). Returns {call_id, message_id, conversation_id, joined}. */
+      start_call: {
+        Args: { p_conversation_id: string; p_kind: string };
+        Returns: Json;
+      };
+      /** Migration 35: answers (or joins) a call that is not over. Returns the call as get_call does. */
+      answer_call: {
+        Args: { p_call_id: string };
+        Returns: Json;
+      };
+      decline_call: {
+        Args: { p_call_id: string };
+        Returns: undefined;
+      };
+      leave_call: {
+        Args: { p_call_id: string };
+        Returns: undefined;
+      };
+      /** Migration 35: a call with everyone it rang, {…, participants: [{user_id, state, joined_at, left_at, profile}]}; null when out of reach. */
+      get_call: {
+        Args: { p_call_id: string };
+        Returns: Json;
+      };
+      /** Migration 35: the call going on in a chat, as get_call gives it, or null. */
+      current_call: {
+        Args: { p_conversation_id: string };
+        Returns: Json;
+      };
+      /** Migration 33: the chat on this device received the Snap ("Delivered" on its activity, once). */
+      snap_delivered: {
+        Args: { p_snap_id: string };
+        Returns: undefined;
+      };
+      /** Migration 33: this device saw a "screenshot" or a "recording" while the Snap was open; its sender is told. */
+      report_snap_capture: {
+        Args: { p_snap_id: string; p_kind: string };
+        Returns: undefined;
+      };
+      /** Migration 33: the sender takes a Snap back; every chat it went to shows "Snap deleted". */
+      delete_snap: {
         Args: { p_snap_id: string };
         Returns: undefined;
       };

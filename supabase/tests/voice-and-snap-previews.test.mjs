@@ -5,10 +5,14 @@ import { MESSAGE_ATTACHMENT_MIME_TYPES, attachmentPreview } from "../../packages
 import { newSnapToken, snapMediaPath, snapOf } from "../../packages/shared/src/snaps.ts";
 
 const MIGRATION = "migrations/20261022000000_voice_and_snap_previews.sql";
-// Migration 30 replaces close_snap(), so it runs again after this one.
+// Migration 30 replaces close_snap() and migration 32 open_snap(), so they run again after this one.
 const CLOSE = "migrations/20261023000000_snap_close_deletes.sql";
+const STAY = "migrations/20261025000000_snap_previews_stay.sql";
+// Migration 33 replaces open_snap() with a two-argument form (dropping the old one), so it runs last of all.
+const ACTIVITY = "migrations/20261026000000_snap_activity.sql";
+const QUIET = "migrations/20261027000000_snap_close_quiet.sql";
 const { db, mk, as } = await boot();
-await expectOk("the migration re-runs cleanly", async () => { await db.exec(read(MIGRATION)); await db.exec(read(CLOSE)); });
+await expectOk("the migration re-runs cleanly", async () => { await db.exec(read(MIGRATION)); await db.exec(read(CLOSE)); await db.exec(read(STAY)); await db.exec(read(ACTIVITY)); await db.exec(read(QUIET)); });
 
 const one = async (p) => (await p).rows[0];
 const A = await mk("a@txstate.edu", "Alice"), B = await mk("b@txstate.edu", "Bob");
@@ -49,12 +53,21 @@ await expectOk("snap: older apps still send with seven arguments, without a prev
 for (const [label, bad] of [["not a data URL", "https://example.com/x.jpg"], ["not a JPEG", "data:image/png;base64,AAAA"], ["too long", "data:image/jpeg;base64," + "A".repeat(9000)]]) {
   await expectError(`snap: a preview ${label} is refused`, async () => send(A, await upload(A), [bad]), "Invalid Snap preview");
 }
-await expectOk("snap: opening it takes the preview off for both people", async () => {
+await expectOk("snap: opening it marks it opened and keeps the blurred preview for both people (migration 32)", async () => {
   await as(B, () => db.query("select public.open_snap($1)", [withPreview.snap_id]));
   for (const uid of [A, B]) {
     const s = await msg(uid, withPreview.sent[0].message_id);
-    if (!s?.opened_at || s.preview) throw new Error(JSON.stringify(s));
+    if (!s?.opened_at || s.preview !== PREVIEW || s.width !== 1080) throw new Error(JSON.stringify(s));
   }
+});
+// Closed by its only recipient, the Snap is over (its rows and file go, migration 30): no second view, preview or not.
+await expectError("snap: still only one view, preview or not", () => as(B, async () => {
+  await db.query("select public.close_snap($1)", [withPreview.snap_id]);
+  await db.query("select public.open_snap($1)", [withPreview.snap_id]);
+}), "isn't available");
+await expectOk("snap: the preview is still on the message after the Snap is over", async () => {
+  const s = await msg(A, withPreview.sent[0].message_id);
+  if (!s?.opened_at || s.preview !== PREVIEW) throw new Error(JSON.stringify(s));
 });
 await expectOk("snap: one that goes unopened loses its preview too", async () => {
   const sent = await send(A, await upload(A), [PREVIEW]);
@@ -64,5 +77,6 @@ await expectOk("snap: one that goes unopened loses its preview too", async () =>
 });
 await expectError("snap: nobody writes a preview from the API", () => as(A, () => db.query("insert into public.messages (conversation_id, sender_id, content, snap) values ($1,$2,'',$3::jsonb)", [AB, A, JSON.stringify({ id: randomUUID(), kind: "image", expires_at: "2099-01-01T00:00:00Z", preview: PREVIEW })])), "send_snap()");
 
-await expectOk("the migration re-runs cleanly with data in place", async () => { await db.exec(read(MIGRATION)); await db.exec(read(CLOSE)); });
+await expectOk("the migration re-runs cleanly with data in place", async () => { await db.exec(read(MIGRATION)); await db.exec(read(CLOSE)); await db.exec(read(STAY)); await db.exec(read(ACTIVITY)); await db.exec(read(QUIET)); });
+await expectOk("migrations 32 and 33 re-run cleanly on their own", async () => { await db.exec(read(STAY)); await db.exec(read(ACTIVITY)); await db.exec(read(QUIET)); });
 done("MIGRATION-29 VOICE AND SNAP PREVIEWS");

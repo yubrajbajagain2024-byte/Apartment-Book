@@ -64,13 +64,13 @@ export function PeopleSearch({ autoFocus = false }: { autoFocus?: boolean }) {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
-        ListHeaderComponent={people.length > 0 ? <Text style={styles.section}>{section}</Text> : null}
+        ListHeaderComponent={people.length > 0 ? <Text style={styles.section}>{section}</Text> : undefined}
         CellRendererComponent={appearCells}
         renderItem={({ item }) => <PersonRow person={item} stats={stats[item.id]} userId={me ?? null} onNeedLogin={needLogin} onPress={() => router.push({ pathname: "/profile/[id]", params: { id: item.id } })} />}
         ListEmptyComponent={
           loading && !data ? (
             <Loading />
-          ) : error ? null : q ? (
+          ) : error ? undefined : q ? (
             <EmptyState icon="search-outline" title="No one found" body="Try a different spelling of their name." />
           ) : (
             <EmptyState icon="people-outline" title="Nobody to show yet" />

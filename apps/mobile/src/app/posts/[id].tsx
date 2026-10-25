@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View, type ScrollViewInstance } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { getFeedPost, getPostEngagement, getPostPreviewsMany, isSaved, recordView, type FeedPostWithAuthor, type PostEngagement, type PostPreview } from "@apartment-book/shared";
 import { Comments } from "@/components/comments";
@@ -40,7 +40,7 @@ function PostDetail({ post, engagement, saved, preview, focusComments }: { post:
   const { user } = useSession();
   const router = useRouter();
   const [comments, setComments] = useState(engagement.comments);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const commentsY = useRef(0);
   /** Bring the thread, composer first, to the top of the screen. */
   const showThread = () => scroll.current?.scrollTo({ y: commentsY.current, animated: true });

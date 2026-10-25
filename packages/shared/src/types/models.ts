@@ -26,7 +26,7 @@ export type ConversationMember = Tables<"conversation_members">;
  * `attachments` is optional: rows from a database without migration 20 have none. The shared queries always fill it.
  * `snap` too (migration 28): read it with snapOf().
  */
-export type Message = Omit<Tables<"messages">, "attachments" | "snap" | "reply_to"> & { attachments?: MessageAttachment[]; snap?: Json | null; reply_to?: Json | null };
+export type Message = Omit<Tables<"messages">, "attachments" | "snap" | "reply_to" | "call"> & { attachments?: MessageAttachment[]; snap?: Json | null; reply_to?: Json | null; call?: Json | null };
 export type DevicePushToken = Tables<"device_push_tokens">;
 export type Media = Tables<"media">;
 export type PostLike = Tables<"post_likes">;
@@ -43,7 +43,7 @@ export type ListingVideo = {
   duration_seconds: number | null;
 };
 export type Notification = Tables<"notifications">;
-export type NotificationType = "message" | "listing_saved" | "nearby_listing" | "system" | "like" | "comment" | "follow" | "snap";
+export type NotificationType = "message" | "listing_saved" | "nearby_listing" | "system" | "like" | "comment" | "follow" | "snap" | "snap_activity" | "call";
 export type NotificationWithActor = Notification & { actor: ProfileSummary | null };
 /** Something a person has muted: a person's messages anywhere, one chat, or every group chat; `until` null is until unmuted. */
 export type NotificationMute = Tables<"notification_mutes">;
@@ -175,7 +175,7 @@ export type FeedMedia =
 /** Who can see a part of a profile: everyone, friends (they follow each other) or only its owner. */
 export type ProfileVisibility = "public" | "friends" | "private";
 /** The profile tabs whose visibility the owner chooses. */
-export type ProfileSection = "classes" | "saved" | "liked";
+export type ProfileSection = "classes" | "saved" | "liked" | "listings";
 /** May the person looking see each of those tabs? (The owner always may.) */
 export type ProfileSectionAccess = Record<ProfileSection, boolean>;
 /** What a profile's Followers and Following counts open: your own lists, the friends you share, or a log-in prompt. */

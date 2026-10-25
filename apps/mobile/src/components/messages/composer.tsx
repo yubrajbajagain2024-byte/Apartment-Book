@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { ActivityIndicator, Alert, Keyboard, LayoutAnimation, Platform, Pressable, StyleSheet, Text, TextInput, View, type KeyboardEvent, type LayoutChangeEvent } from "react-native";
+import { ActivityIndicator, Alert, Keyboard, LayoutAnimation, Platform, Pressable, StyleSheet, Text, TextInput, View, type KeyboardEvent, type LayoutChangeEvent, type TextInputInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MESSAGE_ATTACHMENT_LIMITS, type MessageReply } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
@@ -130,7 +130,7 @@ export function Composer({
   reply?: ComposerReply | null;
   onCancelReply?: () => void;
   /** The field, so the chat can bring the keyboard up (a swipe to reply). */
-  inputRef?: RefObject<TextInput | null>;
+  inputRef?: RefObject<TextInputInstance | null>;
   onHeight?: (height: number) => void;
   placeholder?: string;
 }) {

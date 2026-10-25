@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View, type TextInput as TextInputType } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, TextInput, View, type TextInputInstance } from "react-native";
 import { useRouter } from "expo-router";
 import { addComment, blockUser, COMMENT_SORTS, compactCount, deleteComment, getMyCommentVotes, listComments, reportContent, REPORT_REASONS, shortAge, threadComments, voteComment, type CommentSort, type PostCommentNode, type PostCommentWithAuthor, type PostTargetType, type ReportReason } from "@apartment-book/shared";
 import { useActionSheet, type SheetOption } from "@/components/action-sheet";
@@ -78,7 +78,7 @@ export function useCommentThread({ targetType, targetId, ownerId, onCountChange,
   const [loadError, setLoadError] = useState<string | null>(null);
   // Bumped by Retry: runs the load again.
   const [attempt, setAttempt] = useState(0);
-  const inputRef = useRef<TextInputType>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const userId = user?.id ?? null;
 
   useEffect(() => {

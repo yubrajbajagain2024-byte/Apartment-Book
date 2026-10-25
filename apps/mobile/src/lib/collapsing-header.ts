@@ -62,7 +62,8 @@ export function useCollapsingHeader(pages: number, height: number, initial = 0):
     const max = Math.max(1, height);
     // Page i's share: how far it has scrolled the bar away, times 1 while it is the page on screen and 0 otherwise.
     const shares = scrollYs.current.map((y, i) => {
-      const scrolled = Platform.OS === "ios" ? Animated.add(y, new Animated.Value(height)) : y;
+      // Either node interpolates the same way; typed as one so the call below has a single signature.
+      const scrolled: Pick<Animated.AnimatedAddition, "interpolate"> = Platform.OS === "ios" ? Animated.add(y, new Animated.Value(height)) : y;
       // Never below the top: a bounce past it, or a pull to refresh, must not count as a scroll down on the way back,
       // which would leave the bar part way up with the list at rest. The clamp below then always reads 0 at the top.
       const fromTop = scrolled.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: "clamp", extrapolateRight: "extend" });
