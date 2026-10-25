@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from "react";
-import { Alert, Animated, Pressable, Text, View } from "react-native";
+import { Alert, Animated, Pressable, Text, View, type ViewInstance } from "react-native";
 import { useRouter } from "expo-router";
 import type { VideoPlayer } from "expo-video";
 import { APP_NAME, captionParts, compactCount, deleteFeedPost, getOrCreateDirectConversation, isVerifiedPoster, listingMedia, reportContent, REPORT_REASONS, setPostPinned, sharedPostFromFeedPost, type FeedMedia, type FeedPostWithAuthor, type PostEngagement, type PostPreview, type ReportReason } from "@apartment-book/shared";
@@ -89,7 +89,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   const heart = useRef(new Animated.Value(0)).current;
   const lastTextTap = useRef(0);
   /** The picture's frame, measured when it is tapped so the viewer can zoom open from it. */
-  const frame = useRef<View>(null);
+  const frame = useRef<ViewInstance>(null);
 
   const author = post.author;
   const own = user?.id === author.id;

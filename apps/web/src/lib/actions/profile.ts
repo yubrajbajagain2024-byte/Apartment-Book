@@ -69,6 +69,7 @@ export async function updateProfileAction(_prev: FormState, formData: FormData):
       classesVisibility: changed("classesVisibility", "classes"),
       savedVisibility: changed("savedVisibility", "saved"),
       likedVisibility: changed("likedVisibility", "liked"),
+      listingsVisibility: changed("listingsVisibility", "listings"),
     });
     const showActiveStatus = activityChoice(parsed.data.showActiveStatus);
     if (showActiveStatus !== undefined) await setShowActiveStatus(supabase, showActiveStatus);

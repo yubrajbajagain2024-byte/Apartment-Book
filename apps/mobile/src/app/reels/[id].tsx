@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, PixelRatio, Pressable, StyleSheet, Text, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
+import { ActivityIndicator, Alert, FlatList, PixelRatio, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent, type ListViewToken } from "react-native";
 import { Image } from "expo-image";
-import { useIsFocused, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useIsFocused, useLocalSearchParams, usePreventRemove, useRouter } from "expo-router";
 import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, { Easing, runOnJS, useAnimatedReaction, useAnimatedStyle, useDerivedValue, useSharedValue, withDelay, withSpring, withTiming, type SharedValue } from "react-native-reanimated";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getFeedPost, getPostEngagement, isSaved, listReels, REELS_PAGE_SIZE, type PostEngagement, type PostTargetType, type Reel } from "@apartment-book/shared";
+import { getFeedPost, getOrCreateDirectConversation, getPostEngagement, hasPublicComments, isSaved, listingChatPrefill, listReels, REELS_PAGE_SIZE, type PostEngagement, type PostTargetType, type Reel } from "@apartment-book/shared";
 import { campusSegments, ScopeToggle, type ScopeSegment } from "@/components/home/home-top-tabs";
 import { ReelCommentsSheet } from "@/components/home/reel-comments-sheet";
 import { ShareSheetProvider } from "@/components/share-sheet";
@@ -375,9 +375,9 @@ export default function ReelViewerScreen() {
   const isStartAt = useCallback((i: number) => (startKey ? entriesRef.current?.[i]?.key === startKey : i === startIndex), [startKey, startIndex]);
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 80 }).current;
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const first = viewableItems.find((v) => v.isViewable && v.index !== null);
-    if (first && first.index !== null) {
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ListViewToken[] }) => {
+    const first = viewableItems.find((v) => v.isViewable && v.index != null);
+    if (first && first.index != null) {
       visibleRef.current = first.index;
       onStartPage.value = isStartAt(first.index) ? 1 : 0;
       setVisible(first.index);
@@ -401,6 +401,24 @@ export default function ReelViewerScreen() {
       router.push({ pathname: "/buzz/[id]", params: typing ? { id: item.sourceId, reply: "1" } : { id: item.sourceId } });
     },
     [onOpenComments, handed, leave, router],
+  );
+
+  /**
+   * The bar under a roommate tour, which has no public comments: a private chat with its poster, opening with a first
+   * message about the post (your own tour's bar opens your Inbox).
+   */
+  const messagePoster = useCallback(
+    async (item: ViewerItem) => {
+      if (!user) return router.push("/(auth)/login");
+      if (item.author.id === user.id) return router.push("/messages");
+      try {
+        const id = await getOrCreateDirectConversation(supabase, item.author.id);
+        router.push({ pathname: "/messages/[id]", params: { id, prefill: listingChatPrefill(item.author.name, item.title), targetType: "roommate", targetId: item.sourceId } });
+      } catch (e) {
+        Alert.alert("Message", errorText(e, "Could not start the chat. Try again."));
+      }
+    },
+    [user, router],
   );
 
   // The top row: Back and the toggle, under the status bar. A page's own content (a photo) starts below it.
@@ -717,23 +735,25 @@ export default function ReelViewerScreen() {
     },
     [reduceMotion, origin, isStartAt, toOrigin, chrome, drag, open, seen, zoomUI, handBack, afterLanding],
   );
-  // Every way out (Back, a link elsewhere, Android's back button) zooms closed first, then really leaves.
-  const navigation = useNavigation();
+  // Every way out (Back, a link elsewhere, Android's back button) zooms closed first, then really leaves: the navigator
+  // holds the removal, and the zoom replays it once it has landed. Not on web, where holding it would also stop the
+  // browser from reloading or leaving the page.
   const leaving = useRef(false);
-  useEffect(
-    () =>
-      navigation.addListener("beforeRemove", (e) => {
-        if (leaving.current) return;
-        e.preventDefault();
-        closeThen(() => {
-          // A swipe close that began in the same moment may have left already.
-          if (leaving.current) return;
-          leaving.current = true;
-          navigation.dispatch(e.data.action);
-        });
-      }),
-    [navigation, closeThen],
-  );
+  const [holdRemoval, setHoldRemoval] = useState(Platform.OS !== "web");
+  const releaseRemoval = usePreventRemove(holdRemoval, ({ repeat }) => {
+    if (leaving.current) {
+      setHoldRemoval(false);
+      repeat();
+      return;
+    }
+    closeThen(() => {
+      // A swipe close that began in the same moment may have left already.
+      if (leaving.current) return;
+      leaving.current = true;
+      setHoldRemoval(false);
+      repeat();
+    });
+  });
   /** The JS half of a swipe close: the video goes back to the feed playing, and the pages learn the viewer is closing. */
   const swipeClosing = useCallback(() => {
     if (closing.current) return;
@@ -747,9 +767,12 @@ export default function ReelViewerScreen() {
       afterLanding(() => {
         if (leaving.current) return;
         leaving.current = true;
+        // The swipe has already played its own way out: nothing to hold the removal for.
+        setHoldRemoval(false);
+        releaseRemoval();
         leave();
       }),
-    [afterLanding, leave],
+    [afterLanding, leave, releaseRemoval],
   );
   const hasOrigin = origin !== null;
   /**
@@ -854,11 +877,27 @@ export default function ReelViewerScreen() {
                     pictures={opened || index === visible}
                   />
                   {/* "Add comment…" under the name and the rail, like Instagram's: a tap opens the comments with the keyboard up.
-                      Dark glass over a video; on a photo's page, the theme's own text field. */}
+                      Dark glass over a video; on a photo's page, the theme's own text field. A roommate tour has no public
+                      comments, so its bar is a private message to the poster instead. */}
                   <Animated.View key="comment" pointerEvents="box-none" style={[styles.commentBar, { bottom: barBottom }, chromeStyle]}>
-                    <Pressable onPress={() => openReplies(entry.item!, true)} style={({ pressed }) => [styles.commentInput, surfaceAt(index) === "page" && styles.commentInputPage, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel={entry.item.buzz ? "Reply anonymously" : "Add comment"} accessibilityHint={entry.item.buzz ? "Opens the thread, ready to type" : "Opens the comments, ready to type"}>
-                      <Text style={[styles.commentPlaceholder, surfaceAt(index) === "page" && styles.commentPlaceholderPage]}>{entry.item.buzz ? "Reply anonymously…" : "Add comment…"}</Text>
-                    </Pressable>
+                    {!entry.item.buzz && !hasPublicComments(entry.item.sourceType) ? (
+                      <Pressable
+                        onPress={() => void messagePoster(entry.item!)}
+                        style={({ pressed }) => [styles.commentInput, styles.messageInput, surfaceAt(index) === "page" && styles.commentInputPage, pressed && { opacity: 0.8 }]}
+                        accessibilityRole="button"
+                        accessibilityLabel={entry.item.author.id === user?.id ? "Inbox" : `Message ${entry.item.author.name.split(" ")[0]}`}
+                        accessibilityHint={entry.item.author.id === user?.id ? "Opens your messages" : "Opens a private chat about this post"}
+                      >
+                        <Icon name="chatbubble-ellipses-outline" size={18} color={surfaceAt(index) === "page" ? colors.faint : colors.onMediaMuted} />
+                        <Text style={[styles.commentPlaceholder, surfaceAt(index) === "page" && styles.commentPlaceholderPage]} numberOfLines={1}>
+                          {entry.item.author.id === user?.id ? "Open your Inbox" : `Message ${entry.item.author.name.split(" ")[0]}…`}
+                        </Text>
+                      </Pressable>
+                    ) : (
+                      <Pressable onPress={() => openReplies(entry.item!, true)} style={({ pressed }) => [styles.commentInput, surfaceAt(index) === "page" && styles.commentInputPage, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel={entry.item.buzz ? "Reply anonymously" : "Add comment"} accessibilityHint={entry.item.buzz ? "Opens the thread, ready to type" : "Opens the comments, ready to type"}>
+                        <Text style={[styles.commentPlaceholder, surfaceAt(index) === "page" && styles.commentPlaceholderPage]}>{entry.item.buzz ? "Reply anonymously…" : "Add comment…"}</Text>
+                      </Pressable>
+                    )}
                   </Animated.View>
                 </>
               ) : null}
@@ -1061,6 +1100,8 @@ const useStyles = makeStyles((colors) => ({
   commentPlaceholder: { color: colors.onMediaMuted, fontSize: 16 },
   commentInputPage: { backgroundColor: colors.input, borderColor: colors.border },
   commentPlaceholderPage: { color: colors.faint },
+  // The same pill as a private message: its icon then the words.
+  messageInput: { flexDirection: "row", alignItems: "center", justifyContent: "flex-start", gap: 9 },
   shadow: { textShadowColor: colors.mediaScrim, textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
   foot: { position: "absolute", left: 0, right: 0, alignItems: "center" },
   retry: { backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },

@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
-import { compactCount, type FollowStats, type ProfileWithUniversity } from "@apartment-book/shared";
+import { compactCount, profileStudyLine, type FollowStats, type ProfileWithUniversity } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { auroraGradient, radius, space, textStyle } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
@@ -97,10 +97,11 @@ export function HeaderIconButton({ icon, label, onPress }: { icon: keyof typeof 
 
 /**
  * The top of a profile: the cover band (a soft gradient under the status bar), the round photo hanging over its bottom
- * edge (yours with a blue "+" to change it) with the buttons (`actions`) beside it, then the name (on your own tab, with a
- * chevron: the account sheet), "@username" with a QR icon, a chip with the university and the program · class year, the
- * bio, and a rounded card with Posts | Followers | Following | Likes. `topInset` is the status bar's height, which the
- * cover runs under.
+ * edge (yours with a blue "+" to change it) with the buttons (`actions`) beside it, then three lines in this order: the
+ * full name (on your own tab, with a chevron: the account sheet), the major, class year and university ("CS ’28 @ Texas
+ * State University") and the bio; under them "@username" with a QR icon, and a rounded card with Posts | Followers |
+ * Following | Likes. A line with nothing to say is left out. `topInset` is the status bar's height, which the cover runs
+ * under.
  */
 export function ProfileHeader({
   profile,
@@ -133,8 +134,7 @@ export function ProfileHeader({
   const styles = useStyles();
   const colors = useColors();
   const handle = profileHandle(profile);
-  const school = profile.university?.name ?? null;
-  const study = [profile.program, profile.graduation_year ? `'${String(profile.graduation_year).slice(-2)}` : null].filter(Boolean).join(" · ");
+  const study = profileStudyLine(profile);
   // No fade-in: every profile tab draws its own copy of this header, and a copy appearing mid-swipe must match the others at once.
   const photo = <Avatar transition={0} name={profile.full_name} url={profile.avatar_url} size={AVATAR_PHOTO} userId={own ? undefined : profile.id} online={own ? false : undefined} />;
   const name = (
@@ -182,6 +182,14 @@ export function ProfileHeader({
         ) : (
           <View style={styles.nameRow}>{name}</View>
         )}
+        {study ? (
+          <Text style={styles.study} numberOfLines={2}>
+            {study}
+          </Text>
+        ) : null}
+
+        {profile.bio ? <Text style={[styles.bio, !study && styles.bioFirst]}>{profile.bio}</Text> : null}
+
         {handle ? (
           <View style={styles.handleRow}>
             <Text style={styles.handle} numberOfLines={1}>
@@ -192,26 +200,6 @@ export function ProfileHeader({
             </Pressable>
           </View>
         ) : null}
-
-        {school || study ? (
-          <View style={styles.chipRow}>
-            {school ? (
-              <View style={styles.chip}>
-                <Icon name="school-outline" size={13} color={colors.muted} />
-                <Text style={styles.chipText} numberOfLines={1}>
-                  {school}
-                </Text>
-              </View>
-            ) : null}
-            {study ? (
-              <Text style={styles.study} numberOfLines={2}>
-                {study}
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
-
-        {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
 
         <View style={styles.stats}>
           <Stat n={posts} label={posts === 1 ? "Post" : "Posts"} />
@@ -270,13 +258,13 @@ const useStyles = makeStyles((colors) => ({
   nameRow: { marginTop: space.sm, flexDirection: "row", alignItems: "center", alignSelf: "flex-start", maxWidth: "100%" },
   name: { ...textStyle.title2, color: colors.text, flexShrink: 1 },
   nameChevron: { marginLeft: 4, marginTop: 3 },
-  handleRow: { marginTop: 2, flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%" },
+  // Under the bio: the handle, small and grey, with the QR button.
+  handleRow: { marginTop: 8, flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%" },
   handle: { fontSize: 14, color: colors.muted, flexShrink: 1 },
-  chipRow: { marginTop: 10, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: space.sm },
-  chip: { flexDirection: "row", alignItems: "center", gap: 5, height: 26, paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: colors.input, maxWidth: "100%" },
-  chipText: { fontSize: 13, fontWeight: "600", color: colors.muted, flexShrink: 1 },
-  study: { fontSize: 14, color: colors.text, flexShrink: 1 },
-  bio: { marginTop: 10, fontSize: 15, lineHeight: 20, color: colors.text },
+  // The line right under the name: "CS ’28 @ Texas State University", a touch quieter than the name, stronger than the handle.
+  study: { marginTop: 3, fontSize: 15, lineHeight: 20, fontWeight: "600", color: colors.muted },
+  bio: { marginTop: 6, fontSize: 15, lineHeight: 20, color: colors.text },
+  bioFirst: { marginTop: 4 },
   // The card with the numbers: a soft panel with four columns.
   stats: { marginTop: 14, flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 4, borderRadius: 18, backgroundColor: colors.panel },
   stat: { flex: 1, alignItems: "center", gap: 1, paddingHorizontal: 2 },

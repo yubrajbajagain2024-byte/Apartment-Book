@@ -3,8 +3,8 @@ import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } fro
 import * as SplashScreen from "expo-splash-screen";
 import * as SystemUI from "expo-system-ui";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Appearance, Platform, StyleSheet, useColorScheme } from "react-native";
-import { palettes, type ColorScheme, type ThemeColors, type ThemePreference } from "./palette";
+import { Appearance, Platform, StyleSheet, useColorScheme, type ImageStyle, type TextStyle, type ViewStyle } from "react-native";
+import { DEFAULT_THEME_PREFERENCE, palettes, type ColorScheme, type ThemeColors, type ThemePreference } from "./palette";
 
 /** Where the choice from Settings → Theme is kept, so it survives a restart. */
 const STORAGE_KEY = "campconnect.theme";
@@ -44,7 +44,10 @@ function applyNativeOverride(preference: ThemePreference) {
   }
 }
 
-/** Light or dark for the whole app: the saved choice, or the phone's appearance for System Default. */
+/**
+ * Light or dark for the whole app: the saved choice (Light, Dark, or the phone's appearance for System Default), and
+ * Dark until one is made: someone who never opened Settings → Theme sees the app in Dark on iOS and Android alike.
+ */
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   // With no override in place this is the phone's own setting, and it updates the moment the phone switches.
   const phone = useColorScheme();
@@ -61,19 +64,19 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
       setPreferenceState(value);
       applyNativeOverride(value);
     };
-    // Never hold the splash screen for long: start with System Default if storage is slow…
-    const timer = setTimeout(() => settle("system"), LOAD_TIMEOUT_MS);
+    // Never hold the splash screen for long: start with the default (Dark) if storage is slow…
+    const timer = setTimeout(() => settle(DEFAULT_THEME_PREFERENCE), LOAD_TIMEOUT_MS);
     AsyncStorage.getItem(STORAGE_KEY).then(
       (stored) => {
-        const saved = isPreference(stored) ? stored : "system";
+        const saved = isPreference(stored) ? stored : DEFAULT_THEME_PREFERENCE;
         if (!settled) return settle(saved);
         // …and still switch to the saved choice when it arrives late, unless the person has picked one meanwhile.
-        if (active && !picked.current && saved !== "system") {
+        if (active && !picked.current && saved !== DEFAULT_THEME_PREFERENCE) {
           setPreferenceState(saved);
           applyNativeOverride(saved);
         }
       },
-      () => settle("system"),
+      () => settle(DEFAULT_THEME_PREFERENCE),
     );
     return () => {
       active = false;
@@ -100,7 +103,7 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
   }, [preference]);
 
   const value = useMemo<ThemeValue>(
-    () => ({ scheme, isDark: scheme === "dark", preference: preference ?? "system", colors: palettes[scheme], setPreference }),
+    () => ({ scheme, isDark: scheme === "dark", preference: preference ?? DEFAULT_THEME_PREFERENCE, colors: palettes[scheme], setPreference }),
     [scheme, preference, setPreference],
   );
   // Headers, tab bars and screen backgrounds drawn by the navigator. Its `card` paints the headers and the tab bar, so it takes `bar`.
@@ -135,8 +138,11 @@ export function useColors(): ThemeColors {
  *   const useStyles = makeStyles((colors) => ({ row: { backgroundColor: colors.card } }));
  * and call `const styles = useStyles();` in each component. Each theme's sheet is built once and reused.
  */
-export function makeStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.NamedStyles<any>>(
-  factory: (colors: ThemeColors, scheme: ColorScheme) => T & StyleSheet.NamedStyles<any>,
+/** A sheet's styles by name, as StyleSheet.create takes them (React Native no longer exports its own NamedStyles). */
+type NamedStyles<T> = { [P in keyof T]: ViewStyle | TextStyle | ImageStyle };
+
+export function makeStyles<T extends NamedStyles<T> | NamedStyles<any>>(
+  factory: (colors: ThemeColors, scheme: ColorScheme) => T & NamedStyles<any>,
 ): () => T {
   const sheets: Partial<Record<ColorScheme, T>> = {};
   return function useStyles(): T {

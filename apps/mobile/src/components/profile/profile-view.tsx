@@ -1,21 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Keyboard,
-  Linking,
-  Platform,
-  RefreshControl,
-  Text,
-  View,
-  useWindowDimensions,
-  type LayoutChangeEvent,
-  type ListRenderItem,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-  type ScrollView,
-} from "react-native";
+import { ActivityIndicator, Alert, Animated, Keyboard, Linking, Platform, RefreshControl, Text, View, useWindowDimensions, type FlatList, type LayoutChangeEvent, type ListRenderItem, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView, type ScrollViewInstance } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,7 +11,6 @@ import {
   getProfileSectionAccess,
   getProfileStats,
   isBlocked,
-  isProfileVisibility,
   listProfileClasses,
   listProfileLiked,
   listProfileListings,
@@ -35,12 +18,15 @@ import {
   listProfileSaved,
   lockedSectionMessage,
   NO_FOLLOW_STATS,
+  OWNER_SECTION_ACCESS,
   ownSectionNote,
+  PROFILE_DEFAULT_VISIBILITY,
   PROFILE_SECTION_NOUNS,
-  PROFILE_VISIBILITY_COLUMNS,
+  PROFILE_SECTIONS,
   reportContent,
   REPORT_REASONS,
   setPostPinned,
+  sectionVisibilityOf,
   setProfileVisibility,
   unblockUser,
   type FollowStats,
@@ -68,7 +54,7 @@ import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useChangeAvatar } from "@/lib/use-change-avatar";
 import { ClassesSection } from "./classes-section";
 import { HeaderButton, HeaderIconButton, PROFILE_BAR_ROW_HEIGHT, PROFILE_BUTTON_HEIGHT, ProfileFloatingBar, ProfileHeader, profileHandle, type CoverAction } from "./profile-header";
-import { PROFILE_TABS, ProfileTabs, type ProfileTabKey } from "./profile-tabs";
+import { PROFILE_TABS, ProfileTabs, type ProfileTabKey, type ProfileTabMeta } from "./profile-tabs";
 import { ListingGridTile, ProfileGridTile, REEL_ASPECT, TILE_ASPECT, useOpenTile } from "./profile-tile";
 import { ShareProfileSheet } from "./share-profile-sheet";
 import { useTileGrid, type GridCursor, type GridPage, type TileGrid } from "./use-tile-grid";
@@ -82,24 +68,29 @@ const GRID_INSET = 8;
 /** Between the header and the tabs row: part of the header, so it goes up with it. */
 const TABS_GAP = 14;
 const NO_TILES: ProfileTile[] = [];
-const OWNER_ACCESS: ProfileSectionAccess = { classes: true, saved: true, liked: true };
+const OWNER_ACCESS: ProfileSectionAccess = OWNER_SECTION_ACCESS;
 const NO_PROFILE_STATS: ProfileStats = { posts: 0, reels: 0, likesReceived: 0 };
-/** The database's defaults, for a profile read before the settings existed. */
-const DEFAULT_VISIBILITY: Record<ProfileSection, ProfileVisibility> = { classes: "friends", saved: "private", liked: "public" };
 /** What each tab holds, for "Could not load …". */
-const TAB_NOUNS: Record<ProfileTabKey, string> = { posts: "posts", classes: "classes", reels: "reels", saved: PROFILE_SECTION_NOUNS.saved, liked: PROFILE_SECTION_NOUNS.liked, listings: "listings" };
+const TAB_NOUNS: Record<ProfileTabKey, string> = { posts: "posts", classes: "classes", reels: "reels", saved: PROFILE_SECTION_NOUNS.saved, liked: PROFILE_SECTION_NOUNS.liked, listings: PROFILE_SECTION_NOUNS.listings };
 
 /** The tabs that show squares: all but Classes. Listings is a single page; the others load more as you scroll. */
 type GridTab = Exclude<ProfileTabKey, "classes">;
 
-/** Page i of the pager is PROFILE_TABS[i]; the profile opens on Posts. */
-const PAGE_COUNT = PROFILE_TABS.length;
-const TAB_INDEX = Object.fromEntries(PROFILE_TABS.map((t, i) => [t.key, i])) as Record<ProfileTabKey, number>;
-const START_PAGE = TAB_INDEX.posts;
+/** A tab whose owner chooses who sees it: Classes, Saved, Liked and Listings. */
+function isSectionTab(key: ProfileTabKey): key is ProfileSection {
+  return (PROFILE_SECTIONS as readonly string[]).includes(key);
+}
 
-/** The page a horizontal offset shows (the nearest one). */
-function pageAt(x: number, pageWidth: number): number {
-  return Math.min(PAGE_COUNT - 1, Math.max(0, Math.round(x / Math.max(1, pageWidth))));
+/**
+ * Page i of the pager is tabs[i], the tabs this viewer gets (see `visibleTabs`), never more than every tab; the profile
+ * opens on Posts, which every viewer gets first.
+ */
+const MAX_PAGES = PROFILE_TABS.length;
+const START_PAGE = 0;
+
+/** The page a horizontal offset shows (the nearest one) among `count` pages. */
+function pageAt(x: number, pageWidth: number, count: number): number {
+  return Math.min(count - 1, Math.max(0, Math.round(x / Math.max(1, pageWidth))));
 }
 
 /**
@@ -108,9 +99,9 @@ function pageAt(x: number, pageWidth: number): number {
  * Two, not one: a quick second swipe that catches the pager mid-glide then still finds the next page (and its copy of
  * the header) already there.
  */
-function withPages(pages: ReadonlySet<number>, from: number, to: number): ReadonlySet<number> {
+function withPages(pages: ReadonlySet<number>, from: number, to: number, count: number): ReadonlySet<number> {
   const first = Math.max(0, Math.min(from, to - 2));
-  const last = Math.min(PAGE_COUNT - 1, Math.max(from, to + 2));
+  const last = Math.min(count - 1, Math.max(from, to + 2));
   let next: Set<number> | null = null;
   for (let i = first; i <= last; i++) {
     if (pages.has(i)) continue;
@@ -125,17 +116,16 @@ function withPages(pages: ReadonlySet<number>, from: number, to: number): Readon
  * speed (the other way round from the offset), so there a flick goes on to the next page its way and a slow release to
  * the nearest one.
  */
-function landingPage({ contentOffset, targetContentOffset, velocity }: NativeScrollEvent, pageWidth: number): number {
-  if (targetContentOffset) return pageAt(targetContentOffset.x, pageWidth);
+function landingPage({ contentOffset, targetContentOffset, velocity }: NativeScrollEvent, pageWidth: number, count: number): number {
+  if (targetContentOffset) return pageAt(targetContentOffset.x, pageWidth, count);
   const speed = (Platform.OS === "android" ? -1 : 1) * (velocity?.x ?? 0);
-  if (Math.abs(speed) < 0.2) return pageAt(contentOffset.x, pageWidth);
+  if (Math.abs(speed) < 0.2) return pageAt(contentOffset.x, pageWidth, count);
   const exact = contentOffset.x / Math.max(1, pageWidth);
-  return Math.min(PAGE_COUNT - 1, Math.max(0, speed > 0 ? Math.ceil(exact) : Math.floor(exact)));
+  return Math.min(count - 1, Math.max(0, speed > 0 ? Math.ceil(exact) : Math.floor(exact)));
 }
 
 function visibilityOf(profile: ProfileWithUniversity, section: ProfileSection): ProfileVisibility {
-  const value: unknown = profile[PROFILE_VISIBILITY_COLUMNS[section]];
-  return isProfileVisibility(value) ? value : DEFAULT_VISIBILITY[section];
+  return sectionVisibilityOf(profile, section);
 }
 
 async function postTiles(userId: string, kind: "post" | "reel", cursor: GridCursor | null): Promise<GridPage> {
@@ -235,9 +225,12 @@ type PagerLink = {
  *
  * `barHeight` is the floating bar at the top of the screen (the status bar and the round buttons): the tabs row stops
  * under it, never above, and the bar's background fades in (`barOpacity`) as the row gets there.
+ *
+ * `count` is how many pages there are: the tabs this viewer gets. When that changes (a follow opens Classes, a block
+ * closes them), `relocate` puts the pager on the page that is now the open tab, every page back at the top.
  */
-function useProfilePager({ pageWidth, tuck, barHeight, onRefresh, onHeaderHeight }: { pageWidth: number; tuck: number; barHeight: number; onRefresh: (index: number) => void; onHeaderHeight: (height: number) => void }) {
-  const pager = useRef<ScrollView>(null);
+function useProfilePager({ pageWidth, tuck, barHeight, count, onRefresh, onHeaderHeight }: { pageWidth: number; tuck: number; barHeight: number; count: number; onRefresh: (index: number) => void; onHeaderHeight: (height: number) => void }) {
+  const pager = useRef<ScrollViewInstance>(null);
   /** The pager's offset on the native side: the tab underline, the tabs row's choice of page and the header copies follow it. */
   const [scrollX] = useState(() => new Animated.Value(START_PAGE * pageWidth));
   const [scrollYs] = useState(() => PROFILE_TABS.map(() => new Animated.Value(0)));
@@ -245,14 +238,14 @@ function useProfilePager({ pageWidth, tuck, barHeight, onRefresh, onHeaderHeight
   const scrollers = useRef<(PageScroller | null)[]>(PROFILE_TABS.map(() => null));
   const [active, setActive] = useState(START_PAGE);
   const activeRef = useRef(START_PAGE);
-  const [mounted, setMounted] = useState(() => withPages(new Set<number>(), START_PAGE, START_PAGE));
+  const [mounted, setMounted] = useState(() => withPages(new Set<number>(), START_PAGE, START_PAGE, count));
   /** From the start of a swipe until the pager settles: the page under the finger may not be the open one. */
   const swiping = useRef(false);
   /** Where a released swipe is taking the pager, until it gets there (`commit`); null while it is not gliding to a page. */
   const heading = useRef<number | null>(null);
-  const latest = useRef({ pageWidth, tuck, onRefresh, onHeaderHeight });
+  const latest = useRef({ pageWidth, tuck, count, onRefresh, onHeaderHeight });
   useEffect(() => {
-    latest.current = { pageWidth, tuck, onRefresh, onHeaderHeight };
+    latest.current = { pageWidth, tuck, count, onRefresh, onHeaderHeight };
   });
 
   const sync = useCallback(
@@ -260,7 +253,7 @@ function useProfilePager({ pageWidth, tuck, barHeight, onRefresh, onHeaderHeight
       const point = latest.current.tuck;
       const y = offsets.current[from] ?? 0;
       const tucked = point > 0 && y >= point - 0.5;
-      for (let i = 0; i < PAGE_COUNT; i++) {
+      for (let i = 0; i < latest.current.count; i++) {
         if (i === from) continue;
         const now = offsets.current[i] ?? 0;
         const target = tucked ? Math.max(now, point) : Math.max(0, y);
@@ -283,7 +276,7 @@ function useProfilePager({ pageWidth, tuck, barHeight, onRefresh, onHeaderHeight
       if (open !== activeRef.current) {
         activeRef.current = open;
         setActive(open);
-        setMounted((prev) => withPages(prev, from, open));
+        setMounted((prev) => withPages(prev, from, open, latest.current.count));
       }
       sync(open);
     },
@@ -313,6 +306,28 @@ function useProfilePager({ pageWidth, tuck, barHeight, onRefresh, onHeaderHeight
       return true;
     },
     [sync, commit],
+  );
+
+  /**
+   * The tabs changed under the pager: page `open` is the open tab now (the one that was open, or Posts). Every page goes
+   * back to the top, in step, with the whole header showing, so no page is left where another tab's page was.
+   */
+  const relocate = useCallback(
+    (open: number) => {
+      swiping.current = false;
+      heading.current = null;
+      activeRef.current = open;
+      setActive(open);
+      setMounted(withPages(new Set<number>(), open, open, latest.current.count));
+      for (let i = 0; i < MAX_PAGES; i++) {
+        offsets.current[i] = 0;
+        const scroller = scrollers.current[i];
+        if (scroller) scroller.scrollTo(0, false);
+        else scrollYs[i].setValue(0);
+      }
+      pager.current?.scrollTo({ x: open * latest.current.pageWidth, animated: false });
+    },
+    [scrollYs],
   );
 
   const link = useMemo<PagerLink>(
@@ -349,7 +364,7 @@ function useProfilePager({ pageWidth, tuck, barHeight, onRefresh, onHeaderHeight
   const onPagerScroll = useMemo(() => Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: true }), [scrollX]);
   const onPagerDragBegin = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const inView = pageAt(e.nativeEvent.contentOffset.x, latest.current.pageWidth);
+      const inView = pageAt(e.nativeEvent.contentOffset.x, latest.current.pageWidth, latest.current.count);
       // A quick second swipe caught the pager before it settled (no onMomentumScrollEnd came): the page it reached opens
       // now, so its neighbours are there for this swipe. Otherwise the open page leads the others into step.
       if (inView !== activeRef.current) commit(inView);
@@ -365,13 +380,13 @@ function useProfilePager({ pageWidth, tuck, barHeight, onRefresh, onHeaderHeight
       const width = latest.current.pageWidth;
       // Let go right on a page: no momentum follows (so no onMomentumScrollEnd), the pager has settled already.
       const onPage = width > 0 && Math.abs(contentOffset.x - Math.round(contentOffset.x / width) * width) < 1;
-      if (onPage && targetContentOffset && Math.abs(targetContentOffset.x - contentOffset.x) < 1) return commit(pageAt(contentOffset.x, width));
+      if (onPage && targetContentOffset && Math.abs(targetContentOffset.x - contentOffset.x) < 1) return commit(pageAt(contentOffset.x, width, latest.current.count));
       // It glides on to a page and commits when it gets there; until then the open tab is not at rest (see `select`).
-      heading.current = landingPage(e.nativeEvent, width);
+      heading.current = landingPage(e.nativeEvent, width, latest.current.count);
     },
     [commit],
   );
-  const onPagerSettle = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => commit(pageAt(e.nativeEvent.contentOffset.x, latest.current.pageWidth)), [commit]);
+  const onPagerSettle = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => commit(pageAt(e.nativeEvent.contentOffset.x, latest.current.pageWidth, latest.current.count)), [commit]);
   /** The open page in view when the pager is first laid out (and if its width ever changes). */
   const onPagerLayout = useCallback((e: LayoutChangeEvent) => {
     const width = e.nativeEvent.layout.width;
@@ -382,14 +397,14 @@ function useProfilePager({ pageWidth, tuck, barHeight, onRefresh, onHeaderHeight
   // header partly shows the pages are in step, so a swipe mixes equal offsets and the row stays under both copies.
   const openOffset = useMemo(() => {
     const width = Math.max(1, pageWidth);
-    let sum: Animated.AnimatedInterpolation<number> | null = null;
-    for (let i = 0; i < PAGE_COUNT; i++) {
+    let sum: Animated.Numeric | null = null;
+    for (let i = 0; i < count; i++) {
       const weight = scrollX.interpolate<number>({ inputRange: [(i - 1) * width, i * width, (i + 1) * width], outputRange: [0, 1, 0], extrapolate: "clamp" });
-      const term = Animated.multiply<number>(scrollYs[i], weight);
-      sum = sum ? Animated.add<number>(sum, term) : term;
+      const term = Animated.multiply(scrollYs[i], weight);
+      sum = sum ? Animated.add(sum, term) : term;
     }
-    return sum as Animated.AnimatedInterpolation<number>;
-  }, [scrollX, scrollYs, pageWidth]);
+    return sum as Animated.Numeric;
+  }, [scrollX, scrollYs, pageWidth, count]);
   // The tabs row's top: the bar's height plus the rest of the header (`tuck`) minus the open page's offset, never above the
   // bar (it sticks under it), and lower with a pull (negative offsets). The tuck comes in through an Animated.Value, so a
   // new header height (a bio loading, the follow state) moves the row at once without rebuilding the native graph, which
@@ -399,16 +414,16 @@ function useProfilePager({ pageWidth, tuck, barHeight, onRefresh, onHeaderHeight
     tuckValue.setValue(Math.max(0, tuck));
   }, [tuck, tuckValue]);
   const tabsShift = useMemo(
-    () => Animated.add<number>(Animated.subtract<number>(tuckValue, openOffset).interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: "clamp", extrapolateRight: "extend" }), barHeight),
+    () => Animated.add(Animated.subtract(tuckValue, openOffset).interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: "clamp", extrapolateRight: "extend" }), barHeight),
     [tuckValue, openOffset, barHeight],
   );
   // The floating bar's background and the name on it: clear while the cover shows, solid by the time the tabs row reaches the bar.
   const barOpacity = useMemo(() => tabsShift.interpolate({ inputRange: [barHeight, barHeight + 56], outputRange: [1, 0], extrapolate: "clamp" }), [tabsShift, barHeight]);
 
-  return { pager, scrollX, link, active, mounted, select, onPagerScroll, onPagerDragBegin, onPagerDragEnd, onPagerSettle, onPagerLayout, tabsShift, barOpacity };
+  return { pager, scrollX, link, active, mounted, select, relocate, onPagerScroll, onPagerDragBegin, onPagerDragEnd, onPagerSettle, onPagerLayout, tabsShift, barOpacity };
 }
 
-/** What a visitor may see of Classes, Saved or Liked: still asking, could not ask, a lock, or the tab itself. */
+/** What a visitor may see of Classes, Saved, Liked or Listings: still asking, could not ask, a lock, or the tab itself. */
 type Gate = "open" | "loading" | "error" | "locked";
 
 /** The layout and scroll wiring every page gets from the profile. */
@@ -505,7 +520,7 @@ type TilesPageProps = PageFrame & {
   gate: Gate;
   gateMessage: string;
   onRetryGate: () => void;
-  /** Your own Saved and Liked: who can see them, in a line at the top of the page. */
+  /** Your own Saved, Liked and Listings: who can see them, in a line at the top of the page. */
   visibility?: ProfileVisibility;
   savingVisibility: boolean;
   onChangeVisibility: (section: ProfileSection, value: ProfileVisibility) => void;
@@ -520,7 +535,7 @@ const TilesPage = memo(function TilesPage(props: TilesPageProps) {
   const { index, link, header, pageWidth, tabsHeight, active, refreshing, topInset, tab, grid, own, tileWidth, onOpen, onPin, gate, gateMessage, onRetryGate, visibility, savingVisibility, onChangeVisibility } = props;
   const styles = useStyles();
   const colors = useColors();
-  const list = useRef<Animated.FlatList<ProfileTile>>(null);
+  const list = useRef<FlatList<ProfileTile>>(null);
   const scrollTo = useCallback((y: number, animated: boolean) => list.current?.scrollToOffset({ offset: y, animated }), []);
   const scroll = usePageScroll(props, scrollTo);
   // Tapping Profile again while this tab of your profile is on screen: back to the top (the others follow, linked).
@@ -536,7 +551,7 @@ const TilesPage = memo(function TilesPage(props: TilesPageProps) {
     [tab, tileWidth, onOpen, openInGrid, onPin],
   );
 
-  const section = tab === "saved" || tab === "liked" ? tab : null;
+  const section = tab === "saved" || tab === "liked" || tab === "listings" ? tab : null;
   // The header and the room for the tabs, then (your own Saved and Liked) who can see the tab.
   const top = (
     <>
@@ -546,7 +561,7 @@ const TilesPage = memo(function TilesPage(props: TilesPageProps) {
   );
 
   const spinner = <ActivityIndicator style={styles.spinner} color={colors.brand} />;
-  let footer: ReactElement | null = null;
+  let footer: ReactElement | undefined;
   if (gate === "error") footer = <ErrorLine message={gateMessage} onRetry={onRetryGate} />;
   else if (gate === "loading") footer = spinner;
   else if (gate === "locked") footer = <LockedNotice message={gateMessage} />;
@@ -612,7 +627,7 @@ const ClassesPage = memo(function ClassesPage(props: ClassesPageProps) {
   const { index, link, header, pageWidth, tabsHeight, active, refreshing, topInset, tuck, own, userId, classes, error, onRetry, onChange, gate, gateMessage, onRetryGate, visibility, savingVisibility, onChangeVisibility } = props;
   const styles = useStyles();
   const colors = useColors();
-  const scroller = useRef<ScrollView>(null);
+  const scroller = useRef<ScrollViewInstance>(null);
   const scrollTo = useCallback((y: number, animated: boolean) => scroller.current?.scrollTo({ y, animated }), []);
   const scroll = usePageScroll(props, scrollTo);
   useTabReselect(() => scrollTo(0, true), active);
@@ -663,9 +678,10 @@ const ClassesPage = memo(function ClassesPage(props: ClassesPageProps) {
  * (no haptic) or tap one (a light tap). Each page keeps its own scroll position: the header scrolls up with the open page
  * (a drag on it scrolls the page too) until only the floating bar and the tabs row under it are left at the top.
  * A grid page shows its squares three to a row, loading more as you scroll; Classes shows the classes by semester (where
- * the owner adds them). Listings (apartments, roommate posts and items for sale) come all at once. Classes, Saved and Liked
- * follow the owner's settings: the owner sees who can see each (and changes it there), a visitor without access sees a
- * lock; Posts, Reels and Listings are public. A page loads once it is open or next to the open one.
+ * the owner adds them). Listings (apartments, roommate posts and items for sale) come all at once. Classes, Saved, Liked
+ * and Listings follow the owner's settings (Saved, Liked and Listings are Only me unless the owner opens them up): the
+ * owner sees every tab, who can see each and changes it there; a visitor gets no tab at all for a section they may not
+ * open, not even its icon. Posts and Reels are public. A page loads once it is open or next to the open one.
  *
  * `topBar` is the Profile tab: Find friends floats at the top left and the menu at the top right, and your name opens the
  * account sheet. A stacked screen (its navigation header hidden) floats Back at the top left instead, with More on someone
@@ -701,6 +717,14 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
 
   const access = own ? OWNER_ACCESS : accessQ.data;
   const canSee = (section: ProfileSection) => own || access?.[section] === true;
+  // The tabs this viewer gets: the owner every one; anyone else Posts and Reels, and of Classes, Saved, Liked and Listings
+  // only those they may open (the rest have no tab at all). Until the access is known, or if it cannot be read, only Posts
+  // and Reels. Compared by their keys, so a refresh with the same answer keeps the same tabs.
+  const tabKeys = PROFILE_TABS.filter((t) => !isSectionTab(t.key) || canSee(t.key))
+    .map((t) => t.key)
+    .join(",");
+  const tabs = useMemo<readonly ProfileTabMeta[]>(() => PROFILE_TABS.filter((t) => tabKeys.split(",").includes(t.key)), [tabKeys]);
+  const tabIndex = (key: ProfileTabKey) => tabs.findIndex((t) => t.key === key);
 
   // The pager fills the space under the top bar. The tabs row over it is measured first (every page leaves room for it
   // under its copy of the header), then the header, from the open page's copy: the row sits right under it, and its height
@@ -714,28 +738,47 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   const tuck = Math.max(0, headerHeight - barHeight);
   /** The page whose pull started the refresh: only its spinner shows. */
   const [refreshingPage, setRefreshingPage] = useState<number | null>(null);
-  const { pager, scrollX, link, active, mounted, select, onPagerScroll, onPagerDragBegin, onPagerDragEnd, onPagerSettle, onPagerLayout, tabsShift, barOpacity } = useProfilePager({
+  const { pager, scrollX, link, active, mounted, select, relocate, onPagerScroll, onPagerDragBegin, onPagerDragEnd, onPagerSettle, onPagerLayout, tabsShift, barOpacity } = useProfilePager({
     pageWidth: body.width,
     tuck,
     barHeight,
+    count: tabs.length,
     onRefresh: (index) => void refreshAll(index),
     onHeaderHeight: (height) => setHeaderHeight((h) => (h === height ? h : height)),
   });
-  const tab = PROFILE_TABS[active].key;
+  // For the one render after the tabs change (the pager is moved right after it), the index may point past the end.
+  const tab = tabs[Math.min(active, tabs.length - 1)]?.key ?? "posts";
+
+  // The tabs changed (a follow opened a section, a block or the owner's new setting closed one): the open tab stays open
+  // if it is still there, Posts otherwise, from the top.
+  const openTab = useRef<ProfileTabKey>("posts");
+  const placedFor = useRef(tabKeys);
+  useEffect(() => {
+    if (placedFor.current === tabKeys) {
+      openTab.current = tab;
+      return;
+    }
+    placedFor.current = tabKeys;
+    const at = Math.max(0, tabs.findIndex((t) => t.key === openTab.current));
+    openTab.current = tabs[at]?.key ?? "posts";
+    relocate(at);
+  }, [tabKeys, tabs, tab, relocate]);
 
   /** A tap moves the pager to the tab, silently (no haptic), as a swipe does. */
   function selectTab(next: ProfileTabKey) {
-    select(TAB_INDEX[next]);
+    const at = tabIndex(next);
+    if (at >= 0) select(at);
   }
 
   // A grid loads once its page is open or next to the open one, and keeps its squares after that.
   const resetKey = `${userId}:${viewerId ?? "guest"}`;
-  const posts = useTileGrid((c) => postTiles(userId, "post", c), { resetKey, enabled: mounted.has(TAB_INDEX.posts) });
-  const reels = useTileGrid((c) => postTiles(userId, "reel", c), { resetKey, enabled: mounted.has(TAB_INDEX.reels) });
-  const saved = useTileGrid((c) => listProfileSaved(supabase, userId, { before: before(c) }), { resetKey, enabled: mounted.has(TAB_INDEX.saved) && canSee("saved") });
-  const liked = useTileGrid((c) => listProfileLiked(supabase, userId, { before: before(c) }), { resetKey, enabled: mounted.has(TAB_INDEX.liked) && canSee("liked") });
-  // Listings are public, so they need no access check, and come as a single page.
-  const listings = useTileGrid(() => listingTiles(userId), { resetKey, enabled: mounted.has(TAB_INDEX.listings) });
+  // A tab the viewer does not get has no page (index -1), so its grid never loads, and one that closes drops its squares.
+  const posts = useTileGrid((c) => postTiles(userId, "post", c), { resetKey, enabled: mounted.has(tabIndex("posts")) });
+  const reels = useTileGrid((c) => postTiles(userId, "reel", c), { resetKey, enabled: mounted.has(tabIndex("reels")) });
+  const saved = useTileGrid((c) => listProfileSaved(supabase, userId, { before: before(c) }), { resetKey, enabled: mounted.has(tabIndex("saved")) && canSee("saved") });
+  const liked = useTileGrid((c) => listProfileLiked(supabase, userId, { before: before(c) }), { resetKey, enabled: mounted.has(tabIndex("liked")) && canSee("liked") });
+  // Listings come as a single page, once the viewer may see them.
+  const listings = useTileGrid(() => listingTiles(userId), { resetKey, enabled: mounted.has(tabIndex("listings")) && canSee("listings") });
   const grids: Record<GridTab, TileGrid> = { posts, reels, saved, liked, listings };
   const grid = tab === "classes" ? null : grids[tab];
 
@@ -772,10 +815,10 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
     };
   }, [updatePosts, updateReels, updateSaved, updateLiked]);
 
-  // Owner only: who can see Classes, Saved and Liked. The choice shows at once and goes back if the server says no.
+  // Owner only: who can see Classes, Saved, Liked and Listings. The choice shows at once and goes back if the server says no.
   const [pendingVisibility, setPendingVisibility] = useState<Partial<Record<ProfileSection, ProfileVisibility>>>({});
   const [savingVisibility, setSavingVisibility] = useState<ProfileSection | null>(null);
-  const visibility = (section: ProfileSection): ProfileVisibility => pendingVisibility[section] ?? (profile ? visibilityOf(profile, section) : DEFAULT_VISIBILITY[section]);
+  const visibility = (section: ProfileSection): ProfileVisibility => pendingVisibility[section] ?? (profile ? visibilityOf(profile, section) : PROFILE_DEFAULT_VISIBILITY[section]);
   const forget = (section: ProfileSection) =>
     setPendingVisibility((p) => {
       const next = { ...p };
@@ -1030,7 +1073,9 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   const findFriends: CoverAction = { icon: "person-add-outline", label: "Find friends", onPress: onFindFriends };
   const rightActions: CoverAction[] = own ? [...(topBar ? [] : [findFriends]), { icon: "settings-outline", label: "Menu", onPress: onMenu }] : [{ icon: "ellipsis-horizontal", label: "More", onPress: onMore }];
 
-  if (!profile || (followQ.loading && !followQ.data && !followQ.error)) {
+  // A visitor's tabs depend on what they may open: the screen waits for that first answer too, so no tab comes or goes.
+  const accessPending = !own && accessQ.loading && !accessQ.data && !accessQ.error;
+  if (!profile || (followQ.loading && !followQ.data && !followQ.error) || accessPending) {
     let content: ReactNode = <Loading />;
     if (!profile && !profileQ.loading) {
       content = profileQ.error ? (
@@ -1059,16 +1104,15 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   const ready = body.height > 0 && tabsHeight > 0;
   const shown = ready && headerHeight > 0;
 
-  // The lock on a tab: your own when not everyone can see it, someone else's when you may not open it.
+  // What screen readers hear about your own tab when not everyone can see it. A visitor has no tab they may not open.
   const locks: Partial<Record<ProfileTabKey, string>> = {};
-  for (const section of ["classes", "saved", "liked"] as const) {
+  for (const section of PROFILE_SECTIONS) {
     const value = visibility(section);
     if (own && value !== "public") locks[section] = ownSectionNote(section, value);
-    if (!own && access && !access[section]) locks[section] = lockedSectionMessage(section, value, firstName);
   }
-  // The mark beside the open tab: who can see that section. Posts, Reels and Listings are everyone's; the rest follow the setting.
-  const badges: Partial<Record<ProfileTabKey, ProfileVisibility>> = { posts: "public", reels: "public", listings: "public" };
-  for (const section of ["classes", "saved", "liked"] as const) badges[section] = visibility(section);
+  // The mark beside the open tab: who can see that section. Posts and Reels are everyone's; the rest follow the setting.
+  const badges: Partial<Record<ProfileTabKey, ProfileVisibility>> = { posts: "public", reels: "public" };
+  for (const section of PROFILE_SECTIONS) badges[section] = visibility(section);
 
   // The number a tab reads out to screen readers (none is drawn): only Listings has one, once it has loaded. Saved and
   // Liked come in pages, so their totals are not known.
@@ -1105,7 +1149,7 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
         />
       );
     }
-    const section = key === "saved" || key === "liked" ? key : null;
+    const section = key === "saved" || key === "liked" || key === "listings" ? key : null;
     const [gate, gateMessage]: [Gate, string] = section ? gateOf(section) : ["open", ""];
     return (
       <TilesPage
@@ -1160,7 +1204,7 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
           >
             {/* One child, so the animated scroll view keeps its native wiring across renders. */}
             <View style={styles.pages}>
-              {PROFILE_TABS.map((t, i) => (
+              {tabs.map((t, i) => (
                 <View
                   key={t.key}
                   // Always a view of its own: the hiding below changes on every commit and would otherwise flatten the page
@@ -1180,6 +1224,7 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
         {/* The tabs row stays over the pages: right under the header, then under the floating bar once the header has gone, and down with a pull. */}
         <Animated.View pointerEvents="box-none" style={[styles.tabs, { top: 0, transform: [{ translateY: tabsShift }] }, !shown && styles.hidden]}>
           <ProfileTabs
+            tabs={tabs}
             active={tab}
             onSelect={selectTab}
             locks={locks}

@@ -1,3 +1,4 @@
+import { isMissingInDatabase, LISTINGS_VISIBILITY_NOT_READY } from "./profile-page";
 import type { Client, PosterSummary, Profile, ProfileSummary, ProfileVisibility, ProfileWithUniversity } from "../types/models";
 
 export const PROFILE_SUMMARY_COLUMNS = "id, full_name, avatar_url";
@@ -28,6 +29,8 @@ export async function updateProfile(
     classesVisibility?: ProfileVisibility;
     savedVisibility?: ProfileVisibility;
     likedVisibility?: ProfileVisibility;
+    /** Sent only when it changed: a database before migration 37 has no such column. */
+    listingsVisibility?: ProfileVisibility;
   },
 ): Promise<Profile> {
   const { data, error } = await supabase
@@ -44,11 +47,12 @@ export async function updateProfile(
       ...(input.classesVisibility === undefined ? {} : { classes_visibility: input.classesVisibility }),
       ...(input.savedVisibility === undefined ? {} : { saved_visibility: input.savedVisibility }),
       ...(input.likedVisibility === undefined ? {} : { liked_visibility: input.likedVisibility }),
+      ...(input.listingsVisibility === undefined ? {} : { listings_visibility: input.listingsVisibility }),
     })
     .eq("id", id)
     .select("*")
     .single();
-  if (error) throw error;
+  if (error) throw input.listingsVisibility !== undefined && isMissingInDatabase(error) ? new Error(LISTINGS_VISIBILITY_NOT_READY) : error;
   return data;
 }
 

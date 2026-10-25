@@ -14,7 +14,7 @@ export function visibilityQuestion(section: ProfileSection): string {
 }
 
 /**
- * The owner's line at the top of Classes, Saved and Liked: a globe, people or lock, "Only you can see your saved posts",
+ * The owner's line at the top of Classes, Saved, Liked and Listings: a globe, people or lock, "Only you can see your saved posts",
  * and Change, which offers Everyone, Friends and Only me. The sheet's title names the current one ("… Now: Only me"),
  * since the iOS sheet shows no icons; elsewhere it is ticked as well.
  */

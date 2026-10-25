@@ -14,7 +14,7 @@ import { Icon } from "@/components/icon";
 
 const PAGE = 30;
 /** The small mark on each row saying what kind of notification it is (over the actor's photo, or alone without one). */
-const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = { message: "chatbubble", listing_saved: "bookmark", nearby_listing: "location", system: "notifications", like: "heart", comment: "chatbox", follow: "person-add", snap: "camera" };
+const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = { message: "chatbubble", listing_saved: "bookmark", nearby_listing: "location", system: "notifications", like: "heart", comment: "chatbox", follow: "person-add", snap: "camera", snap_activity: "eye", call: "call" };
 const AVATAR = 44;
 
 /**
@@ -113,7 +113,7 @@ export default function NotificationsScreen() {
         data={items ?? []}
         keyExtractor={(n) => n.id}
         contentContainerStyle={[styles.list, (items?.length ?? 0) === 0 && styles.listEmpty]}
-        ListHeaderComponent={items && items.length > 0 ? <Text style={styles.summary}>{unread > 0 ? `${unread} unread` : "All caught up"}</Text> : null}
+        ListHeaderComponent={items && items.length > 0 ? <Text style={styles.summary}>{unread > 0 ? `${unread} unread` : "All caught up"}</Text> : undefined}
         CellRendererComponent={appearCells}
         renderItem={({ item: n }) => {
           const icon = ICONS[n.type] ?? "notifications";
@@ -165,7 +165,7 @@ export default function NotificationsScreen() {
             <EmptyState icon="notifications-outline" title="Nothing yet" body="New messages, likes, comments, follows, saves of your listings and places near campus will show here." />
           )
         }
-        ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footer} color={colors.muted} /> : null}
+        ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footer} color={colors.muted} /> : undefined}
         onEndReached={() => void loadMore()}
         onEndReachedThreshold={0.6}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshWithHaptic(() => void onRefresh())} />}

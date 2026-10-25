@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, BackHandler, FlatList, Keyboard, Platform, Pressable, RefreshControl, StyleSheet, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView, type TextInput } from "react-native";
+import { Animated, BackHandler, FlatList, Keyboard, Platform, Pressable, RefreshControl, StyleSheet, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView, type TextInput, type ScrollViewInstance, type TextInputInstance } from "react-native";
 import { useFocusEffect, useIsFocused, useRouter } from "expo-router";
 import { listConversations, listFriends, markConversationRead, markConversationsRead, MUTE_DURATIONS, muteLabel, type ConversationSummary, type MessageWithSender, type MuteDuration, type MuteScope, type ProfileSummary } from "@apartment-book/shared";
 import { useActionSheet, type SheetOption } from "@/components/action-sheet";
@@ -76,12 +76,12 @@ export default function MessagesScreen() {
   const [allChatMatches, setAllChatMatches] = useState(false);
   const [pulling, setPulling] = useState(false);
   const [scrolledPages, setScrolledPages] = useState(NOT_SCROLLED);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const now = useNow(focused);
 
   // ---- The pager: Chats | Groups side by side, as on Home. The underline follows the finger on the native driver (scrollX);
   // the page is committed when the pager crosses the halfway point or when a label is tapped.
-  const pager = useRef<ScrollView>(null);
+  const pager = useRef<ScrollViewInstance>(null);
   /** Each page's list, so tapping Messages again scrolls the page on screen back to the top, as on every iOS tab. */
   const listRefs = useRef<Partial<Record<InboxPage, { scrollToOffset: (p: { offset: number; animated?: boolean }) => void } | null>>>({});
   useTabReselect(() => listRefs.current[page]?.scrollToOffset({ offset: 0, animated: true }));
@@ -441,11 +441,11 @@ export default function MessagesScreen() {
                 contentContainerStyle={[searching ? styles.searchContent : styles.listContent, { paddingBottom: (searching ? space.xl : 96) + tabBar }]}
                 refreshControl={searching ? undefined : <RefreshControl refreshing={pulling} onRefresh={refreshWithHaptic(onPull)} tintColor={colors.muted} colors={[colors.brand]} progressBackgroundColor={colors.elevated} />}
                 ListHeaderComponent={
-                  searching ? null : p === "chats" && filterOn(p) === "requests" ? (
-                    requestCount > 0 ? <InboxNote text="From people you don't follow. Reply to move a chat to All." /> : null
+                  searching ? undefined : p === "chats" && filterOn(p) === "requests" ? (
+                    requestCount > 0 ? <InboxNote text="From people you don't follow. Reply to move a chat to All." /> : undefined
                   ) : p === "chats" ? (
                     <InboxOnlineFriends friends={friends ?? NO_FRIENDS} me={userId} scrolled={scrolledPages.chats} opening={openingFriend} onOpen={openFriend} />
-                  ) : null
+                  ) : undefined
                 }
                 ListEmptyComponent={empty(p)}
               />

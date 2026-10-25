@@ -137,10 +137,10 @@ export function VoiceRecorder({ onCancel, onSend }: { onCancel: () => void; onSe
   return (
     <View style={styles.row} accessibilityLabel={`Recording a voice message, ${formatDuration(seconds) || "0:00"}`}>
       <Pressable onPress={() => void finish(false)} hitSlop={8} style={styles.side} accessibilityRole="button" accessibilityLabel="Discard voice message">
-        <Icon name="trash-outline" size={22} color={colors.red} />
+        <Icon name="trash-outline" size={23} color={colors.red} />
       </Pressable>
       <View style={[styles.track, { borderColor: colors.glassEdge }]}>
-        <GlassBackdrop variant="float" radius={20} />
+        <GlassBackdrop variant="float" radius={22} />
         <Animated.View style={[styles.dot, { backgroundColor: colors.red }, dot]} />
         <Text style={styles.time}>{formatDuration(seconds) || "0:00"}</Text>
         <View style={styles.meter} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -157,19 +157,20 @@ export function VoiceRecorder({ onCancel, onSend }: { onCancel: () => void; onSe
         accessibilityRole="button"
         accessibilityLabel="Send voice message"
       >
-        <Icon name="arrow-up" size={18} color={colors.onBrand} weight="bold" />
+        <Icon name="arrow-up" size={20} color={colors.onBrand} weight="bold" />
       </Pressable>
     </View>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
-  row: { flexDirection: "row", alignItems: "center", gap: 8 },
-  side: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
-  track: { flex: 1, height: 40, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 8, overflow: "hidden" },
+  // The same 44pt sizes as the message bar it stands in for, so nothing jumps when recording starts or ends.
+  row: { flexDirection: "row", alignItems: "center", gap: 10 },
+  side: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  track: { flex: 1, height: 44, borderRadius: 22, borderWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 9, overflow: "hidden" },
   dot: { width: 9, height: 9, borderRadius: 4.5 },
-  time: { fontSize: 15, fontWeight: "600", color: colors.text, fontVariant: ["tabular-nums"], minWidth: 38 },
+  time: { fontSize: 16, fontWeight: "600", color: colors.text, fontVariant: ["tabular-nums"], minWidth: 40 },
   meter: { flex: 1, height: 26, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 2 },
   bar: { width: 3, borderRadius: 1.5 },
-  send: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  send: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
 }));

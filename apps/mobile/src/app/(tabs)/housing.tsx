@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView as ScrollViewType } from "react-native";
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -57,7 +57,7 @@ export default function HousingScreen() {
   const params = useLocalSearchParams<{ section: string }>();
   /** The page to open on: the one the link asked for, else Apartments. Read once; a later link is handled below. */
   const start = useRef(pageOf(params.section) >= 0 ? pageOf(params.section) : START).current;
-  const pager = useRef<ScrollViewType>(null);
+  const pager = useRef<ScrollViewInstance>(null);
   const [index, setIndex] = useState(start);
   const indexRef = useRef(start);
   /** Page a label tap is scrolling to; swipe tracking waits until we get there so the labels do not flicker. */
@@ -178,7 +178,7 @@ export default function HousingScreen() {
   const activeFilters = activeFilterCount(section, filters);
 
   // The pills row scrolls just enough to keep the chosen pill in full view (the Marketplace has a dozen), the old category pills' way.
-  const pillsRow = useRef<ScrollViewType>(null);
+  const pillsRow = useRef<ScrollViewInstance>(null);
   const pillBoxes = useRef(new Map<string, { x: number; width: number }>());
   const pillsOffset = useRef(0);
   const pillsViewport = useRef(0);

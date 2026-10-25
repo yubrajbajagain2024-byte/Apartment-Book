@@ -19,16 +19,19 @@ const TAB_META: Record<ProfileTab, { label: string; icon: LucideIcon }> = {
 export const PROFILE_PANEL_ID = "profile-panel";
 
 /**
- * TikTok's row of icon tabs under the profile header: Posts, Classes, Reels, Saved, Liked, Listings. They are links
- * (?tab=…), so the server renders the chosen tab; the tapped one lights up straight away while it loads. A small lock
- * marks Classes, Saved and Liked when the owner keeps them from everyone, or when the visitor may not open them.
+ * TikTok's row of icon tabs under the profile header: Posts, Classes, Reels, Saved, Liked, Listings, sharing the row
+ * equally. `tabs` are the ones this viewer gets: a visitor gets no tab they may not open (no icon, no gap). They are links
+ * (?tab=…), so the server renders the chosen tab; the tapped one lights up straight away while it loads. On your own
+ * profile a small lock marks Classes, Saved, Liked and Listings when you keep them from everyone.
  */
 export function ProfileTabs({
   profileId,
+  tabs = PROFILE_TABS,
   active,
   locks,
 }: {
   profileId: string;
+  tabs?: readonly ProfileTab[];
   active: ProfileTab;
   /** Tabs that wear the lock, with what it means for the screen reader ("Only me", "Friends", "locked"). */
   locks: Partial<Record<ProfileTab, string>>;
@@ -70,8 +73,16 @@ export function ProfileTabs({
   }
 
   return (
-    <div ref={listRef} role="tablist" aria-label="Profile" onKeyDown={onKeyDown} className="sticky top-14 z-20 grid grid-cols-6 border-b border-gray-200 bg-white" data-testid="profile-tabs">
-      {PROFILE_TABS.map((tab) => {
+    <div
+      ref={listRef}
+      role="tablist"
+      aria-label="Profile"
+      onKeyDown={onKeyDown}
+      className="sticky top-14 z-20 grid border-b border-gray-200 bg-white"
+      style={{ gridTemplateColumns: `repeat(${Math.max(1, tabs.length)}, minmax(0, 1fr))` }}
+      data-testid="profile-tabs"
+    >
+      {tabs.map((tab) => {
         const { label, icon: Icon } = TAB_META[tab];
         const selected = tab === shown;
         const lock = locks[tab];

@@ -9,7 +9,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 // The profile page's wording comes from the shared package (Node 22.18+ loads its TypeScript directly, as npm run test:shared does).
-import { lockedSectionMessage, MUTUAL_FRIENDS_LOGIN_PROMPT, noMutualFriendsMessage, ownSectionNote, privateFollowListsNote } from "../../../packages/shared/src/profile.ts";
+import { MUTUAL_FRIENDS_LOGIN_PROMPT, noMutualFriendsMessage, ownSectionNote, privateFollowListsNote } from "../../../packages/shared/src/profile.ts";
 const BASE = process.env.BASE || "http://localhost:3060";
 const state = JSON.parse(fs.readFileSync(new URL("../../mobile/e2e/.sim-state.json", import.meta.url), "utf8"));
 const SHOTS = fileURLToPath(new URL("./screenshots/", import.meta.url)); fs.mkdirSync(SHOTS, { recursive: true }); // fileURLToPath: the repo path has a space in it
@@ -129,17 +129,17 @@ try {
     const button = D.getByTestId("follow-button"); if (!(await button.count())) throw new Error("no Follow button for a signed-out visitor");
     await button.click(); await D.waitForURL(/\/login/);
   });
-  await step("signed out: Maya's profile page, TikTok style: an @username, the tabs Posts | Classes | Reels | Saved | Liked | Listings with Posts open on a grid of her posts, nothing between her bio and the tabs (no \"Classes this semester\" card, no listings), a locked Saved tab (only she can see it, the default), CS 3358 under this semester on her Classes tab (the seed lets everyone see her classes) and her apartment on her Listings tab", async () => {
+  await step("signed out: Maya's profile page, TikTok style: an @username, the tabs Posts | Classes | Reels | Listings with Posts open on a grid of her posts (no Saved or Liked tab at all: only she can see them, the default), nothing between her bio and the tabs (no \"Classes this semester\" card, no listings), CS 3358 under this semester on her Classes tab and her apartment on her Listings tab (the seed lets everyone see both), and ?tab=saved opening Posts", async () => {
     await D.goto(BASE + "/profile/" + state.other.id); await D.getByTestId("profile").waitFor();
     const handle = (await D.getByTestId("profile-username").innerText()).trim(); if (!/^@[a-z0-9][a-z0-9._]{1,28}[a-z0-9]$/.test(handle)) throw new Error("username: " + handle);
     const tabs = await D.locator("[data-testid='profile-tabs'] [role='tab']").evaluateAll((els) => els.map((el) => el.getAttribute("data-testid")));
-    if (tabs.join(" ") !== "profile-tab-posts profile-tab-classes profile-tab-reels profile-tab-saved profile-tab-liked profile-tab-listings") throw new Error("tabs: " + tabs.join(" "));
+    if (tabs.join(" ") !== "profile-tab-posts profile-tab-classes profile-tab-reels profile-tab-listings") throw new Error("tabs: " + tabs.join(" "));
     if ((await D.getByTestId("profile-tab-posts").getAttribute("aria-selected")) !== "true") throw new Error("Posts is not the open tab");
     await D.locator("[data-testid='profile-grid'] [data-testid='profile-tile']").first().waitFor();
     // Her classes and listings have tabs of their own: neither sits under the bio any more.
     if (await D.getByTestId("profile").getByText("Classes this semester").count()) throw new Error("the \"Classes this semester\" card is still under the bio");
     if (await D.getByTestId("profile-listings").count()) throw new Error("her listings still show above the tabs");
-    if (!(await D.locator("[data-testid='profile-tab-saved'] [data-testid='profile-tab-lock']").count())) throw new Error("no lock on the Saved tab, which she keeps to herself");
+    if (await D.locator("[data-testid='profile-tab-saved'], [data-testid='profile-tab-liked'], [data-testid='profile-tab-lock']").count()) throw new Error("a visitor sees a Saved or Liked tab, or a lock, which she keeps to herself");
     await D.screenshot({ caret: "initial", path: SHOTS + "web-14-profile.png" });
     // The Classes tab lists CS 3358 under this semester.
     await D.getByTestId("profile-tab-classes").click(); await D.waitForURL(/[?&]tab=classes/);
@@ -150,12 +150,10 @@ try {
     const listing = D.locator("[data-testid='profile-listings'] [data-testid='profile-listing']").filter({ hasText: "Sunny 2-bed near Sewell Park" }).first(); await listing.waitFor();
     const href = (await listing.getAttribute("href")) ?? ""; if (!/^\/apartments\/[0-9a-f-]{36}$/.test(href)) throw new Error("the apartment's square links to " + href);
     await D.screenshot({ caret: "initial", path: SHOTS + "web-14b-profile-listings.png" });
-    // The Saved tab itself: the lock and lockedSectionMessage's words ("Only UI can see their saved posts"), never the list.
-    await D.getByTestId("profile-tab-saved").click(); await D.waitForURL(/[?&]tab=saved/);
-    const locked = D.getByTestId("profile-locked"); await locked.waitFor();
-    const said = (await locked.innerText()).replace(/\s+/g, " ").trim(); const want = lockedSectionMessage("saved", "private", state.other.name.split(/\s+/)[0]);
-    if (said !== want) throw new Error(`the locked Saved tab says "${said}", wanted "${want}"`);
-    if (await D.getByTestId("profile-grid").count()) throw new Error("a visitor sees the Saved grid");
+    // Her Saved tab's address shows Posts: no lock, no words about it, never the list.
+    await D.goto(BASE + "/profile/" + state.other.id + "?tab=saved"); await D.getByTestId("profile").waitFor();
+    if ((await D.getByTestId("profile-tab-posts").getAttribute("aria-selected")) !== "true") throw new Error("?tab=saved did not open Posts");
+    if (await D.locator("[data-testid='profile-tab-saved'], [data-testid='profile-locked']").count()) throw new Error("?tab=saved shows the Saved tab or a lock");
   });
   await step("phone: bottom bar is Home, Explore, Messages, Profile like the app (Profile links to /profile/me; Search is the header magnifier)", async () => {
     await M.goto(BASE + "/?tab=posts"); await M.getByText("First week back on campus").first().waitFor();
@@ -333,12 +331,14 @@ try {
       }
       await D.reload({ waitUntil: "networkidle" }); await line.getByText(ownSectionNote("saved", value), { exact: true }).waitFor(); // saved, not only shown
     };
-    // What a signed-out visitor gets on my Saved tab (I saved nothing, or the earlier steps unsaved it): the empty tab, or the lock with lockedSectionMessage's words.
+    // What a signed-out visitor gets on my Saved tab (I saved nothing, or the earlier steps unsaved it): with Everyone the tab and
+    // its empty state; with Only me no Saved tab at all, and its address opens Posts.
     const visitorSees = async (value) => {
-      await M.goto(BASE + `/profile/${state.me.id}?tab=saved`); await M.getByTestId("profile").waitFor(); const locked = M.getByTestId("profile-locked");
-      if (value === "public") { await M.locator("[data-testid='profile-empty'], [data-testid='profile-grid']").first().waitFor(); if (await locked.count()) throw new Error("a visitor still meets the lock after Everyone"); return; }
-      await locked.waitFor(); const said = (await locked.innerText()).replace(/\s+/g, " ").trim(); const want = lockedSectionMessage("saved", value, state.me.name.split(/\s+/)[0]);
-      if (said !== want) throw new Error(`a visitor reads "${said}", wanted "${want}"`);
+      await M.goto(BASE + `/profile/${state.me.id}?tab=saved`); await M.getByTestId("profile").waitFor();
+      const savedTab = M.getByTestId("profile-tab-saved");
+      if (value === "public") { await M.locator("[data-testid='profile-empty'], [data-testid='profile-grid']").first().waitFor(); if ((await savedTab.getAttribute("aria-selected")) !== "true") throw new Error("a visitor does not get the Saved tab after Everyone"); return; }
+      if (await savedTab.count()) throw new Error("a visitor still has a Saved tab after Only me");
+      if ((await M.getByTestId("profile-tab-posts").getAttribute("aria-selected")) !== "true") throw new Error("?tab=saved did not open Posts for a visitor");
     };
     await pick("Everyone", "public", "web-15-profile-saved-setting.png"); await visitorSees("public");
     await pick("Only me", "private"); await visitorSees("private");

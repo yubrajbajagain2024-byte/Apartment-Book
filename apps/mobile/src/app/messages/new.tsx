@@ -97,9 +97,9 @@ export default function NewMessageScreen() {
         keyboardDismissMode="on-drag"
         automaticallyAdjustKeyboardInsets
         contentContainerStyle={{ paddingBottom: insets.bottom + space.xl }}
-        ListHeaderComponent={people.length > 0 ? <InboxSectionHeader title={typing ? "People" : "Suggested"} /> : null}
+        ListHeaderComponent={people.length > 0 ? <InboxSectionHeader title={typing ? "People" : "Suggested"} /> : undefined}
         renderItem={({ item }) => <InboxPersonRow person={item} busy={opening === item.id} disabled={opening !== null} onPress={() => void start(item)} />}
-        ListFooterComponent={pending && people.length > 0 ? <InboxNote loading /> : null}
+        ListFooterComponent={pending && people.length > 0 ? <InboxNote loading /> : undefined}
         ListEmptyComponent={
           pending ? (
             <InboxNote loading />

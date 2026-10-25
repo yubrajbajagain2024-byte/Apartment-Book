@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Animated, View, useWindowDimensions, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView } from "react-native";
+import { Animated, View, useWindowDimensions, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollView, type ScrollViewInstance } from "react-native";
 import { useIsFocused } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -74,7 +74,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
   const { colors, isDark } = useAppTheme();
-  const pager = useRef<ScrollView>(null);
+  const pager = useRef<ScrollViewInstance>(null);
   /** The section on screen: committed once the pager stops (at once for `jump`), never in the middle of a move. */
   const [index, setIndex] = useState(START);
   const indexRef = useRef(START);

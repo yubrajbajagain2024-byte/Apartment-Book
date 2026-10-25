@@ -1,6 +1,6 @@
 import type { Json } from "../types/database";
 import type { Client, ProfileSummary } from "../types/models";
-import type { SnapKind, SnapMime } from "../snaps";
+import type { SnapDetection, SnapKind, SnapMime } from "../snaps";
 
 /** Someone the Send To list offers: a person I have a direct chat with, a friend, or both. */
 export type SnapRecipient = ProfileSummary & {
@@ -87,9 +87,14 @@ export type OpenedSnap = {
   sender: ProfileSummary;
 };
 
-/** The one view: marks the Snap opened and says where its file is. Throws the database's words (SNAP_ERRORS) when it cannot. */
-export async function openSnap(supabase: Client, snapId: string): Promise<OpenedSnap> {
-  const { data, error } = await supabase.rpc("open_snap", { p_snap_id: snapId });
+/**
+ * The one view: marks the Snap opened and says where its file is. Throws the database's words (SNAP_ERRORS) when it
+ * cannot. `detect` is what this device can tell about captures (migration 33), logged on the Snap for its sender.
+ */
+export async function openSnap(supabase: Client, snapId: string, detect: SnapDetection = "none"): Promise<OpenedSnap> {
+  let { data, error } = await supabase.rpc("open_snap", { p_snap_id: snapId, p_detect: detect });
+  // A database from before migration 33 has no p_detect argument (PostgREST: no such function): open the old way.
+  if (error && isMissingFunction(error)) ({ data, error } = await supabase.rpc("open_snap", { p_snap_id: snapId }));
   if (error) throw error;
   const s = obj(data);
   const sender = obj(s.sender ?? null);
@@ -114,5 +119,37 @@ export async function openSnap(supabase: Client, snapId: string): Promise<Opened
 export async function closeSnap(supabase: Client, snapId: string): Promise<void> {
   const { error } = await supabase.rpc("close_snap", { p_snap_id: snapId });
   if (error) throw error;
+}
+
+/** PostgREST's answer when the database has no function of that name and arguments (a migration not applied yet). */
+function isMissingFunction(error: { code?: string; message?: string }): boolean {
+  return error.code === "PGRST202" || /could not find the function/i.test(error.message ?? "");
+}
+
+/** The words the apps show when a Snap feature's migration is not on the server yet. */
+export const SNAP_NOT_SET_UP = "This isn't set up on the server yet (migration 33). Ask whoever runs CampConnect to apply it.";
+
+/**
+ * The chat received the Snap on this device: "Delivered" goes on its activity, once (migration 33). On a database
+ * without the function there is nothing to log, and nothing to retry.
+ */
+export async function snapDelivered(supabase: Client, snapId: string): Promise<void> {
+  const { error } = await supabase.rpc("snap_delivered", { p_snap_id: snapId });
+  if (error && !isMissingFunction(error)) throw error;
+}
+
+/**
+ * This device saw a screenshot (or a screen recording) while the Snap was open: logged on the Snap, and its sender told.
+ * On a database without the function it goes unreported (and the app never claimed it would be).
+ */
+export async function reportSnapCapture(supabase: Client, snapId: string, kind: "screenshot" | "recording"): Promise<void> {
+  const { error } = await supabase.rpc("report_snap_capture", { p_snap_id: snapId, p_kind: kind });
+  if (error && !isMissingFunction(error)) throw error;
+}
+
+/** Takes back a Snap you sent: every chat it went to shows "Snap deleted", and its file goes at once. */
+export async function deleteSnap(supabase: Client, snapId: string): Promise<void> {
+  const { error } = await supabase.rpc("delete_snap", { p_snap_id: snapId });
+  if (error) throw isMissingFunction(error) ? new Error(SNAP_NOT_SET_UP) : error;
 }
 

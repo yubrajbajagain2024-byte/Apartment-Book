@@ -26,6 +26,14 @@ export type ThemeColors = {
   aurora: readonly [string, string, string, string];
   auroraGlow: readonly [string, string, string, string];
   auroraWash: readonly [string, string, string, string];
+  /**
+   * The Aurora at its faintest, for whole panels that carry words (a roommate post's preference cards): a breath of
+   * colour over the page, never enough to cost the text its contrast. `auroraEdge` is the hairline around such a panel
+   * and `auroraInk` the accent words and icons on it (4.5:1 or better on the tinted panel in both themes).
+   */
+  auroraPanel: readonly [string, string, string, string];
+  auroraEdge: string;
+  auroraInk: string;
   /** The floating bottom bar where there is no liquid glass (Android, iOS before 26): a translucent fill, and the hairline around the pill everywhere. */
   glass: string;
   glassEdge: string;
@@ -129,6 +137,9 @@ export const lightColors: ThemeColors = {
   aurora: ["#0a83a6", "#166fe5", "#5468ee", "#8250ea"],
   auroraGlow: ["#0a83a6", "#166fe5", "#5468ee", "#8250ea"],
   auroraWash: ["rgba(44,198,234,0.20)", "rgba(74,157,251,0.18)", "rgba(131,148,249,0.18)", "rgba(164,124,248,0.20)"],
+  auroraPanel: ["rgba(10,131,166,0.07)", "rgba(22,111,229,0.06)", "rgba(84,104,238,0.06)", "rgba(130,80,234,0.08)"],
+  auroraEdge: "rgba(84,104,238,0.22)",
+  auroraInk: "#3d4fd8",
   glass: "rgba(255,255,255,0.92)",
   glassEdge: "rgba(0,0,0,0.1)",
   floatFill: "rgba(255,255,255,0.42)",
@@ -186,6 +197,9 @@ export const darkColors: ThemeColors = {
   aurora: ["#0a83a6", "#166fe5", "#5468ee", "#8250ea"],
   auroraGlow: ["#2cc6ea", "#4a9dfb", "#8394f9", "#a47cf8"],
   auroraWash: ["rgba(44,198,234,0.26)", "rgba(74,157,251,0.24)", "rgba(131,148,249,0.24)", "rgba(164,124,248,0.26)"],
+  auroraPanel: ["rgba(44,198,234,0.13)", "rgba(74,157,251,0.11)", "rgba(131,148,249,0.11)", "rgba(164,124,248,0.14)"],
+  auroraEdge: "rgba(131,148,249,0.30)",
+  auroraInk: "#a9b8ff",
   glass: "rgba(22,22,24,0.92)",
   glassEdge: "rgba(255,255,255,0.14)",
   floatFill: "rgba(28,28,30,0.42)",
@@ -237,6 +251,9 @@ export const darkColors: ThemeColors = {
 export const palettes: Record<ColorScheme, ThemeColors> = { light: lightColors, dark: darkColors };
 
 /** The three choices in Settings → Theme, in order. */
+/** What the app uses until someone picks a theme in Settings: Dark, on iOS and Android alike. */
+export const DEFAULT_THEME_PREFERENCE: ThemePreference = "dark";
+
 export const THEME_PREFERENCES: { value: ThemePreference; label: string }[] = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },

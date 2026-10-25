@@ -11,7 +11,11 @@ const { db, mk, as, asAnon } = await boot();
 // Migrations 29 and 30 replace send_snap(), open_snap() and close_snap(), so they run again after this one.
 const PREVIEWS = "migrations/20261022000000_voice_and_snap_previews.sql";
 const CLOSE = "migrations/20261023000000_snap_close_deletes.sql";
-await expectOk("the Snaps migration re-runs cleanly", async () => { await db.exec(read(MIGRATION)); await db.exec(read(PREVIEWS)); await db.exec(read(CLOSE)); });
+const STAY = "migrations/20261025000000_snap_previews_stay.sql";
+// Migration 33 replaces open_snap() with a two-argument form (dropping the old one), so it runs last of all.
+const ACTIVITY = "migrations/20261026000000_snap_activity.sql";
+const QUIET = "migrations/20261027000000_snap_close_quiet.sql";
+await expectOk("the Snaps migration re-runs cleanly", async () => { await db.exec(read(MIGRATION)); await db.exec(read(PREVIEWS)); await db.exec(read(CLOSE)); await db.exec(read(STAY)); await db.exec(read(ACTIVITY)); await db.exec(read(QUIET)); });
 
 const one = async (p) => (await p).rows[0];
 const rows = async (p) => (await p).rows;
@@ -349,5 +353,5 @@ await expectOk("close: with two recipients the file waits for the second one", a
   if (await snapRow(sent.snap_id)) throw new Error("the Snap's row stayed after the last close");
   if (!(await queued()).includes(p)) throw new Error("the file was not queued after the last close");
 });
-await expectOk("the Snaps migration re-runs cleanly with data in place", async () => { await db.exec(read(MIGRATION)); await db.exec(read(PREVIEWS)); await db.exec(read(CLOSE)); });
+await expectOk("the Snaps migration re-runs cleanly with data in place", async () => { await db.exec(read(MIGRATION)); await db.exec(read(PREVIEWS)); await db.exec(read(CLOSE)); await db.exec(read(STAY)); await db.exec(read(ACTIVITY)); await db.exec(read(QUIET)); });
 done("MIGRATION-28 SNAPS");
