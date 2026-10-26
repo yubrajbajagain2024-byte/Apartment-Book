@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Home } from "lucide-react";
 import { APP_NAME, APP_TAGLINE } from "@apartment-book/shared";
+import { BrandMark } from "@/components/brand-mark";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -8,7 +8,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="mb-8 flex flex-col items-center gap-2 text-center">
         <Link href="/" className="flex items-center gap-2 text-2xl font-bold text-brand-600">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 bg-aurora text-white">
-            <Home className="h-6 w-6" />
+            <BrandMark id="auth" className="h-7 w-7" />
           </span>
           {APP_NAME}
         </Link>

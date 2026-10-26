@@ -1,1 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#1877f2"/><path d="M32 14 12 30h6v18h12V36h4v12h12V30h6z" fill="#fff"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#1877f2"/><g transform="translate(5.76 6.17) scale(0.82)"><defs><mask id="cc" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+<rect width="64" height="64" fill="#fff"/>
+<circle cx="32" cy="23" r="10.25" fill="#000"/>
+<path d="M18.25 52 C18.25 39.6 24.4 30.25 32 30.25 S45.75 39.6 45.75 52 Z" fill="#000"/>
+</mask></defs>
+<g fill="#fff">
+<g mask="url(#cc)">
+<circle cx="16" cy="27.5" r="5.75"/>
+<path d="M6 49 C6 41.2 10.4 35.5 16 35.5 S26 41.2 26 49 Z"/>
+<circle cx="48" cy="27.5" r="5.75"/>
+<path d="M38 49 C38 41.2 42.4 35.5 48 35.5 S58 41.2 58 49 Z"/>
+</g>
+<circle cx="32" cy="23" r="7.75"/>
+<path d="M20.75 49 C20.75 39.8 25.8 33 32 33 S43.25 39.8 43.25 49 Z"/>
+</g></g></svg>
