@@ -15,7 +15,8 @@ await admin.from("follows").insert({ follower_id: leo.id, followee_id: other.id 
 const friends = await admin.from("follows").insert([{ follower_id: me.id, followee_id: leo.id }, { follower_id: leo.id, followee_id: me.id }]);
 if (friends.error) throw friends.error;
 // Profile page (migration 18): Maya lists two classes for this semester and lets everyone see them (classes_visibility "public"; the default is friends),
-// so visitors see them in her Classes tab. Saved and Liked keep their defaults (only her, everyone). The term follows currentTerm() in
+// so visitors see them in her Classes tab. She opens her Listings to everyone too (migration 37 made them only hers by default), while
+// Saved and Liked keep their defaults (only her): visitors get no tab for those. The term follows currentTerm() in
 // packages/shared: January to May is Spring, June and July Summer, August to December Fall. Two inserts, so CS 3358 is the older one and comes first.
 // The rows go with her account in sim-cleanup.mjs (profile_classes cascades from profiles). Without migration 18 the seed only warns.
 const today = new Date(); const term = `${today.getMonth() <= 4 ? "Spring" : today.getMonth() <= 6 ? "Summer" : "Fall"} ${today.getFullYear()}`;
@@ -24,6 +25,10 @@ for (const r of [
   await admin.from("profile_classes").insert({ user_id: other.id, term, code: "MATH 3398" }),
   await admin.from("profiles").update({ classes_visibility: "public" }).eq("id", other.id),
 ]) if (r.error) console.warn(`Maya's classes were not fully seeded (they need migration 18, supabase/migrations/20260927000000_profile_page.sql): ${r.error.message}`);
+{
+  const r = await admin.from("profiles").update({ listings_visibility: "public" }).eq("id", other.id);
+  if (r.error) console.warn(`Maya's Listings stay private (opening them needs migration 37, supabase/migrations/20261030000000_profile_privacy.sql): ${r.error.message}`);
+}
 const photos = ["https://picsum.photos/seed/sim-a/900/1125", "https://picsum.photos/seed/sim-b/900/1125", "https://picsum.photos/seed/sim-c/900/1125"];
 const meta = photos.map((u) => ({ url: u, width: 900, height: 1125, blur: null }));
 const { data: apt } = await admin.from("apartments").insert({ owner_id: other.id, university_id: uni.id, title: "Sunny 2-bed near Sewell Park", description: "Bright two-bedroom with a balcony, five minutes from campus on the bus line. Utilities included, laundry in unit, parking for one car.", price_per_month: 1150, address: "100 Sessom Dr", city: "San Marcos", bedrooms: 2, bathrooms: 1, furnished: true, utilities_included: true, images: photos, image_meta: meta }).select("id").single();

@@ -3,9 +3,9 @@ const { db, mk, as, asAnon, asService } = await boot();
 await expectOk("the Home-feed migrations re-run cleanly, in order", async () => {
   for (const f of ["20260920000000_home_feed.sql", "20260921000000_buzz_storage_folder.sql", "20260922000000_buzz_reply_votes.sql"]) await db.exec(read(`migrations/${f}`));
 });
-// Re-running them brought back the old Buzz functions (buzz_comment_vote among them): migration 30 (Buzz v2) replaces
+// Re-running them brought back the old Buzz functions (buzz_comment_vote among them): migration 42 (Buzz v2) replaces
 // them again. A reply is voted on with buzz_v2_vote(reply id) now.
-await db.exec(read("migrations/20261021000100_buzz_v2.sql"));
+await db.exec(read("migrations/20261103000100_buzz_v2.sql"));
 await db.exec("update public.buzz_secrets set thread_jitter_seconds = 0, reply_jitter_seconds = 0");
 const A = await mk("a@txstate.edu", "Alice"), B = await mk("b@txstate.edu", "Bob"), C = await mk("c@txstate.edu", "Carol");
 for (const u of [A, B, C]) {

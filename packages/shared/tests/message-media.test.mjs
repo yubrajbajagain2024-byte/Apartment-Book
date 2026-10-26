@@ -66,6 +66,18 @@ test("messageAttachmentPath: chat folder, my folder, then id-safe name; the id d
   assert.match(a, new RegExp(`^${CONV}/${USER}/[a-z0-9]{20,}-a\\.jpg$`));
 });
 
+test("voice messages: kind audio, the phones' types, and their own preview", () => {
+  assert.equal(attachmentKindOf("audio/mp4"), "audio");
+  assert.equal(attachmentMimeType(null, "voice.m4a"), "audio/mp4");
+  assert.equal(attachmentMimeType("audio/x-m4a", "voice.m4a"), "audio/x-m4a");
+  const voice = { kind: "audio", path: `${CONV}/${USER}/v1-voice.m4a`, name: "voice.m4a", size: 4800, mime: "audio/mp4", duration: 7.4 };
+  assert.equal(parseAttachments([voice])[0].kind, "audio");
+  assert.equal(attachmentPreview([voice]), "Sent a voice message");
+  assert.equal(attachmentPreview([voice, voice]), "Sent 2 voice messages");
+  assert.equal(attachmentPreview([voice, att("image")]), "Sent 2 attachments");
+  assert.deepEqual(sharedItemsFromMessages([{ id: "m", sender_id: USER, created_at: "2026-10-01T00:00:00Z", content: "", attachments: [voice] }], "media"), []);
+});
+
 test("parseAttachments: tolerant; skips anything without a known kind or a path, fills harmless defaults", () => {
   assert.deepEqual(parseAttachments(null), []);
   assert.deepEqual(parseAttachments({ kind: "image" }), []);
@@ -73,7 +85,7 @@ test("parseAttachments: tolerant; skips anything without a known kind or a path,
   const full = { kind: "video", path: `${CONV}/${USER}/k-clip.mov`, name: "clip.mov", size: 2048, mime: "video/quicktime", width: 1080, height: 1920, duration: 12.5 };
   assert.deepEqual(parseAttachments([full]), [full]);
   assert.deepEqual(parseAttachments(JSON.stringify([full])), [full], "a JSON string is read too");
-  const got = parseAttachments([null, "x", [], { kind: "audio", path: "p" }, { kind: "file" }, { kind: "file", path: `${CONV}/${USER}/lx3k9-Lease.pdf`, size: "big", width: -4 }]);
+  const got = parseAttachments([null, "x", [], { kind: "sticker", path: "p" }, { kind: "file" }, { kind: "file", path: `${CONV}/${USER}/lx3k9-Lease.pdf`, size: "big", width: -4 }]);
   assert.deepEqual(got, [{ kind: "file", path: `${CONV}/${USER}/lx3k9-Lease.pdf`, name: "Lease.pdf", size: 0, mime: "application/octet-stream", width: null, height: null, duration: null }]);
   assert.equal(parseAttachments(Array.from({ length: 12 }, () => full)).length, 10, "never more than 10");
 });

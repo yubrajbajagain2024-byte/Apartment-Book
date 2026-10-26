@@ -3,9 +3,9 @@ const { db, mk, as, asAnon, asService } = await boot();
 await expectOk("the Home-feed migrations re-run cleanly, in order", async () => {
   for (const f of ["20260920000000_home_feed.sql", "20260921000000_buzz_storage_folder.sql", "20260922000000_buzz_reply_votes.sql"]) await db.exec(read(`migrations/${f}`));
 });
-// Re-running them brought back migration 11's Buzz functions (open to every signed-in user): migration 30 (Buzz v2)
+// Re-running them brought back migration 11's Buzz functions (open to every signed-in user): migration 42 (Buzz v2)
 // replaces them again, so the Buzz checks below run against what is live, the v2 functions.
-await db.exec(read("migrations/20261021000100_buzz_v2.sql"));
+await db.exec(read("migrations/20261103000100_buzz_v2.sql"));
 // Migration 22 replaced migration 11's touch_presence (activity times are private now): put it back on top.
 await db.exec(read("migrations/20261011000000_activity_status.sql"));
 // Publication jitter off for most checks (it has its own test below).
@@ -85,7 +85,7 @@ await expectOk("posts: deleting a post removes its likes, comments, saves and vi
   if (Number(left.l) + Number(left.c) + Number(left.s) + Number(left.v) !== 0) throw new Error(JSON.stringify(left));
 });
 
-// ---- buzz: anonymity (Buzz v2, migration 30: the same regressions, through the new functions) --------------------------
+// ---- buzz: anonymity (Buzz v2, migration 42: the same regressions, through the new functions) --------------------------
 const buzz = (await create(A, "Landlord keeps my deposit?", { body: "What can I do" })).id;
 const buzz2 = (await create(A, "Parking on campus")).id;
 for (const t of ["buzz_posts", "buzz_comments", "buzz_votes", "buzz_mutes", "buzz_rate_log", "buzz_secrets", "buzz_polls", "buzz_hidden_threads", "buzz_gate"]) {

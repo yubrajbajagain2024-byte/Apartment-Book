@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, Platform, Pressable, Text, TextInput, View, type TextInputInstance, type HostInstance } from "react-native";
+import { AccessibilityInfo, Alert, Platform, Pressable, Text, TextInput, View, type TextInputInstance, type ViewInstance } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import {
   addProfileClass,
@@ -68,7 +68,7 @@ export function ClassesSection({ own, userId, classes, onChange, onOpenForm }: {
   }, [notice]);
   // Close, Save and Delete take away the button, form or card that had focus: once the list has redrawn, the screen
   // reader moves to "Add class" (not there while the form is open).
-  const addButton = useRef<HostInstance>(null);
+  const addButton = useRef<ViewInstance>(null);
   const [focusAdd, setFocusAdd] = useState(0);
   useEffect(() => {
     const node = addButton.current;

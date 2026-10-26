@@ -20,20 +20,48 @@ export async function getProfileStats(supabase: Client, userId: string): Promise
   return { posts: Number(row?.posts ?? 0), reels: Number(row?.reels ?? 0), likesReceived: Number(row?.likes_received ?? 0) };
 }
 
-/** Which of Classes, Saved and Liked the signed-in person (or a signed-out visitor) may open. */
+/** PostgREST's answer for a function or a column the database does not have yet (an older migration). */
+const MISSING = new Set(["PGRST202", "PGRST204", "42883", "42703"]);
+export function isMissingInDatabase(error: unknown): boolean {
+  return typeof error === "object" && error !== null && MISSING.has(String((error as { code?: unknown }).code ?? ""));
+}
+/** PostgREST's answer for a table, a relationship (an embed) or a column the database does not have yet. */
+const MISSING_RELATION = new Set(["42P01", "PGRST200", "PGRST205", "42703"]);
+export function isMissingRelation(error: unknown): boolean {
+  return typeof error === "object" && error !== null && MISSING_RELATION.has(String((error as { code?: unknown }).code ?? ""));
+}
+/** What a visitor reads when the owner changes a setting the database cannot hold yet. */
+export const LISTINGS_VISIBILITY_NOT_READY = "Listings privacy needs the latest server update. Your listings stay hidden from others until then.";
+
+/**
+ * Which of Classes, Saved, Liked and Listings the signed-in person (or a signed-out visitor) may open. Before migration
+ * 37 there is no Listings setting: the older call answers the other three, and Listings stays closed (private by default).
+ */
 export async function getProfileSectionAccess(supabase: Client, ownerId: string): Promise<ProfileSectionAccess> {
-  const { data, error } = await supabase.rpc("profile_section_access", { p_owner: ownerId });
-  if (error) throw error;
-  const row = data?.[0];
-  return { classes: Boolean(row?.classes), saved: Boolean(row?.saved), liked: Boolean(row?.liked) };
+  const { data, error } = await supabase.rpc("profile_visible_sections", { p_owner: ownerId });
+  if (!error) {
+    const row = data?.[0];
+    return { classes: Boolean(row?.classes), saved: Boolean(row?.saved), liked: Boolean(row?.liked), listings: Boolean(row?.listings) };
+  }
+  if (!isMissingInDatabase(error)) throw error;
+  const older = await supabase.rpc("profile_section_access", { p_owner: ownerId });
+  if (older.error) throw older.error;
+  const row = older.data?.[0];
+  return { classes: Boolean(row?.classes), saved: Boolean(row?.saved), liked: Boolean(row?.liked), listings: false };
 }
 
 /** Owner only: who can see one of the tabs. */
 export async function setProfileVisibility(supabase: Client, userId: string, section: ProfileSection, value: ProfileVisibility): Promise<void> {
   const patch =
-    section === "classes" ? { classes_visibility: value } : section === "saved" ? { saved_visibility: value } : { liked_visibility: value };
+    section === "classes"
+      ? { classes_visibility: value }
+      : section === "saved"
+        ? { saved_visibility: value }
+        : section === "liked"
+          ? { liked_visibility: value }
+          : { listings_visibility: value };
   const { error } = await supabase.from("profiles").update(patch).eq("id", userId);
-  if (error) throw error;
+  if (error) throw section === "listings" && isMissingInDatabase(error) ? new Error(LISTINGS_VISIBILITY_NOT_READY) : error;
 }
 
 // -----------------------------------------------------------------------------

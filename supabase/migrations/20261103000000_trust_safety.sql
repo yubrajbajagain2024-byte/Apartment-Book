@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migration 29: Trust & Safety, ported from UniVerse (server/src/lib/{reports,sanctions,audit}.ts,
+-- Migration 41: Trust & Safety, ported from UniVerse (server/src/lib/{reports,sanctions,audit}.ts,
 -- lib/moderation/{staff,queue}.ts, services/admin/**, routes/admin/**). Safe to re-run.
 --
 --   * Moderation storage: mod_queue (one open item per piece of content), moderation_events (what the engine said
@@ -15,7 +15,7 @@
 --   * reports (migration 10) grows UniVerse's columns (eligible, weight, queue_id, sub_reason, closed_at, bad_faith,
 --     university_id), UniVerse's reasons and the Buzz target types; one report per person and thing. The API may still
 --     insert public reports (old builds do), but every value the server owns is set by a trigger, which also files the
---     queue item and runs auto-hide. Buzz reports go through buzz_v2_report (migration 30) -> ts_file_report().
+--     queue item and runs auto-hide. Buzz reports go through buzz_v2_report (migration 42) -> ts_file_report().
 --   * The anonymity firewall for staff (UniVerse SPEC 4.2.14): no staff payload names the author of a buzz, for any
 --     role. Moderators act on "the author of this item" and the server resolves the account; they see a bucketed,
 --     blind standing only. A sanction, strike, queue item or audit row about Buzz content is "anon-origin": it targets
@@ -25,14 +25,14 @@
 --     code and a written reason of 30+ characters, the typed word UNMASK, at most 10 a day, the audit row written
 --     BEFORE the author is looked up, and every other admin told.
 --   * Posting status: ts_posting_status() is what every write checks (mutes in scope, suspensions, bans, warnings not
---     yet acknowledged). Buzz writes check it in migration 30; this file adds a trigger that holds public posts,
+--     yet acknowledged). Buzz writes check it in migration 42; this file adds a trigger that holds public posts,
 --     comments, listings and roommate posts to it too, and keeps suspended or banned accounts out of messages.
 --   * Notifications of two new types: 'moderation' (to the person concerned: their content hidden, removed or back,
 --     a sanction, an appeal received or decided, their report resolved) and 'staff' (to staff: an unmask, an appeal to
 --     review). Never with an actor; data.event says which. The type check is rebuilt as a union of what it allowed, what
---     the table holds and this list (with Buzz's three), so re-running this file after migration 30 never breaks.
+--     the table holds and this list (with Buzz's three), so re-running this file after migration 42 never breaks.
 --   * Rule packs: moderation_rule_state rows are seeded for the engine's 12 packs; a pack with no row counts as on.
---   * The Buzz content itself is reached only through migration 30's adapters (buzz_v2_snapshot, buzz_v2_author_of,
+--   * The Buzz content itself is reached only through migration 42's adapters (buzz_v2_snapshot, buzz_v2_author_of,
 --     buzz_v2_set_status, buzz_v2_set_locked, buzz_v2_staff_context). plpgsql resolves them when it runs, so this file
 --     can come first. Public content (posts, comments, listings, roommate posts, profiles, messages) has its own small
 --     adapters here: a snapshot of its text and remove (delete the row; a profile loses its bio and photo).
@@ -91,7 +91,7 @@ exception when others then
 end;
 $$;
 
--- Buzz content is anonymous ('buzz_comment' is the pre-v2 name of a reply, kept until migration 30 renames it).
+-- Buzz content is anonymous ('buzz_comment' is the pre-v2 name of a reply, kept until migration 42 renames it).
 create or replace function public.ts_is_anon(p_type text)
 returns boolean
 language sql
@@ -630,18 +630,15 @@ $$;
 -- -----------------------------------------------------------------------------
 -- 3. A banned address cannot sign up again
 -- -----------------------------------------------------------------------------
--- The same function as migration 2 (its university-domain check, word for word), plus the banned list.
-create or replace function public.enforce_university_email()
+-- Its own trigger next to enforce_university_email, which other migrations own (the university domains, then business
+-- and staff sign-ups), so neither one replaces the other whatever order they run in.
+create or replace function public.ts_refuse_banned_email()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
-  if public.university_for_email(new.email) is null then
-    raise exception 'Please sign up with your university email address (for example you@txstate.edu).'
-      using errcode = 'P0001';
-  end if;
   if exists (select 1 from public.banned_emails b where b.email_hash = public.ts_email_hash(new.email)) then
     raise exception 'This email address can''t be used to sign up.'
       using errcode = 'P0001';
@@ -649,11 +646,15 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists ts_refuse_banned_email on auth.users;
+create trigger ts_refuse_banned_email
+  before insert on auth.users
+  for each row execute function public.ts_refuse_banned_email();
 
 -- -----------------------------------------------------------------------------
 -- 4. Notification types
 -- -----------------------------------------------------------------------------
--- A union, never a fixed list: this file re-runs after migration 30 (Buzz's 'buzz_reply', 'buzz_milestone',
+-- A union, never a fixed list: this file re-runs after migration 42 (Buzz's 'buzz_reply', 'buzz_milestone',
 -- 'buzz_poll_closed') and must keep every type already allowed, and every type already in the table.
 do $$
 declare
@@ -716,7 +717,7 @@ alter table public.reports add constraint reports_reason_check check (reason in 
   'self_harm', 'threat', 'minor_safety', 'doxxing', 'harassment', 'hate', 'sexual', 'drugs_illegal', 'impersonation', 'spam_scam',
   'academic_dishonesty', 'other', 'spam', 'scam', 'inappropriate'
 ));
--- 'buzz_comment' stays valid until migration 30 renames those rows to 'buzz_reply'.
+-- 'buzz_comment' stays valid until migration 42 renames those rows to 'buzz_reply'.
 alter table public.reports drop constraint if exists reports_target_type_check;
 alter table public.reports add constraint reports_target_type_check
   check (target_type in ('apartment', 'item', 'roommate', 'profile', 'message', 'comment', 'post', 'buzz', 'buzz_reply', 'buzz_comment'));
@@ -1001,7 +1002,7 @@ begin
 end;
 $$;
 
--- Any content: Buzz through migration 30's adapter (no author in it), public content through the one above.
+-- Any content: Buzz through migration 42's adapter (no author in it), public content through the one above.
 create or replace function public.ts_snapshot(p_type text, p_id uuid)
 returns jsonb
 language plpgsql
@@ -1090,7 +1091,7 @@ stable
 security definer
 set search_path = public
 as $$
-  -- short_name arrives with migration 30; to_jsonb() reads it when it is there and never fails when it is not.
+  -- short_name arrives with migration 42; to_jsonb() reads it when it is there and never fails when it is not.
   select case when p_short then coalesce(nullif(to_jsonb(u) ->> 'short_name', ''), u.name) else u.name end
   from public.universities u where u.id = p_university;
 $$;
@@ -1191,7 +1192,7 @@ begin
 end;
 $$;
 
--- What a Buzz write calls with the engine's record (migration 30's buzz_v2_create / buzz_v2_reply): the events, and
+-- What a Buzz write calls with the engine's record (migration 42's buzz_v2_create / buzz_v2_reply): the events, and
 -- the queue item when the engine asked for one ({source, category, severity, priority, label, ruleIds, aiVerdict}).
 create or replace function public.ts_apply_moderation(p_entity_type text, p_entity_id uuid, p_surface text, p_author uuid, p_university uuid, p_moderation jsonb)
 returns uuid
@@ -1823,7 +1824,7 @@ $$;
 drop trigger if exists reports_after_insert on public.reports;
 create trigger reports_after_insert after insert on public.reports for each row execute function public.ts_reports_after_insert();
 
--- File a report (migration 30's buzz_v2_report calls this). Idempotent: a repeat answers {alreadyReported: true}.
+-- File a report (migration 42's buzz_v2_report calls this). Idempotent: a repeat answers {alreadyReported: true}.
 -- "Something else" needs a note of 10+ characters; notes stop at 500.
 create or replace function public.ts_file_report(p_reporter uuid, p_entity_type text, p_entity_id uuid, p_reason text, p_note text, p_university uuid)
 returns jsonb
@@ -3729,7 +3730,7 @@ begin
     'ts_appeal_json(uuid, uuid, text)', 'ts_unmaskable_blocked(public.mod_queue)', 'ts_suggestion(public.mod_queue, uuid, boolean, integer, text)',
     'ts_require_staff()', 'ts_require_admin()', 'ts_audit_once_per_day(uuid, text, text, public.mod_queue)', 'ts_queue_detail(uuid, uuid, text, boolean)',
     'ts_action_def(text)', 'ts_zero_tolerance(text, text)', 'ts_staff_act(uuid, uuid, text, text, text, text, jsonb, uuid)', 'ts_guard_public_write()',
-    'ts_rule_pack_ids()', 'ts_rule_packs_state()'
+    'ts_rule_pack_ids()', 'ts_rule_packs_state()', 'ts_refuse_banned_email()'
   ] loop
     execute format('revoke all on function public.%s from public, anon, authenticated', f);
   end loop;

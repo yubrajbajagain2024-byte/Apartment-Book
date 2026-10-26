@@ -3,7 +3,7 @@
  * whether you are staff. The staff console's own calls live in the website (`apps/web/src/lib/staff`), never here,
  * so no staff payload type is bundled into the app.
  *
- * Database functions: migration `20261021000000_trust_safety.sql`. They raise `ts:<code>:<message>` on failure.
+ * Database functions: migration `20261103000000_trust_safety.sql`. They raise `ts:<code>:<message>` on failure.
  */
 import type { Client } from "../types/models";
 import type { ModerationCategory } from "../buzz/types";

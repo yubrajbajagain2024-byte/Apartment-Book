@@ -1,7 +1,7 @@
 import type { FeedMedia, FeedPostWithAuthor, FollowListView, ProfileClass, ProfileSection, ProfileTile, ProfileVisibility } from "./types/models";
 
 // -----------------------------------------------------------------------------
-// Who can see Classes, Saved and Liked
+// Who can see Classes, Saved, Liked and Listings
 // -----------------------------------------------------------------------------
 export const PROFILE_VISIBILITIES: ProfileVisibility[] = ["public", "friends", "private"];
 export const PROFILE_VISIBILITY_OPTIONS: { value: ProfileVisibility; label: string; description: string }[] = [
@@ -9,14 +9,29 @@ export const PROFILE_VISIBILITY_OPTIONS: { value: ProfileVisibility; label: stri
   { value: "friends", label: "Friends", description: "People you follow who follow you back" },
   { value: "private", label: "Only me", description: "Nobody else can see it" },
 ];
-export const PROFILE_SECTIONS: ProfileSection[] = ["classes", "saved", "liked"];
+export const PROFILE_SECTIONS: ProfileSection[] = ["classes", "saved", "liked", "listings"];
 /** What each tab holds, in the words of the settings and the lock messages. */
-export const PROFILE_SECTION_NOUNS: Record<ProfileSection, string> = { classes: "classes", saved: "saved posts", liked: "liked posts" };
+export const PROFILE_SECTION_NOUNS: Record<ProfileSection, string> = { classes: "classes", saved: "saved posts", liked: "liked posts", listings: "listings" };
 /** The profile column behind each setting. */
-export const PROFILE_VISIBILITY_COLUMNS = { classes: "classes_visibility", saved: "saved_visibility", liked: "liked_visibility" } as const;
+export const PROFILE_VISIBILITY_COLUMNS = { classes: "classes_visibility", saved: "saved_visibility", liked: "liked_visibility", listings: "listings_visibility" } as const;
+/**
+ * What a new profile gets, and what a row without the setting reads as (a database before the migration that added it):
+ * Classes for friends; Saved, Liked and Listings for nobody but the owner (migration 37).
+ */
+export const PROFILE_DEFAULT_VISIBILITY: Record<ProfileSection, ProfileVisibility> = { classes: "friends", saved: "private", liked: "private", listings: "private" };
+/** What nobody but the owner may open: the answer while access is unknown, or from a database without a setting. */
+export const NO_SECTION_ACCESS: Record<ProfileSection, boolean> = { classes: false, saved: false, liked: false, listings: false };
+/** The owner opens every tab of their own profile. */
+export const OWNER_SECTION_ACCESS: Record<ProfileSection, boolean> = { classes: true, saved: true, liked: true, listings: true };
 
 export function isProfileVisibility(value: unknown): value is ProfileVisibility {
   return value === "public" || value === "friends" || value === "private";
+}
+
+/** Who can see one of the tabs, read from a profile row: its column, or the default when the row has none. */
+export function sectionVisibilityOf(profile: Partial<Record<(typeof PROFILE_VISIBILITY_COLUMNS)[ProfileSection], unknown>> | null | undefined, section: ProfileSection): ProfileVisibility {
+  const value = profile?.[PROFILE_VISIBILITY_COLUMNS[section]];
+  return isProfileVisibility(value) ? value : PROFILE_DEFAULT_VISIBILITY[section];
 }
 
 export function visibilityLabel(value: ProfileVisibility): string {
@@ -37,6 +52,83 @@ export function lockedSectionMessage(section: ProfileSection, value: ProfileVisi
   const name = firstName.trim() || "This person";
   if (value === "friends") return `Only ${name}'s friends can see their ${noun}`;
   return `Only ${name} can see their ${noun}`;
+}
+
+// -----------------------------------------------------------------------------
+// The line under the name: "CS ’28 @ Texas State University"
+// -----------------------------------------------------------------------------
+/** Small words a major's short form leaves out: "Electrical and Computer Engineering" is ECE. */
+const MAJOR_SMALL_WORDS = new Set(["a", "an", "and", "&", "for", "in", "of", "the", "with"]);
+/** Majors whose usual short form is not just their initials (the name in lower case, as typed or with "Studies"). */
+const MAJOR_SHORT_FORMS: Record<string, string> = {
+  accounting: "Acct",
+  anthropology: "Anthro",
+  architecture: "Arch",
+  astronomy: "Astro",
+  biochemistry: "Biochem",
+  biology: "Bio",
+  chemistry: "Chem",
+  communication: "Comm",
+  communications: "Comm",
+  economics: "Econ",
+  education: "Edu",
+  engineering: "Eng",
+  finance: "Fin",
+  geography: "Geog",
+  geology: "Geo",
+  journalism: "Journ",
+  kinesiology: "Kin",
+  linguistics: "Ling",
+  management: "Mgmt",
+  marketing: "Mktg",
+  mathematics: "Math",
+  neuroscience: "Neuro",
+  philosophy: "Phil",
+  "political science": "PoliSci",
+  psychology: "Psych",
+  sociology: "Soc",
+  statistics: "Stats",
+};
+/**
+ * A degree written before the major: "BS", "B.S. in", "MBA in", "Ph.D. in", "Bachelor of Science in", "Major in". A
+ * spelled-out degree goes only before "in", so "Master of Business Administration" stays a major (MBA).
+ */
+const DEGREE_PREFIX = /^(?:(?:b|m)\.?\s?(?:s|a|f\.?a|b\.?a)\.?(?:\s+in)?|ph\.?\s?d\.?(?:\s+in)?|(?:bachelor|master)'?s?(?:\s+of\s+[a-z ]+?)?\s+in|(?:major|degree)\s+in)\s+/i;
+
+/**
+ * A major as it reads on a profile: "Computer Science" is CS, "Electrical and Computer Engineering" ECE, "Psychology"
+ * Psych. What the person typed short already ("CS", "CompE", "Math") stays exactly as typed, and a one-word major with
+ * no common short form stays whole ("Nursing"). Null when there is none.
+ */
+export function majorAbbreviation(program: string | null | undefined): string | null {
+  const name = (program ?? "").replace(/\s+/g, " ").trim().replace(DEGREE_PREFIX, "").replace(/\s+major$/i, "").trim();
+  if (!name) return null;
+  const known = MAJOR_SHORT_FORMS[name.toLowerCase()];
+  if (known) return known;
+  const words = name.split(" ").filter((w) => !MAJOR_SMALL_WORDS.has(w.toLowerCase()));
+  // One word: kept as typed ("CS", "CompE", "Nursing", "Pre-Med").
+  if (words.length <= 1) return words[0] ?? name;
+  // Several: their initials, as majors are usually shortened ("Computer Science" → "CS").
+  return words.map((w) => w.charAt(0).toUpperCase()).join("");
+}
+
+/** "’28" from 2028: the class year as students write it. Null without a sensible year. */
+export function classYear(year: number | null | undefined): string | null {
+  if (typeof year !== "number" || !Number.isInteger(year) || year < 1900 || year > 2999) return null;
+  return `\u2019${String(year).slice(-2)}`;
+}
+
+/**
+ * The line under a profile's name: major, class year and university, "CS ’28 @ Texas State University". Whatever is
+ * missing drops out ("CS @ Texas State University", "Class of ’28 @ Texas State University", "CS ’28"); null with none.
+ */
+export function profileStudyLine(profile: { program?: string | null; graduation_year?: number | null; university?: { name: string } | null }): string | null {
+  const major = majorAbbreviation(profile.program);
+  const year = classYear(profile.graduation_year);
+  const study = major ? [major, year].filter(Boolean).join(" ") : year ? `Class of ${year}` : "";
+  const school = profile.university?.name?.trim() || "";
+  if (study && school) return `${study} @ ${school}`;
+  return study || school || null;
 }
 
 // -----------------------------------------------------------------------------

@@ -4,7 +4,7 @@
  * FIREWALL: no field in this file may be named like an identity key
  * (`authorId, author_id, userId, user_id, handle, name, displayName, avatar, avatarUrl, email, profile`).
  * Every Buzz payload is built field by field by ONE serializer in the database (`buzz_root_json` /
- * `buzz_reply_json` in migration `20261021000100_buzz_v2.sql`); the client only ever sees these shapes.
+ * `buzz_reply_json` in migration `20261103000100_buzz_v2.sql`); the client only ever sees these shapes.
  */
 
 export interface BuzzAlias {

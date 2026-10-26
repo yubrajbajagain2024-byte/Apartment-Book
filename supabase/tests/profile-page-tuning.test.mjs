@@ -8,6 +8,8 @@ const rows = async (p) => (await p).rows;
 const users = [];
 for (const name of ["Owner One", "Ann", "Ben", "Cat", "Dan", "Eve"]) users.push(await mk(`${name.toLowerCase().replace(/\s/g, "")}@txstate.edu`, name));
 const [O, A, B, C, D, E] = users;
+// Written when Liked started at Everyone (migration 37 made it Only me): the profiles start there, as these checks expect.
+await db.query("update public.profiles set liked_visibility = 'public'");
 const post = async (body) => (await as(O, () => one(db.query("insert into public.feed_posts (author_id, body) values ($1,$2) returning id", [O, body])))).id;
 const likeAt = (uid, target, at) => db.query("insert into public.post_likes (target_type, target_id, user_id, created_at) values ('post',$1,$2,$3)", [target, uid, at]);
 

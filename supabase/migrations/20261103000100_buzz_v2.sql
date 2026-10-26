@@ -1,6 +1,6 @@
 -- =============================================================================
--- Migration 30: Buzz v2, UniVerse's anonymous Buzz (server/src/routes/buzz.ts, services/buzz/*), ported to the
--- database. Runs after migration 29 (20261021000000_trust_safety.sql) and calls its ts_* functions. Safe to re-run.
+-- Migration 42: Buzz v2, UniVerse's anonymous Buzz (server/src/routes/buzz.ts, services/buzz/*), ported to the
+-- database. Runs after migration 41 (20261103000000_trust_safety.sql) and calls its ts_* functions. Safe to re-run.
 --
 --   * The Buzz tables stay closed to the API (row-level security, no policies, no grants to anon / authenticated, never
 --     in the realtime publication): everything goes through the functions below.
@@ -2210,7 +2210,7 @@ end;
 $$;
 
 -- -----------------------------------------------------------------------------
--- 14. Adapters for Trust & Safety (migration 29 calls these; no API role can)
+-- 14. Adapters for Trust & Safety (migration 41 calls these; no API role can)
 -- -----------------------------------------------------------------------------
 -- {entityType, entityId, status, universityId, surface, label, autoHideImmune, createdAt, href, fields, media, parent}.
 -- No author: that is buzz_v2_author_of().

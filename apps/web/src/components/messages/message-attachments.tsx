@@ -27,18 +27,37 @@ export function MessageAttachments({
 }) {
   const signed = useSignedMedia(attachments.map((a) => a.path));
   const [viewing, setViewing] = useState<number | null>(null);
-  const media = attachments.filter((a) => a.kind !== "file");
+  const media = attachments.filter((a) => a.kind === "image" || a.kind === "video");
   const files = attachments.filter((a) => a.kind === "file");
+  const voices = attachments.filter((a) => a.kind === "audio");
 
   return (
     <div data-testid="message-attachments" className={cn("mb-1 flex max-w-full flex-col gap-1", mine ? "items-end" : "items-start")}>
       {media.length > 0 ? <MediaGrid items={media} signed={signed} onOpen={setViewing} /> : null}
+      {voices.map((a, i) => (
+        <VoiceNote key={`${i}:${a.path}`} file={signed[a.path]} mine={mine} />
+      ))}
       {files.map((a, i) => (
         <FileCard key={`${i}:${a.path}`} attachment={a} file={signed[a.path]} mine={mine} />
       ))}
       {viewing !== null ? (
         <MediaViewer items={media} index={viewing} signed={signed} senderName={senderName} sentAt={sentAt} onIndexChange={setViewing} onClose={() => setViewing(null)} />
       ) : null}
+    </div>
+  );
+}
+
+/** A voice message: the browser's own player on its signed address (a spinner while it is signed). */
+function VoiceNote({ file, mine }: { file: SignedFile | undefined; mine: boolean }) {
+  return (
+    <div data-testid="voice-message" className={cn("flex h-12 w-64 max-w-full items-center rounded-2xl px-2", mine ? "bg-brand-600" : "bg-gray-100")}>
+      {file?.url ? (
+        <audio controls preload="metadata" src={file.url} aria-label="Voice message" className="h-9 w-full" />
+      ) : (
+        <span className="flex w-full items-center gap-2 px-2 text-sm text-gray-500" aria-label="Voice message loading">
+          <Spinner className="h-4 w-4" /> Voice message
+        </span>
+      )}
     </div>
   );
 }

@@ -18,13 +18,13 @@ const AVATAR = 42;
  * row of heart, comment and share with their counts, the bookmark on the right. The words of a post sit between the
  * header and the frame, Facebook style (see ExpandableText).
  */
-export function PostHeader({ name, avatarUrl, userId, verified, meta, onOpen, onMenu }: { name: string; avatarUrl: string | null | undefined; userId: string; verified: boolean; meta: string; onOpen: () => void; onMenu: () => void }) {
+export function PostHeader({ name, avatarUrl, userId, verified, meta, onOpen, onMenu, badge }: { name: string; avatarUrl: string | null | undefined; userId: string; verified: boolean; meta: string; onOpen: () => void; onMenu: () => void; /** A business listing's "Sponsored" / "Verified Partner": the business is the poster, with no presence dot. */ badge?: string | null }) {
   const styles = useStyles();
   const colors = useColors();
   return (
     <View style={styles.header}>
-      <Pressable onPress={onOpen} accessibilityLabel={`${name}'s profile`}>
-        <Avatar name={name} url={avatarUrl} size={AVATAR} userId={userId} />
+      <Pressable onPress={onOpen} accessibilityLabel={badge ? name : `${name}'s profile`}>
+        <Avatar name={name} url={avatarUrl} size={AVATAR} userId={badge ? undefined : userId} online={badge ? false : undefined} />
       </Pressable>
       {/* Labelled with the name alone: the verified icon would otherwise join the label and hide the name from assistive tech (and Maestro). */}
       <Pressable style={{ flex: 1, minWidth: 0 }} onPress={onOpen} accessibilityRole="button" accessibilityLabel={name}>
@@ -32,10 +32,13 @@ export function PostHeader({ name, avatarUrl, userId, verified, meta, onOpen, on
           <Text style={styles.name} numberOfLines={1}>
             {name}
           </Text>
-          {verified ? <Icon name="checkmark-circle" sf="checkmark.seal.fill" size={16} color={colors.brand} accessibilityLabel="Verified student" /> : null}
+          {verified && !badge ? <Icon name="checkmark-circle" sf="checkmark.seal.fill" size={16} color={colors.brand} accessibilityLabel="Verified student" /> : null}
         </View>
-        {meta ? (
+        {/* Like Instagram's "Sponsored": the label opens the grey line under the name, so the name keeps its whole row. */}
+        {badge || meta ? (
           <Text style={styles.meta} numberOfLines={1}>
+            {badge ? <Text style={badge === "Business" ? styles.badgePlain : styles.badgeText}>{badge}</Text> : null}
+            {badge && meta ? " · " : ""}
             {meta}
           </Text>
         ) : null}
@@ -103,6 +106,8 @@ function MessagePill({ message, beside }: { message: { label: string; onPress: (
 const useStyles = makeStyles((colors) => ({
   header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: POST_GUTTER, paddingVertical: 10 },
   name: { fontSize: 16, fontWeight: "700", color: colors.text, flexShrink: 1 },
+  badgeText: { fontWeight: "600", color: colors.brand },
+  badgePlain: { fontWeight: "600", color: colors.muted },
   meta: { fontSize: 13, color: colors.muted, marginTop: 1 },
   dots: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   frame: { marginHorizontal: POST_GUTTER, borderRadius: POST_FRAME_RADIUS, borderCurve: "continuous", overflow: "hidden", backgroundColor: colors.mediaBg },

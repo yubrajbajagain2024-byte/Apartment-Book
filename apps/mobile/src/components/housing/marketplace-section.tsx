@@ -170,7 +170,7 @@ export function MarketplaceSection({
   }
 
   function footer() {
-    if (feed.items.length === 0) return null;
+    if (feed.items.length === 0) return undefined;
     // A page that failed to load (or a refresh that failed) keeps the cards above it on screen.
     if (feed.error)
       return (
@@ -178,7 +178,7 @@ export function MarketplaceSection({
           <ErrorBanner message={feed.error} onRetry={feed.hasMore ? feed.loadMore : feed.refresh} />
         </View>
       );
-    return feed.hasMore ? <ActivityIndicator style={styles.footer} color={colors.muted} /> : null;
+    return feed.hasMore ? <ActivityIndicator style={styles.footer} color={colors.muted} /> : undefined;
   }
 
   return (

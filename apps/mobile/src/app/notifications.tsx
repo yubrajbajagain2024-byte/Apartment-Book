@@ -17,7 +17,7 @@ import { Icon } from "@/components/icon";
 
 const PAGE = 30;
 /** The small mark on each row saying what kind of notification it is (over the actor's photo, or alone without one). */
-const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = { message: "chatbubble", listing_saved: "bookmark", nearby_listing: "location", system: "notifications", like: "heart", comment: "chatbox", follow: "person-add", snap: "camera" };
+const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = { message: "chatbubble", listing_saved: "bookmark", nearby_listing: "location", system: "notifications", like: "heart", comment: "chatbox", follow: "person-add", snap: "camera", snap_activity: "eye", call: "call" };
 const AVATAR = 44;
 /** Buzz's own notifications: anonymous by design (no actor, nothing about anyone in them), always the mask, never a photo. */
 const BUZZ_TYPES = new Set(["buzz_reply", "buzz_milestone", "buzz_poll_closed"]);

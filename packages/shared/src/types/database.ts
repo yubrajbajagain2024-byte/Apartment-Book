@@ -168,6 +168,10 @@ export type Database = {
           classes_visibility: string;
           saved_visibility: string;
           liked_visibility: string;
+          /** Migration 37: who sees the Listings tab. Missing on a database before it. */
+          listings_visibility: string;
+          /** Migration 39: student | business_owner | business_staff | admin. Set only by the database (see roleOf()). */
+          role: string;
           created_at: string;
           updated_at: string;
         };
@@ -186,6 +190,8 @@ export type Database = {
           classes_visibility?: string;
           saved_visibility?: string;
           liked_visibility?: string;
+          listings_visibility?: string;
+          role?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -204,6 +210,8 @@ export type Database = {
           classes_visibility?: string;
           saved_visibility?: string;
           liked_visibility?: string;
+          listings_visibility?: string;
+          role?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -247,6 +255,8 @@ export type Database = {
           longitude: number | null;
           geog: unknown | null;
           status: Database["public"]["Enums"]["listing_status"];
+          /** Migration 39: the business this listing was posted for from the portal; null for a student's own. */
+          business_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -278,6 +288,7 @@ export type Database = {
           latitude?: number | null;
           longitude?: number | null;
           status?: Database["public"]["Enums"]["listing_status"];
+          business_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -309,6 +320,7 @@ export type Database = {
           latitude?: number | null;
           longitude?: number | null;
           status?: Database["public"]["Enums"]["listing_status"];
+          business_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -325,6 +337,13 @@ export type Database = {
             columns: ["university_id"];
             isOneToOne: false;
             referencedRelation: "universities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "apartments_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
             referencedColumns: ["id"];
           },
         ];
@@ -539,6 +558,10 @@ export type Database = {
           created_by: string | null;
           last_message_at: string | null;
           last_message_preview: string | null;
+          /** Migration 39: an inquiry chat with this business (every team member is in it), started from this listing or deal. */
+          business_id: string | null;
+          inquiry_target_type: string | null;
+          inquiry_target_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -549,6 +572,9 @@ export type Database = {
           created_by?: string | null;
           last_message_at?: string | null;
           last_message_preview?: string | null;
+          business_id?: string | null;
+          inquiry_target_type?: string | null;
+          inquiry_target_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -559,6 +585,9 @@ export type Database = {
           created_by?: string | null;
           last_message_at?: string | null;
           last_message_preview?: string | null;
+          business_id?: string | null;
+          inquiry_target_type?: string | null;
+          inquiry_target_id?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -567,6 +596,13 @@ export type Database = {
             columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversations_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
             referencedColumns: ["id"];
           },
         ];
@@ -622,6 +658,13 @@ export type Database = {
           attachments: Json;
           /** Migration 28: {id, kind, expires_at, opened_at} when the message is a Snap; read it with snapOf(). Set only by send_snap(). */
           snap: Json | null;
+          /**
+           * Migration 31: {id, sender_id, kind, text} when the message answers another one of the chat; read it with
+           * replyOf(). Send only {id}: a trigger builds the rest from the original and refuses anything else.
+           */
+          reply_to: Json | null;
+          /** Migration 35: {id, kind, status, ended_reason, duration, started_by} when the message is a call's row in the chat; read it with callOf(). Written only by the call functions. */
+          call: Json | null;
           created_at: string;
         };
         Insert: {
@@ -633,6 +676,8 @@ export type Database = {
           shared_post?: Json | null;
           attachments?: Json;
           snap?: Json | null;
+          reply_to?: Json | null;
+          call?: Json | null;
           created_at?: string;
         };
         Update: {
@@ -644,6 +689,8 @@ export type Database = {
           shared_post?: Json | null;
           attachments?: Json;
           snap?: Json | null;
+          reply_to?: Json | null;
+          call?: Json | null;
           created_at?: string;
         };
         Relationships: [
@@ -659,6 +706,90 @@ export type Database = {
             columns: ["sender_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      /** Migration 35: an audio or video call in a chat; its rows are written only by the call functions. */
+      calls: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          started_by: string | null;
+          kind: string;
+          status: string;
+          ended_reason: string | null;
+          message_id: string | null;
+          started_at: string;
+          answered_at: string | null;
+          ended_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          conversation_id: string;
+          started_by?: string | null;
+          kind: string;
+          status?: string;
+          ended_reason?: string | null;
+          message_id?: string | null;
+          started_at?: string;
+          answered_at?: string | null;
+          ended_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          conversation_id?: string;
+          started_by?: string | null;
+          kind?: string;
+          status?: string;
+          ended_reason?: string | null;
+          message_id?: string | null;
+          started_at?: string;
+          answered_at?: string | null;
+          ended_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "calls_conversation_id_fkey";
+            columns: ["conversation_id"];
+            isOneToOne: false;
+            referencedRelation: "conversations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      /** Migration 35: everyone a call rang, and where each of them stands. */
+      call_participants: {
+        Row: {
+          call_id: string;
+          user_id: string;
+          state: string;
+          invited_at: string;
+          joined_at: string | null;
+          left_at: string | null;
+        };
+        Insert: {
+          call_id: string;
+          user_id: string;
+          state?: string;
+          invited_at?: string;
+          joined_at?: string | null;
+          left_at?: string | null;
+        };
+        Update: {
+          call_id?: string;
+          user_id?: string;
+          state?: string;
+          invited_at?: string;
+          joined_at?: string | null;
+          left_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "call_participants_call_id_fkey";
+            columns: ["call_id"];
+            isOneToOne: false;
+            referencedRelation: "calls";
             referencedColumns: ["id"];
           },
         ];
@@ -1141,6 +1272,315 @@ export type Database = {
           },
         ];
       };
+      /** Migration 39: a business on the portal. Public once approved; its own team sees it at every status. */
+      businesses: {
+        Row: {
+          id: string;
+          owner_id: string;
+          name: string;
+          category: string;
+          description: string;
+          website: string | null;
+          phone: string | null;
+          contact_email: string | null;
+          address: string | null;
+          city: string | null;
+          logo_url: string | null;
+          /** The campuses it serves; empty = every campus. */
+          university_ids: string[];
+          /** pending | approved | rejected | suspended. Changed only by admin_review_business(). */
+          status: string;
+          /** "Verified Partner" on its listings: an admin verified it (admin_set_verified), with what was checked on record. */
+          verified_partner: boolean;
+          verified_at: string | null;
+          /** Not readable by students (column grants): only through my_business() and the admin functions. */
+          verified_by: string | null;
+          verification_note: string | null;
+          review_note: string | null;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          name: string;
+          category?: string;
+          description?: string;
+          website?: string | null;
+          phone?: string | null;
+          contact_email?: string | null;
+          address?: string | null;
+          city?: string | null;
+          logo_url?: string | null;
+          university_ids?: string[];
+          status?: string;
+          verified_partner?: boolean;
+          verified_at?: string | null;
+          verified_by?: string | null;
+          verification_note?: string | null;
+          review_note?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_id?: string;
+          name?: string;
+          category?: string;
+          description?: string;
+          website?: string | null;
+          phone?: string | null;
+          contact_email?: string | null;
+          address?: string | null;
+          city?: string | null;
+          logo_url?: string | null;
+          university_ids?: string[];
+          status?: string;
+          verified_partner?: boolean;
+          verified_at?: string | null;
+          verified_by?: string | null;
+          verification_note?: string | null;
+          review_note?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "businesses_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      /** Migration 39: the team of a business (one business per account); rows are made by the sign-up trigger. */
+      business_members: {
+        Row: {
+          user_id: string;
+          business_id: string;
+          role: string;
+          invited_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          business_id: string;
+          role?: string;
+          invited_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          business_id?: string;
+          role?: string;
+          invited_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "business_members_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "business_members_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      /** Migration 39: an address the owner invited; written only by business_invite_create(). */
+      business_invites: {
+        Row: {
+          id: string;
+          business_id: string;
+          email: string;
+          token: string;
+          invited_by: string | null;
+          created_at: string;
+          expires_at: string;
+          accepted_at: string | null;
+          accepted_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          email: string;
+          token?: string;
+          invited_by?: string | null;
+          created_at?: string;
+          expires_at?: string;
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          email?: string;
+          token?: string;
+          invited_by?: string | null;
+          created_at?: string;
+          expires_at?: string;
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "business_invites_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "business_invites_invited_by_fkey";
+            columns: ["invited_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      /** Migration 39: a business's offer with campus targeting; students see it while active and the business is approved. */
+      deals: {
+        Row: {
+          id: string;
+          business_id: string;
+          title: string;
+          description: string;
+          discount_label: string | null;
+          code: string | null;
+          link_url: string | null;
+          image_url: string | null;
+          /** The campuses whose students see it; empty = every campus. */
+          university_ids: string[];
+          starts_at: string;
+          ends_at: string | null;
+          /** active | paused | archived */
+          status: string;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          title: string;
+          description?: string;
+          discount_label?: string | null;
+          code?: string | null;
+          link_url?: string | null;
+          image_url?: string | null;
+          university_ids?: string[];
+          starts_at?: string;
+          ends_at?: string | null;
+          status?: string;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          title?: string;
+          description?: string;
+          discount_label?: string | null;
+          code?: string | null;
+          link_url?: string | null;
+          image_url?: string | null;
+          university_ids?: string[];
+          starts_at?: string;
+          ends_at?: string | null;
+          status?: string;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "deals_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "deals_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      /** Migration 39: a paid promotion of a listing or deal, recorded by an admin; only an active one running now makes it "Sponsored". */
+      listing_promotions: {
+        Row: {
+          id: string;
+          business_id: string;
+          apartment_id: string | null;
+          deal_id: string | null;
+          starts_at: string;
+          ends_at: string;
+          amount_cents: number;
+          currency: string;
+          payment_reference: string;
+          status: string;
+          created_by: string | null;
+          created_at: string;
+          cancelled_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          apartment_id?: string | null;
+          deal_id?: string | null;
+          starts_at: string;
+          ends_at: string;
+          amount_cents: number;
+          currency?: string;
+          payment_reference: string;
+          status?: string;
+          created_by?: string | null;
+          created_at?: string;
+          cancelled_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          apartment_id?: string | null;
+          deal_id?: string | null;
+          starts_at?: string;
+          ends_at?: string;
+          amount_cents?: number;
+          currency?: string;
+          payment_reference?: string;
+          status?: string;
+          created_by?: string | null;
+          created_at?: string;
+          cancelled_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "listing_promotions_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -1153,6 +1593,10 @@ export type Database = {
       profile_section_access: {
         Args: { p_owner: string };
         Returns: { classes: boolean; saved: boolean; liked: boolean }[];
+      };
+      profile_visible_sections: {
+        Args: { p_owner: string };
+        Returns: { classes: boolean; saved: boolean; liked: boolean; listings: boolean }[];
       };
       post_like_count: {
         Args: { p_target_type: string; p_target_id: string };
@@ -1450,16 +1894,187 @@ export type Database = {
       };
       /** Returns {snap_id, expires_at, sent: [{recipient_id, conversation_id, message_id}]}. */
       send_snap: {
-        Args: { p_path: string; p_kind: string; p_mime: string; p_width: number | null; p_height: number | null; p_duration: number | null; p_recipient_ids: string[] };
+        Args: { p_path: string; p_kind: string; p_mime: string; p_width: number | null; p_height: number | null; p_duration: number | null; p_recipient_ids: string[]; p_preview?: string | null };
         Returns: Json;
       };
       /** Returns {id, path, kind, mime, width, height, duration, sent_at, opened_at, view_until, conversation_id, message_id, sender: {id, full_name, avatar_url}}. */
       open_snap: {
-        Args: { p_snap_id: string };
+        /** p_detect (migration 33): what the viewer's device can tell about captures, "ios", "android" or "none". */
+        Args: { p_snap_id: string; p_detect?: string | null };
         Returns: Json;
       };
       close_snap: {
         Args: { p_snap_id: string };
+        Returns: undefined;
+      };
+      /** Migration 35: starts a call in a chat (or joins the one going on there). Returns {call_id, message_id, conversation_id, joined}. */
+      start_call: {
+        Args: { p_conversation_id: string; p_kind: string };
+        Returns: Json;
+      };
+      /** Migration 35: answers (or joins) a call that is not over. Returns the call as get_call does. */
+      answer_call: {
+        Args: { p_call_id: string };
+        Returns: Json;
+      };
+      decline_call: {
+        Args: { p_call_id: string };
+        Returns: undefined;
+      };
+      leave_call: {
+        Args: { p_call_id: string };
+        Returns: undefined;
+      };
+      /** Migration 35: a call with everyone it rang, {…, participants: [{user_id, state, joined_at, left_at, profile}]}; null when out of reach. */
+      get_call: {
+        Args: { p_call_id: string };
+        Returns: Json;
+      };
+      /** Migration 35: the call going on in a chat, as get_call gives it, or null. */
+      current_call: {
+        Args: { p_conversation_id: string };
+        Returns: Json;
+      };
+      /** Migration 33: the chat on this device received the Snap ("Delivered" on its activity, once). */
+      snap_delivered: {
+        Args: { p_snap_id: string };
+        Returns: undefined;
+      };
+      /** Migration 33: this device saw a "screenshot" or a "recording" while the Snap was open; its sender is told. */
+      report_snap_capture: {
+        Args: { p_snap_id: string; p_kind: string };
+        Returns: undefined;
+      };
+      /** Migration 33: the sender takes a Snap back; every chat it went to shows "Snap deleted". */
+      delete_snap: {
+        Args: { p_snap_id: string };
+        Returns: undefined;
+      };
+      /** Migration 39: the role of an account ('student' for an unknown id or signed out). */
+      role_of: {
+        Args: { p_user: string };
+        Returns: string;
+      };
+      my_role: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
+      /** Migration 39: a student's chat with the business behind a listing or deal; one per student and business. */
+      start_business_inquiry: {
+        Args: { p_target_type: string; p_target_id: string };
+        Returns: string;
+      };
+      business_invite_lookup: {
+        Args: { p_token: string };
+        Returns: { business_name: string; email: string; valid: boolean }[];
+      };
+      business_invite_create: {
+        Args: { p_email: string };
+        Returns: Database["public"]["Tables"]["business_invites"]["Row"];
+      };
+      business_invite_revoke: {
+        Args: { p_id: string };
+        Returns: undefined;
+      };
+      business_member_remove: {
+        Args: { p_user: string };
+        Returns: undefined;
+      };
+      business_listing_stats: {
+        Args: { p_business: string };
+        Returns: {
+          listing_id: string;
+          title: string;
+          status: string;
+          created_at: string;
+          views: number;
+          views_7d: number;
+          saves: number;
+          contacts: number;
+          inquiries: number;
+          last_inquiry_at: string | null;
+          /** When the paid promotion running now ends; null when the listing is not sponsored. */
+          sponsored_until: string | null;
+        }[];
+      };
+      business_deal_stats: {
+        Args: { p_business: string };
+        Returns: { deal_id: string; title: string; status: string; created_at: string; views: number; views_7d: number; inquiries: number; last_inquiry_at: string | null; sponsored_until: string | null }[];
+      };
+      /** Migration 39: the caller's business with every column (students cannot read some), and their place on its team. */
+      my_business: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      admin_set_verified: {
+        Args: { p_business: string; p_verified: boolean; p_evidence?: string | null };
+        Returns: undefined;
+      };
+      admin_business_targets: {
+        Args: { p_business: string };
+        Returns: { target_type: string; target_id: string; title: string; status: string }[];
+      };
+      admin_record_promotion: {
+        Args: { p_target_type: string; p_target_id: string; p_starts_at: string; p_ends_at: string; p_amount_cents: number; p_currency: string; p_payment_reference: string };
+        Returns: string;
+      };
+      admin_cancel_promotion: {
+        Args: { p_id: string };
+        Returns: undefined;
+      };
+      admin_list_promotions: {
+        Args: { p_business: string };
+        Returns: {
+          id: string;
+          target_type: string;
+          target_id: string;
+          title: string | null;
+          starts_at: string;
+          ends_at: string;
+          amount_cents: number;
+          currency: string;
+          payment_reference: string;
+          status: string;
+          created_at: string;
+        }[];
+      };
+      business_overview: {
+        Args: { p_business: string };
+        Returns: { active_listings: number; active_deals: number; views_30d: number; inquiries: number; inquiries_30d: number; team: number }[];
+      };
+      admin_list_businesses: {
+        Args: { p_status?: string | null };
+        Returns: {
+          id: string;
+          name: string;
+          category: string;
+          description: string;
+          website: string | null;
+          phone: string | null;
+          contact_email: string | null;
+          address: string | null;
+          city: string | null;
+          logo_url: string | null;
+          university_ids: string[];
+          status: string;
+          verified_partner: boolean;
+          verified_at: string | null;
+          verification_note: string | null;
+          review_note: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+          owner_id: string;
+          owner_name: string;
+          owner_email: string | null;
+          owner_confirmed: boolean;
+          members: number;
+          listings: number;
+          deals: number;
+          active_promotions: number;
+        }[];
+      };
+      admin_review_business: {
+        Args: { p_business: string; p_decision: string; p_note?: string | null };
         Returns: undefined;
       };
     };

@@ -233,6 +233,7 @@ export default function SnapScreen() {
           height: target.height,
           duration: target.duration,
           recipientIds: people.map((p) => p.id),
+          preview: target.preview,
         });
       } catch (e) {
         // A retry after a reply that got lost: the first try went through.

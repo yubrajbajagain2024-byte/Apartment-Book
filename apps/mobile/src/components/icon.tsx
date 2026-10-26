@@ -33,6 +33,9 @@ const SF: Partial<Record<IconName, SFSymbol>> = {
   "bulb": "lightbulb.fill",
   "bulb-outline": "lightbulb",
   "calendar-outline": "calendar",
+  "call": "phone.fill",
+  "call-outline": "phone",
+  "camera-reverse-outline": "camera.rotate",
   "camera": "camera.fill",
   "camera-outline": "camera",
   "chatbox-outline": "text.bubble",
@@ -88,6 +91,13 @@ const SF: Partial<Record<IconName, SFSymbol>> = {
   "images": "photo.fill.on.rectangle.fill",
   "images-outline": "photo.on.rectangle",
   "information-circle-outline": "info.circle",
+  "mic": "mic.fill",
+  "mic-off": "mic.slash.fill",
+  "mic-off-outline": "mic.slash",
+  "moon-outline": "moon",
+  "paw-outline": "pawprint",
+  "sunny-outline": "sun.max",
+  "mic-outline": "mic",
   "laptop-outline": "laptopcomputer",
   "link": "link",
   "link-outline": "link",
@@ -148,6 +158,7 @@ const SF: Partial<Record<IconName, SFSymbol>> = {
   "trash-outline": "trash",
   "trending-up-outline": "chart.line.uptrend.xyaxis",
   "videocam": "video.fill",
+  "videocam-off": "video.slash.fill",
   "videocam-off-outline": "video.slash",
   "videocam-outline": "video",
   "volume-high": "speaker.wave.2.fill",
@@ -184,9 +195,12 @@ export type IconProps = {
   testID?: string;
 };
 
+/** @expo/vector-icons types its color narrower than the ColorValue it hands on to Text, which takes any. */
+type IoniconColor = ComponentProps<typeof Ionicons>["color"];
+
 /** One icon: an SF Symbol on iOS (iOS 17 animates `bounce`), the Ionicon elsewhere. A drop-in for <Ionicons>. */
 export function Icon({ name, size = 24, color, style, sf, weight = "regular", bounce, fallback, accessibilityLabel, ...rest }: IconProps) {
-  const ionicon = fallback ?? <Ionicons name={name} size={size} color={color as ComponentProps<typeof Ionicons>["color"]} style={style} accessibilityLabel={accessibilityLabel} {...rest} />;
+  const ionicon = fallback ?? <Ionicons name={name} size={size} color={color as IoniconColor} style={style} accessibilityLabel={accessibilityLabel} {...rest} />;
   const symbol = sf ?? SF[name];
   if (!symbol || IOS === 0) return ionicon;
   const min = MIN_IOS[symbol];

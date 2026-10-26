@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { BadgeCheck, MapPin, Plus, UserPlus } from "lucide-react";
-import { compactCount, type FollowStats, type ProfileWithUniversity } from "@apartment-book/shared";
+import { BadgeCheck, Plus, UserPlus } from "lucide-react";
+import { compactCount, profileStudyLine, type FollowStats, type ProfileWithUniversity } from "@apartment-book/shared";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { buttonClasses } from "@/components/ui/button";
@@ -28,13 +28,14 @@ export type ProfileHeaderProps = {
 };
 
 /**
- * The top of a profile, TikTok style: the photo (with a "+" to change your own), name, @handle and the QR button,
- * Following · Followers · Likes, the buttons (yours: Edit profile, Share profile, Find friends; someone else's:
- * Follow, Message, •••), bio and campus.
+ * The top of a profile, TikTok style: the photo (with a "+" to change your own), then three lines in this order: the
+ * name, the major, class year and university ("CS ’28 @ Texas State University") and the bio; then @handle and the QR
+ * button, Following · Followers · Likes, and the buttons (yours: Edit profile, Share profile, Find friends; someone
+ * else's: Follow, Message, •••). A line with nothing to say is left out.
  */
 export function ProfileHeader({ profile, handle, isMe, viewerId, blocked, follow, likes, share }: ProfileHeaderProps) {
   const verifiedDomain = profile.university?.email_domain ?? null;
-  const studies = [profile.program, profile.graduation_year ? `Class of ${profile.graduation_year}` : null].filter(Boolean).join(" · ");
+  const study = profileStudyLine(profile);
 
   return (
     <header className="flex flex-col items-center px-4 pb-5 pt-6 text-center">
@@ -62,7 +63,17 @@ export function ProfileHeader({ profile, handle, isMe, viewerId, blocked, follow
         <span className="min-w-0 break-words">{profile.full_name}</span>
         {verifiedDomain ? <BadgeCheck className="h-5 w-5 shrink-0 text-brand-600" aria-label={`Verified @${verifiedDomain} student`} /> : null}
       </h1>
-      <div className="mt-0.5 flex max-w-full items-center justify-center gap-0.5 text-sm text-gray-600">
+      {study ? (
+        <p className="mt-0.5 max-w-full break-words text-[15px] font-semibold text-gray-600" data-testid="profile-study">
+          {study}
+        </p>
+      ) : null}
+      {profile.bio ? (
+        <p className="mt-1.5 max-w-md whitespace-pre-line break-words text-sm text-gray-900" data-testid="profile-bio">
+          {profile.bio}
+        </p>
+      ) : null}
+      <div className="mt-1.5 flex max-w-full items-center justify-center gap-0.5 text-sm text-gray-500">
         {handle ? (
           <span className="truncate" data-testid="profile-username">
             @{handle}
@@ -100,14 +111,6 @@ export function ProfileHeader({ profile, handle, isMe, viewerId, blocked, follow
         )}
       </div>
 
-      {profile.bio ? <p className="mt-4 max-w-md whitespace-pre-line break-words text-sm text-gray-900">{profile.bio}</p> : null}
-      {profile.university ? (
-        <p className="mt-2 flex max-w-full items-center justify-center gap-1 text-sm text-gray-700">
-          <MapPin className="h-4 w-4 shrink-0 text-red-500" aria-hidden="true" />
-          <span className="truncate">{profile.university.name}</span>
-        </p>
-      ) : null}
-      {studies ? <p className="mt-1 text-xs text-gray-500">{studies}</p> : null}
     </header>
   );
 }

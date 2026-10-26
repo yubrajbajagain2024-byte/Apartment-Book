@@ -169,3 +169,53 @@ test("grid tiles: posts and reels with their first picture, views and pins; list
   ]).map((p) => p.id);
   assert.deepEqual(order, ["pinB", "pinA", "new", "old"]);
 });
+
+test("the line under the name: major short form, class year and university, as in CS ’28 @ Texas State University", async () => {
+  const { majorAbbreviation, classYear, profileStudyLine } = await import("../src/profile.ts");
+  const short = {
+    "Computer Science": "CS",
+    "computer   science": "CS",
+    "Electrical and Computer Engineering": "ECE",
+    "Electrical & Computer Engineering": "ECE",
+    "Computer Science and Engineering": "CSE",
+    "Mechanical Engineering": "ME",
+    "Master of Business Administration": "MBA",
+    "Political Science": "PoliSci",
+    Psychology: "Psych",
+    Mathematics: "Math",
+    "B.S. in Computer Science": "CS",
+    "BS Computer Science": "CS",
+    "Bachelor of Science in Computer Science": "CS",
+    "Bachelor's in Nursing": "Nursing",
+    "CS major": "CS",
+  };
+  for (const [typed, expected] of Object.entries(short)) assert.equal(majorAbbreviation(typed), expected, typed);
+  // Typed short already, or one word with no common short form: exactly as typed.
+  for (const typed of ["CS", "CompE", "MIS", "Nursing", "Pre-Med"]) assert.equal(majorAbbreviation(typed), typed);
+  for (const nothing of [null, undefined, "", "   "]) assert.equal(majorAbbreviation(nothing), null);
+
+  assert.equal(classYear(2028), "’28");
+  for (const bad of [null, undefined, 28, 2028.5]) assert.equal(classYear(bad), null);
+
+  const uni = { name: "Texas State University" };
+  assert.equal(profileStudyLine({ program: "Computer Science", graduation_year: 2028, university: uni }), "CS ’28 @ Texas State University");
+  assert.equal(profileStudyLine({ program: "Computer Science", graduation_year: null, university: uni }), "CS @ Texas State University");
+  assert.equal(profileStudyLine({ program: null, graduation_year: 2028, university: uni }), "Class of ’28 @ Texas State University");
+  assert.equal(profileStudyLine({ program: "CS", graduation_year: 2028, university: null }), "CS ’28");
+  assert.equal(profileStudyLine({ program: "", graduation_year: null, university: uni }), "Texas State University");
+  assert.equal(profileStudyLine({ program: null, graduation_year: null, university: null }), null);
+});
+
+test("Saved, Liked and Listings are private by default; Classes stay with friends; a row without a setting reads the default", async () => {
+  const { PROFILE_DEFAULT_VISIBILITY, PROFILE_SECTIONS, sectionVisibilityOf, ownSectionNote, lockedSectionMessage, NO_SECTION_ACCESS, OWNER_SECTION_ACCESS } = await import("../src/profile.ts");
+  assert.deepEqual(PROFILE_SECTIONS, ["classes", "saved", "liked", "listings"]);
+  assert.deepEqual(PROFILE_DEFAULT_VISIBILITY, { classes: "friends", saved: "private", liked: "private", listings: "private" });
+  assert.equal(sectionVisibilityOf({ liked_visibility: "public" }, "liked"), "public");
+  assert.equal(sectionVisibilityOf({}, "listings"), "private", "a database before migration 37");
+  assert.equal(sectionVisibilityOf({ listings_visibility: "everyone" }, "listings"), "private", "junk reads as the default");
+  assert.equal(sectionVisibilityOf(null, "classes"), "friends");
+  assert.equal(ownSectionNote("listings", "private"), "Only you can see your listings");
+  assert.equal(lockedSectionMessage("listings", "friends", "Sunil"), "Only Sunil's friends can see their listings");
+  assert.ok(Object.values(NO_SECTION_ACCESS).every((v) => v === false) && Object.values(OWNER_SECTION_ACCESS).every((v) => v === true));
+  assert.deepEqual(Object.keys(NO_SECTION_ACCESS).sort(), [...PROFILE_SECTIONS].sort());
+});

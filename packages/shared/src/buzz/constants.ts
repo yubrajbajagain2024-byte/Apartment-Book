@@ -1,6 +1,6 @@
 /**
  * Buzz v2 constants and copy, ported from UniVerse. The database enforces the same numbers (migration
- * `20261021000100_buzz_v2.sql`); `supabase/tests/buzz-v2.test.mjs` checks the two agree where it can.
+ * `20261103000100_buzz_v2.sql`); `supabase/tests/buzz-v2.test.mjs` checks the two agree where it can.
  */
 import type { BuzzFeedSort, BuzzItemStatus, BuzzPollDuration, BuzzReportReason, BuzzTopWindow, ModerationCategory } from "./types";
 

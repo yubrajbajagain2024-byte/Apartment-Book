@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { AppState, Platform, type AppStateStatus } from "react-native";
 import { createPresenceStore, onBlocksChanged, type OnlineUser, type PresenceStatus, type PresenceStore } from "@apartment-book/shared";
 import { currentPresence, endPresence, setCurrentPresence } from "./presence-store";
@@ -20,11 +20,14 @@ const Ctx = createContext<PresenceStore | null>(null);
 export function PresenceProvider({ children }: { children: ReactNode }) {
   const { profile, refreshProfile } = useSession();
   const key = profile && profile.show_active_status ? `${profile.id}|${profile.full_name}|${profile.avatar_url ?? ""}` : null;
+  // The store a new one replaces (another account signed in over it) ends after this render, not during it: ending it
+  // tells every avatar following it at once, and React lets no other component change while this one renders.
+  const replaced = useRef<PresenceStore | null>(null);
   const store = useMemo(() => {
     if (!key || !profile) return null;
     const current = currentPresence();
     if (current && current.userId === profile.id && current.store.getStatus() !== "ended") return current.store;
-    endPresence();
+    if (current) replaced.current = current.store;
     const s = createPresenceStore(supabase, { id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url });
     setCurrentPresence({ userId: profile.id, store: s });
     // Started in the background (by a notification, say): it listens, but shows the user online only once they open the app.
@@ -33,12 +36,18 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     return s;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
+  useLayoutEffect(() => {
+    const old = replaced.current;
+    replaced.current = null;
+    if (old && old !== store) void old.stop();
+  }, [store]);
   useEffect(() => {
     if (!key) endPresence();
   }, [key]);
   useEffect(() => {
     if (!store) return;
-    const follow = (state: AppStateStatus) => {
+    // AppState.currentState is typed as any string, though it is always one of AppStateStatus's.
+    const follow = (state: AppStateStatus | string | null | undefined) => {
       if (state === "active") store.resume();
       // On a phone, at once. (The web build follows the browser tab, whose timers keep running: a short grace.)
       else if (state === "background") store.pause({ leaveNow: Platform.OS !== "web" });

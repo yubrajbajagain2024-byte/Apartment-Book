@@ -45,7 +45,8 @@ export function EngagementBar({
   className,
 }: {
   like: LikeController;
-  onComment: () => void;
+  /** Leave it out for a post without public comments (roommate posts): the row has no Comment button. */
+  onComment?: () => void;
   message?: { userId: string; currentUserId: string | null; returnTo: string; prefill?: string; target: { type: PostTargetType; id: string } };
   className?: string;
 }) {
@@ -53,9 +54,11 @@ export function EngagementBar({
   return (
     <div className={cn("flex items-center gap-0.5 border-t border-gray-100 px-1.5 py-1", className)} data-testid="engagement-bar">
       <LikeButton controller={like} className="flex-1" />
-      <button type="button" onClick={onComment} className={cn(actionButtonClasses, "flex-1")} aria-label="Comment">
-        <MessageSquare className="h-5 w-5 shrink-0" /> <span>Comment</span>
-      </button>
+      {onComment ? (
+        <button type="button" onClick={onComment} className={cn(actionButtonClasses, "flex-1")} aria-label="Comment">
+          <MessageSquare className="h-5 w-5 shrink-0" /> <span>Comment</span>
+        </button>
+      ) : null}
       {own ? (
         <Link href="/messages" className={cn(actionButtonClasses, "flex-1")} aria-label="Message">
           <MessageCircle className="h-5 w-5 shrink-0" /> <span>Message</span>

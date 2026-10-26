@@ -13,7 +13,8 @@
  *   node scripts/supabase-setup.mjs
  * It will run the migration + seed. You then fill in apps/web/.env.local yourself.
  *
- * Options: SITE_URL (default http://localhost:3000), SKIP_SEED=1, SKIP_MIGRATION=1,
+ * Options: SITE_URL (default http://localhost:3000), BUSINESS_SITE_URL (the business portal's own address, e.g.
+ *          https://business.campconnect.com: its /auth/callback is allowed too), SKIP_SEED=1, SKIP_MIGRATION=1,
  *          SKIP_ENV=1 (do not rewrite apps/web/.env.local; use when pointing auth at production)
  */
 import fs from "node:fs";
@@ -33,6 +34,7 @@ const envPath = path.join(root, "apps/web/.env.local");
 const token = process.env.SUPABASE_ACCESS_TOKEN;
 const dbUrl = process.env.SUPABASE_DB_URL;
 const siteUrl = (process.env.SITE_URL || "http://localhost:3000").replace(/\/$/, "");
+const businessSiteUrl = (process.env.BUSINESS_SITE_URL || "").replace(/\/$/, "");
 const API = "https://api.supabase.com";
 
 function log(msg) { console.log(msg); }
@@ -148,7 +150,8 @@ async function withManagementApi() {
   log("\nAuth settings");
   const current = await api("GET", `/v1/projects/${ref}/config/auth`);
   const existing = (current.uri_allow_list || "").split(",").map((s) => s.trim()).filter(Boolean);
-  const wanted = new Set([...existing, "http://localhost:3000/auth/callback", `${siteUrl}/auth/callback`]);
+  // The business portal on its own host sends its sign-up emails back to that host's /auth/callback.
+  const wanted = new Set([...existing, "http://localhost:3000/auth/callback", `${siteUrl}/auth/callback`, ...(businessSiteUrl ? [`${businessSiteUrl}/auth/callback`] : [])]);
   await api("PATCH", `/v1/projects/${ref}/config/auth`, {
     site_url: siteUrl,
     uri_allow_list: [...wanted].join(","),

@@ -8,7 +8,7 @@
 import { boot, read, expectOk, expectError, done } from "./harness.mjs";
 const MIGRATION = "migrations/20261011000000_activity_status.sql";
 const { db, mk, as, asAnon, asService } = await boot();
-// Buzz v2 (migration 30): writes come from the website's write API (service role), after the Buzz guidelines are accepted.
+// Buzz v2 (migration 42): writes come from the website's write API (service role), after the Buzz guidelines are accepted.
 const buzzPost = async (uid, title) => {
   await as(uid, () => db.query("select public.buzz_v2_accept_gate('2026-10-21')"));
   return (await asService(() => one(db.query("select public.buzz_v2_create($1, $2::jsonb) as r", [uid, JSON.stringify({ title, scope: "global" })])))).r.id;

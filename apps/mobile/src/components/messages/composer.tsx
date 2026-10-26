@@ -1,18 +1,34 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Alert, Keyboard, LayoutAnimation, Platform, Pressable, StyleSheet, Text, TextInput, View, type KeyboardEvent } from "react-native";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { ActivityIndicator, Alert, Keyboard, LayoutAnimation, Platform, Pressable, StyleSheet, Text, TextInput, View, type KeyboardEvent, type LayoutChangeEvent, type TextInputInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MESSAGE_ATTACHMENT_LIMITS } from "@apartment-book/shared";
+import { MESSAGE_ATTACHMENT_LIMITS, type MessageReply } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
+import { GlassBackdrop, GlassIconButton } from "@/components/glass";
+import { Icon } from "@/components/icon";
+import { ProgressiveBlur } from "@/components/progressive-blur";
 import { hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { ATTACHMENT_LIMIT_TEXT, captureMedia, pickDocuments, pickLibraryMedia, type PendingAttachment, type PickResult } from "@/lib/message-attachments";
 import { auroraGradient } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { AttachmentStrip } from "./attachment-strip";
-import { Icon } from "@/components/icon";
+import { ReplyQuote, type ReplyContext } from "./reply-quote";
+import { VOICE_AVAILABLE } from "@/lib/voice";
+
+// expo-audio is loaded only where this build has it.
+const VoiceRecorder = VOICE_AVAILABLE ? (require("./voice-recorder") as typeof import("./voice-recorder")).VoiceRecorder : null;
 
 const SHOW_EVENT = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
 const HIDE_EVENT = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+/**
+ * The bar's sizes: the "+" circle and the capsule are the system's 44pt touch target, the capsule fully rounded; the
+ * microphone and Send inside it are 34pt circles, centred on its first line however tall the text grows.
+ */
+const BAR = 44;
+const CAPSULE = BAR / 2;
+const CONTROL = 34;
+const CONTROL_INSET = (BAR - CONTROL) / 2;
 
 /** Animate the next layout change along with the keyboard (iPhone tells how long it takes). */
 function followKeyboard(e: KeyboardEvent) {
@@ -42,20 +58,52 @@ export function useKeyboardVisible(): boolean {
   return visible;
 }
 
+/** What the person is about to answer, shown above the field until they send or dismiss it. */
+export type ComposerReply = { reply: MessageReply; context: ReplyContext };
+
 /**
- * The bar under a chat. The home-indicator space is kept only while the keyboard is down; with the keyboard up the
- * bar sits right on top of it.
+ * The floating bar under a chat, with nothing solid behind it: the messages scroll under it, softened by a blur that
+ * fades in towards the bottom edge. With the keyboard down it keeps the home-indicator space; with the keyboard up it
+ * sits right on top of it. `onHeight` tells the chat how much of the list it covers.
  */
-function BottomBar({ children }: { children: ReactNode }) {
+function FloatingBar({ onHeight, children }: { onHeight?: (height: number) => void; children: ReactNode }) {
   const styles = useStyles();
+  const { isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardVisible();
-  return <View style={[styles.bar, { paddingBottom: keyboard ? 8 : Math.max(insets.bottom, 8) }]}>{children}</View>;
+  const [height, setHeight] = useState(0);
+  function measured(e: LayoutChangeEvent) {
+    const h = Math.round(e.nativeEvent.layout.height);
+    if (h === height) return;
+    setHeight(h);
+    onHeight?.(h);
+  }
+  return (
+    <View style={[styles.bar, { paddingBottom: keyboard ? 10 : Math.max(insets.bottom, 14) }]} onLayout={measured}>
+      <ProgressiveBlur edge="bottom" height={height + 28} intensity={50} tint={isDark ? "dark" : "light"} />
+      {children}
+    </View>
+  );
+}
+
+/** A see-through glass panel above the field: the reply being answered, or the files waiting to go. */
+function GlassPanel({ children, style }: { children: ReactNode; style?: object }) {
+  const styles = useStyles();
+  const { colors } = useAppTheme();
+  return (
+    <View style={[styles.panel, { borderColor: colors.glassEdge }, style]}>
+      <GlassBackdrop variant="float" radius={20} />
+      {children}
+    </View>
+  );
 }
 
 /**
- * X-style message bar: attach (photo or video, camera, file) on the left, the growing "Message" field, and Send. Picked
- * files wait in a strip above the field until they are sent with the message.
+ * The message bar, laid out like the Messages app's: "+" in a glass circle on the left (photo or video, camera, file),
+ * then a see-through glass capsule holding the growing field and, at its end, the microphone (a voice message records
+ * in the bar, where the build can) or, once something is typed or picked, the blue Send. Picked files wait on a glass
+ * panel above the capsule until they are sent with the message; a message being answered shows there too, with its
+ * quote and an ✕. The bar floats over the chat and rises with the keyboard.
  */
 export function Composer({
   value,
@@ -64,6 +112,11 @@ export function Composer({
   onAddItems,
   onRemoveItem,
   onSend,
+  onSendVoice,
+  reply,
+  onCancelReply,
+  inputRef,
+  onHeight,
   placeholder = "Message",
 }: {
   value: string;
@@ -72,14 +125,23 @@ export function Composer({
   onAddItems: (items: PendingAttachment[]) => void;
   onRemoveItem: (id: string) => void;
   onSend: () => void;
+  /** A voice message just recorded: sent at once. Without it there is no microphone. */
+  onSendVoice?: (item: PendingAttachment) => void;
+  reply?: ComposerReply | null;
+  onCancelReply?: () => void;
+  /** The field, so the chat can bring the keyboard up (a swipe to reply). */
+  inputRef?: RefObject<TextInputInstance | null>;
+  onHeight?: (height: number) => void;
   placeholder?: string;
 }) {
   const { colors, isDark } = useAppTheme();
   const styles = useStyles();
   const show = useActionSheet();
   const [busy, setBusy] = useState(false);
+  const [recording, setRecording] = useState(false);
   const remaining = MESSAGE_ATTACHMENT_LIMITS.maxItems - items.length;
   const canSend = value.trim().length > 0 || items.length > 0;
+  const canRecord = Boolean(VoiceRecorder && onSendVoice) && !canSend;
 
   async function add(pick: () => Promise<PickResult>) {
     setBusy(true);
@@ -95,7 +157,6 @@ export function Composer({
   }
 
   function attach() {
-    hapticTap();
     if (remaining <= 0) {
       Alert.alert("That's the limit", ATTACHMENT_LIMIT_TEXT);
       return;
@@ -107,72 +168,142 @@ export function Composer({
     ]);
   }
 
-  return (
-    <BottomBar>
-      {items.length > 0 ? <AttachmentStrip items={items} onRemove={onRemoveItem} /> : null}
-      <View style={styles.row}>
-        <Pressable onPress={attach} disabled={busy} hitSlop={6} style={styles.attach} accessibilityRole="button" accessibilityLabel="Attach a photo, video or file">
-          {busy ? <ActivityIndicator color={colors.brand} /> : <Icon name="add-circle" size={32} color={colors.brand} />}
-        </Pressable>
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={colors.faint}
-          keyboardAppearance={isDark ? "dark" : "light"}
-          multiline
-          // The web's text area starts two rows tall; phones start at one line and grow.
-          numberOfLines={Platform.OS === "web" ? 1 : undefined}
-          maxLength={4000}
-          style={styles.input}
-          accessibilityLabel="Message"
+  const panels = (
+    <>
+      {reply ? (
+        <GlassPanel>
+          <View style={styles.replyRow}>
+            <ReplyQuote reply={reply.reply} context={reply.context} tone="composer" />
+            <Pressable onPress={onCancelReply} hitSlop={10} accessibilityRole="button" accessibilityLabel="Stop replying" style={({ pressed }) => [styles.replyClose, pressed && { opacity: 0.6 }]}>
+              <Icon name="close" size={15} color={colors.muted} weight="semibold" />
+            </Pressable>
+          </View>
+        </GlassPanel>
+      ) : null}
+      {items.length > 0 ? (
+        <GlassPanel style={styles.stripPanel}>
+          <AttachmentStrip items={items} onRemove={onRemoveItem} />
+        </GlassPanel>
+      ) : null}
+    </>
+  );
+
+  if (recording && VoiceRecorder && onSendVoice) {
+    return (
+      <FloatingBar onHeight={onHeight}>
+        {panels}
+        <VoiceRecorder
+          onCancel={() => setRecording(false)}
+          onSend={(item) => {
+            setRecording(false);
+            onSendVoice(item);
+          }}
         />
-        <Pressable onPress={onSend} disabled={!canSend} hitSlop={6} style={[styles.send, !canSend && { opacity: 0.4 }]} accessibilityRole="button" accessibilityLabel="Send" accessibilityState={{ disabled: !canSend }}>
-          <Icon name="send" size={17} color={colors.onBrand} />
-        </Pressable>
+      </FloatingBar>
+    );
+  }
+
+  return (
+    <FloatingBar onHeight={onHeight}>
+      {panels}
+      <View style={styles.row}>
+        <GlassIconButton icon="add" label="Attach a photo, video or file" variant="float" size={BAR} iconSize={24} weight="medium" disabled={busy} onPress={attach}>
+          {busy ? <ActivityIndicator color={colors.text} /> : undefined}
+        </GlassIconButton>
+        <View style={[styles.capsule, { borderColor: colors.glassEdge }]}>
+          <GlassBackdrop variant="float" radius={CAPSULE} />
+          <TextInput
+            ref={inputRef}
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor={colors.muted}
+            keyboardAppearance={isDark ? "dark" : "light"}
+            multiline
+            // The web's text area starts two rows tall; phones start at one line and grow.
+            numberOfLines={Platform.OS === "web" ? 1 : undefined}
+            maxLength={4000}
+            style={styles.input}
+            accessibilityLabel="Message"
+          />
+          {canRecord ? (
+            <Pressable
+              onPress={() => {
+                Keyboard.dismiss();
+                hapticTap();
+                setRecording(true);
+              }}
+              hitSlop={8}
+              style={({ pressed }) => [styles.control, pressed && { opacity: 0.6 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Record a voice message"
+            >
+              <Icon name="mic" size={22} color={colors.muted} weight="medium" />
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={onSend}
+              disabled={!canSend}
+              hitSlop={8}
+              style={({ pressed }) => [styles.control, styles.send, { backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.aurora, 135) }, !canSend && { opacity: 0.35 }, pressed && { transform: [{ scale: 0.92 }] }]}
+              accessibilityRole="button"
+              accessibilityLabel="Send"
+              accessibilityState={{ disabled: !canSend }}
+            >
+              <Icon name="arrow-up" size={19} color={colors.onBrand} weight="bold" />
+            </Pressable>
+          )}
+        </View>
       </View>
-    </BottomBar>
+    </FloatingBar>
   );
 }
 
 /** In place of the message bar when this chat cannot take messages (someone is blocked). */
-export function ComposerNotice({ title, body, action }: { title: string; body?: string; action?: { label: string; onPress: () => void } }) {
+export function ComposerNotice({ title, body, action, onHeight }: { title: string; body?: string; action?: { label: string; onPress: () => void }; onHeight?: (height: number) => void }) {
   const styles = useStyles();
   return (
-    <BottomBar>
-      <View style={styles.notice} accessibilityRole="summary">
-        <Text style={styles.noticeTitle}>{title}</Text>
-        {body ? <Text style={styles.noticeBody}>{body}</Text> : null}
-        {action ? (
-          <Pressable onPress={action.onPress} hitSlop={6} accessibilityRole="button" style={({ pressed }) => [styles.noticeButton, pressed && { opacity: 0.8 }]}>
-            <Text style={styles.noticeButtonText}>{action.label}</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    </BottomBar>
+    <FloatingBar onHeight={onHeight}>
+      <GlassPanel>
+        <View style={styles.notice} accessibilityRole="summary">
+          <Text style={styles.noticeTitle}>{title}</Text>
+          {body ? <Text style={styles.noticeBody}>{body}</Text> : null}
+          {action ? (
+            <Pressable onPress={action.onPress} hitSlop={6} accessibilityRole="button" style={({ pressed }) => [styles.noticeButton, pressed && { opacity: 0.8 }]}>
+              <Text style={styles.noticeButtonText}>{action.label}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </GlassPanel>
+    </FloatingBar>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
-  bar: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.bar },
-  row: { flexDirection: "row", alignItems: "flex-end", gap: 8, paddingHorizontal: 10, paddingTop: 8 },
-  attach: { width: 36, height: 40, alignItems: "center", justifyContent: "center" },
+  bar: { paddingHorizontal: 12, paddingTop: 8, gap: 10 },
+  row: { flexDirection: "row", alignItems: "flex-end", gap: 10 },
+  panel: { borderRadius: 20, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
+  stripPanel: { paddingBottom: 8 },
+  replyRow: { flexDirection: "row", alignItems: "center", paddingVertical: 6, paddingLeft: 2, paddingRight: 6 },
+  replyClose: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  capsule: { flex: 1, flexDirection: "row", alignItems: "flex-end", minHeight: BAR, borderRadius: CAPSULE, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden" },
+  // One line of 17pt text sits centred in the 44pt capsule (11 + 22 + 11); it grows to about six lines, then scrolls.
   input: {
     flex: 1,
-    minHeight: 40,
-    maxHeight: 120,
-    backgroundColor: colors.input,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 10,
-    fontSize: 16,
-    lineHeight: 20,
+    minHeight: BAR,
+    maxHeight: 154,
+    paddingLeft: 17,
+    paddingRight: 6,
+    paddingTop: 11,
+    paddingBottom: 11,
+    fontSize: 17,
+    lineHeight: 22,
     color: colors.text,
     textAlignVertical: "center",
   },
-  send: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.aurora, 135), alignItems: "center", justifyContent: "center" },
-  notice: { alignItems: "center", gap: 4, paddingHorizontal: 24, paddingTop: 14, paddingBottom: 6 },
+  control: { width: CONTROL, height: CONTROL, borderRadius: CONTROL / 2, marginRight: CONTROL_INSET, marginBottom: CONTROL_INSET, alignItems: "center", justifyContent: "center" },
+  send: {},
+  notice: { alignItems: "center", gap: 4, paddingHorizontal: 24, paddingTop: 14, paddingBottom: 14 },
   noticeTitle: { fontSize: 15, fontWeight: "700", color: colors.text, textAlign: "center" },
   noticeBody: { fontSize: 13, color: colors.muted, textAlign: "center" },
   noticeButton: { marginTop: 8, paddingHorizontal: 18, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.input },

@@ -107,3 +107,32 @@ test("snapErrorState knows the database's refusals", () => {
   assert.equal(snapErrorState("Failed to fetch"), null);
   assert.equal(snapErrorState(undefined), null);
 });
+
+test("snap activity (migration 33): parsed from the message, labelled for each side, the newest or a capture first", async () => {
+  const { snapActivityLabel, snapDetectionOf, snapDetectionText, snapLatestActivity, snapOf, snapStatusText, snapWasCaptured, snapWasDeleted } = await import("../src/snaps.ts");
+  const id = "6d074520-5a10-43ee-903a-35779a1a1fcc";
+  const base = { id, kind: "image", expires_at: "2099-01-01T00:00:00Z", opened_at: "2026-10-23T10:05:00Z" };
+  const s = snapOf({ ...base, activity: [{ type: "delivered", at: "2026-10-23T10:00:00Z" }, { type: "opened", at: "2026-10-23T10:05:00Z", detect: "ios" }, { type: "screenshot", at: "2026-10-23T10:05:30Z" }, { type: "bogus", at: "2026-10-23T10:06:00Z" }, { type: "expired", at: "not a date" }] });
+  assert.equal(s.activity.length, 3, "unknown types and bad dates are dropped");
+  assert.equal(s.activity[1].detect, "ios");
+  assert.equal(snapLatestActivity(s).type, "screenshot", "a capture outranks the newest entry");
+  assert.equal(snapWasCaptured(s), true);
+  assert.equal(snapActivityLabel({ type: "screenshot" }, true), "Screenshot taken");
+  assert.equal(snapActivityLabel({ type: "screenshot" }, false), "You took a screenshot");
+  assert.equal(snapActivityLabel({ type: "recording" }, true), "Screen recording detected");
+  assert.equal(snapActivityLabel({ type: "deleted" }, false), "Snap deleted");
+  assert.equal(snapDetectionOf(s), "ios");
+  assert.match(snapDetectionText("ios"), /reports screenshots/);
+  assert.match(snapDetectionText("android"), /blocks screenshots/);
+  assert.match(snapDetectionText("none"), /can't detect/);
+  assert.match(snapDetectionText(null), /depends on the device/);
+  // Opened by an app that did not say what it can detect: nothing is claimed.
+  assert.equal(snapDetectionOf(snapOf(base)), "none");
+  assert.equal(snapDetectionOf(snapOf({ ...base, opened_at: null })), null);
+  // A Snap taken back reads "Deleted", not "Unavailable"; one that merely went still reads "Unavailable".
+  const deleted = snapOf({ ...base, opened_at: null, gone: true, activity: [{ type: "deleted", at: "2026-10-23T11:00:00Z" }] });
+  assert.equal(snapWasDeleted(deleted), true);
+  assert.equal(snapStatusText(deleted, false), "Deleted");
+  assert.equal(snapStatusText(snapOf({ ...base, opened_at: null, gone: true }), false), "Unavailable");
+  assert.equal(snapOf({ ...base, activity: "nope" }).activity, undefined);
+});

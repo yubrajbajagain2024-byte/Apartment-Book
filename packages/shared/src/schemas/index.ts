@@ -1,8 +1,10 @@
 import { z } from "zod";
 import {
   AMENITY_VALUES,
+  BUSINESS_CATEGORY_VALUES,
   CLEANLINESS_LEVELS,
   CURRENCIES,
+  DEAL_STATUS_VALUES,
   ITEM_CATEGORY_VALUES,
   SLEEP_SCHEDULES,
 } from "../constants";
@@ -221,3 +223,69 @@ export const pushTokenSchema = z.object({
   platform: z.enum(["ios", "android", "web"]),
 });
 export type PushTokenInput = z.infer<typeof pushTokenSchema>;
+
+// ---------------------------------------------------------------------------
+// Business portal (migration 39)
+// ---------------------------------------------------------------------------
+/** A business signing up: the account, and what the pending business starts as. Any email address. */
+export const businessSignUpSchema = z.object({
+  fullName: z.string().trim().min(2, "Enter your name").max(80),
+  email: z.email({ error: "Enter a valid email address" }).trim().toLowerCase(),
+  password: z.string().min(8, "Password must be at least 8 characters").max(72),
+  businessName: z.string().trim().min(2, "Enter the business's name").max(120),
+  category: z.enum(BUSINESS_CATEGORY_VALUES, { error: "Choose a category" }),
+  website: optionalUrl,
+  phone: optionalText(40),
+  city: optionalText(120),
+  universityId: optionalUuid,
+});
+export type BusinessSignUpInput = z.infer<typeof businessSignUpSchema>;
+
+/** Joining a team from an invite link: the token names the business and the address. */
+export const businessJoinSchema = z.object({
+  token: z.string().trim().min(16, "This invite link is not complete").max(128),
+  fullName: z.string().trim().min(2, "Enter your name").max(80),
+  password: z.string().min(8, "Password must be at least 8 characters").max(72),
+});
+export type BusinessJoinInput = z.infer<typeof businessJoinSchema>;
+
+const uuidList = z.preprocess(
+  (v) => (Array.isArray(v) ? v : v ? [v] : []),
+  z.array(z.uuid()).max(50),
+);
+
+/** The business profile the owner edits. */
+export const businessProfileSchema = z.object({
+  name: z.string().trim().min(2, "Enter the business's name").max(120),
+  category: z.enum(BUSINESS_CATEGORY_VALUES, { error: "Choose a category" }),
+  description: z.string().trim().max(2000).optional().default(""),
+  website: optionalUrl,
+  phone: optionalText(40),
+  contactEmail: z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), z.email({ error: "Enter a valid email address" }).trim().toLowerCase().optional()),
+  address: optionalText(240),
+  city: optionalText(120),
+  logoUrl: optionalUrl,
+  universityIds: uuidList,
+});
+export type BusinessProfileInput = z.infer<typeof businessProfileSchema>;
+
+/** A deal. Empty universityIds = every campus. */
+export const dealSchema = z
+  .object({
+    title: z.string().trim().min(2, "Give the deal a title").max(120),
+    description: z.string().trim().max(2000).optional().default(""),
+    discountLabel: optionalText(60),
+    code: optionalText(60),
+    linkUrl: optionalUrl,
+    imageUrl: optionalUrl,
+    universityIds: uuidList,
+    startsAt: optionalDate,
+    endsAt: optionalDate,
+    status: z.enum(DEAL_STATUS_VALUES).default("active"),
+  })
+  .refine((v) => !v.startsAt || !v.endsAt || v.endsAt > v.startsAt, { error: "The end date must be after the start date", path: ["endsAt"] });
+export type DealInput = z.infer<typeof dealSchema>;
+
+export const businessInviteSchema = z.object({
+  email: z.email({ error: "Enter a valid email address" }).trim().toLowerCase(),
+});

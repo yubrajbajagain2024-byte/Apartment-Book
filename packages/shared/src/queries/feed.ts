@@ -3,10 +3,10 @@ import type { FeedPostInput, ReelInput } from "../schemas";
 import type { Client, FeedPost, FeedPostWithAuthor, ListingVideo, Paginated, Reel } from "../types/models";
 import type { Json } from "../types/database";
 import { pageRange } from "../utils";
+import { FEED_POST_SELECT } from "./feed-select";
 import { listFollowingPosts } from "./follows";
 
-export const FEED_POST_SELECT =
-  "*, author:profiles!feed_posts_author_id_fkey(id, full_name, avatar_url, university:universities(email_domain)), university:universities!feed_posts_university_id_fkey(id, name)";
+export { FEED_POST_SELECT };
 
 export type FeedPostFilters = {
   /** "post" (default) for the Posts tab; "reel" lists someone's reels on their profile. */

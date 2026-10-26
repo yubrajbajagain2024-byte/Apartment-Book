@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { BadgeCheck, Bookmark, Video } from "lucide-react";
-import { hasVideo, sharedPostFromListing, timeAgo, type FeedMedia, type PostCommentWithAuthor, type PostEngagement, type PostTargetType, type SharedPost } from "@apartment-book/shared";
+import { hasPublicComments, hasVideo, sharedPostFromListing, timeAgo, type FeedMedia, type PostCommentWithAuthor, type PostEngagement, type PostTargetType, type SharedPost } from "@apartment-book/shared";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { MessageButton } from "@/components/common/message-button";
@@ -19,7 +19,10 @@ export type PostCardProps = {
   href: string;
   targetType: PostTargetType;
   targetId: string;
-  poster: { id: string; name: string; avatarUrl: string | null; verified: boolean };
+  /** `badge` marks a business listing ("Sponsored" / "Verified Partner"): the business is the poster, and it has no profile to open. */
+  poster: { id: string; name: string; avatarUrl: string | null; verified: boolean; badge?: string | null };
+  /** The business behind a portal listing: its "Message" opens the inquiry chat with the whole team. */
+  businessId?: string | null;
   /** e.g. "0.4 mi from campus · San Marcos" */
   subtitle?: string;
   media: FeedMedia[];
@@ -88,15 +91,32 @@ export function PostCard(props: PostCardProps) {
 
   const header = (
     <div className={cn("flex items-center gap-2.5", compact ? "px-2 py-1.5" : "px-3 py-2.5")}>
-      <Link href={`/profile/${poster.id}`} className="shrink-0">
-        <Avatar name={poster.name} src={poster.avatarUrl} size={compact ? "xs" : facebook ? "md" : "sm"} />
-      </Link>
-      <div className="min-w-0 flex-1 leading-tight">
-        <Link href={`/profile/${poster.id}`} className={cn("flex items-center gap-1 font-semibold text-gray-900", compact ? "text-xs" : "text-sm")}>
-          <span className="truncate">{poster.name}</span>
-          {poster.verified ? <BadgeCheck className={cn("shrink-0 text-brand-600", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-label="Verified student" /> : null}
+      {poster.badge ? (
+        <span className="shrink-0">
+          <Avatar name={poster.name} src={poster.avatarUrl} size={compact ? "xs" : facebook ? "md" : "sm"} />
+        </span>
+      ) : (
+        <Link href={`/profile/${poster.id}`} className="shrink-0">
+          <Avatar name={poster.name} src={poster.avatarUrl} size={compact ? "xs" : facebook ? "md" : "sm"} />
         </Link>
-        {facebook ? (
+      )}
+      <div className="min-w-0 flex-1 leading-tight">
+        {poster.badge ? (
+          // Like Instagram's "Sponsored": the label sits under the business's name, so the name keeps the whole line.
+          <span className="flex min-w-0 flex-col" data-testid="sponsor">
+            <span className={cn("truncate font-semibold text-gray-900", compact ? "text-xs" : "text-sm")}>{poster.name}</span>
+            <span className="flex min-w-0 items-center gap-1 text-xs text-gray-500">
+              <span className={cn("shrink-0 font-semibold", poster.badge === "Business" ? "text-gray-500" : "text-brand-700", compact && "text-[10px]")}>{poster.badge}</span>
+              {props.subtitle && !compact ? <span className="truncate">· {props.subtitle}</span> : null}
+            </span>
+          </span>
+        ) : (
+          <Link href={`/profile/${poster.id}`} className={cn("flex items-center gap-1 font-semibold text-gray-900", compact ? "text-xs" : "text-sm")}>
+            <span className="truncate">{poster.name}</span>
+            {poster.verified ? <BadgeCheck className={cn("shrink-0 text-brand-600", compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-label="Verified student" /> : null}
+          </Link>
+        )}
+        {poster.badge ? null : facebook ? (
           <p className="truncate text-xs text-gray-500">
             <span suppressHydrationWarning>{timeAgo(createdAt)}</span>
             {props.subtitle ? <span> · {props.subtitle}</span> : null}
@@ -202,7 +222,7 @@ export function PostCard(props: PostCardProps) {
         >
           <Bookmark className={cn("h-5 w-5", save.saved && "fill-current")} /> {save.saved ? "Saved" : "Save"}
         </button>
-        <MessageButton userId={poster.id} currentUserId={props.currentUserId} returnTo={href} prefill={props.messagePrefill} variant="action" target={{ type: props.targetType, id: props.targetId }} />
+        <MessageButton userId={poster.id} currentUserId={props.currentUserId} returnTo={href} prefill={props.messagePrefill} variant="action" target={{ type: props.targetType, id: props.targetId }} businessId={props.businessId} />
         <ShareButton path={href} title={label} sharedPost={sharedPostOfCard(props)} currentUserId={props.currentUserId} />
       </div>
       <div className="px-3 pb-3 pt-1 text-sm text-gray-900">
@@ -224,6 +244,8 @@ function FacebookBody(
   const engagement = props.engagement ?? NO_ENGAGEMENT;
   const like = useLikeToggle(props.targetType, props.targetId, { liked: engagement.likedByMe, likes: engagement.likes }, props.signedIn);
   const [open, setOpen] = useState(Boolean(props.commentsOpen));
+  // Roommate posts have no public comments: their posters are reached in private (the Message button).
+  const publicComments = hasPublicComments(props.targetType);
   const [commentCount, setCommentCount] = useState(engagement.comments);
   // When the feed loads counts after the first paint, pick up the fresh number.
   const [seen, setSeen] = useState(engagement);
@@ -252,13 +274,13 @@ function FacebookBody(
         {props.details ? <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-700">{props.details}</div> : null}
       </div>
       {mediaBlock}
-      <EngagementSummary likes={like.likes} comments={commentCount} onComments={openComments} className={mediaBlock ? undefined : "border-t border-gray-100"} />
+      <EngagementSummary likes={like.likes} comments={publicComments ? commentCount : 0} onComments={publicComments ? openComments : undefined} className={mediaBlock ? undefined : "border-t border-gray-100"} />
       <EngagementBar
         like={like}
-        onComment={openComments}
+        onComment={publicComments ? openComments : undefined}
         message={{ userId: poster.id, currentUserId: props.currentUserId, returnTo: href, prefill: props.messagePrefill, target: { type: props.targetType, id: props.targetId } }}
       />
-      {open ? (
+      {open && publicComments ? (
         <CommentsSection
           targetType={props.targetType}
           targetId={props.targetId}

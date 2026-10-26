@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from "react-native";
-import { Gesture, GestureDetector, GestureHandlerRootView, type LegacyPanGesture as PanGesture } from "react-native-gesture-handler";
+import { Gesture, GestureDetector, GestureHandlerRootView, type LegacyPanGesture } from "react-native-gesture-handler";
 import Animated, { Easing, Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useReduceMotion } from "@/lib/accessibility";
@@ -9,7 +9,7 @@ import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
 
 /** What a sheet's header and body can reach: the drag that pulls the sheet down, and the close it ends in. */
-type SheetApi = { pan: PanGesture; close: () => void };
+type SheetApi = { pan: LegacyPanGesture; close: () => void };
 const SheetContext = createContext<SheetApi | null>(null);
 
 /** How far down a released drag has to have come (or how fast it has to be going) to close the sheet. */

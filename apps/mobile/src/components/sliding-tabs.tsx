@@ -43,6 +43,7 @@ export function SlidingTabs<T extends string>({
   fontSize = 15,
   spread = false,
   caret,
+  badges,
 }: {
   sections: readonly { value: T; label: string }[];
   section: T;
@@ -62,6 +63,8 @@ export function SlidingTabs<T extends string>({
   spread?: boolean;
   /** The section(s) whose label carries a small chevron: it opens a menu (Home's For you, both halves of Housing). */
   caret?: T | readonly T[];
+  /** A red count after a label (Messages' Chats and Groups); none at 0. It hangs off the label, so the underline keeps the label's width. */
+  badges?: Partial<Record<T, number>>;
 }) {
   const [boxes, setBoxes] = useState<(LabelBox | undefined)[]>(() => sections.map(() => undefined));
   // Same array unless a label really moved, so the interpolation below is not rebuilt on every layout pass.
@@ -125,7 +128,7 @@ export function SlidingTabs<T extends string>({
             }}
             hitSlop={6}
             accessibilityRole="tab"
-            accessibilityLabel={s.label}
+            accessibilityLabel={badges?.[s.value] ? `${s.label}, ${badges[s.value]} unread` : s.label}
             accessibilityState={{ selected: active }}
             style={[styles.tab, spread && styles.spread]}
           >
@@ -155,6 +158,13 @@ export function SlidingTabs<T extends string>({
                 )}
               </View>
               {(Array.isArray(caret) ? (caret as readonly T[]).includes(s.value) : caret === s.value) ? <Icon name="chevron-down" size={14} color={active ? labelColor : dimColor} style={[styles.caret, textStyle]} /> : null}
+              {badges?.[s.value] ? (
+                <View style={styles.badge} pointerEvents="none">
+                  <Text style={styles.badgeText} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+                    {(badges[s.value] ?? 0) > 99 ? "99+" : String(badges[s.value])}
+                  </Text>
+                </View>
+              ) : null}
             </View>
             {slide ? null : <View style={[styles.underline, styles.staticUnderline, active ? { backgroundColor: tint, experimental_backgroundImage: tintGradient } : { backgroundColor: "transparent" }]} />}
           </Pressable>
@@ -174,6 +184,9 @@ const styles = StyleSheet.create({
   // The label and, for one section, the chevron after it: what the underline is measured against.
   labelBox: { flexDirection: "row", alignItems: "center", gap: 1 },
   caret: { marginTop: 1 },
+  // The tab bar's own badge: red, white count, just past the label's top-right corner.
+  badge: { position: "absolute", left: "100%", top: -7, marginLeft: 3, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: "#e41e3f", alignItems: "center", justifyContent: "center" },
+  badgeText: { color: "#ffffff", fontSize: 11, fontWeight: "700", fontVariant: ["tabular-nums"] },
   label: { fontSize: 15, fontWeight: "600" },
   bold: { fontWeight: "700" },
   ghost: { opacity: 0 },

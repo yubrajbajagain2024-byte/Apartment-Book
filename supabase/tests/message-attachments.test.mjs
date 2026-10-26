@@ -7,7 +7,9 @@ import { sharedPostOf } from "../../packages/shared/src/share.ts";
 
 const MIGRATION = "migrations/20260929000000_message_attachments.sql";
 const { db, mk, as, asAnon } = await boot();
-await expectOk("the attachments migration re-runs cleanly", async () => { await db.exec(read(MIGRATION)); });
+// Migration 29 builds on this one (voice messages), so it runs again after it.
+const VOICE = "migrations/20261022000000_voice_and_snap_previews.sql";
+await expectOk("the attachments migration re-runs cleanly", async () => { await db.exec(read(MIGRATION)); await db.exec(read(VOICE)); });
 
 const one = async (p) => (await p).rows[0];
 const rows = async (p) => (await p).rows;
@@ -101,7 +103,7 @@ await expectError("attachments: a file from another chat is refused", () => send
 await expectError("attachments: a path that climbs out of the folder is refused", () => send(A, AB, "", [photo(AB, A, { path: `${AB}/${A}/../${B}/x.jpg` })]), "own folder");
 await expectError("attachments: a path that is just the folder is refused", () => send(A, AB, "", [photo(AB, A, { path: `${AB}/${A}/` })]), "own folder");
 await expectError("attachments: more than 10 are refused", () => send(A, AB, "", Array.from({ length: 11 }, () => photo(AB, A))), "at most 10");
-await expectError("attachments: an unknown kind is refused", () => send(A, AB, "", [photo(AB, A, { kind: "audio" })]), "kind must be");
+await expectError("attachments: an unknown kind is refused", () => send(A, AB, "", [photo(AB, A, { kind: "sticker" })]), "kind must be");
 await expectError("attachments: an entry that is not an object is refused", () => send(A, AB, "", ["photo.jpg"]), "expected an object");
 await expectError("attachments: a list is required", () => send(A, AB, "", photo(AB, A)), "expected a list");
 await expectError("attachments: an empty file is refused", () => send(A, AB, "", [photo(AB, A, { size: 0 })]), "50 MB");
@@ -247,6 +249,7 @@ await expectOk("indexes: the Media/Files and Links queries read their partial in
 });
 await expectOk("the attachments migration re-runs cleanly with files already sent", async () => {
   await db.exec(read(MIGRATION));
+  await db.exec(read(VOICE));
   const c = await one(db.query("select count(*)::int as n from public.messages where attachments <> '[]'::jsonb"));
   if (c.n < 10) throw new Error("messages with files: " + c.n);
 });

@@ -12,20 +12,34 @@ import { Input } from "@/components/ui/input";
 import { useActivityLine } from "@/components/presence/use-activity-line";
 import { ConversationAvatar } from "./conversation-list";
 import { MemberPicker } from "./member-picker";
+import { useMessagesPaths } from "./messages-paths";
 
 export function ConversationHeader({ conversation, currentUserId }: { conversation: ConversationSummary; currentUserId: string }) {
   const [open, setOpen] = useState(false);
+  const paths = useMessagesPaths();
+  // A student's chat with a business: the team answers, so there is no one person's activity to show, nor a profile.
+  const business = conversation.business;
   const other = conversation.otherMembers[0];
   const isGroup = conversation.type === "group";
   // Direct chats: "Active now" with a green dot or when they were last active; with no status to show, "Direct message"
   // as always. While a status that was there is being checked again (back to the tab, a reconnect, they just left), the
   // line stays blank rather than claiming there is none.
-  const { line, waiting } = useActivityLine(isGroup ? null : (other?.id ?? null), conversation.id);
+  const teamInbox = paths.audience === "business";
+  const { line, waiting } = useActivityLine(isGroup || business || teamInbox ? null : (other?.id ?? null), conversation.id);
+  const subtitle = isGroup
+    ? `${conversation.members.length} members`
+    : teamInbox
+      ? "Student inquiry"
+      : business
+      ? business.verified_partner
+        ? "Verified Partner"
+        : "Business"
+      : (line?.label ?? (waiting ? " " : other ? "Direct message" : ""));
 
   return (
     <div className="border-b border-gray-200">
       <div className="flex h-14 items-center gap-2 px-2 sm:px-4">
-        <Link href="/messages" className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-gray-100 md:hidden" aria-label="Back to chats">
+        <Link href={paths.base} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-gray-100 md:hidden" aria-label="Back to chats">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <ConversationAvatar conversation={conversation} size="sm" />
@@ -33,15 +47,15 @@ export function ConversationHeader({ conversation, currentUserId }: { conversati
           <p className="truncate font-semibold text-gray-900">{conversation.title}</p>
           <p className={cn("flex items-center gap-1 text-xs", line?.online ? "text-green-600" : "text-gray-500")} data-testid="activity">
             {line?.online ? <span aria-hidden="true" data-testid="activity-dot" className="h-2 w-2 shrink-0 rounded-full bg-green-500" /> : null}
-            <span className="min-w-0 truncate">{isGroup ? `${conversation.members.length} members` : (line?.label ?? (waiting ? " " : other ? "Direct message" : ""))}</span>
+            <span className="min-w-0 truncate">{subtitle}</span>
           </p>
         </div>
         {conversation.type === "group" ? (
           <button type="button" onClick={() => setOpen((v) => !v)} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-gray-100" aria-label="Group info" aria-expanded={open}>
             {open ? <X className="h-5 w-5" /> : <Info className="h-5 w-5" />}
           </button>
-        ) : other ? (
-          <Link href={`/profile/${other.id}`} className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-600 hover:bg-brand-50">
+        ) : other && paths.profile && !business ? (
+          <Link href={`${paths.profile}/${other.id}`} className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-600 hover:bg-brand-50">
             View profile
           </Link>
         ) : null}

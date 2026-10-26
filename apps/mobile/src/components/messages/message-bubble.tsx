@@ -1,27 +1,40 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { Animated, Pressable, StyleSheet, Text, View, type HostInstance } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View, type ViewInstance } from "react-native";
+import Reanimated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
+  callOf,
   extractLinks,
+  formatTimeOfDay,
   formatDayLabel,
   formatMessageTime,
+  replyOf,
   sharedPostLabel,
   sharedPostOf,
   snapOf,
   type MessageAttachment,
+  type MessageCall,
+  type MessageReply,
   type ProfileSummary,
   type SharedPost,
 } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
+import { CallRow } from "@/components/calls/call-row";
+import { useReduceMotion } from "@/lib/accessibility";
 import { openChatLink, sharedPostHref, type ChatMessage, type OutgoingFiles, type UploadStatus } from "@/lib/message-attachments";
 import { entryForPost, measureOrigin, openViewer } from "@/lib/reel-viewer";
 import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { AttachmentFileRow } from "./attachment-file-row";
 import { AttachmentGrid, type GridMedia } from "./attachment-grid";
-import { Icon } from "@/components/icon";
+import { ReplyQuote, type ReplyContext } from "./reply-quote";
+import { SwipeToReply } from "./swipe-to-reply";
 import { SnapBubble } from "@/components/snap/snap-bubble";
+import { VOICE_AVAILABLE } from "@/lib/voice";
+
+// expo-audio is loaded only where this build has it (an older installed build shows voice messages as files).
+const VoiceBubble = VOICE_AVAILABLE ? (require("./voice-bubble") as typeof import("./voice-bubble")).VoiceBubble : null;
 
 /**
  * A sent photo or video as something drawable: a signed URL with the storage path as its cache key, or null while
@@ -42,13 +55,13 @@ export function messageMedia(m: ChatMessage, resolve: MediaResolver): GridMedia[
   const outgoing = m.outgoing;
   if (outgoing) {
     for (const item of outgoing.items) {
-      if (item.kind === "file") continue;
+      if (item.kind !== "image" && item.kind !== "video") continue;
       media.push({ key: item.id, kind: item.kind, uri: item.uri, width: item.width, height: item.height, duration: item.duration, status: m.pending || m.failed ? (outgoing.status[item.id] ?? "waiting") : undefined });
     }
     return media;
   }
   for (const a of m.attachments ?? []) {
-    if (a.kind === "file") continue;
+    if (a.kind !== "image" && a.kind !== "video") continue;
     const shown = resolve(a);
     media.push({ key: a.path, kind: a.kind, uri: shown.uri, cacheKey: shown.cacheKey, width: a.width, height: a.height, duration: a.duration, missing: shown.missing });
   }
@@ -56,6 +69,17 @@ export function messageMedia(m: ChatMessage, resolve: MediaResolver): GridMedia[
 }
 
 type FileEntry = { key: string; attachment: MessageAttachment; status?: UploadStatus };
+
+type VoiceEntry = { key: string; uri: string | null; duration: number | null | undefined; attachment: MessageAttachment | null };
+
+/** A message's voice messages: the recording on this device while it sends, then the sent file through its signed link. */
+function messageVoices(m: ChatMessage, resolve: MediaResolver): VoiceEntry[] {
+  const outgoing = m.outgoing;
+  if (outgoing) {
+    return outgoing.items.filter((item) => item.kind === "audio").map((item) => ({ key: item.id, uri: item.uri, duration: item.duration, attachment: outgoing.uploaded[item.id] ?? null }));
+  }
+  return (m.attachments ?? []).filter((a) => a.kind === "audio").map((a) => ({ key: a.path, uri: resolve(a).uri, duration: a.duration, attachment: a }));
+}
 
 /** A message's other files (PDFs, documents, …), with their upload state while sending. */
 function messageFiles(m: ChatMessage): FileEntry[] {
@@ -100,84 +124,128 @@ function linkParts(text: string): { text: string; url?: string }[] {
   return parts;
 }
 
+/** How a new message comes in: it rises from the bar and settles, on a spring that never overshoots. */
+const ARRIVE = FadeInDown.springify().damping(24).stiffness(300).mass(0.8);
+
 export type MessageRowProps = {
   message: ChatMessage;
   mine: boolean;
   isGroup: boolean;
-  /** First message of its day: the day label goes above it. */
-  showDay: boolean;
-  /** First / last of a run of messages from the same person close together: rounder corners, the name, the avatar and the time. */
+  /** First message of its day, or the first after half an hour's quiet: the day and time label goes above it. */
+  stamp: boolean;
+  /** First / last of a run of messages from the same person close together: the name above the first. */
   firstInGroup: boolean;
   lastInGroup: boolean;
-  /** Only on my newest message: sending, sent or delivered (seen shows as avatars instead). */
+  /** Only on my newest message: "Sending…", "Sent" or "Delivered" under it ("Seen" shows under the last message read instead). */
   receipt: "sending" | "sent" | "delivered" | "seen" | null;
+  /** The people whose reading stopped at this message: "Seen" with their small photos goes under it. */
   seenBy?: ProfileSummary[];
-  /** Briefly lit after jumping here from search. */
+  /** Tapped, so its exact time shows under it until it, or another message, is tapped again. */
+  revealed: boolean;
+  /** Briefly lit after jumping here from search or from a reply's quote. */
   highlighted: boolean;
+  /** Arrived (or was sent) while the chat was open: it rises in. */
+  appear: boolean;
   mediaWidth: number;
   resolveMedia: MediaResolver;
+  /** Who wrote the message a quote points at, and its picture when it is on screen. */
+  resolveReply: (reply: MessageReply) => ReplyContext;
   onOpenMedia: (message: ChatMessage, index: number) => void;
   onOpenFile: (attachment: MessageAttachment) => void;
   /** A Snap from someone else, tapped while it is new: its one view. */
   onOpenSnap?: (message: ChatMessage) => void;
+  /** A tap on the activity line under a Snap: everything that happened to it. */
+  onSnapActivity?: (message: ChatMessage) => void;
+  /** A tap on a call's row: call back, or join the call if it is still going on. */
+  onCall?: (call: MessageCall) => void;
   /** Long press (and a tap on a message that was not sent): retry, delete or report. */
   onActions: (message: ChatMessage) => void;
-  onPressAvatar: (userId: string) => void;
+  /** A swipe to the right on the message. */
+  onReply: (message: ChatMessage) => void;
+  /** A tap on the words: shows (or hides) the message's exact time. */
+  onReveal: (message: ChatMessage) => void;
+  /** A tap on a reply's quote: show the message it answers. */
+  onJumpTo: (messageId: string) => void;
+  /** A tap on a sender's name in a group. */
+  onPressSender: (userId: string) => void;
 };
 
-/** One message in the chat: day label, avatar, shared post, photos and videos, files, a Snap, words, time and receipts. */
+/**
+ * One message in the chat, laid out like the Messages app's: a centred stamp ("Today 14:05") above the first message of
+ * a day and above any message that comes after half an hour's quiet, in a group the sender's name above a run of
+ * theirs, the quote of what it answers, a shared post, photos and videos, files, a Snap, a call, a voice message, and the words
+ * in a blue (mine) or grey bubble. Nothing under a bubble by default, as in Instagram: a tap on the words shows the
+ * message's exact time there (a hold shows it in the menu), my newest message says where it stands ("Sent",
+ * "Delivered"), and "Seen" with the readers' small photos sits under the last message they read. Every time is the
+ * phone's own. No photos beside the bubbles: the chat's header says who you are talking to. A swipe to the right
+ * answers it.
+ */
 export function MessageRow({
   message: m,
   mine,
   isGroup,
-  showDay,
+  stamp,
   firstInGroup,
-  lastInGroup,
   receipt,
   seenBy,
+  revealed,
   highlighted,
+  appear,
   mediaWidth,
   resolveMedia,
+  resolveReply,
   onOpenMedia,
   onOpenFile,
   onOpenSnap,
+  onSnapActivity,
+  onCall,
   onActions,
-  onPressAvatar,
+  onReply,
+  onReveal,
+  onJumpTo,
+  onPressSender,
 }: MessageRowProps) {
   const colors = useColors();
   const styles = useStyles();
   const router = useRouter();
+  const reduceMotion = useReduceMotion();
   const shared = sharedPostOf(m.shared_post);
   const snap = snapOf(m.snap);
+  const call = callOf(m.call);
+  const reply = replyOf(m.reply_to);
   const media = messageMedia(m, resolveMedia);
   const files = messageFiles(m);
+  const voices = messageVoices(m, resolveMedia);
   const showText = Boolean(m.content) && !(m.image_url && m.content === WEBSITE_PHOTO_TEXT);
   const actions = m.pending ? undefined : () => onActions(m);
   const retry = m.failed ? () => onActions(m) : undefined;
   const sender = m.sender;
-  // Runs of bubbles from one person hug each other, like X and Messenger: the inner corners are tighter.
-  const corners = mine
-    ? { borderTopRightRadius: firstInGroup ? 18 : 6, borderBottomRightRadius: lastInGroup ? 18 : 6 }
-    : { borderTopLeftRadius: firstInGroup ? 18 : 6, borderBottomLeftRadius: lastInGroup ? 18 : 6 };
   const textColor = m.failed ? colors.dangerText : mine ? colors.onBrand : colors.text;
+  const receiptLabel = receipt === "sending" ? sendingLabel(m.outgoing) : receipt === "sent" ? "Sent" : receipt === "delivered" ? "Delivered" : null;
+  // Under the bubble: while sending, how far it is; tapped, its exact time; my newest message, where it stands; or nothing.
+  // The time is never bold; only the receipt word ("Sent", "Delivered") is.
+  const time = !m.failed && !m.pending && revealed ? formatMessageTime(m.created_at) : null;
+  const status = m.failed ? null : m.pending ? sendingLabel(m.outgoing) : receiptLabel;
+  const footer = time || status;
+  const reveal = !m.pending && !m.failed ? () => onReveal(m) : undefined;
 
   return (
-    <View>
-      {showDay ? <Text style={styles.day}>{formatDayLabel(m.created_at)}</Text> : null}
+    <Reanimated.View entering={appear && !reduceMotion ? ARRIVE : undefined}>
+      {stamp ? (
+        <Text style={styles.day} accessibilityRole="header">
+          {formatDayLabel(m.created_at)} {formatTimeOfDay(m.created_at)}
+        </Text>
+      ) : null}
       <Highlight active={highlighted}>
-        <View style={[styles.line, mine && styles.lineMine, firstInGroup && !showDay && styles.groupStart]}>
-          {!mine ? (
-            <View style={styles.avatarSlot}>
-              {lastInGroup && sender ? (
-                <Pressable onPress={() => onPressAvatar(sender.id)} hitSlop={4} accessibilityRole="button" accessibilityLabel={`${sender.full_name}'s profile`}>
-                  <Avatar name={sender.full_name} url={sender.avatar_url} size="sm" online={false} />
-                </Pressable>
-              ) : null}
-            </View>
-          ) : null}
-          <View style={[styles.stack, mine ? styles.stackMine : styles.stackTheirs]}>
-            {!mine && isGroup && firstInGroup ? <Text style={styles.sender}>{sender?.full_name ?? "Unknown"}</Text> : null}
-            {shared ? <SharedPostCard shared={shared} dimmed={Boolean(m.pending)} onLongPress={actions} /> : null}
+        <View style={[styles.line, mine && styles.lineMine, firstInGroup && !stamp && styles.groupStart]}>
+          <SwipeToReply enabled={!m.pending && !m.failed} onReply={() => onReply(m)} style={[styles.stack, mine ? styles.stackMine : styles.stackTheirs]}>
+            {!mine && isGroup && firstInGroup ? (
+              <Text style={styles.sender} numberOfLines={1} onPress={sender ? () => onPressSender(sender.id) : undefined} accessibilityRole={sender ? "button" : undefined}>
+                {sender?.full_name ?? "Unknown"}
+              </Text>
+            ) : null}
+            {reply ? <ReplyQuote reply={reply} context={resolveReply(reply)} tone={mine ? "mine" : "theirs"} onPress={() => onJumpTo(reply.id)} style={styles.quote} /> : null}
+            {shared ? <SharedPostBubble shared={shared} width={mediaWidth} dimmed={Boolean(m.pending)} onLongPress={actions} /> : null}
             {media.length > 0 ? <AttachmentGrid media={media} width={mediaWidth} onOpen={(i) => onOpenMedia(m, i)} onLongPress={actions} /> : null}
             {files.map((f) => (
               <AttachmentFileRow
@@ -189,10 +257,18 @@ export function MessageRow({
                 style={{ width: mediaWidth }}
               />
             ))}
-            {snap ? <SnapBubble snap={snap} mine={mine} dimmed={Boolean(m.pending)} corners={corners} onOpen={onOpenSnap ? () => onOpenSnap(m) : undefined} onLongPress={actions} /> : null}
+            {call ? <CallRow call={call} mine={mine} width={mediaWidth} onPress={onCall ? () => onCall(call) : undefined} onLongPress={actions} /> : null}
+            {snap ? <SnapBubble snap={snap} mine={mine} width={mediaWidth} dimmed={Boolean(m.pending)} onOpen={onOpenSnap ? () => onOpenSnap(m) : undefined} onActivity={onSnapActivity ? () => onSnapActivity(m) : undefined} onLongPress={actions} /> : null}
+            {voices.map((v) =>
+              VoiceBubble ? (
+                <VoiceBubble key={v.key} uri={v.uri} cacheKey={v.key} duration={v.duration} mine={mine} dimmed={Boolean(m.pending)} onLongPress={actions} />
+              ) : v.attachment ? (
+                <AttachmentFileRow key={v.key} attachment={v.attachment} onPress={() => onOpenFile(v.attachment as MessageAttachment)} onLongPress={actions} style={{ width: mediaWidth }} />
+              ) : null,
+            )}
             {showText ? (
-              <Pressable onPress={retry} onLongPress={actions} delayLongPress={350} accessibilityHint={m.failed ? "Not sent. Tap for options." : undefined}>
-                <View style={[styles.bubble, mine ? styles.mine : styles.theirs, corners, m.pending && styles.dim, m.failed && styles.failed]}>
+              <Pressable onPress={retry ?? reveal} onLongPress={actions} delayLongPress={350} accessibilityHint={m.failed ? "Not sent. Tap for options." : reveal ? "Shows when it was sent" : undefined}>
+                <View style={[styles.bubble, mine ? styles.mine : styles.theirs, m.pending && styles.dim, m.failed && styles.failed]}>
                   <Text style={[styles.text, { color: textColor }]} selectable={false}>
                     {linkParts(m.content).map((part, i) =>
                       part.url ? (
@@ -207,37 +283,31 @@ export function MessageRow({
                 </View>
               </Pressable>
             ) : null}
-            {lastInGroup || m.pending || m.failed ? (
-              m.failed ? (
-                <Text style={[styles.time, styles.failedTime]} onPress={retry} accessibilityRole="button">
-                  Not sent · Tap to retry
+            {m.failed ? (
+              <Text style={[styles.footer, styles.failedFooter]} onPress={retry} accessibilityRole="button">
+                Not sent · Tap to retry
+              </Text>
+            ) : footer ? (
+              <Reanimated.View entering={revealed && !reduceMotion ? FadeIn.duration(160) : undefined}>
+                <Text style={styles.footer} accessibilityLabel={[time, status].filter(Boolean).join(", ")}>
+                  {time}
+                  {time && status ? " · " : null}
+                  {status ? <Text style={!m.pending ? styles.receipt : undefined}>{status}</Text> : null}
                 </Text>
-              ) : (
-                <Text style={styles.time}>{m.pending ? sendingLabel(m.outgoing) : formatMessageTime(m.created_at)}</Text>
-              )
+              </Reanimated.View>
             ) : null}
-          </View>
-          {mine && receipt && receipt !== "seen" ? (
-            <View style={styles.receipt} accessibilityLabel={receipt === "sending" ? "Sending" : receipt === "sent" ? "Sent" : "Delivered"}>
-              {receipt === "sending" ? (
-                <Icon name="ellipse-outline" size={13} color={colors.faint} />
-              ) : receipt === "sent" ? (
-                <Icon name="checkmark-circle-outline" size={14} color={colors.faint} />
-              ) : (
-                <Icon name="checkmark-circle" size={14} color={colors.faint} />
-              )}
-            </View>
-          ) : null}
+          </SwipeToReply>
         </View>
       </Highlight>
       {seenBy && seenBy.length > 0 ? (
         <View style={styles.seen} accessibilityLabel={`Seen by ${seenBy.map((p) => p.full_name).join(", ")}`}>
+          <Text style={styles.seenText}>Seen</Text>
           {seenBy.map((p) => (
-            <Avatar key={p.id} name={p.full_name} url={p.avatar_url} size="xs" online={false} />
+            <Avatar key={p.id} name={p.full_name} url={p.avatar_url} size={16} online={false} />
           ))}
         </View>
       ) : null}
-    </View>
+    </Reanimated.View>
   );
 }
 
@@ -258,35 +328,37 @@ function Highlight({ active, children }: { active: boolean; children: ReactNode 
   );
 }
 
+/** The corner of a photo bubble (a sent photo's, a shared post's, a Snap's). */
+const PHOTO_RADIUS = 18;
+
 /**
- * A shared post, reel or listing inside a chat: picture, who posted it, what it says, and a tap to open it. A post or
- * reel with a picture opens full screen in the viewer (the Reels feed follows it); a words-only post opens its own
- * screen, a listing its detail screen.
+ * A shared post, reel or listing inside a chat, as a sent photo would be: its picture fills a large rounded bubble at
+ * the chat's photo width (4:5 for a post or a listing, taller for a reel), with who posted it and its words on a soft
+ * shade along the bottom and nothing else (what it is, the screen reader still hears). One without a picture is a card
+ * of its words. A tap opens it: a post or reel with a picture full screen in the viewer (the Reels feed follows it), a
+ * words-only post its own screen, a listing its detail screen.
  */
-function SharedPostCard({ shared, dimmed, onLongPress }: { shared: SharedPost; dimmed: boolean; onLongPress?: () => void }) {
+function SharedPostBubble({ shared, width, dimmed, onLongPress }: { shared: SharedPost; width: number; dimmed: boolean; onLongPress?: () => void }) {
   const styles = useStyles();
   const router = useRouter();
   const label = sharedPostLabel(shared);
-  /** The card's picture, measured when it is tapped so the viewer can zoom open from it. */
-  const picture = useRef<HostInstance>(null);
+  const line = shared.title ?? shared.caption;
+  /** The picture, measured when it is tapped so the viewer can zoom open from it. */
+  const picture = useRef<ViewInstance>(null);
   const open = () => {
-    if (shared.target_type === "post" && shared.image_url) void measureOrigin(picture.current, radius.lg).then((origin) => openViewer(router, { entries: [entryForPost(shared.target_id, shared.image_url)], index: 0, then: "reels", origin }));
+    if (shared.target_type === "post" && shared.image_url) void measureOrigin(picture.current, PHOTO_RADIUS).then((origin) => openViewer(router, { entries: [entryForPost(shared.target_id, shared.image_url)], index: 0, then: "reels", origin }));
     else router.push(sharedPostHref(shared));
   };
-  return (
-    <Pressable
-      onPress={open}
-      onLongPress={onLongPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${label}: ${shared.title ?? shared.caption ?? shared.author.name}`}
-      style={({ pressed }) => [styles.card, dimmed && styles.dim, pressed && { opacity: 0.8 }]}
-    >
-      {shared.image_url ? (
-        <View ref={picture} collapsable={false}>
-          <Image source={{ uri: shared.image_url }} style={styles.cardImage} contentFit="cover" transition={150} accessibilityLabel={shared.title ?? shared.caption ?? "Shared picture"} />
-        </View>
-      ) : null}
-      <View style={styles.cardBody}>
+  if (!shared.image_url) {
+    return (
+      <Pressable
+        onPress={open}
+        onLongPress={onLongPress}
+        delayLongPress={350}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${line ?? shared.author.name}`}
+        style={({ pressed }) => [styles.card, dimmed && styles.dim, pressed && { opacity: 0.8 }]}
+      >
         <View style={styles.cardAuthor}>
           <Avatar name={shared.author.name} url={shared.author.avatar_url} size="xs" online={false} />
           <Text style={styles.cardName} numberOfLines={1}>
@@ -299,45 +371,78 @@ function SharedPostCard({ shared, dimmed, onLongPress }: { shared: SharedPost; d
           </Text>
         ) : null}
         {shared.caption ? (
-          <Text style={styles.cardText} numberOfLines={2}>
+          <Text style={styles.cardText} numberOfLines={3}>
             {shared.caption}
           </Text>
         ) : null}
         <Text style={styles.cardFooter}>{label}</Text>
+      </Pressable>
+    );
+  }
+  const height = Math.round(width / (shared.kind === "reel" ? 0.65 : 0.8));
+  return (
+    <Pressable
+      onPress={open}
+      onLongPress={onLongPress}
+      delayLongPress={350}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${line ?? shared.author.name}`}
+      style={({ pressed }) => [styles.photo, { width, height }, dimmed && styles.dim, pressed && { opacity: 0.85 }]}
+    >
+      <View ref={picture} collapsable={false} style={StyleSheet.absoluteFill}>
+        <Image source={{ uri: shared.image_url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} accessibilityLabel={line ?? "Shared picture"} />
+      </View>
+      <View style={styles.shade} pointerEvents="none">
+        <View style={styles.shadeRow}>
+          <Avatar name={shared.author.name} url={shared.author.avatar_url} size={22} online={false} />
+          <Text style={styles.shadeName} numberOfLines={1}>
+            {shared.author.name}
+          </Text>
+        </View>
+        {line ? (
+          <Text style={styles.shadeLine} numberOfLines={1}>
+            {line}
+          </Text>
+        ) : null}
       </View>
     </Pressable>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
-  day: { textAlign: "center", fontSize: 11, color: colors.faint, marginTop: 14, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 },
-  line: { flexDirection: "row", alignItems: "flex-end", gap: 6, marginTop: 2 },
+  day: { textAlign: "center", fontSize: 11, lineHeight: 14, color: colors.faint, marginTop: 18, marginBottom: 8 },
+  line: { flexDirection: "row", marginTop: 2 },
   lineMine: { flexDirection: "row-reverse" },
-  groupStart: { marginTop: 10 },
-  avatarSlot: { width: 32 },
-  stack: { maxWidth: "78%", gap: 3 },
+  groupStart: { marginTop: 12 },
+  stack: { maxWidth: "76%", gap: 2 },
   stackMine: { alignItems: "flex-end" },
   stackTheirs: { alignItems: "flex-start" },
-  sender: { fontSize: 12, color: colors.muted, marginLeft: 4 },
-  bubble: { borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8 },
+  sender: { fontSize: 12, lineHeight: 16, color: colors.muted, marginLeft: 12, marginBottom: 1 },
+  quote: { marginHorizontal: 6 },
+  bubble: { borderRadius: 18, borderCurve: "continuous", paddingHorizontal: 14, paddingVertical: 8 },
   mine: { backgroundColor: colors.brand },
   theirs: { backgroundColor: colors.input },
   dim: { opacity: 0.6 },
   failed: { backgroundColor: colors.dangerSoft },
-  text: { fontSize: 15, lineHeight: 20 },
+  text: { fontSize: 17, lineHeight: 22 },
   link: { textDecorationLine: "underline" },
-  time: { fontSize: 12, color: colors.faint, marginHorizontal: 4 },
-  failedTime: { color: colors.red, fontWeight: "600" },
-  receipt: { width: 16, alignItems: "center", marginBottom: 18 },
-  seen: { flexDirection: "row", justifyContent: "flex-end", gap: 2, paddingRight: 2, marginTop: 2 },
+  footer: { fontSize: 11, lineHeight: 14, color: colors.faint, marginHorizontal: 6, marginTop: 2 },
+  receipt: { fontWeight: "600" },
+  failedFooter: { color: colors.red, fontWeight: "600" },
+  seen: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 3, paddingRight: 4, marginTop: 3 },
+  seenText: { fontSize: 11, lineHeight: 14, fontWeight: "600", color: colors.faint, marginRight: 2 },
   highlight: { position: "absolute", top: -3, bottom: -3, left: -8, right: -8, borderRadius: radius.md, borderCurve: "continuous", backgroundColor: colors.brandSoft },
-  card: { width: 240, maxWidth: "100%", borderRadius: radius.lg, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.card, overflow: "hidden" },
-  // 4:5 would be 300pt tall at this width, so the picture is capped at 200 and cropped.
-  cardImage: { width: "100%", height: 200, backgroundColor: colors.input },
-  cardBody: { padding: 10, gap: 4 },
+  // A shared post with a picture: the photo bubble, with the shade along its bottom carrying the words.
+  photo: { borderRadius: PHOTO_RADIUS, borderCurve: "continuous", overflow: "hidden", backgroundColor: colors.mediaBg },
+  shade: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 12, paddingTop: 40, paddingBottom: 11, gap: 5, experimental_backgroundImage: `linear-gradient(to top, ${colors.mediaPill} 0%, ${colors.mediaScrim} 50%, transparent 100%)` },
+  shadeRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  shadeName: { flex: 1, fontSize: 13, fontWeight: "600", color: colors.onMedia, textShadowColor: colors.mediaTextShadow, textShadowRadius: 4 },
+  shadeLine: { fontSize: 13, lineHeight: 17, color: colors.onMediaMuted, textShadowColor: colors.mediaTextShadow, textShadowRadius: 4 },
+  // A shared post without a picture: a card of its words.
+  card: { width: 240, maxWidth: "100%", padding: 12, gap: 4, borderRadius: PHOTO_RADIUS, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.card, overflow: "hidden" },
   cardAuthor: { flexDirection: "row", alignItems: "center", gap: 6 },
   cardName: { fontSize: 13, fontWeight: "600", color: colors.text, flexShrink: 1 },
-  cardTitle: { fontSize: 14, fontWeight: "600", lineHeight: 19, color: colors.text },
-  cardText: { fontSize: 14, lineHeight: 19, color: colors.text },
+  cardTitle: { fontSize: 15, fontWeight: "600", lineHeight: 20, color: colors.text },
+  cardText: { fontSize: 15, lineHeight: 20, color: colors.text },
   cardFooter: { fontSize: 13, fontWeight: "600", color: colors.brand, marginTop: 2 },
 }));

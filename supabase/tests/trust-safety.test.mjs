@@ -1,18 +1,18 @@
-// Migration 29 (Trust & Safety, ported from UniVerse) against PGlite: the tables are closed to the API; the staff
+// Migration 41 (Trust & Safety, ported from UniVerse) against PGlite: the tables are closed to the API; the staff
 // functions answer everyone else "not found"; the moderator vs admin matrix; the audited, admin-only unmask; the
 // append-only audit log; appeals (reviewer is not the actor); posting status for mutes, suspensions, bans and warnings;
 // reporter trust and the auto-hide thresholds; banned addresses cannot sign up again; the reports insert policy refuses
 // Buzz; and UniVerse's named-account firewall: nothing a moderator can read names a buzz's author, and acting on a buzz
 // moves nothing a moderator can see on that person's account.
 //
-// Buzz content is reached through migration 30's adapters (buzz_v2_snapshot, buzz_v2_author_of, buzz_v2_set_status,
+// Buzz content is reached through migration 42's adapters (buzz_v2_snapshot, buzz_v2_author_of, buzz_v2_set_status,
 // buzz_v2_set_locked, buzz_v2_staff_context). When that migration is present this file uses it (and writes buzzes with
 // buzz_v2_create / buzz_v2_reply as the website's server would); when it is not, a minimal stand-in for the five
 // adapters over the pre-v2 tables is installed below, so this lane can be tested on its own.
 import { boot, read, expectOk, expectError, done } from "./harness.mjs";
 import { BUZZ_GUIDELINES_VERSION } from "../../packages/shared/src/buzz/constants.ts";
 
-const MIGRATION = "migrations/20261021000000_trust_safety.sql";
+const MIGRATION = "migrations/20261103000000_trust_safety.sql";
 const { db, mk, as, asAnon, asService } = await boot();
 await expectOk("the Trust & Safety migration re-runs cleanly", async () => { await db.exec(read(MIGRATION)); });
 
@@ -25,10 +25,10 @@ const callService = (expr, params = []) => asService(async () => (await one(db.q
 const check = (cond, message) => { if (!cond) throw new Error(message); };
 const NIL = "00000000-0000-0000-0000-000000000000";
 
-// --- Buzz: the real migration 30, or a stand-in for its adapters ------------------------------------------------
+// --- Buzz: the real migration 42, or a stand-in for its adapters ------------------------------------------------
 const V2 = (await sql1("select to_regprocedure('public.buzz_v2_snapshot(text,uuid)') is not null as ok")).ok
   && (await sql1("select to_regprocedure('public.buzz_v2_create(uuid,jsonb,text,boolean,jsonb)') is not null as ok")).ok;
-console.log(V2 ? "  · Buzz: migration 30 is present; testing against its adapters" : "  · Buzz: migration 30 is not here yet; using the stand-in adapters");
+console.log(V2 ? "  · Buzz: migration 42 is present; testing against its adapters" : "  · Buzz: migration 42 is not here yet; using the stand-in adapters");
 if (!V2) {
   await db.exec(`
     alter table public.buzz_posts add column if not exists status text not null default 'active';
@@ -84,11 +84,11 @@ async function acceptGate(uid) {
   await as(uid, () => db.query("select public.buzz_v2_accept_gate($1)", [BUZZ_GUIDELINES_VERSION]));
   accepted.add(uid);
 }
-/** A buzz as the website's server writes it (migration 30), or straight into the pre-v2 table. Returns its id. */
+/** A buzz as the website's server writes it (migration 42), or straight into the pre-v2 table. Returns its id. */
 async function postBuzz(author, text, title = "") {
   if (V2) {
     await acceptGate(author);
-    // Buzz's own rate limits are migration 30's to test; these fixtures write more than 6 an hour per author.
+    // Buzz's own rate limits are migration 42's to test; these fixtures write more than 6 an hour per author.
     await db.query("delete from public.buzz_rate_log where user_id = $1", [author]);
     const r = await callService("public.buzz_v2_create($1, $2::jsonb, 'active', false, null)", [author, JSON.stringify({ text, ...(title ? { title } : {}), scope: "campus" })]);
     return r.id;
@@ -1002,7 +1002,7 @@ await expectOk("the migration re-runs on a database with data in it, and nothing
   check(JSON.stringify(a) === JSON.stringify(b), JSON.stringify({ b, a }));
 });
 if (V2) {
-  await expectOk("29 → 30 → 29 → 30 runs clean with Buzz notifications present (the type check keeps every type it had)", async () => {
+  await expectOk("41 → 42 → 41 → 42 runs clean with Buzz notifications present (the type check keeps every type it had)", async () => {
     const t = await postBuzz(USER, "a thread someone else replies to before the re-runs");
     // published now (Buzz jitters a new thread's visibility by up to 3 minutes; nobody can reply before that)
     await db.query("update public.buzz_posts set visible_at = now() - interval '1 minute' where id = $1", [t]);
@@ -1010,7 +1010,7 @@ if (V2) {
     const types = async () => (await rows(db.query("select distinct type from public.notifications order by type"))).map((r) => r.type).join();
     const before = await types();
     check(before.includes("buzz_reply") && before.includes("moderation") && before.includes("staff"), "fixtures missing: " + before);
-    const V2_MIGRATION = "migrations/20261021000100_buzz_v2.sql";
+    const V2_MIGRATION = "migrations/20261103000100_buzz_v2.sql";
     await db.exec(read(MIGRATION));
     await db.exec(read(V2_MIGRATION));
     await db.exec(read(MIGRATION));
@@ -1021,4 +1021,4 @@ if (V2) {
   });
 }
 
-done("MIGRATION-29 TRUST & SAFETY");
+done("MIGRATION-41 TRUST & SAFETY");

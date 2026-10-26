@@ -76,7 +76,7 @@ try {
     const wrong = await A.client.storage.from("uploads").upload(`buzz/${A.id}/x.jpg`, JPEG, { contentType: "image/jpeg" }); if (!wrong.error) { uploaded.push(`buzz/${A.id}/x.jpg`); throw new Error("upload outside buzz/anon accepted"); }
     const normal = await A.client.storage.from("uploads").upload(`posts/${A.id}/${hex(16)}.jpg`, JPEG, { contentType: "image/jpeg" }); if (normal.error) throw new Error("normal uploads broke: " + normal.error.message); uploaded.push(normal.data.path);
   });
-  // Buzz v2 (migration 30): reading needs the Buzz guidelines accepted; writes come only from the website's moderated write
+  // Buzz v2 (migration 42): reading needs the Buzz guidelines accepted; writes come only from the website's moderated write
   // API, which calls buzz_v2_create / buzz_v2_reply with the service role (`admin` stands in for it here).
   const v2 = async (cl, fn, args) => { const r = await cl.rpc(fn, args); if (r.error) throw new Error(`${fn}: ${r.error.message}`); return r.data; };
   const noIdentityKeys = (o) => Object.keys(o).some((k) => /author|user|visible|email/i.test(k));

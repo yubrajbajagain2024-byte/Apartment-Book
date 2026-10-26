@@ -1,5 +1,5 @@
 /**
- * The content panels of a queue item: Buzz's blind thread context (migration 30's buzz_v2_staff_context: the root,
+ * The content panels of a queue item: Buzz's blind thread context (migration 42's buzz_v2_staff_context: the root,
  * the parent chain and nearby replies, each with only its per-thread alias), and the media strip. Defensive about
  * shapes: the context belongs to the Buzz serializer, not to this console.
  */

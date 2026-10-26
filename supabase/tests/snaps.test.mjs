@@ -8,7 +8,14 @@ import { SNAP_BUCKET, SNAP_ERRORS, SNAP_LIMITS, SNAP_MIME_TYPES, SNAP_NOTIFICATI
 
 const MIGRATION = "migrations/20261020120000_snaps.sql";
 const { db, mk, as, asAnon } = await boot();
-await expectOk("the Snaps migration re-runs cleanly", async () => { await db.exec(read(MIGRATION)); });
+// Migrations 29 and 30 replace send_snap(), open_snap() and close_snap(), so they run again after this one.
+const PREVIEWS = "migrations/20261022000000_voice_and_snap_previews.sql";
+const CLOSE = "migrations/20261023000000_snap_close_deletes.sql";
+const STAY = "migrations/20261025000000_snap_previews_stay.sql";
+// Migration 33 replaces open_snap() with a two-argument form (dropping the old one), so it runs last of all.
+const ACTIVITY = "migrations/20261026000000_snap_activity.sql";
+const QUIET = "migrations/20261027000000_snap_close_quiet.sql";
+await expectOk("the Snaps migration re-runs cleanly", async () => { await db.exec(read(MIGRATION)); await db.exec(read(PREVIEWS)); await db.exec(read(CLOSE)); await db.exec(read(STAY)); await db.exec(read(ACTIVITY)); await db.exec(read(QUIET)); });
 
 const one = async (p) => (await p).rows[0];
 const rows = async (p) => (await p).rows;
@@ -200,8 +207,10 @@ await expectOk("view: a video Snap opens with its length", async () => {
   if (video.kind !== "video" || Number(video.duration) !== 12.5 || video.mime !== "video/quicktime") throw new Error(JSON.stringify(video));
   await close(C, sent.snap_id);
 });
+let blockedPath;
 await expectOk("view: blocking its sender makes a Snap unavailable", async () => {
   const blocked = path(A);
+  blockedPath = blocked;
   await upload(A, blocked);
   const sent = await send(A, { path: blocked, to: [C] });
   await db.query("insert into public.blocks (blocker_id, blocked_id) values ($1,$2)", [C, A]);
@@ -239,7 +248,8 @@ await expectOk("purge: without pg_net and Vault it still forgets what is over an
   const q = await queued();
   for (const p of [first, late, unsentOld]) if (!q.includes(p)) throw new Error("not queued: " + p);
   if (q.includes(unsentNew)) throw new Error("a file uploaded a moment ago was queued");
-  if (q.includes(clip)) throw new Error("the file of a Snap still waiting was queued");
+  if (q.includes(blockedPath)) throw new Error("the file of a Snap still waiting was queued");
+  if (!q.includes(clip)) throw new Error("the video Snap, closed by its only recipient, was not queued at once");
 });
 await expectOk("purge: the chats keep their marks (opened for Bob's, expired for the late one)", async () => {
   const bobs = snapOf((await messageOf(A, photo.sent.find((s) => s.recipient_id === B).message_id)).snap);
@@ -312,5 +322,36 @@ await expectOk("purge: a sender's account going takes their Snaps with it; the f
   if (!fresh.length || fresh.some((c) => c.headers.apikey !== "sb_secret_test" || "Authorization" in c.headers)) throw new Error("new-style key headers: " + JSON.stringify(fresh));
 });
 
-await expectOk("the Snaps migration re-runs cleanly with data in place", async () => { await db.exec(read(MIGRATION)); });
+await expectOk("close: the last recipient closing a Snap deletes its file at once (queued, and asked of Storage), keeping the chats' marks", async () => {
+  // Alice is gone; Bob and Carol become friends, Bob sends Carol a Snap and Carol views it.
+  for (const [x, y] of [[B, C], [C, B]]) await follow(x, y);
+  const p = path(B);
+  await upload(B, p);
+  const sent = await send(B, { path: p, to: [C] });
+  await open(C, sent.snap_id);
+  const before = (await calls()).length;
+  await close(C, sent.snap_id);
+  if (await snapRow(sent.snap_id)) throw new Error("the Snap's row stayed");
+  if (!(await queued()).includes(p)) throw new Error("the file was not queued");
+  const fresh = (await calls()).slice(before);
+  if (fresh.length !== 1 || !fresh[0].url.endsWith("/storage/v1/object/snaps/" + p)) throw new Error("no deletion asked for: " + JSON.stringify(fresh));
+  const mark = snapOf((await messageOf(C, sent.sent[0].message_id)).snap);
+  if (!mark?.opened_at || mark.gone) throw new Error("the chat's mark: " + JSON.stringify(mark));
+});
+await expectOk("close: with two recipients the file waits for the second one", async () => {
+  const p = path(B);
+  await upload(B, p);
+  const D2 = await mk("d2@txstate.edu", "Dana");
+  for (const [x, y] of [[B, D2], [D2, B]]) await follow(x, y);
+  const sent = await send(B, { path: p, to: [C, D2] });
+  await open(C, sent.snap_id);
+  await close(C, sent.snap_id);
+  if (!(await snapRow(sent.snap_id))) throw new Error("gone before Dana opened it");
+  if ((await queued()).includes(p)) throw new Error("queued before Dana opened it");
+  await open(D2, sent.snap_id);
+  await close(D2, sent.snap_id);
+  if (await snapRow(sent.snap_id)) throw new Error("the Snap's row stayed after the last close");
+  if (!(await queued()).includes(p)) throw new Error("the file was not queued after the last close");
+});
+await expectOk("the Snaps migration re-runs cleanly with data in place", async () => { await db.exec(read(MIGRATION)); await db.exec(read(PREVIEWS)); await db.exec(read(CLOSE)); await db.exec(read(STAY)); await db.exec(read(ACTIVITY)); await db.exec(read(QUIET)); });
 done("MIGRATION-28 SNAPS");

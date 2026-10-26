@@ -47,7 +47,7 @@ on conflict (name) do update set
   longitude = excluded.longitude,
   email_domain = coalesce(excluded.email_domain, public.universities.email_domain);
 
--- Buzz's short campus name ("Search Texas State buzz"), once migration 30 has added the column.
+-- Buzz's short campus name ("Search Texas State buzz"), once migration 42 has added the column.
 do $$
 begin
   if exists (select 1 from information_schema.columns

@@ -149,7 +149,8 @@ export function FloatingTabBar({ state, descriptors, emitter, navigateToTab, act
           const onPress = () => {
             const event = emitter.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
             if (focused || event.defaultPrevented) return;
-            // No haptic here: switching tabs is silent, the capsule's glide is the feedback.
+            // No haptic here: switching tabs is silent, the capsule's glide is the feedback. The navigator switches by
+            // route key and keeps the tab's params, as its own bar does.
             navigateToTab(route.key);
           };
           const onLongPress = () => emitter.emit({ type: "tabLongPress", target: route.key });
@@ -213,7 +214,8 @@ function TabSlot({ index, progress, group, children }: { index: number; progress
     let others = 0;
     for (let k = 0; k < members.length; k++) if (members[k] !== index) others += here(members[k]!);
     return { width: idle + delta * (here(index) - others / (members.length - 1)) };
-  }, [index, members, idle, delta]);
+    // No dependency list: Reanimated follows what the worklet captures (index, members, idle, delta).
+  });
   return <Animated.View style={[styles.slot, style]}>{children}</Animated.View>;
 }
 

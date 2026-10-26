@@ -1,7 +1,7 @@
 import { DEFAULT_PAGE_SIZE } from "../constants";
 import type { Client, FeedPostWithAuthor, Paginated, PosterSummary, ProfileSummary } from "../types/models";
 import { pageRange } from "../utils";
-import { FEED_POST_SELECT } from "./feed";
+import { FEED_POST_SELECT } from "./feed-select";
 
 /** Follower and following counts of one profile, plus the viewer's relationship with it. */
 export type FollowStats = { followers: number; following: number; followedByMe: boolean; followsMe: boolean };

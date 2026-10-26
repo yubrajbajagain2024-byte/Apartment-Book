@@ -23,6 +23,7 @@ import {
   listRoommatePostsByAuthor,
   lockedSectionMessage,
   NO_FOLLOW_STATS,
+  OWNER_SECTION_ACCESS,
   pickableTerms,
   PROFILE_SECTIONS,
   tileFromListing,
@@ -34,7 +35,7 @@ import {
 } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { getSiteUrl } from "@/lib/env";
-import { firstNameOf, isProfileTab, profileHandle, profileTabHref, sectionVisibility, type ProfileTab } from "@/lib/profile";
+import { firstNameOf, isProfileTab, isSectionTab, PROFILE_TABS, profileHandle, profileTabHref, sectionVisibility, type ProfileTab } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { errorMessage, firstParam } from "@/lib/utils";
 import { LinkButton } from "@/components/ui/button";
@@ -51,7 +52,7 @@ type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ [key: st
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NO_PROFILE_STATS: ProfileStats = { posts: 0, reels: 0, likesReceived: 0 };
 /** Owners may always open their own tabs. */
-const OWNER_ACCESS: ProfileSectionAccess = { classes: true, saved: true, liked: true };
+const OWNER_ACCESS: ProfileSectionAccess = OWNER_SECTION_ACCESS;
 /** What the database says when someone's Saved or Liked setting keeps the reader out. */
 const PRIVATE_LIST = "This list is private.";
 /** Saved and Liked drop what the reader may no longer see, so a page can come back empty with more behind it. */
@@ -124,31 +125,38 @@ async function loadListings(supabase: Client, userId: string, isMe: boolean): Pr
 }
 
 /**
- * /profile/[id], TikTok style: photo, name, @handle and QR, Following · Followers · Likes, the main buttons, bio and
- * campus, then Posts | Classes | Reels | Saved | Liked | Listings as tabs (?tab=…). Only the chosen tab's first page is
- * read here. Anything that fails to load falls back (zeros, a line in the tab), so the header always renders.
+ * /profile/[id], TikTok style: photo, then the name, "CS ’28 @ Texas State University" and the bio on lines of their own,
+ * @handle and QR, Following · Followers · Likes and the main buttons, then Posts | Classes | Reels | Saved | Liked |
+ * Listings as tabs (?tab=…). A visitor gets no tab for a section they may not open (Saved, Liked and Listings are Only me
+ * by default): no icon, and its address shows Posts instead. Only the chosen tab's first page is read here. Anything
+ * that fails to load falls back (zeros, a line in the tab), so the header always renders.
  */
 export default async function ProfilePage({ params, searchParams }: Props) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   if (!UUID.test(id)) notFound();
   const requested = firstParam(query.tab);
-  const tab: ProfileTab = isProfileTab(requested) ? requested : "posts";
   const supabase = await createClient();
-  const [profile, user] = await Promise.all([getProfile(supabase, id), getCurrentUser()]);
+  // Unknown (null) when the check fails: a visitor then gets Posts and Reels only, never a tab they may not open.
+  const [profile, user, visitorAccess] = await Promise.all([
+    getProfile(supabase, id),
+    getCurrentUser(),
+    getProfileSectionAccess(supabase, id).catch((): ProfileSectionAccess | null => null),
+  ]);
   if (!profile) notFound();
 
   const isMe = user?.id === profile.id;
+  const access: ProfileSectionAccess | null = isMe ? OWNER_ACCESS : visitorAccess;
+  const tabs = PROFILE_TABS.filter((t) => isMe || !isSectionTab(t) || access?.[t] === true);
+  const tab: ProfileTab = isProfileTab(requested) && tabs.includes(requested) ? requested : "posts";
   const firstName = firstNameOf(profile.full_name);
   const handle = profileHandle(profile);
   const visibility = sectionVisibility(profile);
   const postKind = tab === "posts" ? "post" : tab === "reels" ? "reel" : null;
 
-  const [blocked, follow, stats, access, classes, listings, postTab] = await Promise.all([
+  const [blocked, follow, stats, classes, listings, postTab] = await Promise.all([
     user && !isMe ? isBlocked(supabase, user.id, profile.id).catch(() => false) : Promise.resolve(false),
     getFollowStats(supabase, profile.id).catch(() => NO_FOLLOW_STATS),
     getProfileStats(supabase, profile.id).catch(() => NO_PROFILE_STATS),
-    // Unknown (null) when the check fails: no lock badges then, and the tab finds out for itself.
-    isMe ? Promise.resolve<ProfileSectionAccess | null>(OWNER_ACCESS) : getProfileSectionAccess(supabase, profile.id).catch(() => null),
     // Classes and listings are read on their own tabs only; null means the read failed. Row-level security returns no
     // classes when the reader may not see them.
     tab === "classes" ? listProfileClasses(supabase, profile.id).catch(() => null) : Promise.resolve(null),
@@ -159,13 +167,10 @@ export default async function ProfilePage({ params, searchParams }: Props) {
 
   const now = new Date();
   const groups = classes ? groupClassesByTerm(classes, now) : [];
+  // Your own tabs that not everyone can see wear a lock. A visitor has no tab they may not open.
   const locks: Partial<Record<ProfileTab, string>> = {};
   for (const section of PROFILE_SECTIONS) {
-    if (isMe) {
-      if (visibility[section] !== "public") locks[section] = visibilityLabel(visibility[section]);
-    } else if (access && !access[section]) {
-      locks[section] = "locked";
-    }
+    if (isMe && visibility[section] !== "public") locks[section] = visibilityLabel(visibility[section]);
   }
   const share: ShareProfileTarget = { url: `${getSiteUrl()}/profile/${profile.id}`, name: profile.full_name, username: handle, avatarUrl: profile.avatar_url, isMe };
 
@@ -202,14 +207,18 @@ export default async function ProfilePage({ params, searchParams }: Props) {
       </>
     );
   } else if (tab === "listings") {
-    panel =
-      listings === null ? (
-        <TabError what="listings" href={profileTabHref(profile.id, tab)} />
-      ) : listings.length === 0 ? (
-        <TabEmpty icon={Store} title="No listings yet" />
-      ) : (
-        <ListingsGrid listings={listings} />
-      );
+    panel = (
+      <>
+        {isMe ? <VisibilityControl key="listings" section="listings" value={visibility.listings} /> : null}
+        {listings === null ? (
+          <TabError what="listings" href={profileTabHref(profile.id, tab)} />
+        ) : listings.length === 0 ? (
+          <TabEmpty icon={Store} title="No listings yet" />
+        ) : (
+          <ListingsGrid listings={listings} />
+        )}
+      </>
+    );
   } else {
     const list = listTab ?? { status: "error" as const };
     panel = (
@@ -249,7 +258,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
           share={share}
         />
 
-        <ProfileTabs profileId={profile.id} active={tab} locks={locks} />
+        <ProfileTabs profileId={profile.id} tabs={tabs} active={tab} locks={locks} />
         <div role="tabpanel" id={PROFILE_PANEL_ID} aria-labelledby={`profile-tab-${tab}`} className="min-h-[16rem]">
           {panel}
         </div>

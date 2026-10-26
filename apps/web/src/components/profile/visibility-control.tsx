@@ -11,7 +11,7 @@ import { Spinner } from "@/components/ui/spinner";
 export const VISIBILITY_ICONS: Record<ProfileVisibility, LucideIcon> = { public: Globe, friends: Users, private: Lock };
 
 /**
- * The owner's line above Classes, Saved and Liked: who can see the tab ("Only you can see your saved posts") and a
+ * The owner's line above Classes, Saved, Liked and Listings: who can see the tab ("Only you can see your saved posts") and a
  * Change button with Everyone / Friends / Only me. The choice shows straight away; the page re-renders with it once saved.
  */
 export function VisibilityControl({ section, value }: { section: ProfileSection; value: ProfileVisibility }) {

@@ -7,12 +7,13 @@ import { VideoView, useVideoPlayer } from "expo-video";
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSpring, withTiming, type SharedValue } from "react-native-reanimated";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { SNAP_LIFETIME_DAYS, closeSnap, openSnap, shortAge, snapErrorState, snapMediaUrl, type OpenedSnap } from "@apartment-book/shared";
+import { SNAP_LIFETIME_DAYS, closeSnap, openSnap, reportSnapCapture, shortAge, snapErrorState, snapMediaUrl, type OpenedSnap } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
 import { GlassIconButton } from "@/components/glass";
 import { Icon, type IconName } from "@/components/icon";
 import { useReduceMotion } from "@/lib/accessibility";
 import { errorText } from "@/lib/hooks";
+import { SNAP_DETECTION, useSnapCaptureGuard } from "@/lib/snap-capture-guard";
 import { emitSnapChange } from "@/lib/snap-events";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from "@/lib/supabase";
 import { motion } from "@/lib/theme";
@@ -111,9 +112,10 @@ export default function SnapViewerScreen() {
     (async () => {
       try {
         if (!snapId) throw new Error("This Snap isn't available");
-        const snap = await openSnap(supabase, snapId);
+        // The one view, telling the database what this device can detect about captures (the sender sees exactly that).
+        const snap = await openSnap(supabase, snapId, SNAP_DETECTION);
         opened.current = snap;
-        emitSnapChange({ snapId, patch: { opened_at: snap.openedAt } });
+        emitSnapChange({ snapId, patch: { opened_at: snap.openedAt }, activity: { type: "opened", at: snap.openedAt, detect: SNAP_DETECTION } });
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
         if (!token) throw new Error("Log in again to view Snaps.");
@@ -134,6 +136,17 @@ export default function SnapViewerScreen() {
       stale = true;
     };
   }, [snapId, attempt]);
+
+  // While the Snap is on screen: recordings are blacked out (iPhone) or blocked (Android), and a screenshot is logged on
+  // the Snap for both sides and reported to its sender at once.
+  const onScreenshot = useCallback(() => {
+    const snap = opened.current;
+    if (!snap) return;
+    const at = new Date().toISOString();
+    emitSnapChange({ snapId: snap.id, patch: {}, activity: { type: "screenshot", at } });
+    void reportSnapCapture(supabase, snap.id, "screenshot").catch(() => {});
+  }, []);
+  useSnapCaptureGuard(phase.phase === "ready" && !gone, onScreenshot);
 
   // Leaving the app ends the view, as closing it does.
   useEffect(() => {

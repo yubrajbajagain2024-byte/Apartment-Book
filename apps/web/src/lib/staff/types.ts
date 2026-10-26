@@ -1,5 +1,5 @@
 /**
- * Payloads of the staff console's database functions (migration 20261021000000_trust_safety.sql, `staff_*`), ported
+ * Payloads of the staff console's database functions (migration 20261103000000_trust_safety.sql, `staff_*`), ported
  * from UniVerse's `shared/src/admin.ts`. They live in the website only: no staff payload type is bundled into the app.
  *
  * FIREWALL (UniVerse SPEC 4.2.14): a queue item has no author, reporter or user field of any kind, for any content

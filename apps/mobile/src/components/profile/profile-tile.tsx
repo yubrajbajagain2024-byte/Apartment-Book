@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef } from "react";
-import { Pressable, StyleSheet, Text, View, type HostInstance } from "react-native";
+import { Pressable, StyleSheet, Text, View, type ViewInstance } from "react-native";
 import { Image } from "expo-image";
 import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -67,7 +67,7 @@ export function useOpenTile() {
 export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspect = TILE_ASPECT, onOpen, onLongPress }: { tile: ProfileTile; width: number; aspect?: number; onOpen: (tile: ProfileTile, origin?: ViewerOrigin) => void; onLongPress?: (tile: ProfileTile) => void }) {
   const styles = useStyles();
   /** The square's frame, measured when it is tapped so the viewer can zoom open from it. */
-  const self = useRef<HostInstance>(null);
+  const self = useRef<ViewInstance>(null);
   const colors = useColors();
   const listing = isListing(tile.type) ? tile.type : null;
   const pinLabel = tile.pinned ? "Unpin from profile" : "Pin to profile";

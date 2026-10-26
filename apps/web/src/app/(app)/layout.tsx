@@ -1,10 +1,15 @@
+import { redirect } from "next/navigation";
+import { isBusinessRole } from "@apartment-book/shared";
 import { getCurrentProfile } from "@/lib/auth";
+import { getBusinessSiteUrl } from "@/lib/env";
 import { Navbar } from "@/components/layout/navbar";
 import { ChatDock, ChatDockProvider } from "@/components/messages/chat-dock";
 import { PresenceProvider } from "@/components/presence/presence-provider";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const profile = await getCurrentProfile();
+  // A business account has no place on the student side: its home is the portal.
+  if (profile && isBusinessRole(profile.role)) redirect(getBusinessSiteUrl());
   const userId = profile?.id ?? null;
   const me = profile ? { id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url, show_active_status: profile.show_active_status } : null;
   return (

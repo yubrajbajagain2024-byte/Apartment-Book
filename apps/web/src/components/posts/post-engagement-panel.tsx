@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import type { PostCommentWithAuthor, PostEngagement, PostTargetType } from "@apartment-book/shared";
+import { hasPublicComments, type PostCommentWithAuthor, type PostEngagement, type PostTargetType } from "@apartment-book/shared";
 import { CommentsSection } from "./comments-section";
 import { EngagementBar, EngagementSummary } from "./engagement-bar";
 import { useLikeToggle } from "./like-button";
 
-/** Detail pages: Like / Comment / Share plus the full comment thread, always open. */
+/** Detail pages: Like / Comment / Share plus the full comment thread, always open (a roommate post: Like alone, no thread). */
 export function PostEngagementPanel({
   targetType,
   targetId,
@@ -27,6 +27,14 @@ export function PostEngagementPanel({
   const like = useLikeToggle(targetType, targetId, { liked: engagement.likedByMe, likes: engagement.likes }, signedIn);
   const [commentCount, setCommentCount] = useState(engagement.comments);
   const [focusToken, setFocusToken] = useState(0);
+  if (!hasPublicComments(targetType)) {
+    return (
+      <div className="flex flex-col">
+        <EngagementSummary likes={like.likes} comments={0} className="pt-2.5" />
+        <EngagementBar like={like} className={like.likes === 0 ? "border-t-0" : undefined} />
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col">
       <EngagementSummary likes={like.likes} comments={commentCount} onComments={() => setFocusToken((n) => n + 1)} className="pt-2.5" />

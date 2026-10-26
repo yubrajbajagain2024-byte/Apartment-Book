@@ -7,7 +7,7 @@ import { useVideoPlayer, VideoView, type VideoPlayer } from "expo-video";
 import { GestureDetector } from "react-native-gesture-handler";
 import Reanimated, { cancelAnimation, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
 import type { SFSymbol } from "expo-symbols";
-import { APP_NAME, deleteFeedPost, getFeedPost, getOrCreateDirectConversation, likePost, reelPath, reportContent, REPORT_REASONS, setPostPinned, sharedPostPath, toggleSaved, unlikePost, type FeedMedia, type Reel, type ReportReason } from "@apartment-book/shared";
+import { APP_NAME, deleteFeedPost, getFeedPost, getOrCreateDirectConversation, hasPublicComments, likePost, listingChatPrefill, reelPath, REPORT_REASONS, reportContent, setPostPinned, sharedPostPath, toggleSaved, unlikePost, type FeedMedia, type Reel, type ReportReason } from "@apartment-book/shared";
 import { hapticLike, hapticSelect, hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
@@ -195,13 +195,13 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   const pager = media.length > 1;
   const stripPos = useSharedValue(-slide * width);
   const [settled, setSettled] = useState(slide);
-  // Halfway through a swipe the page takes the slide coming in (its dots, its colours), as iOS's page dots do.
+  // Halfway through a swipe the page takes the slide coming in (its dots, its colours), as iOS's page dots do. Reanimated
+  // follows the values the worklets capture (media, width), so they need no dependency list.
   useAnimatedReaction(
     () => Math.max(0, Math.min(media.length - 1, Math.round(-stripPos.value / Math.max(width, 1)))),
     (i, prev) => {
       if (prev !== null && i !== prev) runOnJS(setSlide)(i);
     },
-    [media.length, width],
   );
   // A new width (the phone turned) keeps the strip on its slide.
   useEffect(() => {
@@ -408,7 +408,9 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
     setMessageBusy(true);
     try {
       const conv = await getOrCreateDirectConversation(supabase, reel.author.id);
-      router.push({ pathname: "/messages/[id]", params: { id: conv } });
+      // A roommate tour opens the chat with a first message about the post, as the listing's own Inbox button does.
+      const listing = reel.sourceType === "roommate";
+      router.push({ pathname: "/messages/[id]", params: listing ? { id: conv, prefill: listingChatPrefill(reel.author.name, reel.title), targetType: "roommate", targetId: reel.sourceId } : { id: conv } });
     } catch (e) {
       Alert.alert("Message", e instanceof Error ? e.message : "Could not start the chat. Try again.");
     } finally {
@@ -592,7 +594,12 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
 
         <View style={styles.rail} onLayout={(e) => setRailBox({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height })}>
           <RailButton icon={reel.likedByMe ? "heart" : "heart-outline"} tint={reel.likedByMe ? { media: colors.like, page: colors.like } : undefined} label={compact(reel.likes)} onPress={unlessSwiped(() => void toggleLike())} a11y={reel.likedByMe ? "Unlike" : "Like"} selected={reel.likedByMe} scale={pop} edge={railEdge} />
-          <RailButton icon="chatbubble-ellipses-outline" label={compact(reel.comments)} onPress={unlessSwiped(() => onOpenComments(reel))} a11y="Comments" edge={railEdge} />
+          {hasPublicComments(reel.sourceType) ? (
+            <RailButton icon="chatbubble-ellipses-outline" label={compact(reel.comments)} onPress={unlessSwiped(() => onOpenComments(reel))} a11y="Comments" edge={railEdge} />
+          ) : (
+            // A roommate tour has no public comments: the poster is reached in private (your own opens your Inbox).
+            <RailButton icon="chatbubble-ellipses-outline" label="Inbox" onPress={unlessSwiped(() => (own ? router.push("/messages") : void message()))} a11y={own ? "Inbox" : `Message ${reel.author.name.split(" ")[0]}`} edge={railEdge} />
+          )}
           <RailButton icon="paper-plane-outline" label="Share" onPress={unlessSwiped(share)} a11y="Share" edge={railEdge} />
           {/* Saved: the filled bookmark, in the same colour as the rest of the rail (white over a picture). */}
           <RailButton icon={reel.savedByMe ? "bookmark" : "bookmark-outline"} label={reel.savedByMe ? "Saved" : "Save"} onPress={unlessSwiped(() => void toggleSave())} a11y={reel.savedByMe ? "Unsave" : "Save"} selected={reel.savedByMe} edge={railEdge} />

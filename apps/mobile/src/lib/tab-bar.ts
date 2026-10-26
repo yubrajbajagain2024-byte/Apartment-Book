@@ -8,9 +8,15 @@ import { useSafeAreaInsets, type EdgeInsets } from "react-native-safe-area-conte
 export const TAB_BAR_HEIGHT = 66;
 export const TAB_BAR_SIDE = 14;
 
-/** Up from the screen's bottom edge: on top of the home indicator where there is one, a little way otherwise. */
+/**
+ * How far into the home-indicator area the bar sits, as Instagram's does: low, just above the indicator itself rather
+ * than on top of the whole safe area. 12pt of a 34pt inset leaves 22pt, clear of the indicator and its swipe.
+ */
+const INTO_SAFE_AREA = 12;
+
+/** Up from the screen's bottom edge: just above the home indicator where there is one, a little way otherwise. */
 export function tabBarBottom(insets: EdgeInsets): number {
-  return Math.max(insets.bottom, 12);
+  return Math.max(insets.bottom - INTO_SAFE_AREA, 10);
 }
 
 /** How much of the screen's bottom the floating bar covers. */

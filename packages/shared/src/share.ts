@@ -12,6 +12,22 @@ const https = (v: unknown): string | null => {
   return s && HTTPS.test(s) ? s : null;
 };
 
+/**
+ * Whether posts of this kind have a public comment thread. Roommate posts do not: someone looking for a roommate is
+ * reached in private, through the Inbox button, so their posts show no comments anywhere (the listing, the Roommates
+ * feed, a roommate video tour in Reels, the website). Posts, reels, apartments and marketplace items keep theirs, and
+ * Buzz keeps its anonymous replies.
+ */
+export function hasPublicComments(targetType: string): boolean {
+  return targetType !== "roommate";
+}
+
+/** The first message a chat opened from someone's listing starts with: "Hi Maya! I saw your post "…" and I'd like to chat." */
+export function listingChatPrefill(posterName: string, title?: string | null): string {
+  const first = posterName.trim().split(/\s+/)[0] || "there";
+  return title ? `Hi ${first}! I saw your post "${title}" and I'd like to chat.` : `Hi ${first}! I saw your post and I'd like to chat.`;
+}
+
 /** Where the shared thing lives on the website, always rebuilt from its type and id: a stored path is never trusted. */
 export function sharedPostPath(shared: Pick<SharedPost, "target_type" | "target_id">): string {
   return `${BASES[shared.target_type]}/${shared.target_id}`;

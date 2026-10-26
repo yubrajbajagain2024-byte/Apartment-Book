@@ -1,9 +1,9 @@
 // =============================================================================
-// Buzz v2 (migration 30), offline in PGlite. Ports UniVerse's server/tests/buzz.test.ts, buzz-media-search.test.ts and
+// Buzz v2 (migration 42), offline in PGlite. Ports UniVerse's server/tests/buzz.test.ts, buzz-media-search.test.ts and
 // hardening/buzz-*.test.ts: the anonymity firewall over every function's output (forbidden keys + every test user's
 // id / name / username / email), aliases, minute-floored times, publication jitter, the block oracle, 404 parity, the
 // gate, public-signal isolation, polls, votes and the community thresholds (eligible vs ineligible voters),
-// milestones, anonymous notifications, reports through migration 29, rate limits, media checks, small campuses, the
+// milestones, anonymous notifications, reports through migration 41, rate limits, media checks, small campuses, the
 // adapters Trust & Safety uses, the old-function stubs, and the conversion of data written by the old functions.
 // Usage: node supabase/tests/buzz-v2.test.mjs
 // =============================================================================
@@ -12,7 +12,7 @@ import { boot, read, ok, fail, expectOk, done } from "./harness.mjs";
 import { buzzSearchTerms } from "../../packages/shared/src/buzz/helpers.ts";
 import { BUZZ_AUTO_HIDE, BUZZ_COLLAPSE, BUZZ_GUIDELINES_VERSION, BUZZ_LIMITS, BUZZ_MILESTONES } from "../../packages/shared/src/buzz/constants.ts";
 
-const V2 = "migrations/20261021000100_buzz_v2.sql";
+const V2 = "migrations/20261103000100_buzz_v2.sql";
 const OLD = ["20260920000000_home_feed.sql", "20260921000000_buzz_storage_folder.sql", "20260922000000_buzz_reply_votes.sql"];
 const MIN = 60_000;
 const VERSION = BUZZ_GUIDELINES_VERSION;
@@ -174,9 +174,9 @@ await expectOk("every Buzz table is closed to the API, signed in or not, for rea
 });
 await expectOk("the database and the shared constants agree on the guidelines version and the limits", async () => {
   if ((await val(db.query("select public.buzz_guidelines_version()"))) !== VERSION) throw new Error("version mismatch");
-  if (BUZZ_LIMITS.title !== 100 || BUZZ_LIMITS.text !== 500 || BUZZ_LIMITS.replyText !== 500 || BUZZ_LIMITS.images !== 4 || BUZZ_LIMITS.pollOptionText !== 60 || BUZZ_LIMITS.search !== 80) throw new Error("limits changed: update migration 30 too");
-  if (BUZZ_COLLAPSE.score !== -5 || BUZZ_COLLAPSE.votes !== 8 || BUZZ_AUTO_HIDE.score !== -10 || BUZZ_AUTO_HIDE.votes !== 12) throw new Error("thresholds changed: update migration 30 too");
-  if (JSON.stringify(BUZZ_MILESTONES) !== "[10,25,50,100,250]") throw new Error("milestones changed: update migration 30 too");
+  if (BUZZ_LIMITS.title !== 100 || BUZZ_LIMITS.text !== 500 || BUZZ_LIMITS.replyText !== 500 || BUZZ_LIMITS.images !== 4 || BUZZ_LIMITS.pollOptionText !== 60 || BUZZ_LIMITS.search !== 80) throw new Error("limits changed: update migration 42 too");
+  if (BUZZ_COLLAPSE.score !== -5 || BUZZ_COLLAPSE.votes !== 8 || BUZZ_AUTO_HIDE.score !== -10 || BUZZ_AUTO_HIDE.votes !== 12) throw new Error("thresholds changed: update migration 42 too");
+  if (JSON.stringify(BUZZ_MILESTONES) !== "[10,25,50,100,250]") throw new Error("milestones changed: update migration 42 too");
 });
 
 const first = await create(OP, { text: "The second-floor study rooms are finally quiet again", title: "Quiet floor" });
@@ -588,7 +588,7 @@ await expectOk("eligibility: a muted voter's and a low-trust voter's votes count
   const muted = eligible[12];
   await db.query("insert into public.user_sanctions (user_id, kind, scope, origin, expires_at) values ($1, 'mute', 'buzz_only', 'public', now() + interval '1 day')", [muted]);
   await vote(muted, b.id, -1);
-  // a reporter whose report was found to be in bad faith is 'low' trust (migration 29)
+  // a reporter whose report was found to be in bad faith is 'low' trust (migration 41)
   const low = eligible[11];
   const post = (await one(as(R1, () => db.query("insert into public.feed_posts (author_id, body) values ($1, 'a public post to report') returning id", [R1])))).id;
   await as(low, () => db.query("insert into public.reports (reporter_id, target_type, target_id, reason) values ($1, 'post', $2, 'spam')", [low, post]));
@@ -1066,7 +1066,7 @@ await expectOk("firewall: no forbidden key, no test user's id / name / username 
 });
 
 // =============================================================================
-// World 2: data the old functions wrote, converted by migration 30
+// World 2: data the old functions wrote, converted by migration 42
 // =============================================================================
 const W = harness(await boot());
 {
@@ -1153,7 +1153,7 @@ const W = harness(await boot());
     if (!shaped.find((x) => x.id === o2).isOp) throw new Error("OP badge on an old reply");
     for (const body of [t, campus, await W.feed(B, { scope: "global" }), await W.feed(B, { scope: "campus" })]) await firewall(W, "converted", body);
   });
-  await expectOk("conversion: running migration 30 again changes nothing (same rows, same answers), and the old builds get update_required", async () => {
+  await expectOk("conversion: running migration 42 again changes nothing (same rows, same answers), and the old builds get update_required", async () => {
     const state = async () => JSON.stringify([
       (await d.query("select id, scope, status, upvotes, downvotes, score, eligible_votes, eligible_score, alias from public.buzz_posts order by id")).rows,
       (await d.query("select id, status, depth, score, alias from public.buzz_comments order by id")).rows,
@@ -1169,7 +1169,7 @@ const W = harness(await boot());
   });
   // (The old migrations themselves cannot run again over v2 data: migration 11's report check predates 'buzz_reply'.
   // home-feed.test.mjs re-runs them on a fresh database and then this one.)
-  await expectOk("after the old migrations ran again (old builds' functions live) migration 30 put v2 back in charge: stubs, the v2 reply trigger, no old internals", async () => {
+  await expectOk("after the old migrations ran again (old builds' functions live) migration 42 put v2 back in charge: stubs, the v2 reply trigger, no old internals", async () => {
     await mustFail(() => W.as(A, () => d.query("select * from public.buzz_feed()")), "update_required", "old feed");
     await mustFail(() => W.as(A, () => d.query("select public.buzz_create('rant', 'still on an old build')")), "update_required", "old create");
     await mustFail(() => W.as(A, () => d.query("select public.buzz_reply($1, 'old reply')", [tCampus])), "update_required", "old reply");

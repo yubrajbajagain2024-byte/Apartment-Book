@@ -7,6 +7,8 @@ import { FloatingTabBar, type TabBarAction } from "@/components/floating-tab-bar
 import { HeaderActions } from "@/components/header-actions";
 import { useHomeRestingOnBuzz } from "@/components/home/buzz-top-bar";
 import { useCreateMenu } from "@/components/home/create-menu";
+import { isBusinessRole } from "@apartment-book/shared";
+import { BusinessAccountNotice } from "@/components/business-account-notice";
 import { useSession } from "@/lib/session";
 import { auroraGradient } from "@/lib/theme";
 import { useAppTheme } from "@/lib/theme-provider";
@@ -95,10 +97,12 @@ function createIcon() {
  * and the room each tab keeps clear under it) with a capsule that slides to the tab on screen.
  */
 export default function TabsLayout() {
-  const { user } = useSession();
+  const { user, profile } = useSession();
   const unread = useUnreadCount(user?.id ?? null);
   const { colors, isDark } = useAppTheme();
   const create = useCreateMenu();
+  // A business account stays out of the student side: it is pointed to the business portal instead (after every hook).
+  if (profile && isBusinessRole(profile.role)) return <BusinessAccountNotice />;
   const action: TabBarAction = { label: "Create", hint: "A post, a reel, a Buzz thread or a Snap", icon: createIcon, onPress: create };
   // The header's own shadow barely shows on black, so in dark a hairline marks its edge. Light keeps its shadow.
   const headerStyle = isDark ? { backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border } : { backgroundColor: colors.bar };
