@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputInstance, type HostInstance } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
@@ -56,8 +56,8 @@ export function BuzzComposer({ visible, onClose, onPosted }: { visible: boolean;
   const campus = useBuzzState(selectCampus);
   const posting = useBuzzPostingStatus(visible);
   const moderation = useBuzzModeration();
-  const titleRef = useRef<TextInput>(null);
-  const textRef = useRef<TextInput>(null);
+  const titleRef = useRef<TextInputInstance>(null);
+  const textRef = useRef<TextInputInstance>(null);
   const [photoUploads, setPhotoUploads] = useState(0);
   const [video, setVideo] = useState<{ phase: "uploading" | "processing"; progress: number } | null>(null);
   const [sending, setSending] = useState(false);
@@ -70,7 +70,7 @@ export function BuzzComposer({ visible, onClose, onPosted }: { visible: boolean;
     setMediaSheetOpen(true);
   };
   const [sheetTop, setSheetTop] = useState(0);
-  const root = useRef<View>(null);
+  const root = useRef<HostInstance>(null);
   /**
    * Where the page sheet starts on screen, for the keyboard: KeyboardAvoidingView measures against its own parent, and
    * the sheet sits below the status bar. Measured once the sheet has finished rising (a measure during the slide would

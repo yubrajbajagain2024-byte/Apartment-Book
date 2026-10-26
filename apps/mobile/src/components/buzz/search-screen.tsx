@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View, type TextInputInstance } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useIsFocused } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -59,7 +59,7 @@ function Search({ onBack }: { onBack: () => void }) {
   const focused = useIsFocused();
   const search = useBuzzState(selectSearch);
   const campus = useBuzzState(selectCampus);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const [inputFocused, setInputFocused] = useState(false);
   const q = useDebounced(search.q, 300).trim();
   const ready = buzzSearchTerms(q).length > 0;
@@ -185,7 +185,7 @@ function Search({ onBack }: { onBack: () => void }) {
                   <Pressable onPress={() => void list.loadMore()} accessibilityRole="button" style={styles.end}>
                     <Text style={[T.footnote, { color: P.accentInk }]}>Couldn't load more. Tap to try again.</Text>
                   </Pressable>
-                ) : null
+                ) : undefined
               }
               refreshControl={<RefreshControl refreshing={list.refreshing} onRefresh={refreshWithHaptic(list.refresh)} tintColor={P.accent} colors={[P.accent]} progressBackgroundColor={P.surface2} />}
             />

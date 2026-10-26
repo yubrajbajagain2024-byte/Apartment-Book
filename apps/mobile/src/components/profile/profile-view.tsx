@@ -10,11 +10,12 @@ import {
   Text,
   View,
   useWindowDimensions,
+  type FlatList,
   type LayoutChangeEvent,
   type ListRenderItem,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
-  type ScrollView,
+  type ScrollViewInstance,
 } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation, useRouter } from "expo-router";
@@ -237,7 +238,7 @@ type PagerLink = {
  * under it, never above, and the bar's background fades in (`barOpacity`) as the row gets there.
  */
 function useProfilePager({ pageWidth, tuck, barHeight, onRefresh, onHeaderHeight }: { pageWidth: number; tuck: number; barHeight: number; onRefresh: (index: number) => void; onHeaderHeight: (height: number) => void }) {
-  const pager = useRef<ScrollView>(null);
+  const pager = useRef<ScrollViewInstance>(null);
   /** The pager's offset on the native side: the tab underline, the tabs row's choice of page and the header copies follow it. */
   const [scrollX] = useState(() => new Animated.Value(START_PAGE * pageWidth));
   const [scrollYs] = useState(() => PROFILE_TABS.map(() => new Animated.Value(0)));
@@ -385,8 +386,8 @@ function useProfilePager({ pageWidth, tuck, barHeight, onRefresh, onHeaderHeight
     let sum: Animated.AnimatedInterpolation<number> | null = null;
     for (let i = 0; i < PAGE_COUNT; i++) {
       const weight = scrollX.interpolate<number>({ inputRange: [(i - 1) * width, i * width, (i + 1) * width], outputRange: [0, 1, 0], extrapolate: "clamp" });
-      const term = Animated.multiply<number>(scrollYs[i], weight);
-      sum = sum ? Animated.add<number>(sum, term) : term;
+      const term = Animated.multiply(scrollYs[i], weight);
+      sum = sum ? Animated.add(sum, term) : term;
     }
     return sum as Animated.AnimatedInterpolation<number>;
   }, [scrollX, scrollYs, pageWidth]);
@@ -399,7 +400,7 @@ function useProfilePager({ pageWidth, tuck, barHeight, onRefresh, onHeaderHeight
     tuckValue.setValue(Math.max(0, tuck));
   }, [tuck, tuckValue]);
   const tabsShift = useMemo(
-    () => Animated.add<number>(Animated.subtract<number>(tuckValue, openOffset).interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: "clamp", extrapolateRight: "extend" }), barHeight),
+    () => Animated.add(Animated.subtract(tuckValue, openOffset).interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: "clamp", extrapolateRight: "extend" }), barHeight),
     [tuckValue, openOffset, barHeight],
   );
   // The floating bar's background and the name on it: clear while the cover shows, solid by the time the tabs row reaches the bar.
@@ -520,7 +521,7 @@ const TilesPage = memo(function TilesPage(props: TilesPageProps) {
   const { index, link, header, pageWidth, tabsHeight, active, refreshing, topInset, tab, grid, own, tileWidth, onOpen, onPin, gate, gateMessage, onRetryGate, visibility, savingVisibility, onChangeVisibility } = props;
   const styles = useStyles();
   const colors = useColors();
-  const list = useRef<Animated.FlatList<ProfileTile>>(null);
+  const list = useRef<FlatList<ProfileTile>>(null);
   const scrollTo = useCallback((y: number, animated: boolean) => list.current?.scrollToOffset({ offset: y, animated }), []);
   const scroll = usePageScroll(props, scrollTo);
   // Tapping Profile again while this tab of your profile is on screen: back to the top (the others follow, linked).
@@ -567,7 +568,7 @@ const TilesPage = memo(function TilesPage(props: TilesPageProps) {
       columnWrapperStyle={styles.gridRow}
       ItemSeparatorComponent={RowGap}
       ListHeaderComponent={top}
-      ListFooterComponent={footer}
+      ListFooterComponent={footer ?? undefined}
       onEndReached={() => void grid.loadMore()}
       onEndReachedThreshold={0.6}
       onScroll={scroll.onScroll}
@@ -612,7 +613,7 @@ const ClassesPage = memo(function ClassesPage(props: ClassesPageProps) {
   const { index, link, header, pageWidth, tabsHeight, active, refreshing, topInset, tuck, own, userId, classes, error, onRetry, onChange, gate, gateMessage, onRetryGate, visibility, savingVisibility, onChangeVisibility } = props;
   const styles = useStyles();
   const colors = useColors();
-  const scroller = useRef<ScrollView>(null);
+  const scroller = useRef<ScrollViewInstance>(null);
   const scrollTo = useCallback((y: number, animated: boolean) => scroller.current?.scrollTo({ y, animated }), []);
   const scroll = usePageScroll(props, scrollTo);
   useTabReselect(() => scrollTo(0, true), active);

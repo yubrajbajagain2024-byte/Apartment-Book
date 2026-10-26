@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from "react";
+import { useRef, type ComponentProps, type ReactNode } from "react";
 import { type ColorValue, Platform, StyleSheet, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SymbolView, type SFSymbol, type SymbolWeight } from "expo-symbols";
@@ -186,7 +186,7 @@ export type IconProps = {
 
 /** One icon: an SF Symbol on iOS (iOS 17 animates `bounce`), the Ionicon elsewhere. A drop-in for <Ionicons>. */
 export function Icon({ name, size = 24, color, style, sf, weight = "regular", bounce, fallback, accessibilityLabel, ...rest }: IconProps) {
-  const ionicon = fallback ?? <Ionicons name={name} size={size} color={color} style={style} accessibilityLabel={accessibilityLabel} {...rest} />;
+  const ionicon = fallback ?? <Ionicons name={name} size={size} color={color as ComponentProps<typeof Ionicons>["color"]} style={style} accessibilityLabel={accessibilityLabel} {...rest} />;
   const symbol = sf ?? SF[name];
   if (!symbol || IOS === 0) return ionicon;
   const min = MIN_IOS[symbol];

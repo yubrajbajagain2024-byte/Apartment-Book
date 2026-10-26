@@ -17,6 +17,8 @@ import { phosphor } from "@/lib/palette";
 
 /** Where Buzz sits in the pager (-1 if it has no page). */
 export const BUZZ_PAGE_INDEX = HOME_TABS.findIndex((t) => t.value === "buzz");
+/** Space between the lime mask and the Buzz label. */
+const MASK_GAP = 4;
 
 type Flags = { near: boolean; avatarGone: boolean; glyphGone: boolean };
 
@@ -133,18 +135,22 @@ export function BuzzMeGlyph({ opacity, onPress, size }: { opacity: BuzzBar["laye
  */
 export function BuzzLabelMask({ layer, fontSize, sidePad }: { layer: BuzzBar["layer"]; fontSize: number; sidePad: number }) {
   if (!layer || BUZZ_PAGE_INDEX < 0) return null;
+  const glyph = Math.round(fontSize * 0.85);
   return (
     <View pointerEvents="none" style={[styles.maskRow, { left: sidePad, right: sidePad }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       {HOME_TABS.map((t) => (
         <View key={t.value} style={styles.cell}>
           {t.value === "buzz" ? (
-            <View>
+            // In flow, not offset by a percentage: the mask, the invisible label, and a spacer as wide as the mask, so the
+            // label stays centred over the real one and the mask sits just before it.
+            <View style={styles.maskLine}>
+              <Animated.View style={[styles.mask, { width: glyph, opacity: layer }]}>
+                <MaskGlyph size={glyph} color={phosphor.accent} />
+              </Animated.View>
               <Text style={[styles.ghost, { fontSize }]} maxFontSizeMultiplier={1.2} numberOfLines={1}>
                 {t.label}
               </Text>
-              <Animated.View style={[styles.mask, { opacity: layer }]}>
-                <MaskGlyph size={Math.round(fontSize * 0.85)} color={phosphor.accent} />
-              </Animated.View>
+              <View style={{ width: glyph + MASK_GAP }} />
             </View>
           ) : null}
         </View>
@@ -161,5 +167,6 @@ const styles = StyleSheet.create({
   maskRow: { position: "absolute", top: 0, bottom: 0, flexDirection: "row" },
   cell: { flex: 1, alignItems: "center", justifyContent: "center" },
   ghost: { fontWeight: "700", opacity: 0 },
-  mask: { position: "absolute", right: "100%", top: 0, bottom: 0, marginRight: 4, justifyContent: "center" },
+  maskLine: { flexDirection: "row", alignItems: "center" },
+  mask: { marginRight: MASK_GAP, alignItems: "center", justifyContent: "center" },
 });

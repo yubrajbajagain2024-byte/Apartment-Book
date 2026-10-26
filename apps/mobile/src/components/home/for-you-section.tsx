@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ListViewToken } from "react-native";
 import { useIsFocused, useRouter } from "expo-router";
 import { listForYou, reelFromFeedPost, videosFor, type FeedPostWithAuthor, type ForYouItem, type PostEngagement } from "@apartment-book/shared";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
@@ -176,7 +176,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
   // One video plays at a time, the first row on screen (at least 60% of it) that has one: sound is one switch for every
   // video, so two playing at once would both be heard.
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ListViewToken[] }) => {
     const first = viewableItems.find((v) => v.isViewable && videosFor((v.item as ForYouItem).videos).length > 0);
     setPlayingId(first ? String(first.key) : null);
   }).current;
@@ -280,7 +280,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
             <View style={styles.banner}>
               <ErrorBanner message={error} onRetry={refresh} />
             </View>
-          ) : null
+          ) : undefined
         }
         CellRendererComponent={appearCells}
         {...WINDOW}
@@ -319,7 +319,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
             </Pressable>
           ) : !hasMore && items.length > 0 ? (
             <CaughtUp />
-          ) : null
+          ) : undefined
         }
         onEndReached={loadMore}
         onEndReachedThreshold={0.6}

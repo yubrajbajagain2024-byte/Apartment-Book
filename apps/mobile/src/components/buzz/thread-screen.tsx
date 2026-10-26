@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
-import { AppState, FlatList, KeyboardAvoidingView, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
+import { AppState, FlatList, KeyboardAvoidingView, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View, type TextInputInstance } from "react-native";
 import { useFocusEffect, useIsFocused, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -83,7 +83,7 @@ function Thread({ threadId, onBack }: { threadId: string; onBack: () => void }) 
   const stateRef = useRef(state);
   stateRef.current = state;
   const seq = useRef(0);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const listRef = useRef<FlatList<ReplyRowData>>(null);
   const root = useBuzzItem<Buzz>(threadId);
 
@@ -241,7 +241,7 @@ function Thread({ threadId, onBack }: { threadId: string; onBack: () => void }) 
         data={rows}
         keyExtractor={(r) => r.id}
         renderItem={({ item }) => <ReplyRow id={item.id} child={item.child} locked={locked} onReply={replyTo} />}
-        ListHeaderComponent={header}
+        ListHeaderComponent={header ?? undefined}
         ListFooterComponent={loadingMore ? <View style={{ paddingHorizontal: GUTTER, paddingVertical: 12, gap: 8 }}><Skeleton w="70%" h={14} /><Skeleton w="40%" h={14} /></View> : <View style={{ height: 16 }} />}
         onEndReached={() => void loadMore()}
         onEndReachedThreshold={0.6}
@@ -392,7 +392,7 @@ function currentReplyDraft(threadId: string) {
 }
 
 /** The bottom reply bar (UniVerse's footer): the inline banner, the "replying to" chip, the words and send. */
-function ReplyBar({ threadId, inputRef, bottom, onSent, onLocked }: { threadId: string; inputRef: RefObject<TextInput | null>; bottom: number; onSent: (reply: BuzzReply) => void; onLocked: () => void }) {
+function ReplyBar({ threadId, inputRef, bottom, onSent, onLocked }: { threadId: string; inputRef: RefObject<TextInputInstance | null>; bottom: number; onSent: (reply: BuzzReply) => void; onLocked: () => void }) {
   const draft = useBuzzState(useCallback((s) => s.replyDrafts[threadId], [threadId])) ?? EMPTY_REPLY;
   const parent = useBuzzItem<BuzzReply>(draft.parentId);
   const posting = useBuzzPostingStatus();

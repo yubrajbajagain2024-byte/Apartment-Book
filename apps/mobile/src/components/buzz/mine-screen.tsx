@@ -157,7 +157,7 @@ function Mine({ onBack }: { onBack: () => void }) {
                   <View style={styles.end}>
                     <Text style={[T.caption, { color: P.ink4 }]}>{BUZZ_MINE_COPY.end}</Text>
                   </View>
-                ) : null
+                ) : undefined
               }
               refreshControl={
                 <RefreshControl

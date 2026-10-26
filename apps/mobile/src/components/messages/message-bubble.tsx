@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View, type HostInstance } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
@@ -268,7 +268,7 @@ function SharedPostCard({ shared, dimmed, onLongPress }: { shared: SharedPost; d
   const router = useRouter();
   const label = sharedPostLabel(shared);
   /** The card's picture, measured when it is tapped so the viewer can zoom open from it. */
-  const picture = useRef<View>(null);
+  const picture = useRef<HostInstance>(null);
   const open = () => {
     if (shared.target_type === "post" && shared.image_url) void measureOrigin(picture.current, radius.lg).then((origin) => openViewer(router, { entries: [entryForPost(shared.target_id, shared.image_url)], index: 0, then: "reels", origin }));
     else router.push(sharedPostHref(shared));

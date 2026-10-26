@@ -80,7 +80,7 @@ function restOf(groups: Group[], index: number): { left: number; width: number }
  * (tabPress can be prevented, tabLongPress is sent), each tab keeps its icon, title and badge from its screen options,
  * and screen readers hear "Home, tab, 1 of 4". Everything that moves runs on the UI thread (Reanimated).
  */
-export function FloatingTabBar({ state, descriptors, navigation, action }: TabBarProps & { action?: TabBarAction }) {
+export function FloatingTabBar({ state, descriptors, emitter, navigateToTab, action }: TabBarProps & { action?: TabBarAction }) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useAppTheme();
   const reduceTransparency = useReduceTransparency();
@@ -147,13 +147,12 @@ export function FloatingTabBar({ state, descriptors, navigation, action }: TabBa
           const color = focused ? colors.text : colors.muted;
           const badge = options.tabBarBadge;
           const onPress = () => {
-            const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+            const event = emitter.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
             if (focused || event.defaultPrevented) return;
             // No haptic here: switching tabs is silent, the capsule's glide is the feedback.
-            // The route names are not known to the types here (any tab navigator can use this bar).
-            (navigation as unknown as { navigate: (name: string, params?: object) => void }).navigate(route.name, route.params);
+            navigateToTab(route.key);
           };
-          const onLongPress = () => navigation.emit({ type: "tabLongPress", target: route.key });
+          const onLongPress = () => emitter.emit({ type: "tabLongPress", target: route.key });
           const group = groups.find((g) => g.members.includes(index)) ?? groups[0]!;
           return (
             <Fragment key={route.key}>

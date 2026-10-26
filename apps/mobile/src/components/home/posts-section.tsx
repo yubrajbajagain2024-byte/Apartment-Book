@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
+import { FlatList, RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ListViewToken } from "react-native";
 import { useRouter } from "expo-router";
 import { listFeedPosts, videosFor, type FeedPostWithAuthor } from "@apartment-book/shared";
 import { CaughtUp } from "@/components/home/caught-up";
@@ -43,7 +43,7 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
   // One video plays at a time, the first row on screen (at least 60% of it) that has one: sound is one switch for every
   // video, so two playing at once would both be heard.
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ListViewToken[] }) => {
     const first = viewableItems.find((v) => v.isViewable && videosFor((v.item as FeedPostWithAuthor).videos).length > 0);
     setPlayingId(first ? String(first.key) : null);
   }).current;
@@ -120,7 +120,7 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
             <EmptyState icon="newspaper-outline" title="No posts yet" body={following ? "Posts from people you follow show up here." : campusId ? "Say hello to your campus, or switch to all universities." : "Be the first to share something."} />
           )
         }
-        ListFooterComponent={feed.items.length === 0 ? null : feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : <CaughtUp />}
+        ListFooterComponent={feed.items.length === 0 ? undefined : feed.hasMore ? <Text style={{ textAlign: "center", color: colors.faint, padding: 12 }}>Loading more…</Text> : <CaughtUp />}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
         onViewableItemsChanged={onViewable}

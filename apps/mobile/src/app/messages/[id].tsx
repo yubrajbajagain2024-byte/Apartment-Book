@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, View, useWindowDimensions, type ListRenderItem } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, View, useWindowDimensions, type ListRenderItem, type HostInstance } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { HeaderHeightContext } from "expo-router/react-navigation";
 import {
@@ -195,7 +195,7 @@ function Chat({
   const [windowTop, setWindowTop] = useState<number | null>(null);
   const [jumpTick, setJumpTick] = useState(0);
 
-  const rootRef = useRef<View>(null);
+  const rootRef = useRef<HostInstance>(null);
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
@@ -842,7 +842,7 @@ function Chat({
           onScrollToIndexFailed={onScrollToIndexFailed}
           initialNumToRender={20}
           windowSize={15}
-          ListFooterComponent={loadingOlder ? <ActivityIndicator style={styles.older} color={colors.brand} /> : null}
+          ListFooterComponent={loadingOlder ? <ActivityIndicator style={styles.older} color={colors.brand} /> : undefined}
           ListEmptyComponent={
             !loaded ? (
               <View style={styles.emptyBox}>

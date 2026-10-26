@@ -215,7 +215,8 @@ function Feed({ active, topInset }: { active: boolean; topInset: number }) {
   const scrollY = useRef(new Animated.Value(ios ? -insetTop : 0)).current;
   const onScroll = useMemo(() => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true }), [scrollY]);
   const hidden = useMemo(() => {
-    const fromTop = (ios ? Animated.add(scrollY, insetTop) : scrollY).interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: "clamp", extrapolateRight: "extend" });
+    const clampTop = { inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: "clamp" as const, extrapolateRight: "extend" as const };
+    const fromTop = ios ? Animated.add(scrollY, insetTop).interpolate(clampTop) : scrollY.interpolate(clampTop);
     return Animated.diffClamp(fromTop, 0, Math.max(1, filterHeight));
   }, [scrollY, ios, insetTop, filterHeight]);
   const barY = useMemo(() => Animated.multiply(hidden, -1), [hidden]);
@@ -319,7 +320,7 @@ function Feed({ active, topInset }: { active: boolean; topInset: number }) {
             ItemSeparatorComponent={Separator}
             ListHeaderComponent={header}
             ListEmptyComponent={empty}
-            ListFooterComponent={footer}
+            ListFooterComponent={footer ?? undefined}
             onEndReached={() => {
               if (!list.moreError) void list.loadMore();
             }}

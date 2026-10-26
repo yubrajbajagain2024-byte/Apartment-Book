@@ -1,5 +1,5 @@
 import { Platform, StyleSheet, UIManager, View, type StyleProp, type ViewStyle } from "react-native";
-import MaskedView from "@react-native-masked-view/masked-view";
+import { MaskedView } from "@/components/masked-view";
 import { BlurView } from "expo-blur";
 import { requireOptionalNativeModule } from "expo";
 import Reanimated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";

@@ -157,12 +157,12 @@ export default function ChatSearchScreen() {
         keyboardDismissMode="on-drag"
         automaticallyAdjustKeyboardInsets
         contentContainerStyle={{ flexGrow: 1, paddingBottom: space.xl }}
-        ListHeaderComponent={rows.length > 0 ? <Text style={styles.count}>{count}</Text> : null}
+        ListHeaderComponent={rows.length > 0 ? <Text style={styles.count}>{count}</Text> : undefined}
         renderItem={({ item }) => <ResultRow message={item} query={shown?.q ?? q} me={me} onPress={() => open(item)} />}
         ListEmptyComponent={
           !q ? (
             <Hint icon="search-outline" title="Search this chat" body="Find messages by a word or phrase in them." />
-          ) : results.error ? null : !shown || searching ? (
+          ) : results.error ? undefined : !shown || searching ? (
             <View style={styles.loading}>
               <ActivityIndicator color={colors.brand} />
             </View>

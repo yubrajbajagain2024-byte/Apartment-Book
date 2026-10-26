@@ -134,6 +134,7 @@ const FRIENDLY: Partial<Record<BuzzErrorCode, string>> = {
   unauthenticated: "Log in to use Buzz.",
   locked: "This thread is locked.",
   rate_limited: "You're doing that a lot. Try again in a little while.",
+  unavailable: "Buzz isn't available right now. Try again in a little while.",
   unknown: "Something went wrong. Try again.",
 };
 
@@ -150,6 +151,11 @@ export function toBuzzError(e: unknown, status = 400): BuzzError {
     return new BuzzError(code, m[2]!.trim() || FRIENDLY[code] || FRIENDLY.unknown!, code === "not_found" ? 404 : code === "buzz_gate_required" || code === "muted" || code === "suspended" || code === "banned" || code === "locked" ? 403 : code === "rate_limited" ? 429 : status);
   }
   if (/not authenticated|jwt/i.test(raw)) return new BuzzError("unauthenticated", FRIENDLY.unauthenticated!, 401);
+  // The database has no such Buzz function (the migration is not applied, or the API's schema cache is stale): never
+  // show PostgREST's wording.
+  if (/could not find the function|schema cache|PGRST202|function .* does not exist/i.test(raw)) {
+    return new BuzzError("unavailable", FRIENDLY.unavailable!, 503);
+  }
   return new BuzzError("unknown", raw || FRIENDLY.unknown!, status);
 }
 

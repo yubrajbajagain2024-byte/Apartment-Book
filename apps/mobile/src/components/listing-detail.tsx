@@ -1,5 +1,5 @@
 import { type ReactNode, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { getOrCreateDirectConversation, getPostEngagement, recordContact, recordView, reportContent, REPORT_REASONS, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType } from "@apartment-book/shared";
@@ -56,7 +56,7 @@ export function ListingDetail({
   const like = useLike(targetType, targetId, engagement ?? undefined, user?.id ?? null, needLogin);
   const save = useSave(targetType, targetId, savedInitial ?? false, user?.id ?? null, needLogin);
   const [commentCount, setCommentCount] = useState<number | null>(null);
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const engagementY = useRef(0);
   /** Bring the likes row, the comment thread and its composer to the top of the screen. */
   const showThread = () => scroll.current?.scrollTo({ y: engagementY.current, animated: true });

@@ -70,6 +70,10 @@ test("database errors become BuzzErrors with the right code and status", () => {
   assert.equal(toBuzzError({ message: "buzz:buzz_gate_required:" }).status, 403);
   assert.equal(toBuzzError({ message: "buzz:rate_limited:Slow down" }).status, 429);
   assert.equal(toBuzzError({ message: "JWT expired" }).code, "unauthenticated");
+  const missing = toBuzzError({ message: "Could not find the function public.buzz_v2_gate without parameters in the schema cache" });
+  assert.equal(missing.code, "unavailable");
+  assert.equal(missing.status, 503);
+  assert.ok(!/schema cache/.test(missing.message));
   assert.equal(buzzErrorMessage(new Error("boom")), "boom");
   const blocked = new BuzzError("content_blocked", "Not posted", 422, { messageId: "m", title: "t", category: "hate", guidelineAnchor: "hate", support: null });
   assert.equal(contentBlockedDetails(blocked).category, "hate");

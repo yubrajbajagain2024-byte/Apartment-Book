@@ -1,5 +1,5 @@
 import { memo, useMemo, useRef, useState } from "react";
-import { RefreshControl, Text, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
+import { RefreshControl, Text, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type ListViewToken } from "react-native";
 import { budgetLabel, formatDate, formatDistance, isVerifiedPoster, KM_PER_MILE, listRoommatePosts, listingMedia, videosFor, type PostEngagement, type RoommatePostWithAuthor } from "@apartment-book/shared";
 import type { RoommateFilters } from "@/components/housing/filter-sheet";
 import { OnlineStrip } from "@/components/online-strip";
@@ -89,7 +89,7 @@ export function RoommatesSection({ topInset, onScroll, q, campus, type, filters,
   // One video tour plays at a time, the first post on screen (at least 60% of it) that has one, and only while this half
   // of Explore is the one shown: sound is one switch for every video, so two playing at once would both be heard.
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ListViewToken[] }) => {
     const first = viewableItems.find((v) => v.isViewable && videosFor((v.item as RoommatePostWithAuthor).videos).length > 0);
     setPlayingId(first ? String(first.key) : null);
   }).current;

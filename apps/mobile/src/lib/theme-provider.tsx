@@ -130,14 +130,15 @@ export function useColors(): ThemeColors {
   return useAppTheme().colors;
 }
 
+/** What StyleSheet.create takes (React Native 0.88 no longer exports StyleSheet.NamedStyles). */
+type NamedStyles = Parameters<typeof StyleSheet.create>[0];
+
 /**
  * Styles that follow the theme. Declare once per file, next to where StyleSheet.create used to be:
  *   const useStyles = makeStyles((colors) => ({ row: { backgroundColor: colors.card } }));
  * and call `const styles = useStyles();` in each component. Each theme's sheet is built once and reused.
  */
-export function makeStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.NamedStyles<any>>(
-  factory: (colors: ThemeColors, scheme: ColorScheme) => T & StyleSheet.NamedStyles<any>,
-): () => T {
+export function makeStyles<T extends NamedStyles>(factory: (colors: ThemeColors, scheme: ColorScheme) => T): () => T {
   const sheets: Partial<Record<ColorScheme, T>> = {};
   return function useStyles(): T {
     const { scheme } = useAppTheme();

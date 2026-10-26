@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, PixelRatio, Pressable, StyleSheet, Text, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewToken } from "react-native";
+import { ActivityIndicator, FlatList, PixelRatio, Pressable, StyleSheet, Text, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent, type ListViewToken } from "react-native";
 import { Image } from "expo-image";
-import { useIsFocused, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useIsFocused, useLocalSearchParams, usePreventRemove, useRouter } from "expo-router";
 import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, { Easing, runOnJS, useAnimatedReaction, useAnimatedStyle, useDerivedValue, useSharedValue, withDelay, withSpring, withTiming, type SharedValue } from "react-native-reanimated";
 import { StatusBar } from "expo-status-bar";
@@ -350,9 +350,9 @@ export default function ReelViewerScreen() {
   const isStartAt = useCallback((i: number) => (startKey ? entriesRef.current?.[i]?.key === startKey : i === startIndex), [startKey, startIndex]);
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 80 }).current;
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const first = viewableItems.find((v) => v.isViewable && v.index !== null);
-    if (first && first.index !== null) {
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ListViewToken[] }) => {
+    const first = viewableItems.find((v) => v.isViewable && v.index != null);
+    if (first && first.index != null) {
       visibleRef.current = first.index;
       onStartPage.value = isStartAt(first.index) ? 1 : 0;
       setVisible(first.index);
@@ -678,22 +678,22 @@ export default function ReelViewerScreen() {
     [reduceMotion, origin, isStartAt, toOrigin, chrome, drag, open, seen, zoomUI, handBack, afterLanding],
   );
   // Every way out (Back, a link elsewhere, Android's back button) zooms closed first, then really leaves.
-  const navigation = useNavigation();
   const leaving = useRef(false);
-  useEffect(
-    () =>
-      navigation.addListener("beforeRemove", (e) => {
-        if (leaving.current) return;
-        e.preventDefault();
-        closeThen(() => {
-          // A swipe close that began in the same moment may have left already.
-          if (leaving.current) return;
-          leaving.current = true;
-          navigation.dispatch(e.data.action);
-        });
-      }),
-    [navigation, closeThen],
-  );
+  const [leaveAllowed, setLeaveAllowed] = useState(false);
+  usePreventRemove(!leaveAllowed, ({ repeat }) => {
+    const go = () => {
+      leaving.current = true;
+      setLeaveAllowed(true);
+      repeat();
+    };
+    // The swipe close has already zoomed out: let it go.
+    if (leaving.current) return go();
+    closeThen(() => {
+      // A swipe close that began in the same moment may have left already.
+      if (leaving.current) return;
+      go();
+    });
+  });
   /** The JS half of a swipe close: the video goes back to the feed playing, and the pages learn the viewer is closing. */
   const swipeClosing = useCallback(() => {
     if (closing.current) return;

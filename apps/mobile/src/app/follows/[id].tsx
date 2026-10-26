@@ -146,7 +146,7 @@ function PeopleList({ userId, list, viewerId, empty, onRowChange, onRefresh }: {
           empty
         )
       }
-      ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={styles.more}>Loading more…</Text> : null}
+      ListFooterComponent={feed.items.length > 0 && feed.hasMore ? <Text style={styles.more}>Loading more…</Text> : undefined}
       onEndReached={feed.loadMore}
       onEndReachedThreshold={0.6}
       refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={refreshWithHaptic(refresh)} />}

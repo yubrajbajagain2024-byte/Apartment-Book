@@ -1,5 +1,5 @@
 import { useMemo, useRef, type ReactNode, type Ref } from "react";
-import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type LayoutChangeEvent, type PressableProps, type StyleProp, type TextInputProps, type ViewStyle } from "react-native";
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type HostInstance, type LayoutChangeEvent, type PressableProps, type StyleProp, type TextInputProps, type ViewStyle } from "react-native";
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import type { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -82,7 +82,7 @@ export function Button({
   style,
   disabled,
   ...props
-}: PressableProps & { title: string; variant?: "primary" | "secondary" | "ghost" | "danger"; size?: "compact" | "regular" | "large"; loading?: boolean; icon?: keyof typeof Ionicons.glyphMap; style?: StyleProp<ViewStyle>; ref?: Ref<View> }) {
+}: PressableProps & { title: string; variant?: "primary" | "secondary" | "ghost" | "danger"; size?: "compact" | "regular" | "large"; loading?: boolean; icon?: keyof typeof Ionicons.glyphMap; style?: StyleProp<ViewStyle>; ref?: Ref<HostInstance> }) {
   const styles = useStyles();
   const colors = useColors();
   const bg = variant === "primary" ? colors.brand : variant === "danger" ? colors.dangerFill : variant === "secondary" ? colors.border : "transparent";

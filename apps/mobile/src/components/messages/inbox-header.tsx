@@ -1,5 +1,5 @@
 import { type ReactNode, type Ref } from "react";
-import { Animated, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, TextInput, View, type TextInputInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SlidingTabs } from "@/components/sliding-tabs";
 import { auroraGradient, radius, space, textStyle } from "@/lib/theme";
@@ -84,7 +84,7 @@ export function InboxHeader({ signedIn, page, onPage, scrollX, pageWidth, reques
  * The rounded search box of the inbox and the new-chat screen: magnifier, the words, a clear button once something is
  * typed, and (when `onCancel` is given and the box is in use) a Cancel that leaves the search.
  */
-export function InboxSearchField({ value, onChangeText, placeholder = "Search", autoFocus, inputRef, onFocusChange, showCancel = false, onCancel, accessibilityLabel }: { value: string; onChangeText: (text: string) => void; placeholder?: string; autoFocus?: boolean; inputRef?: Ref<TextInput>; onFocusChange?: (focused: boolean) => void; showCancel?: boolean; onCancel?: () => void; accessibilityLabel?: string }) {
+export function InboxSearchField({ value, onChangeText, placeholder = "Search", autoFocus, inputRef, onFocusChange, showCancel = false, onCancel, accessibilityLabel }: { value: string; onChangeText: (text: string) => void; placeholder?: string; autoFocus?: boolean; inputRef?: Ref<TextInputInstance>; onFocusChange?: (focused: boolean) => void; showCancel?: boolean; onCancel?: () => void; accessibilityLabel?: string }) {
   const styles = useStyles();
   const { colors, isDark } = useAppTheme();
   return (
