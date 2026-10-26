@@ -1,6 +1,7 @@
 import * as ImagePicker from "expo-image-picker";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { uploadImage, type PhotoMeta } from "@apartment-book/shared";
+import { devOverrides } from "./dev-overrides";
 import { supabase } from "./supabase";
 
 /**
@@ -57,6 +58,8 @@ export async function reencodeBuzzPhoto(photo: BuzzPickedPhoto): Promise<BuzzPic
 /** Re-encode, then upload to the anonymous Buzz folder. `userId` is only used by storage rules, never in the file path. */
 export async function uploadBuzzPhoto(photo: BuzzPickedPhoto, userId: string): Promise<PhotoMeta> {
   const clean = await reencodeBuzzPhoto(photo);
+  // Buzz sample data (development): the re-encode runs, the photo stays on the phone.
+  if (devOverrides.buzzFixtures) return { url: clean.uri, width: clean.width, height: clean.height, blur: null };
   const data = await fetch(clean.uri).then((r) => r.arrayBuffer());
   // No fileName on purpose: original names can contain dates, places or a person's name.
   const url = await uploadImage(supabase, { kind: "buzz", userId, file: data, contentType: "image/jpeg" });

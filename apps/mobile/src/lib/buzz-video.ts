@@ -1,6 +1,7 @@
 import * as ImagePicker from "expo-image-picker";
 import { BUZZ_COMPOSER_COPY, BUZZ_LIMITS, muxPosterUrl } from "@apartment-book/shared";
 import type { DraftVideo } from "./buzz-store";
+import { devOverrides } from "./dev-overrides";
 import { uploadVideo } from "./video";
 
 /**
@@ -46,6 +47,16 @@ export async function pickBuzzVideo(source: "camera" | "library"): Promise<Picke
 
 /** Uploads the picked video and waits until Mux has it ready; also refuses one Mux measured over the limit. */
 export async function uploadBuzzVideo(asset: PickedBuzzVideo, onProgress: (fraction: number, phase: "uploading" | "processing") => void): Promise<DraftVideo> {
+  // Buzz sample data (development): nothing goes to Mux; a pretend upload, then a video that will not play.
+  if (devOverrides.buzzFixtures) {
+    if (typeof asset.duration === "number" && asset.duration > MAX_MS) throw new BuzzVideoTooLong();
+    for (let p = 0; p <= 1; p += 0.1) {
+      onProgress(p, "uploading");
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    onProgress(1, "processing");
+    return { playbackId: "fixturePlaybackId00000", posterUrl: null, width: asset.width, height: asset.height, durationSeconds: typeof asset.duration === "number" ? asset.duration / 1000 : null };
+  }
   const v = await uploadVideo({ ...asset, fileName: "buzz.mp4" }, onProgress);
   if (typeof v.duration_seconds === "number" && v.duration_seconds * 1000 > MAX_MS) throw new BuzzVideoTooLong();
   return { playbackId: v.playback_id, posterUrl: v.poster_url ?? muxPosterUrl(v.playback_id), width: v.width, height: v.height, durationSeconds: v.duration_seconds };

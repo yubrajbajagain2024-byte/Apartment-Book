@@ -25,6 +25,7 @@ import { phosphor } from "./palette";
 import { buzzState, emitBuzzEvent, getBuzzItem, getBuzzState, heldReplies, markVotePending, patchBuzzItem } from "./buzz-store";
 import { hapticSelect, hapticTap } from "./haptics";
 import { shortDate } from "./short-date";
+import { devOverrides } from "./dev-overrides";
 import { SITE_URL, supabase } from "./supabase";
 
 /**
@@ -39,7 +40,7 @@ type Item = Buzz | BuzzReply;
 /** Where the app sends new buzzes and replies: the website's moderated write API, as the signed-in person. */
 export async function buzzWriteTarget(): Promise<BuzzWriteTarget> {
   const { data } = await supabase.auth.getSession();
-  return { baseUrl: SITE_URL, accessToken: data.session?.access_token ?? null };
+  return { baseUrl: SITE_URL, accessToken: data.session?.access_token ?? null, fetch: devOverrides.buzzFetch ?? undefined };
 }
 
 /** A Buzz read failed: a `buzz_gate_required` brings the guidelines gate back (a new version mid-session); the sentence to show. */
