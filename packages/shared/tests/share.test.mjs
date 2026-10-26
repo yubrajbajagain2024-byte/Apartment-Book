@@ -49,10 +49,10 @@ test("sharedPostFromReel and sharedPostFromListing point at the listing when the
   assert.deepEqual([posted.kind, posted.path, posted.caption], ["reel", "/posts/c3c3c3c3-0000-4000-8000-000000000003", "tour"]);
 });
 
-test("roommate posts have no public comments; everything else keeps them", async () => {
+test("roommate posts and marketplace items have no public comments; posts and apartments keep them", async () => {
   const { hasPublicComments } = await import("../src/share.ts");
-  assert.equal(hasPublicComments("roommate"), false);
-  for (const t of ["post", "apartment", "item"]) assert.equal(hasPublicComments(t), true, t);
+  for (const t of ["roommate", "item"]) assert.equal(hasPublicComments(t), false, t);
+  for (const t of ["post", "apartment"]) assert.equal(hasPublicComments(t), true, t);
 });
 
 test("listingChatPrefill greets the poster by first name and names the post", async () => {

@@ -18,10 +18,11 @@ function conditionLabel(condition: string): string {
 /**
  * A Marketplace item's own page, laid out as a roommate post's is: the photos and video full width and swipeable, the
  * heart, share, Inbox and the bookmark right under them, then the item's name and price, where to pick it up and its
- * category, its condition, About (the seller's description), the seller with Message, and the comment thread.
+ * category, its condition, About (the seller's description), and the seller with Message. Items have no public
+ * comments (hasPublicComments), like roommate posts: buyers reach the seller in private.
  */
 export default function ItemScreen() {
-  const { id, comment } = useLocalSearchParams<{ id: string; comment?: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { data: item, loading, refresh } = useQuery(() => getItem(supabase, id), [id]);
   const detailStyles = useDetailStyles();
@@ -37,9 +38,7 @@ export default function ItemScreen() {
       media={listingMedia(item.images, item.image_meta, item.videos)}
       poster={{ id: item.seller.id, name: item.seller.full_name, avatarUrl: item.seller.avatar_url }}
       createdAt={item.created_at}
-      focusComments={comment === "1"}
       aurora
-      postBar
       facts={
         <>
           {item.pickup_location ? <Fact accent icon="location-outline" label={item.pickup_location} /> : null}

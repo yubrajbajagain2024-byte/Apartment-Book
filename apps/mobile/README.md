@@ -440,8 +440,8 @@ Roommate posts have no public comments, anywhere: someone looking for a roommate
 pill that opens a private chat with the poster (your own post's opens your Inbox) and the bookmark at the far right; every listing
 detail, the poster card with Message, and the menu (Save, Share, Report) stay. A roommate video tour in Reels has an Inbox button on
 its rail in place of the comments one, and a "Message Maya…" bar in place of "Add comment…"; the chat opens with a first message
-about the post. `hasPublicComments()` in `packages/shared` decides it for the app and the website; posts, reels, apartments,
-marketplace items and Buzz keep their threads.
+about the post. `hasPublicComments()` in `packages/shared` decides it for the app and the website; Marketplace items have none either
+(the seller is reached through Inbox or Message), while posts, reels, apartments and Buzz keep their threads.
 
 ## Buzz
 
