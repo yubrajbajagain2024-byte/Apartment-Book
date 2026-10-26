@@ -13,13 +13,13 @@ const https = (v: unknown): string | null => {
 };
 
 /**
- * Whether posts of this kind have a public comment thread. Roommate posts do not: someone looking for a roommate is
- * reached in private, through the Inbox button, so their posts show no comments anywhere (the listing, the Roommates
- * feed, a roommate video tour in Reels, the website). Posts, reels, apartments and marketplace items keep theirs, and
- * Buzz keeps its anonymous replies.
+ * Whether posts of this kind have a public comment thread. Roommate posts and Marketplace items do not: their posters
+ * are reached in private, through the Inbox button (Message on the listing), so they show no comments anywhere (the
+ * listing, the Roommate and Marketplace feeds, a roommate video tour in Reels, the website). Posts, reels and apartments
+ * keep theirs, and Buzz keeps its anonymous replies.
  */
 export function hasPublicComments(targetType: string): boolean {
-  return targetType !== "roommate";
+  return targetType !== "roommate" && targetType !== "item";
 }
 
 /** The first message a chat opened from someone's listing starts with: "Hi Maya! I saw your post "…" and I'd like to chat." */

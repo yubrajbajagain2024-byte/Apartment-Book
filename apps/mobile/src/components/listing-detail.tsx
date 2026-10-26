@@ -22,7 +22,7 @@ import { Icon } from "@/components/icon";
  * Shared detail layout: media, title, facts, body, poster card, then like / comment / message and the comment thread.
  * A roommate post has no public comments (see hasPublicComments): it carries the Posts action bar instead, Like with its
  * count, Share, the Inbox pill that opens a private chat with the poster, and Save at the far right, right under its
- * photos (under its words when it has none). `postBar` gives a listing with comments (a Marketplace item) that same bar
+ * photos (under its words when it has none). `postBar` gives a listing that keeps public comments (an apartment, say) that same bar
  * in the same place; its thread then closes the page as a section of its own, with no Like / Comment / Message row.
  */
 export function ListingDetail({
