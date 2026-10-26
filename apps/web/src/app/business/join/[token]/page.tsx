@@ -25,7 +25,7 @@ export default async function BusinessJoinPage({ params }: { params: Promise<{ t
     <>
       <h1 className="mb-1 text-center text-2xl font-bold">Join {invite.businessName}</h1>
       <p className="mb-6 text-center text-sm text-gray-600">
-        You were invited as <span className="font-medium text-gray-900">{invite.email}</span>. Choose a password to join the team on CampConnect Business.
+        You were invited as <span className="font-medium text-gray-900">{invite.email}</span>. Choose a password to join the team on UniBuzz Business.
       </p>
       <BusinessJoinForm token={token} email={invite.email} businessName={invite.businessName} />
     </>

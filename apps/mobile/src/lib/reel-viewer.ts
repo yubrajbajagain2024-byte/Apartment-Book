@@ -2,19 +2,15 @@ import type { useRouter } from "expo-router";
 import type { VideoPlayer } from "expo-video";
 import { lendPlayer, returnPlayer } from "./video-handoff";
 import {
-  BUZZ_PAGE_SIZE,
   getFeedPostsByIds,
   getPostEngagementMany,
   getSavedIds,
   isVerifiedPoster,
-  listBuzz,
   listForYou,
   listingMedia,
   muxPlaybackUrl,
   muxPosterUrl,
   reelFromFeedPost,
-  type BuzzFilters,
-  type BuzzPost,
   type FeedMedia,
   type FeedPostWithAuthor,
   type ListingVideo,
@@ -27,24 +23,19 @@ import { supabase } from "./supabase";
 type Router = ReturnType<typeof useRouter>;
 
 /**
- * One page of the full-screen viewer (app/reels/[id].tsx): a reel (a posted reel or a listing's video tour, one video),
- * a post with its photos and videos, which the page swipes through sideways, or an anonymous Buzz thread with its media.
- * Author, words, counts and saved are a Reel's, so every page of a post has the same rail: like, comments, share, save,
- * the profile and "…". A Buzz page (`buzz`) has nobody's name and is voted on instead (see ReelItem).
+ * One page of the full-screen viewer (app/reels/[id].tsx): a reel (a posted reel or a listing's video tour, one video), or
+ * a post with its photos and videos, which the page swipes through sideways. Author, words, counts and saved are a
+ * Reel's, so every page has the same rail: like, comments, share, save, the profile and "…". (Buzz's anonymous media
+ * opens in its own viewer, see components/buzz/media.tsx: nothing of Buzz comes here.)
  */
 export type ViewerItem = Omit<Reel, "video" | "sourceType"> & {
-  sourceType: Reel["sourceType"] | "buzz";
+  sourceType: Reel["sourceType"];
   /** A reel or an ordinary post; listing tours count as reels. */
   kind: "reel" | "post";
   /** What the page shows, in the post's own order (videos, then photos): a reel's one video. */
   media: FeedMedia[];
   /** The reel's video as the Reels feed gives it; null for a post. */
   video: ListingVideo | null;
-  /**
-   * An anonymous Buzz thread (`sourceType` "buzz"): its topic, its score and your vote, its reply count, whether it is
-   * yours. Its `author` is a placeholder that is never shown: the app is never told who wrote a thread.
-   */
-  buzz?: BuzzPost;
 };
 
 /**
@@ -77,8 +68,6 @@ export type ViewerSource = {
   /** Where the tapped picture sits on screen: the viewer zooms open from it, and back into it on the way out. */
   origin?: ViewerOrigin;
   then: "reels" | "end" | { more: () => Promise<ViewerEntry[]>; rescope?: (universityId: string | undefined, seen: Set<string>) => () => Promise<ViewerEntry[]> };
-  /** Opened from a Buzz thread's own screen: its replies are right behind the viewer, which closes onto them. */
-  repliesBehind?: boolean;
 };
 
 const NO_ENGAGEMENT: PostEngagement = { likes: 0, comments: 0, likedByMe: false };
@@ -144,54 +133,6 @@ export function viewerItemFromPost(post: FeedPostWithAuthor, engagement: PostEng
     kind: post.kind === "reel" ? "reel" : "post",
     media,
     video: null,
-  };
-}
-
-/** A Buzz thread with photos or videos as a page: anonymous, voted on, its replies on its own screen. Null without media. */
-export function viewerItemFromBuzz(post: BuzzPost): ViewerItem | null {
-  const media = listingMedia(post.images, post.imageMeta, post.videos);
-  if (media.length === 0) return null;
-  return {
-    sourceType: "buzz",
-    sourceId: post.id,
-    author: { id: "", name: "Anonymous", avatarUrl: null, verified: false },
-    title: post.title,
-    caption: post.body.trim(),
-    createdAt: post.createdAt,
-    likes: 0,
-    comments: post.commentCount,
-    likedByMe: false,
-    savedByMe: false,
-    kind: "post",
-    media,
-    video: null,
-    buzz: post,
-  };
-}
-
-/** At most this many of the Buzz list's pages are read for one batch: Buzz is mostly words, threads with media far apart. */
-const BUZZ_SCAN_PAGES = 4;
-
-/**
- * What follows the Buzz list's pages in the viewer: its next pages with the same filters, from `offset` (what the list
- * has loaded), threads with nothing to show full screen passed over. A batch that finds none in BUZZ_SCAN_PAGES pages
- * ends the viewer's pages there rather than reading on through a feed of words.
- */
-export function buzzAfter(opts: { filters: BuzzFilters; offset: number; seen: Set<string> }): () => Promise<ViewerEntry[]> {
-  let offset = opts.offset;
-  let more = true;
-  const seen = new Set(opts.seen);
-  return async () => {
-    for (let scanned = 0; more && scanned < BUZZ_SCAN_PAGES; scanned++) {
-      const page = await listBuzz(supabase, { ...opts.filters, limit: BUZZ_PAGE_SIZE, offset });
-      offset += page.length;
-      more = page.length >= BUZZ_PAGE_SIZE;
-      const fresh = page.filter((p) => !seen.has(p.id));
-      fresh.forEach((p) => seen.add(p.id));
-      const items = fresh.map(viewerItemFromBuzz).filter((i): i is ViewerItem => i !== null);
-      if (items.length > 0) return items.map((item) => entryOf(item));
-    }
-    return [];
   };
 }
 

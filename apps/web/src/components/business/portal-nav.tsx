@@ -101,7 +101,7 @@ export function PortalNav({
               <div className="absolute right-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-gray-200">
                 <div className="px-3 py-2">
                   <p className="truncate text-sm font-semibold text-gray-900">{user.name}</p>
-                  <p className="text-xs text-gray-500">{business ? (business.role === "owner" ? "Owner" : "Staff") : "CampConnect admin"}</p>
+                  <p className="text-xs text-gray-500">{business ? (business.role === "owner" ? "Owner" : "Staff") : "UniBuzz admin"}</p>
                 </div>
                 <div className="my-1 h-px bg-gray-100" />
                 {business ? (

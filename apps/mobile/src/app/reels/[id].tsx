@@ -12,7 +12,6 @@ import { ReelCommentsSheet } from "@/components/home/reel-comments-sheet";
 import { ShareSheetProvider } from "@/components/share-sheet";
 import { aspectOf, photoFloor, photoLayout, photoTop, ReelItem, surfaceOf, wholeVideo, type ViewerSurface } from "@/components/home/reel-item";
 import { markReelsStale } from "@/components/home/reels-section";
-import { emitBuzzEvent, onBuzzEvent } from "@/components/home/buzz-card";
 import { hapticTap } from "@/lib/haptics";
 import { SCOPE_TOGGLE_SHOWN, useHomeScope } from "@/lib/home-scope";
 import { errorText } from "@/lib/hooks";
@@ -311,29 +310,8 @@ export default function ReelViewerScreen() {
     setEntries((prev) => (prev ? prev.map((e) => (e.key === key && e.item ? { ...e, item: { ...e.item, ...patch } } : e)) : prev));
     // The row this page was opened from, and its own screen, follow along.
     const [type, targetId] = splitKey(key);
-    // A Buzz thread's votes reach its list on their own (see BuzzRail in ReelItem).
-    if (type === "buzz") return;
     emitPostEngagement(type as PostTargetType, targetId, { likes: patch.likes, comments: patch.comments, likedByMe: patch.likedByMe, saved: patch.savedByMe });
   }, []);
-  /**
-   * A Buzz thread's pages follow what happens to it anywhere: a vote (on its rail here, on its own screen opened over the
-   * viewer, in the list), new words or a new reply count (its screen reloaded), and its end (deleted or hidden), so a page
-   * never shows a stale score or a thread that is gone.
-   */
-  useEffect(
-    () =>
-      onBuzzEvent((e) => {
-        if (e.type === "vote") {
-          setEntries((prev) => (prev ? prev.map((x) => (x.key === `buzz:${e.id}` && x.item?.buzz ? { ...x, item: { ...x.item, buzz: { ...x.item.buzz, score: e.vote.score, myVote: e.vote.myVote } } } : x)) : prev));
-        } else if (e.type === "patch") {
-          const p = e.post;
-          setEntries((prev) => (prev ? prev.map((x) => (x.key === `buzz:${p.id}` && x.item?.buzz ? { ...x, item: { ...x.item, buzz: p, title: p.title, caption: p.body.trim(), comments: p.commentCount } } : x)) : prev));
-        } else if (e.type === "remove") {
-          setEntries((prev) => (prev && prev.some((x) => x.key === `buzz:${e.id}`) ? prev.filter((x) => x.key !== `buzz:${e.id}`) : prev));
-        }
-      }),
-    [],
-  );
   const onRemoved = useCallback((key: string) => {
     // A feed's own player handed over with it stops: its row is going too, and it is released once given back.
     try {
@@ -347,8 +325,6 @@ export default function ReelViewerScreen() {
     if (type === "post") {
       emitPostRemoved(targetId);
       markReelsStale();
-    } else if (type === "buzz") {
-      emitBuzzEvent({ type: "remove", id: targetId });
     }
   }, []);
   const onOpenComments = useCallback((item: ViewerItem, typing = false) => {
@@ -356,8 +332,7 @@ export default function ReelViewerScreen() {
     setCommentsKey(viewerKey(item));
   }, []);
   const commentsItem = commentsKey ? (entries?.find((e) => e.key === commentsKey)?.item ?? null) : null;
-  /** The sheet is only ever a post's: a Buzz thread's replies open on its own screen (see openReplies). */
-  const commentsReel = useMemo(() => (commentsItem && commentsItem.sourceType !== "buzz" ? { sourceType: commentsItem.sourceType, sourceId: commentsItem.sourceId, author: commentsItem.author, comments: commentsItem.comments } : null), [commentsItem]);
+  const commentsReel = useMemo(() => (commentsItem ? { sourceType: commentsItem.sourceType, sourceId: commentsItem.sourceId, author: commentsItem.author, comments: commentsItem.comments } : null), [commentsItem]);
   const onCommentCount = useCallback(
     (delta: number) => {
       if (!commentsKey || !commentsItem) return;
@@ -385,23 +360,8 @@ export default function ReelViewerScreen() {
   }).current;
 
   const leave = useCallback(() => (router.canGoBack() ? router.back() : router.replace("/(tabs)")), [router]);
-  /**
-   * A page's comments: a post's in the sheet over the page. A Buzz thread's replies on its own screen, pushed over the
-   * viewer (Back comes back here); opened from that very screen, they are right behind, so the viewer closes onto them
-   * (`typing`: with the reply box open, once the thread is back on screen).
-   */
-  const openReplies = useCallback(
-    (item: ViewerItem, typing = false) => {
-      if (!item.buzz) return onOpenComments(item, typing);
-      if (handed?.repliesBehind) {
-        if (typing) emitBuzzEvent({ type: "reply", id: item.sourceId });
-        leave();
-        return;
-      }
-      router.push({ pathname: "/buzz/[id]", params: typing ? { id: item.sourceId, reply: "1" } : { id: item.sourceId } });
-    },
-    [onOpenComments, handed, leave, router],
-  );
+  /** A page's comments, in the sheet over the page. */
+  const openReplies = onOpenComments;
 
   /**
    * The bar under a roommate tour, which has no public comments: a private chat with its poster, opening with a first
@@ -489,7 +449,7 @@ export default function ReelViewerScreen() {
   // The post the viewer was opened from keeps its feed row on the same photo as the page (it is hidden behind it), so a
   // swipe back uncovers that photo, and the page lands on it.
   useEffect(() => {
-    if ((startItem?.sourceType === "post" || startItem?.sourceType === "buzz") && startItem.media.length > 1) emitPostSlide(startItem.sourceId, startSlide);
+    if (startItem?.sourceType === "post" && startItem.media.length > 1) emitPostSlide(startItem.sourceId, startSlide);
   }, [startItem, startSlide]);
   const focusY = useSharedValue(focus.y);
   const focusW = useSharedValue(focus.width);
@@ -683,8 +643,8 @@ export default function ReelViewerScreen() {
       }
       return;
     }
-    // A post's row or a Buzz thread's: each listens for its own id.
-    if (startItem.sourceType !== "post" && startItem.sourceType !== "buzz") return;
+    // A post's row listens for its own id.
+    if (startItem.sourceType !== "post") return;
     const time = clocks.current.get(`${startEntry.key}#${startSlide}`)?.();
     if (typeof time === "number" && Number.isFinite(time)) emitPostSlide(startItem.sourceId, startSlide, time);
   }, [startEntry, startItem, startSlide]);
@@ -880,7 +840,7 @@ export default function ReelViewerScreen() {
                       Dark glass over a video; on a photo's page, the theme's own text field. A roommate tour has no public
                       comments, so its bar is a private message to the poster instead. */}
                   <Animated.View key="comment" pointerEvents="box-none" style={[styles.commentBar, { bottom: barBottom }, chromeStyle]}>
-                    {!entry.item.buzz && !hasPublicComments(entry.item.sourceType) ? (
+                    {!hasPublicComments(entry.item.sourceType) ? (
                       <Pressable
                         onPress={() => void messagePoster(entry.item!)}
                         style={({ pressed }) => [styles.commentInput, styles.messageInput, surfaceAt(index) === "page" && styles.commentInputPage, pressed && { opacity: 0.8 }]}
@@ -894,8 +854,8 @@ export default function ReelViewerScreen() {
                         </Text>
                       </Pressable>
                     ) : (
-                      <Pressable onPress={() => openReplies(entry.item!, true)} style={({ pressed }) => [styles.commentInput, surfaceAt(index) === "page" && styles.commentInputPage, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel={entry.item.buzz ? "Reply anonymously" : "Add comment"} accessibilityHint={entry.item.buzz ? "Opens the thread, ready to type" : "Opens the comments, ready to type"}>
-                        <Text style={[styles.commentPlaceholder, surfaceAt(index) === "page" && styles.commentPlaceholderPage]}>{entry.item.buzz ? "Reply anonymously…" : "Add comment…"}</Text>
+                      <Pressable onPress={() => openReplies(entry.item!, true)} style={({ pressed }) => [styles.commentInput, surfaceAt(index) === "page" && styles.commentInputPage, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Add comment" accessibilityHint="Opens the comments, ready to type">
+                        <Text style={[styles.commentPlaceholder, surfaceAt(index) === "page" && styles.commentPlaceholderPage]}>Add comment…</Text>
                       </Pressable>
                     )}
                   </Animated.View>

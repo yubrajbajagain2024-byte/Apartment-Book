@@ -24,6 +24,12 @@ export const supabase = createClient<Database>(url, anonKey, {
   },
 });
 
+// Development only: EXPO_PUBLIC_BUZZ_FIXTURES=<variant> in apps/mobile/.env.local answers Buzz from sample data (see
+// lib/buzz-fixtures). `__DEV__` is false in release builds, so this require and the sample data are left out of them.
+if (__DEV__ && process.env.EXPO_PUBLIC_BUZZ_FIXTURES) {
+  (require("./buzz-fixtures") as typeof import("./buzz-fixtures")).installBuzzFixtures(supabase, process.env.EXPO_PUBLIC_BUZZ_FIXTURES);
+}
+
 // Refresh tokens only while the app is in the foreground.
 if (Platform.OS !== "web") {
   AppState.addEventListener("change", (state) => {

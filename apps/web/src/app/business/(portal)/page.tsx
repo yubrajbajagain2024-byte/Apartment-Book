@@ -21,7 +21,7 @@ export default async function DashboardPage() {
       <div className="rounded-xl bg-white p-6 text-center shadow-sm ring-1 ring-gray-200">
         <h1 className="text-xl font-bold text-gray-900">{business.name}</h1>
         <p className="mt-2 text-sm text-gray-600">
-          {membership.role === "owner" ? "Update the business profile with what the CampConnect team asked for, then write to them to look again." : "The owner can update the business profile and ask the CampConnect team to look again."}
+          {membership.role === "owner" ? "Update the business profile with what the UniBuzz team asked for, then write to them to look again." : "The owner can update the business profile and ask the UniBuzz team to look again."}
         </p>
         {membership.role === "owner" ? (
           <PortalLink href="/profile" className="mt-4 inline-block font-semibold text-brand-600 hover:underline">

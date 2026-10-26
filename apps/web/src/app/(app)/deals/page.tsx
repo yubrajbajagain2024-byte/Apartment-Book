@@ -25,7 +25,7 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
     <div className="mx-auto flex w-full max-w-[640px] flex-col gap-4">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">{campus ? `Deals near ${campus.name}` : "Student deals"}</h1>
-        <p className="text-sm text-gray-600">Offers from local businesses the CampConnect team approved. Message a business to ask anything.</p>
+        <p className="text-sm text-gray-600">Offers from local businesses the UniBuzz team approved. Message a business to ask anything.</p>
       </div>
       {profile?.university_id ? (
         <div className="flex gap-2" role="group" aria-label="Campus">

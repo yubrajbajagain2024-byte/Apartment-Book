@@ -3,7 +3,6 @@ import { Alert, Pressable, StyleSheet, Text, TextInput, View, type TextInputInst
 import { useRouter } from "expo-router";
 import { addComment, blockUser, COMMENT_SORTS, compactCount, deleteComment, getMyCommentVotes, listComments, reportContent, REPORT_REASONS, shortAge, threadComments, voteComment, type CommentSort, type PostCommentNode, type PostCommentWithAuthor, type PostTargetType, type ReportReason } from "@apartment-book/shared";
 import { useActionSheet, type SheetOption } from "@/components/action-sheet";
-import { repliesLabel, useVote, type Vote } from "@/components/home/buzz-card";
 import { hapticLike, hapticSuccess, hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -19,6 +18,115 @@ import { Icon } from "@/components/icon";
  * under their comment behind a thin line and stay folded behind "View 2 replies" until asked for. Holding a comment
  * opens its menu (Reply, Report, Block, Delete).
  */
+
+/** "1 reply" / "3 replies". */
+export function repliesLabel(count: number): string {
+  return count === 1 ? "1 reply" : `${count} replies`;
+}
+
+/* ---------- voting (a comment's heart and dislike) ---------- */
+
+/** A score and my vote. Post comments also carry `likes` (hearts only: dislikes stay private). */
+export type Vote = { score: number; myVote: -1 | 0 | 1; likes?: number };
+
+/** A copy with only the fields the parent gave: no `likes: undefined` key. */
+function snapshot(v: Vote): Vote {
+  return v.likes === undefined ? { score: v.score, myVote: v.myVote } : { score: v.score, myVote: v.myVote, likes: v.likes };
+}
+
+/**
+ * Votes on their way to the server, by "comment:<id>". The same comment can be on screen twice (a reply that was folded
+ * away and came back), and each copy has its own useVote. Chaining them here means there is never more than one vote
+ * request per comment at a time.
+ * Each entry resolves to what the server last confirmed, or null when nothing is known.
+ */
+const votesInFlight = new Map<string, Promise<Vote | null>>();
+
+/**
+ * Optimistic voting for a post's comment. Votes go to the server one at a time, so quick taps can never
+ * arrive out of order: only the latest tap is sent next, and the server's answer always wins in the end.
+ * `onConfirmed` gets only the vote: the parent must merge it into its newest data (a functional update), never into a captured copy.
+ */
+export function useVote(kind: "comment", id: string, initial: Vote, send: (value: Vote["myVote"]) => Promise<Vote>, onConfirmed?: (vote: Vote) => void) {
+  const router = useRouter();
+  const { user } = useSession();
+  const key = `${kind}:${id}`;
+  const [vote, setVote] = useState<Vote>(() => snapshot(initial));
+  // What is shown, what the server last confirmed, and the newest tap still waiting to be sent.
+  const shown = useRef<Vote>(vote);
+  const confirmed = useRef<Vote>(vote);
+  const wanted = useRef<Vote["myVote"] | null>(null);
+  const sending = useRef(false);
+  // Always call the parent's newest callback, not the one from the render when the tap happened.
+  const notify = useRef(onConfirmed);
+  notify.current = onConfirmed;
+  const display = (v: Vote) => {
+    shown.current = v;
+    setVote(v);
+  };
+
+  // The parent reloaded: take its numbers (unless a vote is on its way).
+  useEffect(() => {
+    if (sending.current) return;
+    confirmed.current = snapshot(initial);
+    display(confirmed.current);
+  }, [id, initial.score, initial.myVote, initial.likes]);
+
+  async function cast(direction: 1 | -1) {
+    if (!user) return router.push("/(auth)/login");
+    const current = shown.current;
+    // Tapping the arrow that is already lit clears the vote.
+    const next = (current.myVote === direction ? 0 : direction) as Vote["myVote"];
+    const optimistic: Vote = { score: current.score - current.myVote + next, myVote: next };
+    // Hearts count only the +1s: one leaves when my like goes, one arrives when it lands. The server's answer wins in the end.
+    if (current.likes !== undefined) optimistic.likes = current.likes - (current.myVote === 1 ? 1 : 0) + (next === 1 ? 1 : 0);
+    display(optimistic);
+    wanted.current = next;
+    if (sending.current) return;
+    sending.current = true;
+    // True once the server has told us something the parent does not know yet.
+    let fresh = false;
+    const earlier = votesInFlight.get(key);
+    const run = (async () => {
+      if (earlier) {
+        // Another copy of this row is still sending: wait for it, and start from what the server told it.
+        const before = await earlier;
+        if (before) {
+          confirmed.current = before;
+          fresh = true;
+        }
+      }
+      while (wanted.current !== null) {
+        const value = wanted.current;
+        wanted.current = null;
+        if (value === confirmed.current.myVote) continue;
+        confirmed.current = await send(value);
+        fresh = true;
+      }
+    })();
+    const tracked = run.then(
+      () => confirmed.current,
+      () => (fresh ? confirmed.current : null),
+    );
+    votesInFlight.set(key, tracked);
+    try {
+      await run;
+      display(confirmed.current);
+      if (fresh) notify.current?.(confirmed.current);
+    } catch (e) {
+      wanted.current = null;
+      display(confirmed.current);
+      // An earlier tap may have been saved before this one failed: the parent still needs those numbers.
+      if (fresh) notify.current?.(confirmed.current);
+      Alert.alert("Vote not saved", errorText(e));
+    } finally {
+      sending.current = false;
+      if (votesInFlight.get(key) === tracked) votesInFlight.delete(key);
+    }
+  }
+
+  return { vote, cast };
+}
 
 const AVATAR = 36;
 const REPLY_AVATAR = 24;

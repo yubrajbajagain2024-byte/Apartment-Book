@@ -13,16 +13,17 @@ export const read = (f) => fs.readFileSync(path.join(SUPABASE_DIR, f), "utf8");
 
 export async function boot() {
   const db = new PGlite({ extensions: { pgcrypto, postgis } });
-  await db.exec(`create role anon nologin; create role authenticated nologin; create schema auth; create schema storage; create schema extensions;
+  await db.exec(`create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls; create schema auth; create schema storage; create schema extensions;
     create table auth.users (id uuid primary key default gen_random_uuid(), email text, raw_user_meta_data jsonb not null default '{}'::jsonb);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb ->> 'sub', '')::uuid $$;
     create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
     create table storage.objects (id uuid default gen_random_uuid(), bucket_id text, name text, owner uuid, owner_id text); alter table storage.objects enable row level security;
     create function storage.foldername(name text) returns text[] language sql immutable as $$ select (string_to_array(name, '/'))[1 : array_length(string_to_array(name, '/'), 1) - 1] $$;
-    create publication supabase_realtime; grant usage on schema public, auth, storage, extensions to anon, authenticated; grant all on storage.objects, storage.buckets to anon, authenticated;
+    create publication supabase_realtime; grant usage on schema public, auth, storage, extensions to anon, authenticated, service_role; grant all on storage.objects, storage.buckets to anon, authenticated;
     -- Supabase grants new public tables/functions to the API roles by default; migrations that revoke must win.
-    alter default privileges in schema public grant all on tables to anon, authenticated;
-    alter default privileges in schema public grant execute on functions to anon, authenticated;`);
+    alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+    alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
+    grant all on all tables in schema auth to service_role;`);
   for (const f of fs.readdirSync(path.join(SUPABASE_DIR, "migrations")).sort()) await db.exec(read(`migrations/${f}`));
   await db.exec(`grant execute on all functions in schema extensions to anon, authenticated;`);
   await db.exec(read("seed.sql"));
@@ -35,7 +36,12 @@ export async function boot() {
     await db.exec(`set role anon; select set_config('request.jwt.claims', '', false);`);
     try { return await fn(); } finally { await db.exec(`reset role;`); }
   };
-  return { db, mk, as, asAnon };
+  // The website's server (write API, Mux webhook) runs as service_role: it bypasses RLS and has no auth.uid().
+  const asService = async (fn) => {
+    await db.exec(`set role service_role; select set_config('request.jwt.claims', '{"role":"service_role"}', false);`);
+    try { return await fn(); } finally { await db.exec(`reset role; select set_config('request.jwt.claims', '', false);`); }
+  };
+  return { db, mk, as, asAnon, asService };
 }
 
 let failures = 0;

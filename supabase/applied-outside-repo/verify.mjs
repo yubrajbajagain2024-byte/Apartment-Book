@@ -39,7 +39,7 @@ const setup = harness.match(/await db\.exec\(`(create role anon[\s\S]*?)`\);/)?.
 if (!setup) throw new Error("Could not read the setup from supabase/tests/harness.mjs");
 const db = new PGlite({ extensions: { pgcrypto, postgis } });
 await db.exec(setup);
-await db.exec(`create role service_role nologin;
+await db.exec(`do $do$ begin if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin; end if; end $do$; -- the harness may have made it already
   alter table auth.users add column if not exists email_confirmed_at timestamptz,
     add column if not exists created_at timestamptz not null default now(), add column if not exists banned_until timestamptz;
   create table auth.mfa_factors (id uuid primary key default gen_random_uuid(), user_id uuid, status text, factor_type text);

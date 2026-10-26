@@ -7,7 +7,7 @@ import { AdminReview } from "@/components/business/admin-review";
 export const metadata: Metadata = { title: "Review businesses" };
 
 /**
- * The CampConnect team's queue: approve (once the owner confirmed their email), reject or suspend businesses; verify
+ * The UniBuzz team's queue: approve (once the owner confirmed their email), reject or suspend businesses; verify
  * them with what was checked; record their paid promotions. Admins only.
  */
 export default async function AdminPage() {

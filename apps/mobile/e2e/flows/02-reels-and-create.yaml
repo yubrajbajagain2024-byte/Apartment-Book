@@ -14,7 +14,7 @@ appId: host.exp.Exponent
 # opens the account sheet, titled with the signed-in email.
 - tapOn: "Profile.*"
 - extendedWaitUntil:
-    visible: "Join CampConnect|Edit profile"
+    visible: "Join UniBuzz|Edit profile"
     timeout: 30000
 - runFlow:
     when:
@@ -36,7 +36,7 @@ appId: host.exp.Exponent
     timeout: 30000
 - assertVisible: "Pause|Play"
 - takeScreenshot: e2e/screenshots/13-reels
-- tapOn: "For you"
+- tapOn: "Orbit"
 - waitForAnimationToEnd
 # Create menu
 - tapOn: "Create"
@@ -45,8 +45,19 @@ appId: host.exp.Exponent
 - assertVisible: "Buzz \\(anonymous\\)"
 - assertVisible: "Snap"
 - takeScreenshot: e2e/screenshots/14-create-menu
+# Buzz's composer is a sheet on Home's Buzz page: Home moves there and it rises (after the guidelines gate, if needed).
 - tapOn: "Buzz \\(anonymous\\)"
 - extendedWaitUntil:
-    visible: ".*anonymous.*"
+    visible: "I understand|You're anonymous.*"
     timeout: 30000
+- runFlow:
+    when:
+      visible: "I understand"
+    commands:
+      - tapOn: "I understand"
+- extendedWaitUntil:
+    visible: "You're anonymous.*"
+    timeout: 30000
+- assertVisible: "Buzz it"
 - takeScreenshot: e2e/screenshots/15-create-buzz
+- tapOn: "Close"

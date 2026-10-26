@@ -82,7 +82,7 @@ export async function businessSignUpAction(_prev: FormState, formData: FormData)
     return { error: "An account with this email already exists. Try logging in instead.", values };
   }
   if (data.session) redirect(await portalPath("/"));
-  return { success: `We sent a confirmation link to ${parsed.data.email}. Open it to activate your account; your business is then reviewed by the CampConnect team.` };
+  return { success: `We sent a confirmation link to ${parsed.data.email}. Open it to activate your account; your business is then reviewed by the UniBuzz team.` };
 }
 
 /** Someone invited to a team signs up from the invite link: the address is the invite's, the account joins that team. */
@@ -124,7 +124,7 @@ export async function businessSignInAction(_prev: FormState, formData: FormData)
   const role = await getMyRole(supabase).catch(() => "student" as const);
   if (!canUsePortal(role)) {
     await supabase.auth.signOut();
-    return { error: `This is the business portal. Students sign in to CampConnect at ${getSiteUrl()} or in the app.`, values };
+    return { error: `This is the business portal. Students sign in to UniBuzz at ${getSiteUrl()} or in the app.`, values };
   }
   redirect(await portalPath(safeNextPath(String(formData.get("next") ?? ""), "/")));
 }

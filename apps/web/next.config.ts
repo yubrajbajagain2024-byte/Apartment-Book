@@ -12,7 +12,7 @@ const supabaseHost = (() => {
 
 const nextConfig: NextConfig = {
   // The shared package is plain TypeScript; let Next.js compile it.
-  transpilePackages: ["@apartment-book/shared"],
+  transpilePackages: ["@apartment-book/shared", "@apartment-book/moderation"],
   images: {
     // Photos are the product: serve them sharp. Originals stay untouched in
     // storage; these settings control the on-page renditions next/image makes.

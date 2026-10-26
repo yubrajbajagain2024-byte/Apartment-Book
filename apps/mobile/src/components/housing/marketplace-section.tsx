@@ -198,7 +198,7 @@ export function MarketplaceSection({
         CellRendererComponent={appearCells}
         renderItem={renderItem}
         ListEmptyComponent={empty()}
-        ListFooterComponent={footer()}
+        ListFooterComponent={footer() ?? undefined}
         onEndReached={feed.loadMore}
         onEndReachedThreshold={0.6}
         refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={refreshWithHaptic(onRefresh)} progressViewOffset={inset.progressViewOffset} />}
