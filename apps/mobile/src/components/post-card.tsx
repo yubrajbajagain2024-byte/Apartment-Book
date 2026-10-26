@@ -1,16 +1,12 @@
 import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { APP_NAME, getOrCreateDirectConversation, inquiryPrefill, startListingConversation, reportContent, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type PostTargetType, type SharedPost, REPORT_REASONS } from "@apartment-book/shared";
-import { useSession } from "@/lib/session";
+import type { FeedMedia, PostEngagement, PostTargetType } from "@apartment-book/shared";
 import { shortDate } from "@/lib/short-date";
-import { SITE_URL, supabase } from "@/lib/supabase";
 import { makeStyles } from "@/lib/theme-provider";
-import { useActionSheet } from "./action-sheet";
-import { useLike, useSave } from "./engagement";
 import { ExpandableText } from "./expandable-text";
+import { useListingActions } from "./listing-actions";
 import { PhotoCarousel } from "./photo-carousel";
 import { POST_GUTTER, POST_TEXT, PostActions, PostFrame, PostHeader } from "./post-bits";
-import { firstImageOf, useShareSheet } from "./share-sheet";
 
 export type PostCardProps = {
   targetType: PostTargetType;
@@ -47,77 +43,24 @@ export type PostCardProps = {
 export const FEED_HEADER_PADDING = 12;
 
 /**
- * An apartment or roommate post in a feed, laid out like the posts on Home (see post-bits): header → title, price line
- * and the description folded to three lines ("more…" / "less") with its chips → the photos or video in a rounded frame →
- * heart, comment and share with their counts, the chat pill (not on your own listing) and the bookmark. No card box: posts follow each other on the screen with room between them.
+ * A roommate post in a feed, laid out like the posts on Home (see post-bits): header → title, price line and the
+ * description folded to three lines ("more…" / "less") with its chips → the photos or video in a rounded frame → heart,
+ * comment and share with their counts, the chat pill (not on your own post) and the bookmark. No card box: posts follow
+ * each other on the screen with room between them. (Apartments have their own card: housing/housing-card.tsx.)
  */
 export function PostCard(props: PostCardProps) {
   const { poster, title, lead, description, media, createdAt, path } = props;
   const styles = useStyles();
   const router = useRouter();
-  const show = useActionSheet();
-  const shareSheet = useShareSheet();
-  const { user } = useSession();
-  const needLogin = () => router.push("/(auth)/login");
-  const like = useLike(props.targetType, props.targetId, props.engagement, user?.id ?? null, needLogin);
-  const save = useSave(props.targetType, props.targetId, props.saved, user?.id ?? null, needLogin);
+  const actions = useListingActions({ targetType: props.targetType, targetId: props.targetId, path, poster, businessId: props.businessId, title, lead, description, media, engagement: props.engagement, saved: props.saved });
+  const { like, save, own, openDetail } = actions;
   const text = description?.trim() ?? "";
-  const own = user?.id === poster.id;
   // "1.2 mi from campus · San Marcos · Oct 2"
   const meta = [props.subtitle, shortDate(createdAt)].filter(Boolean).join(" · ");
 
-  const openDetail = (focusComments = false) => router.push({ pathname: path as never, params: focusComments ? { comment: "1" } : {} } as never);
-
-  async function message() {
-    if (!user) return needLogin();
-    if (own) return router.push("/messages");
-    try {
-      const business = props.businessId && props.targetType === "apartment" ? props.businessId : null;
-      const id = business ? await startListingConversation(supabase, { targetType: "apartment", targetId: props.targetId, posterId: poster.id, businessId: business }) : await getOrCreateDirectConversation(supabase, poster.id);
-      const prefill = business && title ? inquiryPrefill(poster.name, title) : title ? `Hi ${poster.name.split(" ")[0]}! I saw your post "${title}" and I'd like to chat.` : `Hi ${poster.name.split(" ")[0]}! I saw your post and I'd like to chat.`;
-      router.push({ pathname: "/messages/[id]", params: { id, prefill, ...(props.targetType === "post" ? {} : { targetType: props.targetType, targetId: props.targetId }) } });
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Could not open the chat");
-    }
-  }
-
-  /** The friends sheet, with the card's title, price line (or description) and first picture; its "Share to…" row is the system share as before. */
-  function share() {
-    const author = { id: poster.id, name: poster.name, avatar_url: poster.avatarUrl };
-    const imageUrl = firstImageOf(media);
-    const caption = lead || text || null;
-    const shared: SharedPost =
-      props.targetType === "post"
-        ? { target_type: "post", target_id: props.targetId, kind: "post", path, title: null, caption, image_url: imageUrl, author }
-        : sharedPostFromListing({ targetType: props.targetType, targetId: props.targetId, title: title ?? poster.name, caption, imageUrl, author });
-    shareSheet.open(shared, { url: `${SITE_URL}${path}`, label: title ?? APP_NAME });
-  }
-
-  function report() {
-    if (!user) return needLogin();
-    show(
-      REPORT_REASONS.map((r) => ({
-        label: r.label,
-        onPress: async () => {
-          await reportContent(supabase, user.id, { targetType: props.targetType, targetId: props.targetId, reason: r.value as ReportReason }).catch(() => {});
-          alert("Thanks. Our team will review this post.");
-        },
-      })),
-      "Why are you reporting this post?",
-    );
-  }
-
-  function menu() {
-    show([
-      { label: save.saved ? "Unsave post" : "Save post", icon: save.saved ? "bookmark" : "bookmark-outline", onPress: () => void save.toggle() },
-      { label: "Share post", icon: "share-outline", onPress: share },
-      ...(own ? [] : [{ label: "Report post", icon: "flag-outline" as const, destructive: true, onPress: report }]),
-    ]);
-  }
-
   return (
     <View style={styles.post} accessibilityLabel={`Post: ${title ?? description?.slice(0, 40) ?? "post"}`}>
-      <PostHeader name={poster.name} avatarUrl={poster.avatarUrl} userId={poster.id} verified={poster.verified} badge={poster.badge} meta={meta} onOpen={() => (poster.badge ? openDetail() : router.push({ pathname: "/profile/[id]", params: { id: poster.id } }))} onMenu={menu} />
+      <PostHeader name={poster.name} avatarUrl={poster.avatarUrl} userId={poster.id} verified={poster.verified} badge={poster.badge} meta={meta} onOpen={() => (poster.badge ? openDetail() : router.push({ pathname: "/profile/[id]", params: { id: poster.id } }))} onMenu={actions.menu} />
 
       {/* The words come before the picture, Facebook style; a tap on them opens the listing. */}
       <Pressable onPress={() => openDetail()} style={styles.body}>
@@ -139,7 +82,7 @@ export function PostCard(props: PostCardProps) {
       ) : null}
 
       {/* The chat pill is for reaching the owner: your own listing has none. */}
-      <PostActions liked={like.liked} likes={like.likes} comments={props.engagement?.comments ?? 0} saved={save.saved} onLike={() => void like.toggle()} onComment={props.comments === false ? undefined : () => openDetail(true)} onShare={share} onSave={() => void save.toggle()} message={own ? undefined : { label: props.messageLabel ?? "Message", onPress: () => void message() }} messageBeside={props.messageBeside} />
+      <PostActions liked={like.liked} likes={like.likes} comments={props.engagement?.comments ?? 0} saved={save.saved} onLike={() => void like.toggle()} onComment={props.comments === false ? undefined : () => openDetail(true)} onShare={actions.share} onSave={() => void save.toggle()} message={own ? undefined : { label: props.messageLabel ?? "Message", onPress: () => void actions.message() }} messageBeside={props.messageBeside} />
     </View>
   );
 }

@@ -36,6 +36,7 @@ export function ListingDetail({
   children,
   focusComments,
   ownerActions,
+  contact,
   aurora = false,
 }: {
   targetType: SavedTargetType;
@@ -50,6 +51,8 @@ export function ListingDetail({
   children?: ReactNode;
   focusComments?: boolean;
   ownerActions?: ReactNode;
+  /** More ways to reach whoever posted it, under their row (a call, say); not on your own listing. */
+  contact?: ReactNode;
   /**
    * The Aurora look (a roommate post): the sections sit on the page itself instead of grey cards, divided by hairlines,
    * so the screen's few Aurora accents (its preference panels, its status pill, its headings) carry the colour.
@@ -160,6 +163,7 @@ export function ListingDetail({
           </View>
           {!own ? <Button title="Message" size="compact" icon="chatbubble-ellipses-outline" onPress={() => void message()} /> : null}
         </Pressable>
+        {!own && contact ? <View style={{ marginTop: 12 }}>{contact}</View> : null}
         {own && ownerActions ? <View style={{ marginTop: 12 }}>{ownerActions}</View> : null}
       </View>
 

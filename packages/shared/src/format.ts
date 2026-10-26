@@ -11,11 +11,13 @@ export function timeAgo(iso: string | null | undefined): string {
   }
 }
 
-/** "7 Sep 2026" */
+/** "7 Sep 2026". A calendar date with no time ("2026-12-01", a move-in day) is that day wherever you are: `new Date()`
+ * would read it as midnight UTC, the evening before across the Americas. */
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "";
   try {
-    return format(new Date(iso), "d MMM yyyy");
+    const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    return format(day ? new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])) : new Date(iso), "d MMM yyyy");
   } catch {
     return iso;
   }
