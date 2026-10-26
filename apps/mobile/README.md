@@ -121,8 +121,8 @@ sign in with `apartmentbook://dev-login?email=…&password=…` once that dialog
 
 The bottom bar is Home, Discover, Messages, Explore, Profile: five tabs in Instagram's order (Profile is your own photo
 in a circle, ringed while the tab is on screen; the person icon signed out). There is no "+" in the bar: creating starts
-from Home, where the "+" on your photo in the top bar (and the one over Reels) opens the create sheet (Post / Reel / Buzz
-/ Snap). It floats over the content as a rounded
+from Home: Orbit's floating "+", the menu under your photo (Upload) and the "+" over Reels open the create sheet (Post /
+Reel / Buzz / Snap). It floats over the content as a rounded
 glass pill, low like Instagram's: just above the home indicator (12pt into the home-indicator inset, 22pt up from the screen's edge on a
 Face ID iPhone; 10pt up where there is no indicator) (`src/app/(tabs)/_layout.tsx`, its size and place in `src/lib/tab-bar.ts`): on iOS 26 real liquid glass, with what scrolls
 under it blurred through, elsewhere a translucent fill; the tab on screen sits in a soft aurora capsule with its icon filled. When you tap
@@ -141,9 +141,10 @@ it is about, "Mark all read" sits in the header, and the bell's badge counts the
 the Buzz page; the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
 three pages, For you | Buzz | Reels, sit side by side in a pager (Posts is a section without a tab: `HIDDEN_HOME_SECTIONS` in the shared constants keeps it out of the row and the pager while its feed, the post features and the data stay; its Following filter is reachable on the website's `/?tab=posts`; reels also run through For you): swipe left or right to move
 between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in an aurora
-ring on the left, which opens your profile, with Instagram's small "+" badge on its corner that opens the create sheet
-(Post / Reel / Buzz / Snap; over Reels the bar's left slot holds a white "+" instead), the UniBuzz wordmark in the middle (it
-reads "Following" while that feed shows) and Search and the Notifications bell on the right; then the three labels spread across the row
+ring on the left, which opens your menu (`src/components/home/profile-menu.tsx`, as UniVerse's: a card with your photo,
+name and @username that opens your profile, then Upload, Saved, Settings, Community Guidelines, and Log out on its own;
+over Reels the bar's left slot holds a white "+" instead), the UniBuzz wordmark in the middle (it reads "Following" while
+that feed shows) and the Notifications bell on the right; then the three labels spread across the row
 (`src/components/sliding-tabs.tsx`): the active one bold with a rounded aurora underline as wide as the label, sliding
 with the finger over a hairline; moving between sections, by tap or swipe, plays no haptic. Under the labels sits the Campus | Global
 toggle, a small segmented pill whose thumb slides to the choice: Campus is your own university, Global every university (and,

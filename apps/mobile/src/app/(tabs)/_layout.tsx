@@ -61,8 +61,8 @@ function ProfileTabIcon({ focused, color, size }: { focused: boolean; color: Col
 
 /**
  * Home | Discover | Messages | Explore (Housing | Roommate | Marketplace) | Profile, Instagram's order with Discover
- * (search, and what is popular on every campus) second. Creating starts from Home: the "+" badge on your photo in its
- * top bar (and the "+" over Reels) opens the create sheet (Post / Reel / Buzz / Snap). The bar is FloatingTabBar: a
+ * (search, and what is popular on every campus) second. Creating starts from Home: Orbit's floating "+", Upload in the
+ * menu under your photo, and the "+" over Reels open the create sheet (Post / Reel / Buzz / Snap). The bar is FloatingTabBar: a
  * rounded glass pill floating over the tabs' content (see lib/tab-bar.ts for its size and the room each tab keeps clear
  * under it) with a capsule that slides to the tab on screen.
  */

@@ -5,8 +5,9 @@ import { useSession } from "@/lib/session";
 
 /**
  * What every create button on Home opens: the "What would you like to share?" sheet with Post, Reel, Buzz (anonymous)
- * and Snap (the camera, then Send To: see app/snap). Signed out it goes to the login screen instead. Shared by the "+" badge on
- * your photo in Home's top bar and the "+" that bar shows over the Reels video (the bottom bar has no "+": Discover is there).
+ * and Snap (the camera, then Send To: see app/snap). Signed out it goes to the login screen instead. Shared by Orbit's
+ * floating "+", Upload in the menu under your photo (ProfileMenuSheet) and the "+" Home's top bar shows over the Reels
+ * video (the bottom bar has no "+": Discover is there).
  */
 export function useCreateMenu(): () => void {
   const router = useRouter();

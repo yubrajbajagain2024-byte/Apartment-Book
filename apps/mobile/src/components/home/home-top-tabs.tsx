@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Animated, Pressable, StyleSheet, Text, View, type LayoutChangeEvent, type StyleProp, type TextStyle } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -13,6 +13,7 @@ import { useSession } from "@/lib/session";
 import { auroraGradient, radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useCreateMenu } from "./create-menu";
+import { ProfileMenuSheet } from "./profile-menu";
 import { BuzzBarLayer, BuzzLabelMask, BuzzMeGlyph, BuzzStatusStripLayer, useBuzzBar } from "./buzz-top-bar";
 import { phosphor } from "@/lib/palette";
 import { Icon } from "@/components/icon";
@@ -104,9 +105,9 @@ export function campusSegments(profile: { university_id: string | null; universi
 
 /**
  * Floating top bar of Home, X style, in three rows. Row 1: your photo in a gradient ring on the left, which opens your
- * profile, with Instagram's small "+" badge on its corner that opens the create sheet (Post / Reel / Buzz); the
- * UniBuzz wordmark in the middle (it reads "Following" while that feed shows); on the right Search (the people search)
- * and then the Notifications bell (it opens the notifications screen; its badge counts the unread). Row 2: the Home tabs (For you | Buzz | Reels) spread across the row
+ * menu (ProfileMenuSheet: your profile, Upload, Saved, Settings, Community Guidelines, Log out; signed out, log in); the
+ * UniBuzz wordmark in the middle (it reads "Following" while that feed shows); on the right the Notifications bell (it
+ * opens the notifications screen; its badge counts the unread; search is the Discover tab). Row 2: the Home tabs (Orbit | Buzz | Reels) spread across the row
  * with X's sliding underline (violet, as wide as the label) over a hairline. Row 3: the Campus | Global toggle, a small
  * segmented pill whose thumb slides to the choice (see useHomeScope: it scopes For you, Buzz, Posts and Reels alike;
  * Campus is the person's own university, Global every university; "Following" joins it only while Posts has a tab,
@@ -114,9 +115,8 @@ export function campusSegments(profile: { university_id: string | null; universi
  * is the pager's offset in points and `pageWidth` the width of one page: the underline slides, the labels crossfade (see
  * SlidingTabs) and the bar's solid background (colors.bar and its hairline) fades out towards Reels with the finger, all
  * on the native driver. `overVideo` says when the text, icons and the toggle turn white and glassy for the video: Home
- * flips it halfway between Posts and Reels. Creating lives in the "+ New post" pill floating over the feed
- * (NewPostButton); over the Reels video, where that pill is gone, the left slot holds the "+" instead, white like the
- * rest of the bar. `section` is the section committed once the pager settles: what screen readers hear as selected
+ * flips it halfway between Posts and Reels. Creating starts from Orbit's floating "+" and the menu's Upload; over the
+ * Reels video the left slot holds a "+" instead of your photo, white like the rest of the bar. `section` is the section committed once the pager settles: what screen readers hear as selected
  * follows it. `translateY` slides the whole bar up out of the way as the page on screen scrolls down and back as soon as
  * it scrolls up, Instagram style (see useCollapsingHeader). Memoized: Home mounting a page ahead of time leaves it alone.
  */
@@ -128,6 +128,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
   const colors = useColors();
   const styles = useStyles();
   const create = useCreateMenu();
+  const [menuOpen, setMenuOpen] = useState(false);
   const overVideo = useOverVideo(overVideoStore);
   // Whether the page under the finger is Posts: flipped halfway, like overVideo, so the title and the toggle follow the swipe, not the settle.
   const onPosts = useOverVideo(onPostsStore);
@@ -180,14 +181,10 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
                 {/* Your photo is not drawn at all while the pager rests on Buzz; near it, it crossfades to a neutral glyph. */}
                 {buzzBar.avatarShown ? (
                   <Animated.View style={[styles.sideLayer, buzzBar.avatarOpacity ? { opacity: buzzBar.avatarOpacity } : null]}>
-                    <Pressable onPress={() => router.push("/(tabs)/profile")} hitSlop={4} accessibilityRole="button" accessibilityLabel="Your profile" style={styles.ring}>
+                    <Pressable onPress={() => (user ? setMenuOpen(true) : router.push("/(auth)/login"))} hitSlop={4} accessibilityRole="button" accessibilityLabel="Your menu" accessibilityHint="Your profile, Upload, Saved, Settings and more" style={styles.ring}>
                       <View style={styles.ringGap}>
                         {profile ? <Avatar name={profile.full_name} url={profile.avatar_url} size={PHOTO} online={false} transition={0} /> : <Icon name="person-circle" size={PHOTO} color={colors.faint} />}
                       </View>
-                    </Pressable>
-                    {/* The create badge, labelled "Create" like the "+" over Reels: the end-to-end flows start from it. */}
-                    <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" accessibilityHint="A post, a reel, a Buzz thread or a Snap" style={styles.plus}>
-                      <Icon name="add" size={13} color={colors.onBrand} />
                     </Pressable>
                   </Animated.View>
                 ) : null}
@@ -223,6 +220,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
           beneath the clock, never through it. Faded with the bar's solid look, so Reels keeps its video edge to edge. */}
       <Animated.View pointerEvents="none" style={[styles.statusStrip, { height: insets.top, opacity: solid ?? (overVideo ? 0 : 1) }]} />
       <BuzzStatusStripLayer layer={buzzBar.layer} height={insets.top} />
+      <ProfileMenuSheet visible={menuOpen} onClose={() => setMenuOpen(false)} />
     </>
   );
 });
@@ -270,7 +268,7 @@ const useStyles = makeStyles((colors, scheme) => ({
   statusStrip: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 11, backgroundColor: colors.bar },
   row: { height: ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: SIDE_PAD },
   side: { width: SIDE, height: ROW, alignItems: "center", justifyContent: "center" },
-  // Your photo (and its "+") and, near Buzz, the glyph in its place: layers over each other in the same square.
+  // Your photo and, near Buzz, the glyph in its place: layers over each other in the same square.
   sideLayer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
   sideSlot: { width: SIDE_SLOT, height: ROW, flexDirection: "row", alignItems: "center" },
   sideEnd: { justifyContent: "flex-end", paddingRight: (SIDE - HEADER_ACTION_SIZE) / 2 },
@@ -280,8 +278,6 @@ const useStyles = makeStyles((colors, scheme) => ({
   // The ring: the aurora, corner to corner (plain brand blue where the platform draws no gradient), with a gap in the bar's colour around the photo.
   ring: { width: RING_SIZE, height: RING_SIZE, borderRadius: RING_SIZE / 2, alignItems: "center", justifyContent: "center", backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.auroraGlow, 135) },
   ringGap: { width: PHOTO + 2 * PHOTO_GAP, height: PHOTO + 2 * PHOTO_GAP, borderRadius: PHOTO / 2 + PHOTO_GAP, backgroundColor: colors.bar, alignItems: "center", justifyContent: "center" },
-  // Instagram's "+" on the photo's bottom-right corner: a small blue disc with a ring of the bar's colour, so it reads apart from the photo.
-  plus: { position: "absolute", right: 0, bottom: 2, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.aurora, 135), borderWidth: 2, borderColor: colors.bar, alignItems: "center", justifyContent: "center" },
   // Under the white words and icons over Reels: dark and soft enough to hold them on a bright frame.
   shadow: { textShadowColor: colors.mediaTextShadow, textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 } },
   // The toggle sits centred in its row, just under the labels' hairline.

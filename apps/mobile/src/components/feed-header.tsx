@@ -7,10 +7,11 @@ import { Icon } from "@/components/icon";
 import { AnimatedPressable, usePressScale } from "@/components/ui";
 
 /**
- * The round floating "+" of a feed (Explore's), above the bottom bar: the one prominent action, an aurora disc with a
- * soft shadow that dips under the finger (no haptic). Signed out it goes to log in.
+ * The round floating "+" of a feed (Explore's, Orbit's), above the bottom bar: the one prominent action, an aurora disc
+ * with a soft shadow that dips under the finger (no haptic). With `href` it goes there (signed out, to log in); with
+ * `onPress` it does that instead (Orbit's opens the create sheet, which sends a signed-out person to log in itself).
  */
-export function Fab({ href, label }: { href: string; label: string }) {
+export function Fab({ label, hint, ...target }: { label: string; hint?: string } & ({ href: string } | { onPress: () => void })) {
   const styles = useStyles();
   const colors = useColors();
   const router = useRouter();
@@ -19,11 +20,12 @@ export function Fab({ href, label }: { href: string; label: string }) {
   const press = usePressScale(0.92, 1);
   return (
     <AnimatedPressable
-      onPress={() => router.push((user ? href : "/(auth)/login") as never)}
+      onPress={() => ("onPress" in target ? target.onPress() : router.push((user ? target.href : "/(auth)/login") as never))}
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint={hint}
       style={[styles.fab, { bottom: 20 + tabBar, transform: [{ scale: press.scale }] }]}
     >
       <Icon name="add" size={28} weight="semibold" color={colors.onBrand} />
