@@ -1,5 +1,5 @@
 /**
- * The CampConnect mark: three people, the one in front a little larger, for a network of students. Drawn in the current
+ * The UniBuzz mark: three people, the one in front a little larger, for a network of students. Drawn in the current
  * text colour (white on the blue brand disc), in a 64×64 box. The two behind are cut where the front one overlaps them
  * (a mask, so the cut shows whatever is behind: the Aurora disc included). `id` names that mask and must be unique on
  * the page. The same drawing makes the favicon (src/app/icon.svg) and the app's icons (apps/mobile/assets/images).
