@@ -27,7 +27,7 @@ function isProtectedPath(pathname: string): boolean {
 }
 
 /**
- * Is this request for the business portal's own host (business.campconnect.com)? There the portal answers at the
+ * Is this request for the business portal's own host (NEXT_PUBLIC_BUSINESS_SITE_URL's)? There the portal answers at the
  * root: "/listings" is the page the site serves at "/business/listings". Any host that starts with "business." counts,
  * so a preview deployment with such an alias works before NEXT_PUBLIC_BUSINESS_SITE_URL is set.
  */

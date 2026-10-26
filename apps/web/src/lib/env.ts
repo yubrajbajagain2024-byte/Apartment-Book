@@ -18,7 +18,7 @@ export function getSiteUrl(): string {
 }
 
 /**
- * Where the business portal lives: its own address (NEXT_PUBLIC_BUSINESS_SITE_URL, e.g. https://business.campconnect.com,
+ * Where the business portal lives: its own address (NEXT_PUBLIC_BUSINESS_SITE_URL, e.g. https://business.<your domain>,
  * served from that host's root), or /business on the site itself when none is set (local work, previews).
  */
 export function getBusinessSiteUrl(): string {

@@ -8,7 +8,7 @@ import { joinPortal, PORTAL_PREFIX, portalPathname } from "@/lib/business/paths"
 
 const PortalBaseContext = createContext<string>(PORTAL_PREFIX);
 
-/** The prefix the portal's links need on this host ("" on business.campconnect.com, "/business" on the site). */
+/** The prefix the portal's links need on this host ("" on the portal's own domain, "/business" on the site). */
 export function PortalBaseProvider({ base, children }: { base: string; children: ReactNode }) {
   return <PortalBaseContext.Provider value={base}>{children}</PortalBaseContext.Provider>;
 }

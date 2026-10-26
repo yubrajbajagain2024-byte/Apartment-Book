@@ -216,7 +216,7 @@ export const MUTE_DURATIONS = [
   { value: "forever", label: "Until unmuted", hours: null },
 ] as const;
 
-/** The business portal (business.campconnect.com): businesses post listings and deals, and answer students' inquiries. */
+/** The business portal (UniBuzz Business, at /business): businesses post listings and deals, and answer students' inquiries. */
 export const BUSINESS_PORTAL_NAME = "UniBuzz Business";
 export const BUSINESS_PORTAL_TAGLINE = "Reach students where they already look for housing, food and deals around campus.";
 export const BUSINESS_CATEGORIES = [

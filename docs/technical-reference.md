@@ -81,7 +81,7 @@ Housing is one main tab, labelled **Explore** in the bar with a compass icon, wi
 
 ## Business portal
 
-**UniBuzz Business** is a website of its own for landlords and local businesses, served at **business.campconnect.com** (or at `/business` on the main site while it has no domain of its own). It has its own login and sign-up but shares the backend and the auth with the student apps; there is no mobile app for it, and the student app shows a business account only a notice pointing to the portal.
+**UniBuzz Business** is a website of its own for landlords and local businesses, served at `/business` on the main site, and at its own domain once one is set (`NEXT_PUBLIC_BUSINESS_SITE_URL`; none yet). It has its own login and sign-up but shares the backend and the auth with the student apps; there is no mobile app for it, and the student app shows a business account only a notice pointing to the portal.
 
 - **Roles.** `profiles.role` is `student` (everyone so far), `business_owner`, `business_staff` or `admin` (migration 39, `supabase/migrations/20261101000000_business_portal.sql`). Nobody can change their own role: a trigger keeps it, and only the sign-up trigger and `grant_role()` (database owner only) set it. Make someone an admin from the SQL editor with `select public.grant_role('<profile id>', 'admin');`. On the live project, staff owners and admins from the admin section become admins here too.
 - **Signing up and review.** A business signs up with any email address (students still need a university one) and starts as a **pending** business. The UniBuzz team approves, rejects or suspends it on the portal's **Review** page (admins only); approval waits until the owner has confirmed their email.

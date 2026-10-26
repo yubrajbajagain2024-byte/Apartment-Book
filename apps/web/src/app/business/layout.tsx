@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** The business portal: served at business.campconnect.com (its root) and under /business on the site. */
+/** The business portal: served under /business on the site, and at the root of its own domain once NEXT_PUBLIC_BUSINESS_SITE_URL is set. */
 export default async function BusinessLayout({ children }: { children: React.ReactNode }) {
   const base = await getPortalBase();
   return <PortalBaseProvider base={base}>{children}</PortalBaseProvider>;

@@ -14,7 +14,7 @@
  * It will run the migration + seed. You then fill in apps/web/.env.local yourself.
  *
  * Options: SITE_URL (default http://localhost:3000), BUSINESS_SITE_URL (the business portal's own address, e.g.
- *          https://business.campconnect.com: its /auth/callback is allowed too), SKIP_SEED=1, SKIP_MIGRATION=1,
+ *          https://business.<your domain>: its /auth/callback is allowed too), SKIP_SEED=1, SKIP_MIGRATION=1,
  *          SKIP_ENV=1 (do not rewrite apps/web/.env.local; use when pointing auth at production)
  */
 import fs from "node:fs";
