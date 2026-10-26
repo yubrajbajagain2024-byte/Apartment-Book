@@ -10,7 +10,7 @@ import { useActionSheet } from "./action-sheet";
 import { Icon } from "@/components/icon";
 
 /** Photo (and optional video-tour) picker with immediate uploads; hands back URLs + meta for the form. */
-/** `plain` = wording for Home posts (no "tour" talk). `maxPhotos` defaults to the listing limit. */
+/** `plain` = wording for Home posts and Marketplace items (no "tour" talk). `maxPhotos` defaults to the listing limit. */
 export function MediaPicker({ kind, userId, photos, onPhotos, video, onVideo, videoFirst, plain = false, maxPhotos = MAX_IMAGES_PER_LISTING }: { kind: UploadKind; userId: string; photos: PhotoMeta[]; onPhotos: (p: PhotoMeta[]) => void; video?: ListingVideo | null; onVideo?: (v: ListingVideo | null) => void; videoFirst?: boolean; plain?: boolean; maxPhotos?: number }) {
   const colors = useColors();
   const styles = useStyles();

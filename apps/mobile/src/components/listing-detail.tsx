@@ -136,7 +136,8 @@ export function ListingDetail({
   );
   return (
     <ScrollView ref={scroll} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
-      {media.length > 0 ? <PhotoCarousel media={media} aspect={4 / 5} /> : null}
+      {/* The "Video tour" pill is for apartments, as in the feeds: a roommate post's or an item's video is just a video. */}
+      {media.length > 0 ? <PhotoCarousel media={media} aspect={4 / 5} videoLabel={targetType === "apartment" ? undefined : null} /> : null}
       {media.length > 0 ? actionBar : null}
       <View style={styles.section}>
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>

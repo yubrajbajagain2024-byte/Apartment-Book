@@ -468,6 +468,9 @@ export type Database = {
           status: Database["public"]["Enums"]["item_status"];
           created_at: string;
           updated_at: string;
+          /** Migration 41: a video snapshot, at most one (absent on a database without it). */
+          videos: Json;
+          has_video: boolean;
         };
         Insert: {
           id?: string;
@@ -482,6 +485,8 @@ export type Database = {
           images?: string[];
           image_meta?: Json;
           pickup_location?: string | null;
+          videos?: Json;
+          has_video?: boolean;
           status?: Database["public"]["Enums"]["item_status"];
           created_at?: string;
           updated_at?: string;
@@ -499,6 +504,8 @@ export type Database = {
           images?: string[];
           image_meta?: Json;
           pickup_location?: string | null;
+          videos?: Json;
+          has_video?: boolean;
           status?: Database["public"]["Enums"]["item_status"];
           created_at?: string;
           updated_at?: string;
