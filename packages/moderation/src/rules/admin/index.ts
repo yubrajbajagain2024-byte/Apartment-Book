@@ -1,7 +1,7 @@
 /**
  * The admin rule packs (UniVerse SPEC §5.11): `admin.<category>` upgrades over the `baseline` pack, ported from UniVerse
  * `server/src/services/admin/rules/*.ts`. Pure data; `registry.ts` registers them next to `baseline` at import time.
- * Staff switch packs on and off (`staff_set_rule_pack`); the engine reads the result from `ctx.enabledRulePacks`.
+ * Staff switch packs on and off (`console_set_rule_pack`); the engine reads the result from `ctx.enabledRulePacks`.
  * SERVER-ONLY DATA — never import from packages/shared, the website's client components or the app.
  */
 import type { RulePack } from '../../types';

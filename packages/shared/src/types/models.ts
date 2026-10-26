@@ -264,3 +264,12 @@ export type Paginated<T> = {
   pageSize: number;
   totalPages: number;
 };
+
+// ---------------------------------------------------------------------------
+// Two-factor sign-in for staff (Supabase Auth TOTP; the same shapes as CampConnect Admin's)
+// ---------------------------------------------------------------------------
+export type MfaFactorSummary = { id: string; friendlyName: string | null; status: "verified" | "unverified"; createdAt: string };
+/** enrolled = a verified authenticator exists; verified = this session passed it (aal2) and it still exists, the rule staff_mfa_verified() applies in SQL. */
+export type MfaStatus = { currentLevel: "aal1" | "aal2"; nextLevel: "aal1" | "aal2"; verified: boolean; enrolled: boolean; factors: MfaFactorSummary[] };
+/** What to show while the user adds the authenticator: QR code (SVG data URL), the secret to type by hand and the otpauth URI. */
+export type TotpEnrollment = { factorId: string; qrCode: string; secret: string; uri: string };

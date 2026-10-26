@@ -718,7 +718,7 @@ await expectOk("report: through Trust & Safety; idempotent; the item leaves the 
   if (!/row-level security/.test(direct ?? "")) throw new Error(`direct Buzz report: ${direct}`);
   const replyTarget = await reply(R1, first.id, "a reply to report");
   if (!same(await call(VIEW, "buzz_v2_report", [replyTarget.id, "other", "This reply is off-topic spam."]), { alreadyReported: false })) throw new Error("reply report");
-  if ((await one(db.query("select target_type from public.reports where target_id = $1", [replyTarget.id]))).target_type !== "buzz_reply") throw new Error("reply report type");
+  if ((await one(db.query("select target_type from public.reports where target_id = $1", [replyTarget.id]))).target_type !== "buzz_comment") throw new Error("reply report type (CampConnect Admin reads buzz_comment)");
   if ((await replies(VIEW, first.id)).items.some((r) => r.id === replyTarget.id)) throw new Error("reported reply still in the reporter's thread");
 });
 await expectOk("adapters: snapshot (no author), author_of (the only way to the author), set_status (removed takes notifications), staff context (blind)", async () => {
@@ -1124,11 +1124,11 @@ const W = harness(await boot());
     if ((await W.ids(B, { scope: "global", sort: "new" })).includes(tGlobal)) throw new Error("hidden thread in the feed");
     if (!(await W.replies(C, tCampus)).items.find((x) => x.id === o1).collapsed) throw new Error("hidden anon not collapsed");
   });
-  await expectOk("conversion: reports on replies are 'buzz_reply' reports (no 'buzz_comment' left, nor allowed); the reporter no longer sees what they reported", async () => {
+  await expectOk("conversion: reports on replies stay 'buzz_comment' reports (CampConnect Admin's type; 'buzz_reply' is not allowed); the reporter no longer sees what they reported", async () => {
     const reps = (await d.query("select target_type, target_id from public.reports order by target_type")).rows;
-    if (!same(reps, [{ target_type: "buzz", target_id: tGlobal }, { target_type: "buzz_reply", target_id: o3 }])) throw new Error(JSON.stringify(reps));
-    const msg = await errorOf(() => d.query("insert into public.reports (reporter_id, target_type, target_id, reason) values ($1, 'buzz_comment', $2, 'other')", [B, o2]));
-    if (!/reports_target_type_check/.test(msg ?? "")) throw new Error(`buzz_comment still allowed: ${msg}`);
+    if (!same(reps, [{ target_type: "buzz", target_id: tGlobal }, { target_type: "buzz_comment", target_id: o3 }])) throw new Error(JSON.stringify(reps));
+    const msg = await errorOf(() => d.query("insert into public.reports (reporter_id, target_type, target_id, reason) values ($1, 'buzz_reply', $2, 'other')", [B, o2]));
+    if (!/reports_target_type_check/.test(msg ?? "")) throw new Error(`buzz_reply allowed: ${msg}`);
     if ((await W.ids(C, { scope: "global", sort: "new" })).includes(tGlobal)) throw new Error("reported thread in the reporter's feed");
     if ((await W.replies(A, tCampus)).items.some((x) => x.id === o3)) throw new Error("reported reply in the reporter's thread");
   });

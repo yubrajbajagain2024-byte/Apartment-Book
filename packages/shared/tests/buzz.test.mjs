@@ -74,6 +74,11 @@ test("database errors become BuzzErrors with the right code and status", () => {
   assert.equal(missing.code, "unavailable");
   assert.equal(missing.status, 503);
   assert.ok(!/schema cache/.test(missing.message));
+  // CampConnect Admin's suspension trigger, on a vote.
+  const suspended = toBuzzError({ message: "Your account is suspended", hint: "ACCOUNT_SUSPENDED" });
+  assert.equal(suspended.code, "suspended");
+  assert.equal(suspended.status, 403);
+  assert.equal(toBuzzError({ message: "x", hint: "ACCOUNT_SUSPENDED" }).code, "suspended");
   assert.equal(buzzErrorMessage(new Error("boom")), "boom");
   const blocked = new BuzzError("content_blocked", "Not posted", 422, { messageId: "m", title: "t", category: "hate", guidelineAnchor: "hate", support: null });
   assert.equal(contentBlockedDetails(blocked).category, "hate");
