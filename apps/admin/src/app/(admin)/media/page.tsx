@@ -51,12 +51,17 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
         </CardHeader>
         <CardBody className="flex flex-col gap-4">
           <ul className="flex flex-col gap-1.5">
-            <Check ok={status.storage} label="Storage" detail={status.storage ? "configured: photos are quarantined, released and deleted." : "not configured: set SUPABASE_SERVICE_ROLE_KEY on the admin app."} />
+            <Check
+              ok={status.enabled}
+              label="Switch"
+              detail={status.enabled ? "MEDIA_WORKER_ENABLED=true: the worker runs." : status.switchOn ? "MEDIA_WORKER_ENABLED=true, but the service-role key is missing." : "off: set MEDIA_WORKER_ENABLED=true on the admin app to let it move and delete files. The service-role key alone (used for invitation emails) does not turn it on."}
+            />
+            <Check ok={status.storage} label="Storage" detail={status.storage ? "service-role key present (photos can be quarantined, released and deleted once the switch is on)." : "not configured: set SUPABASE_SERVICE_ROLE_KEY on the admin app."} />
             <Check ok={status.mux} label="Mux" detail={status.mux ? "configured: video playback is disabled, re-enabled and assets deleted." : "not configured: set MUX_TOKEN_ID and MUX_TOKEN_SECRET on the admin app; video jobs wait."} />
             <Check ok={status.cron} label="Scheduled retry" detail={status.cron ? "CRON_SECRET is set; the daily sweep in vercel.json can run." : "set CRON_SECRET to enable the scheduled sweep. Hiding and deleting still run the worker at once."} />
           </ul>
           <p className="text-sm text-gray-600">The worker runs right after every hide, restore and delete. Use the button after a retry, or when jobs piled up while the keys were missing.</p>
-          <RunWorkerButton enabled={status.storage} />
+          <RunWorkerButton enabled={status.enabled} />
         </CardBody>
       </Card>
 

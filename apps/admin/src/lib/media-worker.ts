@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { claimMediaJobs, completeMediaJob, failMediaJob, muxPosterUrl, type Client, type MediaJob } from "@apartment-book/shared";
+import { mediaWorkerEnabled } from "@/lib/env";
 import { createPlaybackId, deleteAsset, deletePlaybackId, getAsset, muxConfigured, MuxError } from "@/lib/mux";
 import { createServiceClient } from "@/lib/supabase/service";
 import { errorMessage } from "@/lib/utils";
@@ -32,7 +33,7 @@ const VIDEO_TABLES: Record<string, string> = { apartment: "apartments", roommate
 
 export type WorkerResult = { id: number; kind: MediaJob["kind"]; ref: string; status: "done" | "failed"; error?: string };
 export type WorkerSummary = {
-  /** False when SUPABASE_SERVICE_ROLE_KEY is not set: nothing was attempted. */
+  /** False unless MEDIA_WORKER_ENABLED=true and SUPABASE_SERVICE_ROLE_KEY are both set: nothing was attempted. */
   configured: boolean;
   claimed: number;
   done: number;
@@ -44,6 +45,8 @@ export type WorkerSummary = {
 export async function runMediaWorker(opts: { limit?: number; budgetMs?: number } = {}): Promise<WorkerSummary> {
   const started = Date.now();
   const summary: WorkerSummary = { configured: false, claimed: 0, done: 0, failed: 0, results: [], ms: 0 };
+  // The single gate for every caller (after a hide, the Media page, the cron sweep): off unless switched on explicitly.
+  if (!mediaWorkerEnabled()) return summary;
   const admin = createServiceClient();
   if (!admin) return summary;
   summary.configured = true;

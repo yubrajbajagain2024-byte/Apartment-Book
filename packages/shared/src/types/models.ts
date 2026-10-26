@@ -210,7 +210,24 @@ export type StaffAccess = { userId: string; role: StaffRole; mfaVerified: boolea
 /** mfaEnrolled is null when the caller may not know: moderators see it on their own row only. */
 export type StaffMember = { userId: string; email: string | null; fullName: string; avatarUrl: string | null; role: StaffRole; grantedBy: string | null; grantedByName: string | null; createdAt: string; mfaEnrolled: boolean | null };
 /** A role promised to an email address that has not confirmed an account yet. */
-export type StaffInvite = { email: string; role: StaffRole; invitedBy: string | null; invitedByName: string | null; createdAt: string };
+export type StaffInvite = {
+  email: string;
+  role: StaffRole;
+  invitedBy: string | null;
+  invitedByName: string | null;
+  createdAt: string;
+  /** Null for the first-owner bootstrap invitation, which does not expire. */
+  expiresAt: string | null;
+  expired: boolean;
+  /** Whether the invitation email went out: not_sent (never tried or this app cannot send), sent, failed. */
+  emailStatus: InviteEmailStatus;
+  emailSentAt: string | null;
+  emailAttempts: number;
+  emailError: string | null;
+  /** The email created the invitee's account (waiting for them to open the link). */
+  accountCreated: boolean;
+};
+export type InviteEmailStatus = "not_sent" | "sent" | "failed";
 export type AuditEntry = { id: number; actorId: string | null; actorEmail: string | null; actorName: string | null; action: string; targetType: string | null; targetId: string | null; details: Record<string, unknown>; createdAt: string };
 export type MfaFactorSummary = { id: string; friendlyName: string | null; status: "verified" | "unverified"; createdAt: string };
 /** enrolled = a verified authenticator exists; verified = this session passed it (aal2) and it still exists, the rule staff_mfa_verified() applies in SQL. */

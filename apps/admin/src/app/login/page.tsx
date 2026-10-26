@@ -30,7 +30,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <a href={getMainSiteUrl()} className="font-medium text-brand-600 hover:underline">
           {PRODUCT_NAME}
         </a>
-        ; there is no sign-up here.
+        ; there is no sign-up here. Forgot your password? Ask an owner or admin to send you a reset email from the Staff page.
       </p>
     </main>
   );

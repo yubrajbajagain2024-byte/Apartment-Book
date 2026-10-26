@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { mediaWorkerEnabled } from "@/lib/env";
 import { runMediaWorker } from "@/lib/media-worker";
 
 /**
@@ -23,6 +24,7 @@ function authorized(request: Request): boolean {
 async function handle(request: Request) {
   if (!process.env.CRON_SECRET) return NextResponse.json({ error: "CRON_SECRET is not set" }, { status: 503 });
   if (!authorized(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!mediaWorkerEnabled()) return NextResponse.json({ error: "The media worker is switched off (MEDIA_WORKER_ENABLED is not true)" }, { status: 503 });
   const summary = await runMediaWorker({ limit: 100, budgetMs: 45_000 });
   return NextResponse.json(summary);
 }

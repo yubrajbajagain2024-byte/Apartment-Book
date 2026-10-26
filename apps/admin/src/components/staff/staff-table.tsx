@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, ShieldOff } from "lucide-react";
 import { assignableRoles, canChangeMember, STAFF_ROLE_VALUES, type StaffAccess, type StaffMember, type StaffRole } from "@apartment-book/shared";
-import { removeStaffAction, setStaffRoleAction } from "@/lib/actions/admin";
+import { removeStaffAction, sendPasswordResetAction, setStaffRoleAction } from "@/lib/actions/admin";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,9 +16,10 @@ import { Time } from "@/components/common/time";
 import { RoleBadge, roleLabel } from "./role-badge";
 
 /** Everyone on the team. Controls only appear where the caller may act (never on their own row); the database re-checks every change anyway. */
-export function StaffTable({ members, me }: { members: StaffMember[]; me: StaffAccess }) {
+export function StaffTable({ members, me, emailsEnabled = false }: { members: StaffMember[]; me: StaffAccess; emailsEnabled?: boolean }) {
   const router = useRouter();
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+  const [notices, setNotices] = useState<Record<string, string | undefined>>({});
   const setError = (userId: string, error?: string) => setErrors((cur) => ({ ...cur, [userId]: error }));
 
   return (
@@ -39,6 +40,9 @@ export function StaffTable({ members, me }: { members: StaffMember[]; me: StaffA
               member={member}
               me={me}
               error={errors[member.userId]}
+              notice={notices[member.userId]}
+              emailsEnabled={emailsEnabled}
+              onNotice={(text) => setNotices((cur) => ({ ...cur, [member.userId]: text }))}
               onError={(error) => setError(member.userId, error)}
               onChanged={() => {
                 setError(member.userId);
@@ -52,7 +56,25 @@ export function StaffTable({ members, me }: { members: StaffMember[]; me: StaffA
   );
 }
 
-function StaffRow({ member, me, error, onError, onChanged }: { member: StaffMember; me: StaffAccess; error?: string; onError: (error: string) => void; onChanged: () => void }) {
+function StaffRow({
+  member,
+  me,
+  error,
+  notice,
+  emailsEnabled,
+  onNotice,
+  onError,
+  onChanged,
+}: {
+  member: StaffMember;
+  me: StaffAccess;
+  error?: string;
+  notice?: string;
+  emailsEnabled: boolean;
+  onNotice: (text: string) => void;
+  onError: (error: string) => void;
+  onChanged: () => void;
+}) {
   const isMe = member.userId === me.userId;
   const editable = canChangeMember(me, member);
   const allowed = assignableRoles(me.role);
@@ -68,6 +90,12 @@ function StaffRow({ member, me, error, onError, onChanged }: { member: StaffMemb
       if (result.error) onError(result.error);
       else onChanged();
     });
+  }
+
+  async function sendReset() {
+    const result = await sendPasswordResetAction(member.userId);
+    if (result.error) onError(result.error);
+    else onNotice(result.success ?? "Sent.");
   }
 
   async function remove() {
@@ -116,15 +144,20 @@ function StaffRow({ member, me, error, onError, onChanged }: { member: StaffMemb
                 </option>
               ))}
             </Select>
+            {emailsEnabled ? (
+              <ConfirmButton variant="outline" size="sm" action={sendReset} confirmText={`Email ${name} a link to choose a new password? Two-factor stays required.`}>
+                Reset password
+              </ConfirmButton>
+            ) : null}
             <ConfirmButton variant="danger" size="sm" action={remove} confirmText={`Remove ${name} from the team? They lose access to this app immediately.`}>
               Remove
             </ConfirmButton>
           </div>
         ) : null}
       </div>
-      {error ? (
+      {error || notice ? (
         <div className="mt-2">
-          <FormMessage error={error} />
+          <FormMessage error={error} success={error ? null : notice} />
         </div>
       ) : null}
     </li>

@@ -22,7 +22,7 @@ import {
   type ReportDecision,
 } from "@apartment-book/shared";
 import { adminErrorMessage, requireStaffAction } from "@/lib/admin";
-import { getServiceRoleKey } from "@/lib/env";
+import { mediaWorkerEnabled } from "@/lib/env";
 import { runMediaWorker } from "@/lib/media-worker";
 import { createClient } from "@/lib/supabase/server";
 import { formToObject, safeNextPath } from "@/lib/utils";
@@ -51,9 +51,9 @@ function reportIdFrom(formData: FormData): string | undefined {
   return parsed.success ? parsed.data : undefined;
 }
 
-/** Run the media worker after the response went out, when the service role is configured. Best effort. */
+/** Run the media worker after the response went out, when it is switched on (MEDIA_WORKER_ENABLED=true). Best effort. */
 function kickMediaWorker(): void {
-  if (!getServiceRoleKey()) return;
+  if (!mediaWorkerEnabled()) return;
   after(async () => {
     await runMediaWorker({ limit: 20, budgetMs: 25_000 }).catch(() => undefined);
   });

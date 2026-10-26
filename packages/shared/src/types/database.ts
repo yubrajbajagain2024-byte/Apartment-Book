@@ -1380,7 +1380,20 @@ export type Database = {
       };
       admin_invites_list: {
         Args: Record<PropertyKey, never>;
-        Returns: { email: string; role: string; invited_by: string | null; invited_by_name: string | null; created_at: string }[];
+        Returns: {
+          email: string;
+          role: string;
+          invited_by: string | null;
+          invited_by_name: string | null;
+          created_at: string;
+          expires_at: string | null;
+          expired: boolean;
+          email_status: string;
+          email_sent_at: string | null;
+          email_attempts: number;
+          email_error: string | null;
+          account_created: boolean;
+        }[];
       };
       admin_staff_add: {
         Args: { p_email: string; p_role: string };
@@ -1396,7 +1409,16 @@ export type Database = {
       };
       admin_invite_revoke: {
         Args: { p_email: string };
+        Returns: boolean;
+      };
+      // Migration 18: invitations sent by email
+      admin_invite_email_result: {
+        Args: { p_email: string; p_ok: boolean; p_user_id?: string | null; p_error?: string | null };
         Returns: undefined;
+      };
+      admin_invite_resend: {
+        Args: { p_email: string };
+        Returns: string;
       };
       admin_audit_list: {
         Args: { p_limit?: number; p_before?: number | null };

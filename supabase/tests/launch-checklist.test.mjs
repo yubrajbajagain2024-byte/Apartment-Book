@@ -7,6 +7,17 @@ const rows = async (p) => (await p).rows;
 const MFA = { aal: "aal2" };
 const fails = async (fn, re) => { try { await fn(); } catch (e) { if (re.test(e.message)) return; throw new Error(`wrong error: ${e.message}`); } throw new Error("no error"); };
 const ORIGIN = "https://dskbzoqreandwwpxiplh.supabase.co/storage/v1/object/public/uploads/";
+// Re-running migration 14 by hand: harmless up to migration 17. Migration 18 replaced four of its invitation functions with
+// new return types, so from then on a re-run is refused outright (it would revert 18's invitation rules); refused inside a
+// transaction, as the setup script and the SQL editor run it, it changes nothing.
+const rerun14 = async (dbx, readx) => {
+  const has18 = (await dbx.query("select to_regprocedure('public.admin_invite_resend(text)') is not null as x")).rows[0].x;
+  if (!has18) return dbx.exec(readx("migrations/20261023000000_admin.sql"));
+  await dbx.exec("begin");
+  try { await dbx.exec(readx("migrations/20261023000000_admin.sql")); throw new Error("re-running 14 after 18 was not refused"); }
+  catch (e) { if (!/cannot change return type/.test(e.message)) throw e; }
+  finally { await dbx.exec("rollback"); }
+};
 
 // ---- a small world: an owner, a moderator, two students with content ----------------------------
 await db.exec("update public.buzz_secrets set thread_jitter_seconds = 0, reply_jitter_seconds = 0");
@@ -182,8 +193,8 @@ await expectOk("8. Review follow-ups: finite end dates, re-running migration 14 
   // a non-finite end date would break Supabase Auth's user loading
   await fails(() => as(MOD, () => db.query("select public.admin_user_suspend($1,'test infinity','infinity'::timestamptz)", [T]), MFA), /within 100 years/);
   await fails(() => as(MOD, () => db.query("select public.admin_user_suspend($1,'too long', now() + interval '200 years')", [T]), MFA), /within 100 years/);
-  // re-applying migration 14 by hand after 15 must not revert 15's gate
-  await db.exec(read("migrations/20261023000000_admin.sql"));
+  // re-applying migration 14 by hand after 15 must not revert 15's gate (after 18 the re-run is refused and changes nothing)
+  await rerun14(db, read);
   const MOD2 = await mk("mod2@txstate.edu", "Max Moderator"); await as(OWNER, () => db.query("select public.admin_staff_add('mod2@txstate.edu','moderator')"), MFA);
   await as(OWNER, () => db.query("select public.admin_user_suspend($1,'Leaked a report')", [MOD2]), MFA);
   await fails(() => as(MOD2, () => db.query("select * from public.admin_staff_list()"), MFA), /Your account is suspended/);

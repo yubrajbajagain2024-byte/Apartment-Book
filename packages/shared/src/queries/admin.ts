@@ -1,5 +1,5 @@
 import { STAFF_ROLE_VALUES, type StaffRole } from "../constants";
-import type { AuditEntry, Client, StaffAccess, StaffInvite, StaffMember } from "../types/models";
+import type { AuditEntry, Client, InviteEmailStatus, StaffAccess, StaffInvite, StaffMember } from "../types/models";
 import { MODERATION_AUDIT_LABELS } from "./admin-moderation";
 
 /**
@@ -36,7 +36,7 @@ export async function listStaff(supabase: Client): Promise<StaffMember[]> {
   }));
 }
 
-/** Invitations waiting for the address to confirm an account (admin+, aal2; moderators get "Not allowed"). */
+/** Invitations waiting for the address to confirm an account, with their email and expiry state (admin+, aal2; moderators get "Not allowed"). */
 export async function listStaffInvites(supabase: Client): Promise<StaffInvite[]> {
   const { data, error } = await supabase.rpc("admin_invites_list");
   if (error) throw error;
@@ -46,7 +46,31 @@ export async function listStaffInvites(supabase: Client): Promise<StaffInvite[]>
     invitedBy: r.invited_by,
     invitedByName: r.invited_by_name,
     createdAt: r.created_at,
+    expiresAt: r.expires_at ?? null,
+    expired: r.expired === true,
+    emailStatus: (["not_sent", "sent", "failed"].includes(r.email_status) ? r.email_status : "not_sent") as InviteEmailStatus,
+    emailSentAt: r.email_sent_at ?? null,
+    emailAttempts: Number(r.email_attempts ?? 0),
+    emailError: r.email_error ?? null,
+    accountCreated: r.account_created === true,
   }));
+}
+
+/**
+ * Record what happened to an invitation email (admin+, aal2; the same rank rule as withdrawing). When it was sent,
+ * pass the id of the account Supabase created for the address: the database checks it belongs to this invitation
+ * and from then on only that account can claim it.
+ */
+export async function recordInviteEmail(supabase: Client, input: { email: string; ok: boolean; userId?: string | null; error?: string | null }): Promise<void> {
+  const { error } = await supabase.rpc("admin_invite_email_result", { p_email: input.email, p_ok: input.ok, p_user_id: input.userId ?? null, p_error: input.error ?? null });
+  if (error) throw error;
+}
+
+/** Renew a pending invitation for another 7 days before its email is sent again (admin+, aal2). Returns its role. */
+export async function resendStaffInvite(supabase: Client, email: string): Promise<StaffRole> {
+  const { data, error } = await supabase.rpc("admin_invite_resend", { p_email: email });
+  if (error) throw error;
+  return data as StaffRole;
 }
 
 /**
@@ -71,10 +95,11 @@ export async function removeStaff(supabase: Client, userId: string): Promise<voi
   if (error) throw error;
 }
 
-/** Withdraw a pending invitation (admin+, aal2). */
-export async function revokeStaffInvite(supabase: Client, email: string): Promise<void> {
-  const { error } = await supabase.rpc("admin_invite_revoke", { p_email: email });
+/** Withdraw a pending invitation (admin+, aal2). Returns whether the unused account its email created was deleted too. */
+export async function revokeStaffInvite(supabase: Client, email: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("admin_invite_revoke", { p_email: email });
   if (error) throw error;
+  return data === true;
 }
 
 /** Audit entries, newest first. Pass the smallest id you have as `before` to load older rows (moderator+, aal2). */
@@ -128,6 +153,10 @@ const AUDIT_ACTION_LABELS = new Map<string, string>([
   ["staff.remove", "Removed from the team"],
   ["invite.create", "Invitation sent"],
   ["invite.revoke", "Invitation withdrawn"],
+  ["invite.email_sent", "Invitation email sent"],
+  ["invite.email_failed", "Invitation email failed"],
+  ["invite.resend", "Invitation renewed"],
+  ["invite.expired", "Expired invitation not accepted"],
   ["security.mfa_enrolled", "Two-factor authentication turned on"],
   ["security.mfa_removed", "Two-factor authentication turned off"],
 ]);

@@ -15,9 +15,11 @@
  *      apps/admin/.env.local (refused if the key is not the anon/publishable key), the website's
  *      URL for links, and NEXT_PUBLIC_GOOGLE_LOGIN=off. The admin URL itself comes from Vercel's
  *      VERCEL_PROJECT_PRODUCTION_URL, so no guess is needed.
- *   3. Refuses to continue if SUPABASE_SERVICE_ROLE_KEY, MUX_TOKEN_ID, MUX_TOKEN_SECRET or
- *      CRON_SECRET exist on the admin project: the media worker (which moves and deletes files)
- *      stays inert until you add them on purpose. Pass --allow-worker once you have done so.
+ *   3. Refuses to continue if MEDIA_WORKER_ENABLED, MUX_TOKEN_ID, MUX_TOKEN_SECRET or CRON_SECRET
+ *      exist on the admin project: the media worker (which moves and deletes files) stays inert
+ *      until you switch it on on purpose. Pass --allow-worker once you have done so.
+ *      SUPABASE_SERVICE_ROLE_KEY is allowed: invitation emails need it, and it does not turn the
+ *      worker on by itself (the app requires MEDIA_WORKER_ENABLED=true as well).
  *   4. Deploys the committed working tree from the repository root (so the shared package is
  *      included) with VERCEL_ORG_ID/VERCEL_PROJECT_ID pointing at the admin project, then checks
  *      that .vercel/project.json is byte-for-byte unchanged.
@@ -38,7 +40,7 @@ const apply = process.argv.includes("--apply");
 const allowWorker = process.argv.includes("--allow-worker");
 const projectName = process.env.ADMIN_PROJECT || "campconnect-admin";
 const mainSiteUrl = (process.env.MAIN_SITE_URL || "https://apartment-book-vyass.vercel.app").replace(/\/$/, "");
-const WORKER_KEYS = ["SUPABASE_SERVICE_ROLE_KEY", "MUX_TOKEN_ID", "MUX_TOKEN_SECRET", "CRON_SECRET"];
+const WORKER_KEYS = ["MEDIA_WORKER_ENABLED", "MUX_TOKEN_ID", "MUX_TOKEN_SECRET", "CRON_SECRET"];
 const EXPECTED_SUPABASE_HOST = "dskbzoqreandwwpxiplh.supabase.co";
 
 const log = (m) => console.log(m);
@@ -184,7 +186,9 @@ async function main() {
   // Worker secrets must not be there yet.
   if (project) {
     const env = await api(`/v9/projects/${project.id}/env?${team}`);
-    const present = (env.envs ?? []).map((e) => e.key).filter((k) => WORKER_KEYS.includes(k));
+    const keys = (env.envs ?? []).map((e) => e.key);
+    ok(keys.includes("SUPABASE_SERVICE_ROLE_KEY") ? "invitation emails: on (SUPABASE_SERVICE_ROLE_KEY is set)" : "invitation emails: off (set SUPABASE_SERVICE_ROLE_KEY on the admin project to send them)");
+    const present = keys.filter((k) => WORKER_KEYS.includes(k));
     if (present.length && !allowWorker) die(`the admin project already has ${present.join(", ")}. The media worker would run and move/delete files. Remove them, or pass --allow-worker if you approved it.`);
     if (present.length) warn(`worker variables present and allowed (--allow-worker): ${present.join(", ")}`);
     else ok("no worker secrets on the project: the media worker stays disabled");

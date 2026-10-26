@@ -4,7 +4,7 @@
 //
 // This script takes another branch's tree (default origin/main) into a temporary folder, puts this branch's
 // admin migrations at those positions (14 and 15 under the order-preserving names proposed in main's
-// supabase/applied-outside-repo/README.md, 16 and 17 after main's newest), uses this branch's harness (it adds
+// supabase/applied-outside-repo/README.md, 16 to 18 after main's newest), uses this branch's harness (it adds
 // the auth, MFA and service-role stand-ins the admin migrations need), and runs EVERY suite of both: main's
 // own and the five admin suites. Nothing in the repository or any database is changed.
 //
@@ -23,8 +23,9 @@ const PLACEMENT = [
   ["20261024000000_moderation_support.sql", "20261029100100_moderation_support.sql"],
   ["20261103100000_admin_dashboard.sql", "20261103100000_admin_dashboard.sql"],
   ["20261103100100_hardening.sql", "20261103100100_hardening.sql"],
+  ["20261103100200_staff_invite_email.sql", "20261103100200_staff_invite_email.sql"],
 ];
-const ADMIN_SUITES = ["admin", "moderation-support", "launch-checklist", "admin-dashboard", "permissions-audit"];
+const ADMIN_SUITES = ["admin", "moderation-support", "launch-checklist", "admin-dashboard", "permissions-audit", "staff-invite-email"];
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "live-order-"));
 try {

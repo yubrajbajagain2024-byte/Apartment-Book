@@ -12,8 +12,9 @@ import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import { boot, expectOk, done } from "./harness.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const LAST_LIVE = "20261024000000_moderation_support.sql";
-const NEW = ["20261103100000_admin_dashboard.sql", "20261103100100_hardening.sql"];
+// Production since 2026-10-25 22:31 UTC: everything through 17. Pending: 18 (staff invitation emails).
+const LAST_LIVE = "20261103100100_hardening.sql";
+const NEW = ["20261103100200_staff_invite_email.sql"];
 const PORT = 55433;
 const DB_URL = `postgres://postgres:postgres@127.0.0.1:${PORT}/postgres?sslmode=disable`;
 const ORIGIN = "https://dskbzoqreandwwpxiplh.supabase.co/storage/v1/object/public/uploads/";
@@ -85,12 +86,12 @@ function setup(extra = {}) {
   });
 }
 try {
-  await expectOk("dry run lists exactly migrations 16 and 17 and changes nothing", async () => {
+  await expectOk("dry run lists exactly the pending migration and changes nothing", async () => {
     const r = await setup({ DRY_RUN: "1" });
     if (r.code !== 0) throw new Error(r.out);
     const listed = [...r.out.matchAll(/^\s+- (\S+\.sql)$/gm)].map((m) => m[1]);
     if (listed.join() !== NEW.join()) throw new Error("listed: " + listed.join() + "\n" + r.out);
-    if ((await tracked()).length !== liveMigrations.length || (await fnExists("public.admin_overview_stats()"))) throw new Error("dry run changed the database");
+    if ((await tracked()).length !== liveMigrations.length || (await fnExists("public.admin_invite_resend(text)"))) throw new Error("dry run changed the database");
   });
   await expectOk("out-of-order guard: with migration 13's tracking row missing, the script refuses and applies nothing", async () => {
     const m13 = "20260922000000_buzz_reply_votes.sql";
@@ -98,7 +99,7 @@ try {
     try {
       const r = await setup();
       if (r.code === 0 || !/refusing to apply 20260922000000_buzz_reply_votes\.sql/.test(r.out)) throw new Error(r.out);
-      if (await fnExists("public.admin_overview_stats()")) throw new Error("16 was applied anyway");
+      if (await fnExists("public.admin_invite_resend(text)")) throw new Error("18 was applied anyway");
     } finally { await db.query("insert into public._migrations (name) values ($1) on conflict do nothing", [m13]); }
   });
   await expectOk("a failing migration rolls back completely: no partial objects, no tracking row (the script's transaction wrapper)", async () => {
@@ -110,12 +111,12 @@ try {
     if ((await one(db.query("select to_regclass('public._rehearsal_probe') as t"))).t) throw new Error("partial table left behind");
     if ((await tracked()).includes("zz_probe.sql")) throw new Error("tracking row written");
   });
-  await expectOk("the upgrade applies 16 then 17 and records both", async () => {
+  await expectOk("the upgrade applies the pending migration and records it", async () => {
     const r = await setup();
     if (r.code !== 0) throw new Error(r.out);
-    if (!new RegExp(`${NEW[0]}: applied[\\s\\S]*${NEW[1]}: applied`).test(r.out)) throw new Error(r.out);
-    const t = await tracked(); if (!NEW.every((m) => t.includes(m)) || t.length !== liveMigrations.length + 2) throw new Error(t.join());
-    for (const f of ["public.admin_overview_stats()", "public.admin_users_list(text,integer,timestamp with time zone)", "public.admin_hidden_content_list(text,integer,timestamp with time zone)", "public.admin_report_get(uuid)"]) if (!(await fnExists(f))) throw new Error("missing " + f);
+    if (!NEW.every((m) => r.out.includes(`${m}: applied`))) throw new Error(r.out);
+    const t = await tracked(); if (!NEW.every((m) => t.includes(m)) || t.length !== liveMigrations.length + NEW.length) throw new Error(t.join());
+    for (const f of ["public.admin_invite_resend(text)", "public.admin_invite_email_result(text,boolean,uuid,text)", "public.admin_overview_stats()"]) if (!(await fnExists(f))) throw new Error("missing " + f);
   });
   await expectOk("running the script again applies nothing (both reported as already applied)", async () => {
     const r = await setup();
@@ -129,7 +130,11 @@ await expectOk("no row of any table changed in number, the hidden item is still 
   const diff = Object.keys(before).filter((k) => before[k] !== after[k]).map((k) => `${k}: ${before[k]} -> ${after[k]}`);
   if (diff.length) throw new Error(diff.join("; "));
 });
-await expectOk("migration 17 took effect: no TRUNCATE for API roles, delete_my_account not callable by anon", async () => {
+await expectOk("the pending owner invitation survived the upgrade: not sent, bootstrap (does not expire), unbound", async () => {
+  const i = (await db.query("select * from public.staff_invites where email = $1", [OWNER_EMAIL])).rows[0];
+  if (!i || i.email_status !== "not_sent" || i.auth_user_id !== null || i.invited_by !== null) throw new Error(JSON.stringify(i));
+});
+await expectOk("migration 17 is still in effect: no TRUNCATE for API roles, delete_my_account not callable by anon", async () => {
   const t = await rows(db.query("select table_name, grantee from information_schema.role_table_grants where table_schema = 'public' and privilege_type = 'TRUNCATE' and grantee in ('anon','authenticated')"));
   if (t.length) throw new Error(JSON.stringify(t.slice(0, 3)));
   if ((await one(db.query("select has_function_privilege('anon', 'public.delete_my_account()', 'execute') as x"))).x) throw new Error("anon can call delete_my_account");

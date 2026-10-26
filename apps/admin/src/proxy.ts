@@ -10,14 +10,15 @@ import { safeNextPath } from "@/lib/utils";
  * the second factor, only /security does. Whether the person is staff is decided by
  * the admin layout (database RPC), and every page and action re-checks in SQL.
  */
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/no-access", "/api/media/worker", "/robots.txt"];
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/confirm", "/auth/accept", "/no-access", "/api/media/worker", "/robots.txt"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+/** Pages a signed-in staff member may open before two-factor: setting it up, and choosing a password (which itself asks for two-factor when it is already set up). */
 function isSecurityPath(pathname: string): boolean {
-  return pathname === "/security" || pathname.startsWith("/security/");
+  return ["/security", "/password"].some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 export async function proxy(request: NextRequest) {

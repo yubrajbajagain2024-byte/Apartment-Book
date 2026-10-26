@@ -19,10 +19,11 @@
     "db:setup": "node scripts/supabase-setup.mjs",
     "db:check": "node scripts/e2e-check.mjs",
     "check": "turbo run typecheck lint build",
-    "db:test": "node supabase/tests/home-feed.test.mjs && node supabase/tests/buzz-reply-votes.test.mjs && node supabase/tests/admin.test.mjs && node supabase/tests/moderation-support.test.mjs && node supabase/tests/launch-checklist.test.mjs && node supabase/tests/admin-dashboard.test.mjs && node supabase/tests/permissions-audit.test.mjs",
+    "db:test": "node supabase/tests/home-feed.test.mjs && node supabase/tests/buzz-reply-votes.test.mjs && node supabase/tests/admin.test.mjs && node supabase/tests/moderation-support.test.mjs && node supabase/tests/launch-checklist.test.mjs && node supabase/tests/admin-dashboard.test.mjs && node supabase/tests/permissions-audit.test.mjs && node supabase/tests/staff-invite-email.test.mjs",
     "db:rehearse": "node supabase/tests/staging-rehearsal.mjs",
     "deploy:admin": "node scripts/deploy-admin.mjs",
-    "db:live-order": "node supabase/tests/live-order-check.mjs"
+    "db:live-order": "node supabase/tests/live-order-check.mjs",
+    "auth:email": "node scripts/configure-auth-email.mjs"
   },
   "engines": {
     "node": ">=20"

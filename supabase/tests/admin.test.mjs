@@ -12,7 +12,18 @@ const lastLog = async () => (await logRows()).at(-1);
 const asRaw = async (uid, claims, fn) => { await db.exec(`set role authenticated; select set_config('request.jwt.claims', '${JSON.stringify({ sub: uid, ...claims })}', false);`); try { return await fn(); } finally { await db.exec("reset role; select set_config('request.jwt.claims', '', false);"); } };
 const asService = async (fn) => { await db.exec("set role service_role;"); try { return await fn(); } finally { await db.exec("reset role;"); } };
 
-await expectOk("migration 14 re-runs cleanly", () => db.exec(read("migrations/20261023000000_admin.sql")));
+// Re-running migration 14 by hand: harmless up to migration 17. Migration 18 replaced four of its invitation functions with
+// new return types, so from then on a re-run is refused outright (it would revert 18's invitation rules); refused inside a
+// transaction, as the setup script and the SQL editor run it, it changes nothing.
+const rerun14 = async (dbx, readx) => {
+  const has18 = (await dbx.query("select to_regprocedure('public.admin_invite_resend(text)') is not null as x")).rows[0].x;
+  if (!has18) return dbx.exec(readx("migrations/20261023000000_admin.sql"));
+  await dbx.exec("begin");
+  try { await dbx.exec(readx("migrations/20261023000000_admin.sql")); throw new Error("re-running 14 after 18 was not refused"); }
+  catch (e) { if (!/cannot change return type/.test(e.message)) throw e; }
+  finally { await dbx.exec("rollback"); }
+};
+await expectOk("migration 14 re-runs cleanly (after migration 18: refused, and nothing changes)", () => rerun14(db, read));
 
 // ---- first owner ------------------------------------------------------------------
 let OWNER;

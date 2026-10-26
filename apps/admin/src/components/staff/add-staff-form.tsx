@@ -11,7 +11,7 @@ import { Input, Select } from "@/components/ui/input";
 import { roleLabel } from "./role-badge";
 
 /** Add someone by email. Admins can only offer the moderator role; owners any role. */
-export function AddStaffForm({ me }: { me: StaffAccess }) {
+export function AddStaffForm({ me, emailsEnabled }: { me: StaffAccess; emailsEnabled: boolean }) {
   const [state, action, pending] = useActionState(addStaffAction, null);
   const roles = assignableRoles(me.role);
   const [role, setRole] = useState<StaffRole>(roles[roles.length - 1] ?? "moderator");
@@ -43,8 +43,9 @@ export function AddStaffForm({ me }: { me: StaffAccess }) {
           Add to team
         </Button>
         <p className="text-xs text-gray-500">
-          People who have not signed up yet are invited and become staff when they sign up and confirm that address. An address outside the university can be invited too; that
-          person signs in with Google.
+          {emailsEnabled
+            ? "Someone with a confirmed account joins at once. Anyone else gets an invitation email: opening its link confirms the address, then they choose a password and set up two-factor authentication. The invitation stays open for 7 days."
+            : "Someone with a confirmed account joins at once. Anyone else is only saved as an invitation: this deployment cannot send email yet, so they join by signing up with that address and confirming it."}
         </p>
       </form>
     </Card>
