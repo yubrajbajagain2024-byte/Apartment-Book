@@ -12,7 +12,7 @@
       "supportsTablet": false,
       "infoPlist": {
         "NSCameraUsageDescription": "UniBuzz uses your camera for video calls, and to take photos and record videos for Snaps, posts and listings, like video tours of your place.",
-        "NSPhotoLibraryUsageDescription": "Apartment Book needs your photo library to add photos and videos to your listings and profile.",
+        "NSPhotoLibraryUsageDescription": "UniBuzz needs your photo library to add photos and videos to your listings and profile.",
         "NSMicrophoneUsageDescription": "UniBuzz uses the microphone for audio and video calls, voice messages and video tours.",
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
@@ -54,7 +54,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Apartment Book needs your photo library to add photos and videos to your listings.",
+          "photosPermission": "UniBuzz needs your photo library to add photos and videos to your listings.",
           "cameraPermission": "UniBuzz uses your camera for video calls, and to take photos and record videos for Snaps, posts and listings, like video tours of your place."
         }
       ],
@@ -83,7 +83,15 @@
       "expo-font",
       "expo-image",
       "expo-status-bar",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraProguardRules": "-dontwarn livekit.org.jni_zero.JniZeroJni"
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {
