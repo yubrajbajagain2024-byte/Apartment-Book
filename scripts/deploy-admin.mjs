@@ -7,6 +7,9 @@
  *   vercel login                                   # once, in your terminal (browser approval)
  *   node scripts/deploy-admin.mjs                  # plan: checks everything, changes nothing
  *   node scripts/deploy-admin.mjs --apply          # create/update the project, set env vars, deploy to production
+ *   pbpaste | node scripts/deploy-admin.mjs --apply --service-key-stdin; pbcopy < /dev/null
+ *                                                  # the same, and first replace SUPABASE_SERVICE_ROLE_KEY (production)
+ *                                                  # with the key on the clipboard, once Supabase accepted it
  *
  * What --apply does:
  *   1. Finds or creates the Vercel project ADMIN_PROJECT (default "campconnect-admin") in the
@@ -20,6 +23,9 @@
  *      until you switch it on on purpose. Pass --allow-worker once you have done so.
  *      SUPABASE_SERVICE_ROLE_KEY is allowed: invitation emails need it, and it does not turn the
  *      worker on by itself (the app requires MEDIA_WORKER_ENABLED=true as well).
+ *      With --service-key-stdin, the key read from stdin replaces it (Sensitive, production only),
+ *      but only after this project's Auth admin API accepted it (a read-only request), so a
+ *      wrong key, another project's key or a paste with a line break is never stored. Never printed.
  *   4. Deploys the committed working tree from the repository root (so the shared package is
  *      included) with VERCEL_ORG_ID/VERCEL_PROJECT_ID pointing at the admin project, then checks
  *      that .vercel/project.json is byte-for-byte unchanged.
@@ -38,6 +44,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const apply = process.argv.includes("--apply");
 const allowWorker = process.argv.includes("--allow-worker");
+const serviceKeyFromStdin = process.argv.includes("--service-key-stdin");
 const projectName = process.env.ADMIN_PROJECT || "campconnect-admin";
 const mainSiteUrl = (process.env.MAIN_SITE_URL || "https://apartment-book-vyass.vercel.app").replace(/\/$/, "");
 const WORKER_KEYS = ["MEDIA_WORKER_ENABLED", "MUX_TOKEN_ID", "MUX_TOKEN_SECRET", "CRON_SECRET"];
@@ -117,10 +124,32 @@ function keyKind(key) {
   }
 }
 
+function readStdin() {
+  if (process.stdin.isTTY) die("--service-key-stdin reads the key from a pipe: pbpaste | node scripts/deploy-admin.mjs --apply --service-key-stdin");
+  return new Promise((resolve) => {
+    let s = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (d) => (s += d)).on("end", () => resolve(s));
+  });
+}
+
+/** The service-role key from stdin, once this project's Auth admin API accepted it (lists at most one user; nothing is printed or changed). */
+async function checkServiceKey(raw, supabaseUrl) {
+  const key = raw.trim();
+  if (!key) die("no key on stdin. Copy the service_role key in Supabase (Project Settings → API Keys), then run this again.");
+  if (/\s/.test(key)) die("the pasted text has spaces or line breaks in it (did something after the key get copied too?). Copy only the key.");
+  const kind = keyKind(key);
+  if (kind !== "service_role") die(`that is ${kind === "unknown" ? "not a Supabase API key" : `the ${kind} key`}; copy the one labelled service_role (or a secret key).`);
+  const res = await fetch(`${supabaseUrl}/auth/v1/admin/users?page=1&per_page=1`, { headers: { apikey: key, Authorization: `Bearer ${key}` } });
+  if (res.status !== 200) die(`Supabase refused the key (${res.status}): it belongs to another project or was rotated. Copy it again from this project.`);
+  return key;
+}
+
 const sha = (file) => (fs.existsSync(file) ? crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex") : "missing");
 
 async function main() {
   log(`CampConnect Admin deploy (${apply ? "APPLY" : "plan only: nothing will be changed"})\n`);
+  const pastedKey = serviceKeyFromStdin ? await readStdin() : null;
 
   // ---- local checks ------------------------------------------------------------------------------
   log("Local");
@@ -155,6 +184,8 @@ async function main() {
   const kind = keyKind(anonKey);
   if (kind !== "anon" && kind !== "publishable") die(`NEXT_PUBLIC_SUPABASE_ANON_KEY is a "${kind}" key. Only the anon/publishable key may go into a NEXT_PUBLIC_ variable.`);
   ok(`Supabase ${host} with the ${kind} key`);
+  const serviceKey = pastedKey === null ? null : await checkServiceKey(pastedKey, supabaseUrl);
+  if (serviceKey) ok(`the pasted service-role key works on ${host} (${serviceKey.length} characters; not shown)`);
 
   // ---- Vercel ------------------------------------------------------------------------------------
   log("\nVercel");
@@ -187,7 +218,8 @@ async function main() {
   if (project) {
     const env = await api(`/v9/projects/${project.id}/env?${team}`);
     const keys = (env.envs ?? []).map((e) => e.key);
-    ok(keys.includes("SUPABASE_SERVICE_ROLE_KEY") ? "invitation emails: on (SUPABASE_SERVICE_ROLE_KEY is set)" : "invitation emails: off (set SUPABASE_SERVICE_ROLE_KEY on the admin project to send them)");
+    if (serviceKey) ok(`invitation emails: on (SUPABASE_SERVICE_ROLE_KEY ${keys.includes("SUPABASE_SERVICE_ROLE_KEY") ? "replaced" : "set"} with the pasted key)`);
+    else ok(keys.includes("SUPABASE_SERVICE_ROLE_KEY") ? "invitation emails: on (SUPABASE_SERVICE_ROLE_KEY is set)" : "invitation emails: off (set SUPABASE_SERVICE_ROLE_KEY on the admin project to send them)");
     const present = keys.filter((k) => WORKER_KEYS.includes(k));
     if (present.length && !allowWorker) die(`the admin project already has ${present.join(", ")}. The media worker would run and move/delete files. Remove them, or pass --allow-worker if you approved it.`);
     if (present.length) warn(`worker variables present and allowed (--allow-worker): ${present.join(", ")}`);
@@ -204,6 +236,7 @@ async function main() {
   ];
   if (!apply) {
     ok(`would set ${vars.map(([k]) => k).join(", ")} for production and preview`);
+    if (serviceKey) ok("would store the pasted key as SUPABASE_SERVICE_ROLE_KEY (Sensitive, production)");
     log("\nPlan complete. Nothing was changed. Run again with --apply to create the project and deploy.");
     return;
   }
@@ -212,6 +245,10 @@ async function main() {
     await api(`/v10/projects/${project.id}/env?upsert=true&${team}`, { method: "POST", body: { key, value, type: "encrypted", target: ["production", "preview"] } });
   }
   ok(`set ${vars.map(([k]) => k).join(", ")}`);
+  if (serviceKey) {
+    await api(`/v10/projects/${project.id}/env?upsert=true&${team}`, { method: "POST", body: { key: "SUPABASE_SERVICE_ROLE_KEY", value: serviceKey, type: "sensitive", target: ["production"] } });
+    ok("stored the pasted key as SUPABASE_SERVICE_ROLE_KEY (Sensitive, production)");
+  }
 
   // ---- deploy ------------------------------------------------------------------------------------
   log("\nDeploy (this uploads the repository, minus .vercelignore, and builds apps/admin on Vercel)");
