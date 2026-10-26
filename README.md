@@ -313,7 +313,7 @@ apartment-book/
 │  │  ├─ src/proxy.ts         # auth guard: refreshes sessions, protects private routes
 │  │  └─ e2e/                 # home-feed.mjs: Playwright check of the navigation, Home, Housing and the profile page on a desktop and a phone viewport
 │  └─ mobile/                 # Expo app for iOS and Android (see apps/mobile/README.md)
-│     ├─ src/app/(tabs)/      # bottom tabs: index.tsx (Home), housing.tsx (the Explore tab: Housing | Roommate | Marketplace), messages, profile, with the create "+" in the middle of the bar; Search (find-people.tsx) and the bell (notifications.tsx) sit in Home's top-right corner
+│     ├─ src/app/(tabs)/      # bottom tabs: index.tsx (Home), discover.tsx (search, and what is popular on every campus), messages, housing.tsx (the Explore tab: Housing | Roommate | Marketplace), profile; create starts from the "+" on your photo in Home's top bar, and the bell (notifications.tsx) sits in its top-right corner
 │     ├─ src/components/      # UI: home (the Home pager), housing (the Housing pager), profile (the TikTok-style profile), post cards, carousels, forms…
 │     └─ e2e/                 # Maestro flows (flows/*.yaml), sim-seed.mjs test data, run.sh
 ├─ packages/

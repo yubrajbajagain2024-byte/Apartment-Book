@@ -1109,6 +1109,8 @@ export type Database = {
           videos: Json;
           has_video: boolean;
           pinned_at: string | null;
+          /** Migration 44: the #tags of `body`, lowercased (extract_hashtags), kept by Postgres. Missing on a database before it. */
+          hashtags?: string[];
           created_at: string;
           updated_at: string;
         };
@@ -1123,6 +1125,7 @@ export type Database = {
           videos?: Json;
           has_video?: boolean;
           pinned_at?: string | null;
+          hashtags?: never;
           created_at?: string;
           updated_at?: string;
         };
@@ -1137,6 +1140,7 @@ export type Database = {
           videos?: Json;
           has_video?: boolean;
           pinned_at?: string | null;
+          hashtags?: never;
           created_at?: string;
           updated_at?: string;
         };
@@ -1733,6 +1737,36 @@ export type Database = {
           liked_by_me: boolean;
           saved_by_me: boolean;
         }[];
+      };
+      /** Migration 44 (Discover): posts and reels from every campus (or one), hottest first. */
+      discover_feed: {
+        Args: { p_university_id?: string | null; p_limit?: number; p_offset?: number };
+        Returns: { post_id: string; kind: string }[];
+      };
+      /** Migration 44: accounts to follow, never the caller, someone they follow or block, or a business. */
+      discover_accounts: {
+        Args: { p_university_id?: string | null; p_limit?: number; p_offset?: number };
+        Returns: { id: string; full_name: string; avatar_url: string | null; email_domain: string | null; university_name: string | null; followers: number }[];
+      };
+      discover_topics: {
+        Args: { p_limit?: number };
+        Returns: { tag: string; posts: number }[];
+      };
+      discover_search_topics: {
+        Args: { p_q: string; p_limit?: number };
+        Returns: { tag: string; posts: number }[];
+      };
+      discover_topic: {
+        Args: { p_tag: string };
+        Returns: { tag: string; posts: number }[];
+      };
+      discover_topic_posts: {
+        Args: { p_tag: string; p_order?: string; p_limit?: number; p_offset?: number };
+        Returns: { post_id: string; kind: string }[];
+      };
+      discover_search_posts: {
+        Args: { p_q: string; p_limit?: number; p_offset?: number };
+        Returns: { post_id: string; kind: string }[];
       };
       buzz_feed: {
         Args: { p_university_id?: string | null; p_topic?: string | null; p_sort?: string; p_limit?: number; p_offset?: number; p_q?: string | null };

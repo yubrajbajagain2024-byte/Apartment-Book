@@ -32,7 +32,8 @@ export function BuzzToastHost({ bottom, enabled = true }: { bottom: number; enab
       <Reanimated.View key={toast.id} entering={reduce ? undefined : FadeInDown.duration(220)} exiting={reduce ? undefined : FadeOutDown.duration(160)}>
         <Pressable onPress={() => buzzState.dismissToast(toast.id)} accessibilityRole="alert" accessibilityLiveRegion="polite" accessibilityHint="Dismisses this message" style={styles.toast}>
           <Icon name={icon} size={20} color={tint} />
-          <View style={{ flex: 1, minWidth: 0 }}>
+          {/* flexShrink, not flex: 1: the toast is as wide as its text, and a zero flex basis would leave the text no width. */}
+          <View style={{ flexShrink: 1 }}>
             {toast.title ? <Text style={[T.labelSm, { color: P.ink }]}>{toast.title}</Text> : null}
             <Text style={[T.footnote, { color: toast.title ? P.ink2 : P.ink }]}>{toast.text}</Text>
           </View>

@@ -19,6 +19,7 @@ export * from "./feed";
 export * from "./for-you";
 export * from "./follows";
 export * from "./profile-page";
+export * from "./discover";
 export * from "./calls";
 export * from "./business";
 export * from "./mfa";

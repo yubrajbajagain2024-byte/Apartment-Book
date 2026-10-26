@@ -1,7 +1,7 @@
-# Signed-out tour: Home (For you | Buzz | Reels beside your photo, the Campus | Global toggle under them for anyone with a university while it is shown: opens on For you, the pager swipes between them), Search (the
-# magnifying glass before the bell in Home's top-right corner: it lists people to follow), the Notifications bell (signed out it asks to log in), Messages (bottom tab: asks to log in),
-# Explore (Housing | Roommate | Marketplace: opens on Housing, same pager), and the sign-in prompt on the Profile tab.
-# The bottom bar is Home, Explore, + (the create sheet), Messages, Profile. Needs the seeded sample posts (node e2e/sim-seed.mjs).
+# Signed-out tour: Home (For you | Buzz | Reels beside your photo, the Campus | Global toggle under them for anyone with a university while it is shown: opens on For you, the pager swipes between them), the
+# Notifications bell (signed out it asks to log in), Discover (bottom tab: search over what is popular on every campus), Explore (Housing | Roommate | Marketplace: opens on Housing,
+# same pager), Messages (bottom tab: asks to log in), and the sign-in prompt on the Profile tab.
+# The bottom bar is Home, Discover, Messages, Explore, Profile. Needs the seeded sample posts (node e2e/sim-seed.mjs).
 appId: host.exp.Exponent
 ---
 - extendedWaitUntil:
@@ -32,10 +32,10 @@ appId: host.exp.Exponent
 # Posts is a section without a tab: For you carries its posts.
 - assertNotVisible: "Posts"
 - takeScreenshot: e2e/screenshots/01-home-foryou
-# The top bar has two rows like X's: your photo in a gradient ring ("Your profile") opens your profile, the UniBuzz
-# wordmark in the middle, Search and the bell on the right; then the three labels, and under them the Campus | Global
-# toggle for anyone with a university (hidden for now: SCOPE_TOGGLE_SHOWN in src/lib/home-scope.ts). The "+" badge on
-# the photo ("Create") opens the create sheet. Signed out there is no campus to pick, so the toggle is not drawn either way.
+# The top bar has two rows like X's: your photo in a gradient ring ("Your menu") opens your menu (signed out, log in),
+# the UniBuzz wordmark in the middle, the bell on the right; then the three labels, and under them the Campus | Global
+# toggle for anyone with a university (hidden for now: SCOPE_TOGGLE_SHOWN in src/lib/home-scope.ts). Orbit's floating
+# "+" ("Create") opens the create sheet. Signed out there is no campus to pick, so the toggle is not drawn either way.
 - assertNotVisible: "Campus"
 - assertNotVisible: "Global"
 - takeScreenshot: e2e/screenshots/01-home-bar
@@ -81,14 +81,13 @@ appId: host.exp.Exponent
 - extendedWaitUntil:
     visible: "Create"
     timeout: 30000
-# Search: the magnifying glass before the bell in Home's top-right corner pushes the people search under a "Search"
-# header, its box focused (the keyboard is up); signed out the list still shows people to follow. Back returns to Home.
-- tapOn: "Search"
+# Discover (the second tab): the search box for people, topics and posts on every campus, over what is popular
+# everywhere (trending topics, the grid, accounts to follow); signed out it still shows posts and people.
+- tapOn: "Discover.*"
 - extendedWaitUntil:
-    visible: "Search people"
+    visible: "Search people, topics and posts"
     timeout: 30000
-- takeScreenshot: e2e/screenshots/07-search-people
-- back
+- takeScreenshot: e2e/screenshots/07-discover
 # Explore (housing.tsx): its own top bar ("Find", then Housing | Roommate | Marketplace, then the search box of the page on
 # screen, named "Search apartments", "Search roommate posts" or "Search marketplace", then the pills). The bottom tab opens on Housing (apartments); the "Roommate" label above the
 # pager slides to the other half and a flick to the right brings Housing back. The floating "+" follows the visible half.
@@ -115,10 +114,10 @@ appId: host.exp.Exponent
     visible: "Mattress & bedding"
     timeout: 30000
 - takeScreenshot: e2e/screenshots/03-marketplace
-# Messages: the third bottom tab (after Explore); signed out it asks to log in.
+# Messages: the third bottom tab (after Discover); signed out it asks to log in.
 - tapOn: "Messages.*"
 - assertVisible: "Log in to see your messages"
-# Profile is the fourth bottom tab; signed out it shows the sign-in prompt.
+# Profile is the fifth bottom tab; signed out it shows the sign-in prompt.
 - tapOn: "Profile.*"
 - assertVisible: "Join UniBuzz"
 - takeScreenshot: e2e/screenshots/05-profile-signed-out

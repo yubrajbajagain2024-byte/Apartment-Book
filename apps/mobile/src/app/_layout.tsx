@@ -75,6 +75,7 @@ function ThemedStack() {
         <Stack.Screen name="messages/info/[id]" options={{ title: "Chat info" }} />
         <Stack.Screen name="messages/search/[id]" options={{ title: "Search" }} />
         <Stack.Screen name="find-people" options={{ title: "Search" }} />
+        <Stack.Screen name="topics/[tag]" options={{ title: "Topic" }} />
         <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
         {/* A profile draws its own floating bar (Back over the cover, the menu or More), so the cover can run under the status bar. */}
         <Stack.Screen name="profile/[id]" options={{ headerShown: false, contentStyle: content }} />
