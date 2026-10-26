@@ -1,13 +1,15 @@
-// Checks the two migrations in this folder, which reached the live project from outside this repo (see README.md).
+// Checks the migrations in this folder, which reached the live project from outside this repo (see README.md).
 //
 //   node supabase/applied-outside-repo/verify.mjs
-//     Offline (PGlite, like supabase/tests): this repo's migrations up to 36, then the two files here, then the rest of
-//     supabase/migrations, in the order the live project ran them. Says whether everything applies.
+//     Offline (PGlite, like supabase/tests): this repo's migrations with the four files here where the live project ran
+//     them (admin and moderation support after 36, the admin dashboard and hardening after 40). Says whether
+//     everything applies.
 //
-//   SUPABASE_ACCESS_TOKEN=... node supabase/applied-outside-repo/verify.mjs --live
+//   SUPABASE_ACCESS_TOKEN=... node supabase/applied-outside-repo/verify.mjs --live [--except a.sql,b.sql]
 //     The same, then compares the result with the live project's catalog, read-only (functions with their bodies,
-//     columns, constraints, triggers, row-level security policies). A token from `npx supabase login` works:
-//     the CLI keeps it in the macOS keychain ("Supabase CLI").
+//     columns, constraints, triggers, row-level security policies). --except leaves out repo migrations the live
+//     project does not have yet, to check that it matches before they are applied. A token from `npx supabase login`
+//     works: the CLI keeps it in the macOS keychain ("Supabase CLI").
 //
 // Nothing here writes to the live project, and supabase/migrations is not touched.
 import fs from "node:fs";
@@ -16,13 +18,14 @@ import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import { postgis } from "@electric-sql/pglite-postgis";
+// Where each outside migration ran. Importing the harness runs nothing; only boot() builds a database.
+import { OUTSIDE_MIGRATIONS as OUTSIDE } from "../tests/harness.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const supabaseDir = path.resolve(here, "..");
 const REF = process.env.SUPABASE_PROJECT_REF ?? "dskbzoqreandwwpxiplh";
-const OUTSIDE = ["20261023000000_admin.sql", "20261024000000_moderation_support.sql"];
-/** The last migration of this repo the live project had when the two outside ones ran (2026-10-25 15:11 UTC). */
-const BEFORE = "20261029000000_push.sql";
+const exceptAt = process.argv.indexOf("--except");
+const EXCEPT = new Set(exceptAt > 0 ? (process.argv[exceptAt + 1] ?? "").split(",").filter(Boolean) : []);
 
 const CATALOG = `select json_build_object(
   'functions', (select json_agg(p.oid::regprocedure::text || ' ' || md5(p.prosrc) || case when p.prosecdef then ' definer' else '' end order by 1) from pg_proc p where p.pronamespace = 'public'::regnamespace),
@@ -42,11 +45,15 @@ await db.exec(setup);
 await db.exec(`do $do$ begin if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin; end if; end $do$; -- the harness may have made it already
   alter table auth.users add column if not exists email_confirmed_at timestamptz,
     add column if not exists created_at timestamptz not null default now(), add column if not exists banned_until timestamptz;
-  create table auth.mfa_factors (id uuid primary key default gen_random_uuid(), user_id uuid, status text, factor_type text);
-  create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;`);
+  create table if not exists auth.mfa_factors (id uuid primary key default gen_random_uuid(), user_id uuid, status text, factor_type text);
+  create or replace function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;`);
 
 const repo = fs.readdirSync(path.join(supabaseDir, "migrations")).filter((f) => f.endsWith(".sql")).sort();
-const order = [...repo.filter((f) => f <= BEFORE).map((f) => ["migrations", f]), ...OUTSIDE.map((f) => ["applied-outside-repo", f]), ...repo.filter((f) => f > BEFORE).map((f) => ["migrations", f])];
+const order = [];
+for (const f of repo.filter((f) => !EXCEPT.has(f))) {
+  order.push(["migrations", f]);
+  for (const o of OUTSIDE) if (o.after === f) for (const x of o.files) order.push(["applied-outside-repo", x]);
+}
 for (const [folder, file] of order) {
   try {
     await db.exec(fs.readFileSync(path.join(supabaseDir, folder, file), "utf8"));
@@ -55,7 +62,7 @@ for (const [folder, file] of order) {
     process.exit(1);
   }
 }
-console.log(`✓ applies offline: ${order.length} migrations (this repo's ${repo.length}, the two outside ones after ${BEFORE})`);
+console.log(`✓ applies offline: ${order.length} migrations (this repo's ${repo.length - EXCEPT.size}, the ${OUTSIDE.flatMap((o) => o.files).length} outside ones where they ran live)`);
 if (!process.argv.includes("--live")) process.exit(0);
 
 const token = process.env.SUPABASE_ACCESS_TOKEN;

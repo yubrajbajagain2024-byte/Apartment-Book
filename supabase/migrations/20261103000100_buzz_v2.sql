@@ -13,9 +13,15 @@
 --   * Existing data is converted in place, every run (each step only touches what still needs it): threads without a
 --     campus become Global (they used to show everywhere), counts are recomputed from the votes (old votes count as
 --     eligible), reply depths from the reply tree, "hide this person in this thread" rows aimed at the thread's own
---     author become hidden threads (that is what they did), reports on 'buzz_comment' become 'buzz_reply', and the old
---     "Someone replied to your Buzz post" notifications (they quoted the reply) become anonymous buzz_reply ones that
---     quote only the recipient's own buzz.
+--     author become hidden threads (that is what they did), and the old "Someone replied to your Buzz post"
+--     notifications (they quoted the reply) become anonymous buzz_reply ones that quote only the recipient's own buzz.
+--     Reports keep naming a reply 'buzz_comment', the type CampConnect Admin's report queue reads.
+--   * CampConnect Admin (applied to production outside this repo, see supabase/applied-outside-repo) moderates Buzz too:
+--       - Its hide and restore set and clear hidden_at. Buzz follows (buzz_v2_follow_hidden): a hidden item is removed
+--         (out of every feed, a placeholder in its thread, still its author's), a restore brings back what it was. A
+--         removal or an auto-hide here sets hidden_at in turn, so its hidden list and its restore see Buzz's too.
+--       - Its suspensions stop Buzz writes: posts and replies through ts_posting_status() (migration 41), votes through
+--         its own triggers, poll votes through the same trigger added here.
 --   * ONE serializer (buzz_root_json / buzz_reply_json) builds every Buzz object field by field; nothing else ever turns
 --     a Buzz row into JSON. No identity in any of it: the author appears only as a per-thread alias (emoji + "Anon Noun"
 --     + colour from sha256(salt || thread || ':' || author), UniVerse's 64 nouns x 12 colours, a " 2" suffix on an
@@ -138,7 +144,11 @@ alter table public.buzz_posts
   add column if not exists eligible_score int not null default 0,
   add column if not exists support_link boolean not null default false,
   add column if not exists prompt_id uuid,
-  add column if not exists deleted_at timestamptz;
+  add column if not exists deleted_at timestamptz,
+  -- CampConnect Admin's reversible hide (its migration 15 adds the first two where it runs), and what the item was.
+  add column if not exists hidden_at timestamptz,
+  add column if not exists hidden_reason text,
+  add column if not exists hidden_from_status text;
 -- The stored alias is no longer an alias: old rows keep their "Student 12345" (it identifies a detached author inside
 -- one thread), new rows store nothing, a detached row stores its frozen digest (section 5).
 alter table public.buzz_posts alter column alias set default '';
@@ -177,7 +187,10 @@ alter table public.buzz_comments
   add column if not exists eligible_score int not null default 0,
   add column if not exists support_link boolean not null default false,
   add column if not exists deleted_at timestamptz,
-  add column if not exists depth int not null default 1;
+  add column if not exists depth int not null default 1,
+  add column if not exists hidden_at timestamptz,
+  add column if not exists hidden_reason text,
+  add column if not exists hidden_from_status text;
 alter table public.buzz_comments alter column alias set default '';
 alter table public.buzz_comments drop constraint if exists buzz_comments_status_check;
 alter table public.buzz_comments add constraint buzz_comments_status_check check (status in ('active', 'held', 'hidden', 'removed', 'deleted'));
@@ -445,7 +458,8 @@ on conflict do nothing;
 delete from public.buzz_mutes m using public.buzz_posts b where b.id = m.post_id and m.legacy and m.muted_id = b.author_id;
 update public.buzz_mutes set legacy = false where legacy;
 
--- Reports: a reply is a 'buzz_reply' now. The check keeps every type it allows today plus Buzz's, minus 'buzz_comment'.
+-- Reports: a reply is a 'buzz_comment' (CampConnect Admin's report queue reads that type). The check keeps every type it
+-- allows today plus Buzz's; a 'buzz_reply' report (an earlier version of this file wrote them) becomes 'buzz_comment'.
 do $$
 declare
   v_have text[];
@@ -455,13 +469,13 @@ begin
   from pg_constraint c cross join lateral regexp_matches(pg_get_constraintdef(c.oid), '''([a-z_]+)''', 'g') as m
   where c.conrelid = 'public.reports'::regclass and c.conname = 'reports_target_type_check';
   select array_agg(distinct t order by t) into v_all
-  from unnest(coalesce(v_have, '{}'::text[]) || array['apartment', 'item', 'roommate', 'profile', 'message', 'comment', 'post', 'buzz', 'buzz_reply']) as t
-  where t <> 'buzz_comment';
+  from unnest(coalesce(v_have, '{}'::text[]) || array['apartment', 'item', 'roommate', 'profile', 'message', 'comment', 'post', 'buzz', 'buzz_comment']) as t
+  where t <> 'buzz_reply';
   alter table public.reports drop constraint if exists reports_target_type_check;
   delete from public.reports a
-  where a.target_type = 'buzz_comment'
-    and exists (select 1 from public.reports z where z.target_type = 'buzz_reply' and z.reporter_id = a.reporter_id and z.target_id = a.target_id);
-  update public.reports set target_type = 'buzz_reply' where target_type = 'buzz_comment';
+  where a.target_type = 'buzz_reply'
+    and exists (select 1 from public.reports z where z.target_type = 'buzz_comment' and z.reporter_id = a.reporter_id and z.target_id = a.target_id);
+  update public.reports set target_type = 'buzz_comment' where target_type = 'buzz_reply';
   execute format('alter table public.reports add constraint reports_target_type_check check (target_type in (%s))',
                  (select string_agg(quote_literal(t), ', ' order by t) from unnest(v_all) as t));
 end
@@ -727,7 +741,7 @@ as $$
   where c.post_id = p_thread and c.status = 'active'
     and (coalesce(p_staff, false) or (
       (c.visible_at <= now() or coalesce(c.author_id = p_viewer, false))
-      and not exists (select 1 from public.reports r where r.reporter_id = p_viewer and r.target_type = 'buzz_reply' and r.target_id = c.id)));
+      and not exists (select 1 from public.reports r where r.reporter_id = p_viewer and r.target_type = 'buzz_comment' and r.target_id = c.id)));
 $$;
 
 -- -----------------------------------------------------------------------------
@@ -925,7 +939,7 @@ as $$
       coalesce(p_staff, false) or (
         (c.status <> 'held' or coalesce(c.author_id = p_viewer, false))
         and (c.visible_at <= now() or coalesce(c.author_id = p_viewer, false))
-        and not exists (select 1 from public.reports r where r.reporter_id = p_viewer and r.target_type = 'buzz_reply' and r.target_id = c.id)
+        and not exists (select 1 from public.reports r where r.reporter_id = p_viewer and r.target_type = 'buzz_comment' and r.target_id = c.id)
       ) as cand
     from public.buzz_comments c
     where c.post_id = p_thread
@@ -1851,7 +1865,7 @@ begin
   if p_reason = 'other' and char_length(coalesce(v_note, '')) < 10 then
     raise exception 'buzz:validation_failed:Tell us a bit more (at least 10 characters).';
   end if;
-  if exists (select 1 from public.reports x where x.reporter_id = v_me and x.target_type in ('buzz', 'buzz_reply') and x.target_id = p_id) then
+  if exists (select 1 from public.reports x where x.reporter_id = v_me and x.target_type in ('buzz', 'buzz_comment') and x.target_id = p_id) then
     return jsonb_build_object('alreadyReported', true);
   end if;
   select * into r from public.buzz_v2_reach(p_id, v_me);
@@ -2172,7 +2186,7 @@ begin
     end if;
     if not (par.id is not null and par.post_id = root.id and public.buzz_v2_reply_ok(par, p_author)
             and (par.status = 'active' or coalesce(par.author_id = p_author, false))
-            and not exists (select 1 from public.reports x where x.reporter_id = p_author and x.target_type = 'buzz_reply' and x.target_id = par.id)) then
+            and not exists (select 1 from public.reports x where x.reporter_id = p_author and x.target_type = 'buzz_comment' and x.target_id = par.id)) then
       perform public.buzz_v2_not_found();
     end if;
   end if;
@@ -2312,25 +2326,100 @@ begin
   if p_status is null or p_status not in ('active', 'held', 'hidden', 'removed', 'deleted') then
     raise exception 'buzz:validation_failed:Unknown Buzz status.';
   end if;
+  -- hidden_at tells CampConnect Admin (see the header): set by a removal or an auto-hide, cleared by a restore. Its
+  -- keep_moderation_columns trigger lets those two columns change only while app.moderation is on.
+  perform set_config('app.moderation', 'on', true);
   if p_entity_type = 'buzz' then
     update public.buzz_posts
     set status = p_status,
         auto_hide_immune = coalesce(p_immune, auto_hide_immune),
-        deleted_at = case when p_status = 'deleted' then coalesce(deleted_at, now()) else deleted_at end
+        deleted_at = case when p_status = 'deleted' then coalesce(deleted_at, now()) else deleted_at end,
+        hidden_from_status = case when p_status in ('hidden', 'removed') and status in ('active', 'held') then status
+                                  when p_status in ('active', 'held') then null else hidden_from_status end,
+        hidden_at = case when p_status in ('hidden', 'removed') then coalesce(hidden_at, now())
+                         when p_status in ('active', 'held') then null else hidden_at end,
+        hidden_reason = case when p_status in ('hidden', 'removed') then coalesce(hidden_reason, public.buzz_v2_hidden_reason(p_status))
+                             when p_status in ('active', 'held') then null else hidden_reason end
     where id = p_id;
   elsif p_entity_type = 'buzz_reply' then
     update public.buzz_comments
     set status = p_status,
         auto_hide_immune = coalesce(p_immune, auto_hide_immune),
-        deleted_at = case when p_status = 'deleted' then coalesce(deleted_at, now()) else deleted_at end
+        deleted_at = case when p_status = 'deleted' then coalesce(deleted_at, now()) else deleted_at end,
+        hidden_from_status = case when p_status in ('hidden', 'removed') and status in ('active', 'held') then status
+                                  when p_status in ('active', 'held') then null else hidden_from_status end,
+        hidden_at = case when p_status in ('hidden', 'removed') then coalesce(hidden_at, now())
+                         when p_status in ('active', 'held') then null else hidden_at end,
+        hidden_reason = case when p_status in ('hidden', 'removed') then coalesce(hidden_reason, public.buzz_v2_hidden_reason(p_status))
+                             when p_status in ('active', 'held') then null else hidden_reason end
     where id = p_id;
   else
+    perform set_config('app.moderation', '', true);
     raise exception 'buzz:validation_failed:Unknown Buzz item type.';
   end if;
+  perform set_config('app.moderation', '', true);
   if p_status in ('removed', 'deleted') then
     perform public.buzz_v2_drop_notifications(p_entity_type, p_id);
   end if;
 end;
+$$;
+
+-- What CampConnect Admin's hidden list says about an item Buzz moderation took down.
+create or replace function public.buzz_v2_hidden_reason(p_status text)
+returns text
+language sql
+immutable
+as $$
+  select case p_status when 'hidden' then 'Hidden by reports on Buzz, waiting for review' else 'Removed by Buzz moderation' end;
+$$;
+
+-- CampConnect Admin hides and restores with hidden_at alone, inside its staff functions (app.moderation on). Buzz
+-- follows: a hide removes the item, a restore brings back what it was before (active when that is unknown). Updates
+-- through buzz_v2_set_status change the status themselves and are left alone.
+create or replace function public.buzz_v2_follow_hidden()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if current_setting('app.moderation', true) is distinct from 'on' or new.status is distinct from old.status then
+    return new;
+  end if;
+  if old.hidden_at is null and new.hidden_at is not null and new.status in ('active', 'held') then
+    new.hidden_from_status := new.status;
+    new.status := 'removed';
+    perform public.buzz_v2_drop_notifications(tg_argv[0], new.id);
+  elsif old.hidden_at is not null and new.hidden_at is null and new.status in ('hidden', 'removed') then
+    new.status := coalesce(new.hidden_from_status, 'active');
+    new.hidden_from_status := null;
+  end if;
+  return new;
+end;
+$$;
+-- Named to run after CampConnect Admin's buzz_*_keep_moderation triggers (alphabetical), which undo a hidden_at
+-- change made without app.moderation.
+drop trigger if exists buzz_posts_moderation_follow on public.buzz_posts;
+create trigger buzz_posts_moderation_follow before update of hidden_at on public.buzz_posts
+  for each row execute function public.buzz_v2_follow_hidden('buzz');
+drop trigger if exists buzz_comments_moderation_follow on public.buzz_comments;
+create trigger buzz_comments_moderation_follow before update of hidden_at on public.buzz_comments
+  for each row execute function public.buzz_v2_follow_hidden('buzz_reply');
+
+-- Items hidden there before this migration (and any hidden since by hand) are removed here too.
+update public.buzz_posts set hidden_from_status = status, status = 'removed' where hidden_at is not null and status in ('active', 'held');
+update public.buzz_comments set hidden_from_status = status, status = 'removed' where hidden_at is not null and status in ('active', 'held');
+
+-- CampConnect Admin's suspensions: its block_suspended_writes() trigger is on the other Buzz tables it knew; poll votes
+-- get it too.
+do $$
+begin
+  if to_regprocedure('public.block_suspended_writes()') is not null then
+    drop trigger if exists buzz_poll_votes_block_suspended on public.buzz_poll_votes;
+    create trigger buzz_poll_votes_block_suspended before insert or update on public.buzz_poll_votes
+      for each row execute function public.block_suspended_writes();
+  end if;
+end
 $$;
 
 create or replace function public.buzz_v2_set_locked(p_id uuid, p_locked boolean)

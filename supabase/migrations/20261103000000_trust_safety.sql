@@ -8,10 +8,15 @@
 --     banned_emails (a banned address cannot sign up again), moderation_rule_state (which engine rule packs run) and
 --     staff_members (who is a moderator or an admin). Every one of these has row-level security on and NO grants to
 --     the API: they are read and written only by the functions below.
---   * Staff are added by hand, in the SQL editor, by the team:
+--   * Who is staff: where CampConnect Admin's staff list exists (public.staff, applied to production outside this repo
+--     on 2026-10-25; see supabase/applied-outside-repo), it is the only list. Its owners and admins are admins here,
+--     its moderators moderators, a suspended staff member is nobody, and staff are added and removed in CampConnect
+--     Admin. Without it (a database built from this repo alone), staff_members is the list: staff are added by hand
+--     in the SQL editor, then an admin grants and revokes roles from the website's staff console, audited:
 --         insert into public.staff_members (user_id, role) values ('<profile id>', 'admin')
 --           on conflict (user_id) do update set role = excluded.role;
---     After that, an admin grants and revokes roles from the website's staff console (/admin/users), audited.
+--   * Every console_* function also needs a session that passed two-factor sign-in (aal2) on an account that still
+--     has a verified factor, CampConnect Admin's rule. Without one, staff get 'mfa_required'; everyone else 'not_found'.
 --   * reports (migration 10) grows UniVerse's columns (eligible, weight, queue_id, sub_reason, closed_at, bad_faith,
 --     university_id), UniVerse's reasons and the Buzz target types; one report per person and thing. The API may still
 --     insert public reports (old builds do), but every value the server owns is set by a trigger, which also files the
@@ -21,7 +26,7 @@
 --     blind standing only. A sanction, strike, queue item or audit row about Buzz content is "anon-origin": it targets
 --     the content, never the user, and is left out of everything a moderator sees about a named account (so acting on
 --     a buzz moves no number on anyone's user page). Admins see anon-origin sanctions on a user page only with
---     day-floored times and a sealed id. The one way from a buzz to its author is staff_unmask(): admins only, a reason
+--     day-floored times and a sealed id. The one way from a buzz to its author is console_unmask(): admins only, a reason
 --     code and a written reason of 30+ characters, the typed word UNMASK, at most 10 a day, the audit row written
 --     BEFORE the author is looked up, and every other admin told.
 --   * Posting status: ts_posting_status() is what every write checks (mutes in scope, suspensions, bans, warnings not
@@ -38,7 +43,7 @@
 --     adapters here: a snapshot of its text and remove (delete the row; a profile loses its bio and photo).
 --
 -- Errors: 'ts:<code>:<message>' (codes: not_found, forbidden, validation_failed, conflict, rate_limited,
--- unauthenticated, append_only). Errors about Buzz content raised on Buzz's behalf use 'buzz:<code>:<message>'.
+-- unauthenticated, append_only, mfa_required, not_supported). Errors about Buzz content raised on Buzz's behalf use 'buzz:<code>:<message>'.
 -- Times in JSON are epoch milliseconds; JSON keys are camelCase.
 -- =============================================================================
 
@@ -744,14 +749,64 @@ grant insert (reporter_id, target_type, target_id, reason, details) on table pub
 -- -----------------------------------------------------------------------------
 -- 6. Roles, standing, posting status
 -- -----------------------------------------------------------------------------
+-- 'admin' | 'moderator' | null. CampConnect Admin's staff list wins where it exists (see the header); its table is
+-- read with dynamic SQL so this file also runs where it does not.
 create or replace function public.ts_role_of(p_user uuid)
 returns text
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_role text;
+begin
+  if p_user is null then
+    return null;
+  end if;
+  if to_regclass('public.staff') is not null then
+    execute 'select case s.role when ''moderator'' then ''moderator'' else ''admin'' end from public.staff s where s.user_id = $1'
+      into v_role using p_user;
+    if v_role is not null and to_regprocedure('public.is_suspended(uuid)') is not null then
+      if public.is_suspended(p_user) then
+        return null;
+      end if;
+    end if;
+    return v_role;
+  end if;
+  select s.role into v_role from public.staff_members s where s.user_id = p_user;
+  return v_role;
+end;
+$$;
+
+-- Everyone on the staff list (admins only, or everyone), for notices to staff.
+create or replace function public.ts_staff_ids(p_admins_only boolean)
+returns setof uuid
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if to_regclass('public.staff') is not null then
+    return query execute 'select s.user_id from public.staff s where not $1 or s.role in (''owner'', ''admin'')' using coalesce(p_admins_only, false);
+    return;
+  end if;
+  return query select m.user_id from public.staff_members m where not coalesce(p_admins_only, false) or m.role = 'admin';
+end;
+$$;
+
+-- This session passed two-factor sign-in (Supabase sets aal2) and the account still has a verified factor, so a
+-- factor deleted in the dashboard ends staff access at once. CampConnect Admin's staff_mfa_verified(), applied here.
+create or replace function public.ts_mfa_ok()
+returns boolean
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select s.role from public.staff_members s where s.user_id = p_user;
+  select coalesce(auth.jwt() ->> 'aal', '') = 'aal2'
+    and exists (select 1 from auth.mfa_factors f where f.user_id = auth.uid() and f.status = 'verified');
 $$;
 
 -- The caller's own role (null for everyone who is not staff). The website shows the console entry with it.
@@ -816,6 +871,7 @@ as $$
 declare
   v_s public.user_sanctions;
   v_warning uuid;
+  v_until timestamptz;
 begin
   if p_user is null then
     return jsonb_build_object('allowed', false, 'mutedUntil', null, 'reason', null, 'warningId', null);
@@ -833,6 +889,15 @@ begin
       'mutedUntil', public.ts_ms(v_s.expires_at),
       'reason', case v_s.kind when 'ban' then 'banned' when 'suspension' then 'suspended' else 'muted' end,
       'warningId', null);
+  end if;
+  -- CampConnect Admin's suspensions (account_restrictions, migration 15) count too. Its triggers stop what a suspended
+  -- account writes itself; Buzz posts and replies are written by the website's server, so they rest on this check.
+  if to_regclass('public.account_restrictions') is not null then
+    if public.is_suspended(p_user) then
+      execute 'select r.expires_at from public.account_restrictions r where r.user_id = $1 and r.lifted_at is null order by r.created_at desc limit 1'
+        into v_until using p_user;
+      return jsonb_build_object('allowed', false, 'mutedUntil', public.ts_ms(v_until), 'reason', 'suspended', 'warningId', null);
+    end if;
   end if;
   select s.id into v_warning
   from public.user_sanctions s
@@ -1031,7 +1096,7 @@ begin
 end;
 $$;
 
--- FIREWALL: the author of any content. Server-internal; only staff_unmask() ever returns it to anyone.
+-- FIREWALL: the author of any content. Server-internal; only console_unmask() ever returns it to anyone.
 create or replace function public.ts_author_of(p_type text, p_id uuid)
 returns uuid
 language plpgsql
@@ -1670,6 +1735,8 @@ begin
   if p_entity_type in ('message', 'profile') or p_entity_id is null then
     return;
   end if;
+  -- Reports name a Buzz reply 'buzz_comment' (CampConnect Admin's word); the queue and the events say 'buzz_reply'.
+  p_entity_type := case when p_entity_type = 'buzz_comment' then 'buzz_reply' else p_entity_type end;
   s := public.ts_snapshot(p_entity_type, p_entity_id);
   if s is null or s ->> 'status' <> 'active' or coalesce((s ->> 'autoHideImmune')::boolean, false) then
     return;
@@ -1780,6 +1847,9 @@ begin
       select 1 from public.blocks b
       where (b.blocker_id = new.reporter_id and b.blocked_id = v_author) or (b.blocker_id = v_author and b.blocked_id = new.reporter_id)
     ));
+  if v_eligible and to_regclass('public.account_restrictions') is not null then
+    v_eligible := not public.is_suspended(new.reporter_id);
+  end if;
   new.eligible := v_eligible;
   new.weight := case when not v_eligible then 0 when v_trust = 'high' then 2 else 1 end;
   new.university_id := coalesce(public.ts_uuid(s ->> 'universityId'), new.university_id, v_reporter_uni);
@@ -1854,12 +1924,14 @@ begin
   if char_length(coalesce(v_note, '')) > 500 then
     perform public.ts_fail_for(v_type, 'validation_failed', 'Keep the note under 500 characters.');
   end if;
-  if exists (select 1 from public.reports r where r.reporter_id = p_reporter and r.target_type = v_type and r.target_id = p_entity_id) then
+  -- A reply's report is stored as 'buzz_comment', the type CampConnect Admin's report queue reads.
+  if exists (select 1 from public.reports r where r.reporter_id = p_reporter and r.target_type in (v_type, case when v_type = 'buzz_reply' then 'buzz_comment' end)
+             and r.target_id = p_entity_id) then
     return jsonb_build_object('alreadyReported', true);
   end if;
   perform set_config('ts.filing_report', 'on', true);
   insert into public.reports (reporter_id, target_type, target_id, reason, details, university_id)
-  values (p_reporter, v_type, p_entity_id, p_reason, v_note, p_university);
+  values (p_reporter, case when v_type = 'buzz_reply' then 'buzz_comment' else v_type end, p_entity_id, p_reason, v_note, p_university);
   v_filed := found;
   perform set_config('ts.filing_report', 'off', true);
   return jsonb_build_object('alreadyReported', not v_filed);
@@ -2271,6 +2343,7 @@ $$;
 -- 12. Staff: who may call
 -- -----------------------------------------------------------------------------
 -- Non-staff get 'not found' from every staff function, as if it did not exist (UniVerse answers 404, never 403).
+-- Staff without a two-factor session get 'mfa_required' (they know they are staff; nobody else learns it).
 create or replace function public.ts_require_staff()
 returns text
 language plpgsql
@@ -2283,6 +2356,9 @@ declare
 begin
   if v_role is null then
     perform public.ts_fail('not_found', 'Not found');
+  end if;
+  if not public.ts_mfa_ok() then
+    perform public.ts_fail('mfa_required', 'Confirm it''s you with your authenticator app to use the staff console.');
   end if;
   return v_role;
 end;
@@ -2299,6 +2375,9 @@ as $$
 begin
   if public.ts_role_of(auth.uid()) is distinct from 'admin' then
     perform public.ts_fail('not_found', 'Not found');
+  end if;
+  if not public.ts_mfa_ok() then
+    perform public.ts_fail('mfa_required', 'Confirm it''s you with your authenticator app to use the staff console.');
   end if;
   return 'admin';
 end;
@@ -2325,7 +2404,7 @@ $$;
 -- Views: priority, wellbeing, held, auto_hidden, reports, escalated (admins), appeals, mine, closed (30 days, search
 -- by id prefix). Filters: {surface, category, source, universityId, q}. Priority first, then oldest. held and
 -- auto_hidden depend on the content's live status, so they look at no more than 2000 open items per call.
-create or replace function public.staff_queue(p_view text default 'priority', p_limit int default 30, p_offset int default 0, p_filters jsonb default '{}'::jsonb)
+create or replace function public.console_queue(p_view text default 'priority', p_limit int default 30, p_offset int default 0, p_filters jsonb default '{}'::jsonb)
 returns jsonb
 language plpgsql
 security definer
@@ -2402,7 +2481,7 @@ begin
 end;
 $$;
 
-create or replace function public.staff_queue_counts()
+create or replace function public.console_queue_counts()
 returns jsonb
 language plpgsql
 security definer
@@ -2605,7 +2684,7 @@ begin
 end;
 $$;
 
-create or replace function public.staff_queue_item(p_id uuid)
+create or replace function public.console_queue_item(p_id uuid)
 returns jsonb
 language plpgsql
 security definer
@@ -2619,7 +2698,7 @@ end;
 $$;
 
 -- A 10-minute claim. Closed, or held by someone else: refused.
-create or replace function public.staff_claim(p_id uuid)
+create or replace function public.console_claim(p_id uuid)
 returns jsonb
 language plpgsql
 security definer
@@ -2647,7 +2726,7 @@ end;
 $$;
 
 -- Release your claim (admins, and anyone once the 10 minutes are up, release anyone's).
-create or replace function public.staff_release(p_id uuid)
+create or replace function public.console_release(p_id uuid)
 returns jsonb
 language plpgsql
 security definer
@@ -2877,7 +2956,7 @@ end;
 $$;
 
 -- p_sanction: the action's options, {confirmText: 'BAN', reference: '…', badFaith: true}. Returns the refreshed detail.
-create or replace function public.staff_act(p_id uuid, p_action text, p_category text, p_note text default null, p_sanction jsonb default null, p_batch uuid default null)
+create or replace function public.console_act(p_id uuid, p_action text, p_category text, p_note text default null, p_sanction jsonb default null, p_batch uuid default null)
 returns jsonb
 language plpgsql
 security definer
@@ -2893,7 +2972,7 @@ $$;
 
 -- Up to 50 items: approve, remove or dismiss reports. Never P0, wellbeing, escalated or appeal items (sanctions are
 -- always per item). Each item gets its own audit row; they share the batch id.
-create or replace function public.staff_bulk(p_ids uuid[], p_action text, p_category text, p_note text default null)
+create or replace function public.console_bulk(p_ids uuid[], p_action text, p_category text, p_note text default null)
 returns jsonb
 language plpgsql
 security definer
@@ -2944,7 +3023,7 @@ $$;
 -- row is written BEFORE the author is looked up (if that fails, everything rolls back); a second row records which
 -- account it was as a keyed tag (no readable id); every other admin is told. The identity is in this answer only, for
 -- five minutes on screen.
-create or replace function public.staff_unmask(p_entity_type text, p_entity_id uuid, p_reason_code text, p_reason text, p_confirm text, p_case_ref text default null)
+create or replace function public.console_unmask(p_entity_type text, p_entity_id uuid, p_reason_code text, p_reason text, p_confirm text, p_case_ref text default null)
 returns jsonb
 language plpgsql
 security definer
@@ -3007,7 +3086,7 @@ begin
   end if;
   perform public.ts_audit(v_me, 'admin', 'buzz_unmask_subject', p_entity_type, v_entity::text, q.id, null, p_reason_code, null,
                           jsonb_build_object('unmaskId', v_audit, 'subjectTag', left(public.ts_seal('unmask-subject', v_author::text), 32)));
-  for v_admin in select s.user_id from public.staff_members s where s.role = 'admin' and s.user_id <> v_me loop
+  for v_admin in select x from public.ts_staff_ids(true) x where x <> v_me loop
     perform public.ts_notify(v_admin, 'staff', 'An admin unmasked a Buzz author · ' || p_reason_code, 'Every unmask is in the audit log.', '/admin/audit',
                              jsonb_build_object('event', 'unmask_alert', 'reasonCode', p_reason_code, 'auditId', v_audit));
   end loop;
@@ -3020,7 +3099,7 @@ $$;
 -- -----------------------------------------------------------------------------
 -- Moderators read their own rows; admins everything (filters: actor, action, targetType, from, to in ms). A 'user'
 -- target tied to a Buzz queue item is left out for moderators altogether.
-create or replace function public.staff_audit(p_limit int default 50, p_offset int default 0, p_filters jsonb default '{}'::jsonb)
+create or replace function public.console_audit(p_limit int default 50, p_offset int default 0, p_filters jsonb default '{}'::jsonb)
 returns jsonb
 language plpgsql
 security definer
@@ -3064,7 +3143,7 @@ $$;
 
 -- Look people up by name or username (admins: and email). Never any Buzz text, and for moderators never an
 -- anon-origin row or count (ts_staff_user_json).
-create or replace function public.staff_users(p_q text, p_limit int default 20, p_offset int default 0)
+create or replace function public.console_users(p_q text, p_limit int default 20, p_offset int default 0)
 returns jsonb
 language plpgsql
 security definer
@@ -3101,7 +3180,7 @@ begin
 end;
 $$;
 
-create or replace function public.staff_user(p_id uuid)
+create or replace function public.console_user(p_id uuid)
 returns jsonb
 language plpgsql
 security definer
@@ -3120,7 +3199,7 @@ $$;
 
 -- A direct sanction on a named account: always public-origin, on the account's profile (Buzz sanctions go through a
 -- queue item, blind). Moderators: warnings and mutes of up to 7 days, on accounts that are not staff. Note 10+.
-create or replace function public.staff_sanction(p_user uuid, p_kind text, p_duration_ms bigint default null, p_scope text default 'all', p_category text default null, p_note text default null)
+create or replace function public.console_sanction(p_user uuid, p_kind text, p_duration_ms bigint default null, p_scope text default 'all', p_category text default null, p_note text default null)
 returns jsonb
 language plpgsql
 security definer
@@ -3176,7 +3255,7 @@ $$;
 -- Admins only. p_id: a sanction id, or the sealed handle a user page shows for an anon-origin row. A RAW anon-origin
 -- id (only content-targeted audit rows carry one) answers blind: returning the account would be an unmask with no
 -- reason, no UNMASK and no buzz_unmask row.
-create or replace function public.staff_lift(p_id text, p_note text)
+create or replace function public.console_lift(p_id text, p_note text)
 returns jsonb
 language plpgsql
 security definer
@@ -3213,7 +3292,8 @@ end;
 $$;
 
 -- Admins only: make someone a moderator or an admin, or take it back ('user'). Audited. Never your own role.
-create or replace function public.staff_grant_role(p_user uuid, p_role text)
+-- Where CampConnect Admin's staff list exists, staff are managed there (invites, two-factor sign-in) and this refuses.
+create or replace function public.console_grant_role(p_user uuid, p_role text)
 returns jsonb
 language plpgsql
 security definer
@@ -3224,6 +3304,9 @@ declare
   v_from text;
 begin
   perform public.ts_require_admin();
+  if to_regclass('public.staff') is not null then
+    perform public.ts_fail('not_supported', 'Staff are added and removed in CampConnect Admin.');
+  end if;
   if p_role is null or p_role not in ('user', 'moderator', 'admin') then
     perform public.ts_fail('validation_failed', 'Pick a role.');
   end if;
@@ -3366,9 +3449,8 @@ begin
                            '/settings/account-status', jsonb_build_object('event', 'appeal_received', 'sanctionId', s.id));
   select a.actor_id into v_actor from public.moderation_actions a where a.id = s.action_id;
   for v_staff in
-    select m.user_id from public.staff_members m
-    where m.user_id <> v_me and m.user_id is distinct from v_actor and m.user_id is distinct from s.actor_id
-      and (s.kind not in ('suspension', 'ban') or m.role = 'admin')
+    select x from public.ts_staff_ids(s.kind in ('suspension', 'ban')) x
+    where x <> v_me and x is distinct from v_actor and x is distinct from s.actor_id
   loop
     perform public.ts_notify(v_staff, 'staff', 'New appeal to review', 'An appeal of a ' || case s.kind when 'removal' then 'removal' else s.kind end || ' is waiting.',
                              '/admin/appeals', jsonb_build_object('event', 'appeal_new'));
@@ -3378,7 +3460,7 @@ end;
 $$;
 
 -- Appeals for staff (p_view: open, upheld, reversed, reduced, all), never your own. Blind (ts_appeal_json).
-create or replace function public.staff_appeals(p_view text default 'open', p_limit int default 30, p_offset int default 0)
+create or replace function public.console_appeals(p_view text default 'open', p_limit int default 30, p_offset int default 0)
 returns jsonb
 language plpgsql
 security definer
@@ -3408,7 +3490,7 @@ $$;
 -- Decide an appeal: never your own, never one you (or the action behind it) actioned, suspensions and bans for admins.
 -- reversed: lifted at once, content back up, strikes gone. reduced: ends earlier (p_reduced_until, ms). The person is
 -- told; the appeal's queue item closes; audited.
-create or replace function public.staff_decide_appeal(p_id uuid, p_outcome text, p_note text, p_reduced_until bigint default null)
+create or replace function public.console_decide_appeal(p_id uuid, p_outcome text, p_note text, p_reduced_until bigint default null)
 returns jsonb
 language plpgsql
 security definer
@@ -3488,7 +3570,7 @@ $$;
 -- -----------------------------------------------------------------------------
 -- Moderation metrics from the moderation tables only, never broken down by person (UniVerse safety 6.7). Range
 -- default: the last 30 days (at most 365). reportsPer1k is per 1,000 moderated writes (the content the engine saw).
-create or replace function public.staff_metrics(p_from bigint default null, p_to bigint default null)
+create or replace function public.console_metrics(p_from bigint default null, p_to bigint default null)
 returns jsonb
 language plpgsql
 stable
@@ -3601,7 +3683,7 @@ begin
 end;
 $$;
 
-create or replace function public.staff_rule_packs()
+create or replace function public.console_rule_packs()
 returns jsonb
 language plpgsql
 stable
@@ -3618,7 +3700,7 @@ end;
 $$;
 
 -- Admins only, audited. The baseline pack stays on.
-create or replace function public.staff_set_rule_pack(p_id text, p_enabled boolean, p_note text default null)
+create or replace function public.console_set_rule_pack(p_id text, p_enabled boolean, p_note text default null)
 returns jsonb
 language plpgsql
 security definer
@@ -3714,7 +3796,7 @@ begin
     'ts_reason_priority(text)', 'ts_reason_category(text)', 'ts_bucket(bigint)', 'ts_duration_text(interval)', 'ts_excerpt(jsonb, text)', 'ts_scrub(text)',
     'ts_strip_identity(jsonb)', 'ts_country_code(text)', 'ts_email_hash(text)', 'ts_fail(text, text)', 'ts_fail_for(text, text, text)', 'ts_error_code(text)',
     'ts_seal(text, text)', 'ts_audit_append_only()', 'ts_notify(uuid, text, text, text, text, jsonb, timestamptz)',
-    'ts_role_of(uuid)', 'ts_strike_points(uuid)', 'ts_reporter_trust(uuid)', 'ts_posting_status(uuid, text)', 'ts_treated_as_new(uuid)',
+    'ts_role_of(uuid)', 'ts_staff_ids(boolean)', 'ts_mfa_ok()', 'ts_strike_points(uuid)', 'ts_reporter_trust(uuid)', 'ts_posting_status(uuid, text)', 'ts_treated_as_new(uuid)',
     'ts_public_snapshot(text, uuid)', 'ts_public_author_of(text, uuid)', 'ts_public_remove(text, uuid)', 'ts_snapshot(text, uuid)', 'ts_author_of(text, uuid)',
     'ts_set_content_status(text, uuid, text, boolean)', 'ts_staff_context(text, uuid)', 'ts_university_name(uuid, boolean)',
     'ts_enqueue(text, uuid, text, uuid, uuid, text, text, text, text, text, jsonb, text, integer, integer)',
@@ -3745,12 +3827,12 @@ begin
   -- signed-in people (the staff functions answer non-staff 'not found' themselves)
   foreach f in array array[
     'ts_staff_role()', 'my_sanctions()', 'ack_sanction(uuid)', 'submit_appeal(uuid, text)',
-    'staff_queue(text, integer, integer, jsonb)', 'staff_queue_counts()', 'staff_queue_item(uuid)', 'staff_claim(uuid)', 'staff_release(uuid)',
-    'staff_act(uuid, text, text, text, jsonb, uuid)', 'staff_bulk(uuid[], text, text, text)', 'staff_unmask(text, uuid, text, text, text, text)',
-    'staff_audit(integer, integer, jsonb)', 'staff_users(text, integer, integer)', 'staff_user(uuid)',
-    'staff_sanction(uuid, text, bigint, text, text, text)', 'staff_lift(text, text)', 'staff_grant_role(uuid, text)',
-    'staff_appeals(text, integer, integer)', 'staff_decide_appeal(uuid, text, text, bigint)', 'staff_metrics(bigint, bigint)',
-    'staff_rule_packs()', 'staff_set_rule_pack(text, boolean, text)'
+    'console_queue(text, integer, integer, jsonb)', 'console_queue_counts()', 'console_queue_item(uuid)', 'console_claim(uuid)', 'console_release(uuid)',
+    'console_act(uuid, text, text, text, jsonb, uuid)', 'console_bulk(uuid[], text, text, text)', 'console_unmask(text, uuid, text, text, text, text)',
+    'console_audit(integer, integer, jsonb)', 'console_users(text, integer, integer)', 'console_user(uuid)',
+    'console_sanction(uuid, text, bigint, text, text, text)', 'console_lift(text, text)', 'console_grant_role(uuid, text)',
+    'console_appeals(text, integer, integer)', 'console_decide_appeal(uuid, text, text, bigint)', 'console_metrics(bigint, bigint)',
+    'console_rule_packs()', 'console_set_rule_pack(text, boolean, text)'
   ] loop
     execute format('revoke all on function public.%s from public, anon', f);
     execute format('grant execute on function public.%s to authenticated', f);

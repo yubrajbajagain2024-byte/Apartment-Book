@@ -1,7 +1,7 @@
 "use server";
 
 /**
- * The staff console's writes. Every one is a staff_* database function run as the signed-in user: the database checks
+ * The staff console's writes. Every one is a console_* database function run as the signed-in user: the database checks
  * the role (non-staff: not found), the conflict-of-interest filter, the ladder rules and the notes, and writes the
  * audit row in the same transaction. These wrappers only shape the input and the answer.
  */
@@ -27,11 +27,11 @@ async function run<T>(fn: string, args: Record<string, unknown>, revalidate: str
 }
 
 export async function claimItemAction(id: string): Promise<ActionResult<unknown>> {
-  return run("staff_claim", { p_id: str(id, 64) });
+  return run("console_claim", { p_id: str(id, 64) });
 }
 
 export async function releaseItemAction(id: string): Promise<ActionResult<unknown>> {
-  return run("staff_release", { p_id: str(id, 64) });
+  return run("console_release", { p_id: str(id, 64) });
 }
 
 export interface ActInput {
@@ -49,7 +49,7 @@ export async function actOnItemAction(input: ActInput): Promise<ActionResult<{ s
   if (input.confirmText) options.confirmText = str(input.confirmText, 20);
   if (input.reference) options.reference = str(input.reference, 200);
   if (input.badFaith) options.badFaith = true;
-  const res = await run<StaffQueueItemDetail>("staff_act", {
+  const res = await run<StaffQueueItemDetail>("console_act", {
     p_id: str(input.id, 64),
     p_action: str(input.action, 40),
     p_category: str(input.category, 40),
@@ -62,7 +62,7 @@ export async function actOnItemAction(input: ActInput): Promise<ActionResult<{ s
 
 export async function bulkAction(input: { ids: string[]; action: BulkActionId; category: string; note?: string }): Promise<ActionResult<BulkActionResult>> {
   const ids = Array.isArray(input.ids) ? input.ids.filter((x) => typeof x === "string").slice(0, 50) : [];
-  return run<BulkActionResult>("staff_bulk", { p_ids: ids, p_action: str(input.action, 40), p_category: str(input.category, 40), p_note: str(input.note ?? "", 2000) || null });
+  return run<BulkActionResult>("console_bulk", { p_ids: ids, p_action: str(input.action, 40), p_category: str(input.category, 40), p_note: str(input.note ?? "", 2000) || null });
 }
 
 /**
@@ -78,7 +78,7 @@ export async function unmaskAction(input: {
   caseRef?: string;
 }): Promise<ActionResult<UnmaskResponse>> {
   return run<UnmaskResponse>(
-    "staff_unmask",
+    "console_unmask",
     {
       p_entity_type: str(input.entityType, 20),
       p_entity_id: str(input.entityId, 64),
@@ -100,7 +100,7 @@ export async function directSanctionAction(input: {
   category: string;
   note: string;
 }): Promise<ActionResult<StaffUserDetail>> {
-  return run<StaffUserDetail>("staff_sanction", {
+  return run<StaffUserDetail>("console_sanction", {
     p_user: str(input.userId, 64),
     p_kind: str(input.kind, 20),
     p_duration_ms: typeof input.durationMs === "number" && Number.isFinite(input.durationMs) ? Math.round(input.durationMs) : null,
@@ -111,15 +111,15 @@ export async function directSanctionAction(input: {
 }
 
 export async function liftSanctionAction(input: { sanctionId: string; note: string }): Promise<ActionResult<StaffUserDetail | BlindLiftResult>> {
-  return run<StaffUserDetail | BlindLiftResult>("staff_lift", { p_id: str(input.sanctionId, 128), p_note: str(input.note, 2000) });
+  return run<StaffUserDetail | BlindLiftResult>("console_lift", { p_id: str(input.sanctionId, 128), p_note: str(input.note, 2000) });
 }
 
 export async function grantRoleAction(input: { userId: string; role: "user" | "moderator" | "admin" }): Promise<ActionResult<StaffUserDetail>> {
-  return run<StaffUserDetail>("staff_grant_role", { p_user: str(input.userId, 64), p_role: str(input.role, 20) });
+  return run<StaffUserDetail>("console_grant_role", { p_user: str(input.userId, 64), p_role: str(input.role, 20) });
 }
 
 export async function decideAppealAction(input: { id: string; outcome: "upheld" | "reversed" | "reduced"; note: string; reducedUntil: number | null }): Promise<ActionResult<StaffAppeal>> {
-  return run<StaffAppeal>("staff_decide_appeal", {
+  return run<StaffAppeal>("console_decide_appeal", {
     p_id: str(input.id, 64),
     p_outcome: str(input.outcome, 20),
     p_note: str(input.note, 2000),
@@ -128,5 +128,5 @@ export async function decideAppealAction(input: { id: string; outcome: "upheld" 
 }
 
 export async function setRulePackAction(input: { id: string; enabled: boolean; note?: string }): Promise<ActionResult<RulePackState>> {
-  return run<RulePackState>("staff_set_rule_pack", { p_id: str(input.id, 64), p_enabled: input.enabled === true, p_note: str(input.note ?? "", 500) || null });
+  return run<RulePackState>("console_set_rule_pack", { p_id: str(input.id, 64), p_enabled: input.enabled === true, p_note: str(input.note ?? "", 500) || null });
 }

@@ -19,8 +19,11 @@ await expectOk("the Trust & Safety migration re-runs cleanly", async () => { awa
 const one = async (p) => (await p).rows[0];
 const rows = async (p) => (await p).rows;
 const sql1 = async (text, params = []) => (await one(db.query(text, params)));
-/** Call `select <expr> as r` as a signed-in user and return r. */
-const call = (uid, expr, params = []) => as(uid, async () => (await one(db.query(`select ${expr} as r`, params))).r);
+/** Call `select <expr> as r` as a signed-in user whose session passed two-factor sign-in (staff need it) and return r. */
+const MFA = { aal: "aal2" };
+const call = (uid, expr, params = []) => as(uid, async () => (await one(db.query(`select ${expr} as r`, params))).r, MFA);
+/** The same without two-factor sign-in. */
+const callAal1 = (uid, expr, params = []) => as(uid, async () => (await one(db.query(`select ${expr} as r`, params))).r);
 const callService = (expr, params = []) => asService(async () => (await one(db.query(`select ${expr} as r`, params))).r);
 const check = (cond, message) => { if (!cond) throw new Error(message); };
 const NIL = "00000000-0000-0000-0000-000000000000";
@@ -133,8 +136,10 @@ const USER = await person("user", "plain.user@txstate.edu", "Plain Userperson");
 const F1 = await person("f1", "fresh.reporter@txstate.edu", "Fiona Reportwell");
 const F2 = await person("f2", "fresh.second@txstate.edu", "Felix Flagsworth");
 const TARGET = await person("target", "tess.target@txstate.edu", "Tess Targetable");
+// Where CampConnect Admin's staff list exists (production's schema), it is the only one; otherwise staff_members.
+const STAFF_TABLE = (await sql1("select to_regclass('public.staff') is not null as ok")).ok ? "staff" : "staff_members";
 for (const [uid, role] of [[MOD, "moderator"], [MOD2, "moderator"], [ADMIN, "admin"], [ADMIN2, "admin"]]) {
-  await db.query("insert into public.staff_members (user_id, role) values ($1, $2)", [uid, role]);
+  await db.query(`insert into public.${STAFF_TABLE} (user_id, role) values ($1, $2)`, [uid, role]);
 }
 const identityOf = (key) => [people[key].id, people[key].full_name, people[key].username, people[key].email];
 
@@ -188,25 +193,25 @@ await expectOk("functions: the write API's two (writer context, blocked write) r
 // 2. Non-staff: not found, everywhere
 // =================================================================================================================
 const STAFF_CALLS = [
-  ["staff_queue", "public.staff_queue('priority', 10, 0, '{}'::jsonb)"],
-  ["staff_queue_counts", "public.staff_queue_counts()"],
-  ["staff_queue_item", `public.staff_queue_item('${NIL}')`],
-  ["staff_claim", `public.staff_claim('${NIL}')`],
-  ["staff_release", `public.staff_release('${NIL}')`],
-  ["staff_act", `public.staff_act('${NIL}', 'approve', 'spam_scam', null, null, null)`],
-  ["staff_bulk", `public.staff_bulk(array['${NIL}']::uuid[], 'approve', 'spam_scam', null)`],
-  ["staff_unmask", `public.staff_unmask('buzz', '${NIL}', 'credible_threat', '${"x".repeat(40)}', 'UNMASK', null)`],
-  ["staff_audit", "public.staff_audit(10, 0, '{}'::jsonb)"],
-  ["staff_users", "public.staff_users('re', 20, 0)"],
-  ["staff_user", `public.staff_user('${NIL}')`],
-  ["staff_sanction", `public.staff_sanction('${NIL}', 'warning', null, 'all', 'spam_scam', 'a long enough note')`],
-  ["staff_lift", "public.staff_lift('x', 'a long enough note')"],
-  ["staff_grant_role", `public.staff_grant_role('${NIL}', 'moderator')`],
-  ["staff_appeals", "public.staff_appeals('open', 10, 0)"],
-  ["staff_decide_appeal", `public.staff_decide_appeal('${NIL}', 'upheld', 'a long enough note', null)`],
-  ["staff_metrics", "public.staff_metrics(null, null)"],
-  ["staff_rule_packs", "public.staff_rule_packs()"],
-  ["staff_set_rule_pack", "public.staff_set_rule_pack('admin.spam', false, null)"],
+  ["console_queue", "public.console_queue('priority', 10, 0, '{}'::jsonb)"],
+  ["console_queue_counts", "public.console_queue_counts()"],
+  ["console_queue_item", `public.console_queue_item('${NIL}')`],
+  ["console_claim", `public.console_claim('${NIL}')`],
+  ["console_release", `public.console_release('${NIL}')`],
+  ["console_act", `public.console_act('${NIL}', 'approve', 'spam_scam', null, null, null)`],
+  ["console_bulk", `public.console_bulk(array['${NIL}']::uuid[], 'approve', 'spam_scam', null)`],
+  ["console_unmask", `public.console_unmask('buzz', '${NIL}', 'credible_threat', '${"x".repeat(40)}', 'UNMASK', null)`],
+  ["console_audit", "public.console_audit(10, 0, '{}'::jsonb)"],
+  ["console_users", "public.console_users('re', 20, 0)"],
+  ["console_user", `public.console_user('${NIL}')`],
+  ["console_sanction", `public.console_sanction('${NIL}', 'warning', null, 'all', 'spam_scam', 'a long enough note')`],
+  ["console_lift", "public.console_lift('x', 'a long enough note')"],
+  ["console_grant_role", `public.console_grant_role('${NIL}', 'moderator')`],
+  ["console_appeals", "public.console_appeals('open', 10, 0)"],
+  ["console_decide_appeal", `public.console_decide_appeal('${NIL}', 'upheld', 'a long enough note', null)`],
+  ["console_metrics", "public.console_metrics(null, null)"],
+  ["console_rule_packs", "public.console_rule_packs()"],
+  ["console_set_rule_pack", "public.console_set_rule_pack('admin.spam', false, null)"],
 ];
 await expectOk("non-staff: every staff function answers 'not found', and signed out cannot call them at all", async () => {
   for (const [name, expr] of STAFF_CALLS) {
@@ -342,7 +347,7 @@ await expectOk("auto-hide: an approved buzz is immune to report-based auto-hide 
   const b = await postBuzz(AUTHOR2, "the gym should open earlier during finals week, change my mind");
   await fileBuzzReport(R[0], "buzz", b);
   const q = (await sql1("select id from public.mod_queue where entity_type = 'buzz' and entity_id = $1 and status <> 'closed'", [b])).id;
-  await call(MOD, "public.staff_act($1, 'approve', 'harassment_bullying', null, null, null)", [q]);
+  await call(MOD, "public.console_act($1, 'approve', 'harassment_bullying', null, null, null)", [q]);
   for (const r of R.slice(1, 5)) await fileBuzzReport(r, "buzz", b);
   check((await buzzStatus("buzz", b)) === "active", "an approved buzz was hidden");
   check((await sql1("select count(*)::int as n from public.mod_queue where entity_type = 'buzz' and entity_id = $1 and status <> 'closed'", [b])).n === 1, "new reports did not queue");
@@ -427,7 +432,7 @@ await expectOk("writer context: posting status for Buzz, polls unlock, strike po
 // =================================================================================================================
 await expectOk("ban: an admin's ban puts the address on the list; deleting the account does not free it; signing up again is refused", async () => {
   const victim = await person("banned", "Banned.Person@txstate.edu", "Banned Personson");
-  await call(ADMIN, "public.staff_sanction($1, 'ban', null, 'all', 'hate', 'repeated hate speech after two suspensions')", [victim]);
+  await call(ADMIN, "public.console_sanction($1, 'ban', null, 'all', 'hate', 'repeated hate speech after two suspensions')", [victim]);
   check((await sql1("select count(*)::int as n from public.banned_emails where email_hash = public.ts_email_hash('banned.person@txstate.edu')")).n === 1, "not on the list");
   check((await posting(victim)).reason === "banned", "posting still allowed");
   await db.query("delete from auth.users where id = $1", [victim]);
@@ -440,9 +445,9 @@ await expectOk("ban: an admin's ban puts the address on the list; deleting the a
 });
 await expectOk("ban: lifting the last ban takes the address off the list", async () => {
   const v = await person("banned2", "second.banned@txstate.edu", "Second Bannedone");
-  const detail = await call(ADMIN, "public.staff_sanction($1, 'ban', null, 'all', 'spam_scam', 'ban evasion confirmed by the team')", [v]);
+  const detail = await call(ADMIN, "public.console_sanction($1, 'ban', null, 'all', 'spam_scam', 'ban evasion confirmed by the team')", [v]);
   const ban = detail.sanctions.find((s) => s.kind === "ban");
-  await call(ADMIN, "public.staff_lift($1, 'lifted after a second look at it')", [ban.id]);
+  await call(ADMIN, "public.console_lift($1, 'lifted after a second look at it')", [ban.id]);
   check((await sql1("select count(*)::int as n from public.banned_emails where email_hash = public.ts_email_hash('second.banned@txstate.edu')")).n === 0, "still on the list");
   check((await posting(v)).allowed === true, "still banned");
 });
@@ -452,42 +457,42 @@ await expectOk("ban: lifting the last ban takes the address off the list", async
 // =================================================================================================================
 const queueIdOf = async (type, id) => (await sql1("select id from public.mod_queue where entity_type = $1 and entity_id = $2 order by created_at desc limit 1", [type, id])).id;
 await expectOk("queue: a moderator sees the open items, priority first; the item carries no author, for Buzz or public content", async () => {
-  const page = await call(MOD, "public.staff_queue('priority', 50, 0, '{}'::jsonb)");
+  const page = await call(MOD, "public.console_queue('priority', 50, 0, '{}'::jsonb)");
   check(Array.isArray(page.items) && page.items.length > 0, JSON.stringify(page));
   const order = page.items.map((i) => i.priority);
   check(order.join() === [...order].sort().join(), "not priority-ordered: " + order.join());
   for (const item of page.items) noForbiddenKeys("queue item", item);
   const buzz = page.items.find((i) => i.entityId === B_REPORTED);
   check(buzz && buzz.anon === true && buzz.excerpt.includes("dining hall") && buzz.reportCount >= 1 && buzz.createdAt % 60000 === 0, JSON.stringify(buzz));
-  const counts = await call(MOD, "public.staff_queue_counts()");
+  const counts = await call(MOD, "public.console_queue_counts()");
   check(counts.priority === page.items.length && typeof counts.held === "number" && typeof counts.auto_hidden === "number" && counts.wellbeing >= 1, JSON.stringify(counts));
 });
 await expectOk("queue: auto_hidden lists hidden Buzz, wellbeing the self-harm items, reports the reported ones", async () => {
-  const hidden = await call(MOD, "public.staff_queue('auto_hidden', 50, 0, '{}'::jsonb)");
+  const hidden = await call(MOD, "public.console_queue('auto_hidden', 50, 0, '{}'::jsonb)");
   check(hidden.items.length >= 1 && hidden.items.every((i) => i.contentStatus === "hidden" || ["community_score", "ai_flag"].includes(i.source)), JSON.stringify(hidden.items));
-  const wb = await call(MOD, "public.staff_queue('wellbeing', 50, 0, '{}'::jsonb)");
+  const wb = await call(MOD, "public.console_queue('wellbeing', 50, 0, '{}'::jsonb)");
   check(wb.items.length >= 1 && wb.items.every((i) => i.label === "wellbeing"), JSON.stringify(wb.items));
-  const rep = await call(MOD, "public.staff_queue('reports', 50, 0, '{}'::jsonb)");
+  const rep = await call(MOD, "public.console_queue('reports', 50, 0, '{}'::jsonb)");
   check(rep.items.every((i) => i.reportCount > 0 || i.source === "user_report"), "reports view");
 });
 await expectOk("claim: opening an item claims it for 10 minutes; another moderator sees 'being reviewed' and cannot act; after the lease they can", async () => {
   const p = await postOf(PUB, "lease probe post that someone reported for spam");
   await as(R[3], () => db.query("insert into public.reports (reporter_id, target_type, target_id, reason) values ($1, 'post', $2, 'spam')", [R[3], p]));
   const q = await queueIdOf("post", p);
-  const mine = await call(MOD, "public.staff_queue_item($1)", [q]);
+  const mine = await call(MOD, "public.console_queue_item($1)", [q]);
   check(mine.claimedByMe === true && mine.status === "claimed", JSON.stringify({ c: mine.claimedByMe, s: mine.status }));
-  const theirs = await call(MOD2, "public.staff_queue_item($1)", [q]);
+  const theirs = await call(MOD2, "public.console_queue_item($1)", [q]);
   check(theirs.claimedByOther === true && theirs.claimedByMe === false, "MOD2 view");
   let msg = "";
-  try { await call(MOD2, "public.staff_act($1, 'approve', 'spam_scam', null, null, null)", [q]); } catch (e) { msg = e.message; }
+  try { await call(MOD2, "public.console_act($1, 'approve', 'spam_scam', null, null, null)", [q]); } catch (e) { msg = e.message; }
   check(msg.startsWith("ts:conflict:Being reviewed"), "act while claimed: " + msg);
   msg = "";
-  try { await call(MOD2, "public.staff_claim($1)", [q]); } catch (e) { msg = e.message; }
+  try { await call(MOD2, "public.console_claim($1)", [q]); } catch (e) { msg = e.message; }
   check(msg.startsWith("ts:conflict:"), "claim while claimed: " + msg);
-  const mineView = await call(MOD, "public.staff_queue('mine', 50, 0, '{}'::jsonb)");
+  const mineView = await call(MOD, "public.console_queue('mine', 50, 0, '{}'::jsonb)");
   check(mineView.items.some((i) => i.id === q), "not in Mine");
   await db.query("update public.mod_queue set claimed_at = now() - interval '11 minutes' where id = $1", [q]);
-  const done1 = await call(MOD2, "public.staff_act($1, 'approve', 'spam_scam', null, null, null)", [q]);
+  const done1 = await call(MOD2, "public.console_act($1, 'approve', 'spam_scam', null, null, null)", [q]);
   check(done1.status === "closed" && done1.resolution === "approved", JSON.stringify({ s: done1.status, r: done1.resolution }));
   const rep = await sql1("select status, closed_at from public.reports where target_id = $1", [p]);
   check(rep.status === "dismissed" && rep.closed_at, JSON.stringify(rep));
@@ -499,19 +504,19 @@ await expectOk("conflict of interest: a moderator who reported an item neither s
   await as(MOD, () => db.query("insert into public.reports (reporter_id, target_type, target_id, reason) values ($1, 'post', $2, 'harassment')", [MOD, p]));
   const q = await queueIdOf("post", p);
   let msg = "";
-  try { await call(MOD, "public.staff_queue_item($1)", [q]); } catch (e) { msg = e.message; }
+  try { await call(MOD, "public.console_queue_item($1)", [q]); } catch (e) { msg = e.message; }
   check(msg.startsWith("ts:not_found:"), "detail: " + msg);
   msg = "";
-  try { await call(MOD, "public.staff_act($1, 'approve', 'harassment_bullying', null, null, null)", [q]); } catch (e) { msg = e.message; }
+  try { await call(MOD, "public.console_act($1, 'approve', 'harassment_bullying', null, null, null)", [q]); } catch (e) { msg = e.message; }
   check(msg.startsWith("ts:not_found:"), "act: " + msg);
-  const list = await call(MOD, "public.staff_queue('priority', 100, 0, '{}'::jsonb)");
+  const list = await call(MOD, "public.console_queue('priority', 100, 0, '{}'::jsonb)");
   check(!list.items.some((i) => i.id === q), "listed for the reporter");
-  check((await call(MOD2, "public.staff_queue_item($1)", [q])).id === q, "MOD2 cannot see it");
-  await call(MOD2, "public.staff_release($1)", [q]);
+  check((await call(MOD2, "public.console_queue_item($1)", [q])).id === q, "MOD2 cannot see it");
+  await call(MOD2, "public.console_release($1)", [q]);
 });
 await expectOk("matrix: admin-only functions answer moderators 'not found'; admin-only actions answer 'forbidden'", async () => {
-  for (const expr of ["public.staff_rule_packs()", "public.staff_set_rule_pack('admin.spam', false, null)", `public.staff_grant_role('${USER}', 'moderator')`,
-    "public.staff_lift('x', 'a long enough note')", `public.staff_unmask('buzz', '${B_REPORTED}', 'credible_threat', '${"x".repeat(40)}', 'UNMASK', null)`]) {
+  for (const expr of ["public.console_rule_packs()", "public.console_set_rule_pack('admin.spam', false, null)", `public.console_grant_role('${USER}', 'moderator')`,
+    "public.console_lift('x', 'a long enough note')", `public.console_unmask('buzz', '${B_REPORTED}', 'credible_threat', '${"x".repeat(40)}', 'UNMASK', null)`]) {
     let msg = "";
     try { await call(MOD, expr); } catch (e) { msg = e.message; }
     check(msg.startsWith("ts:not_found:"), `${expr} as moderator: ${msg || "no error"}`);
@@ -521,18 +526,18 @@ await expectOk("matrix: admin-only functions answer moderators 'not found'; admi
   const q = await queueIdOf("post", p);
   for (const action of ["suspend_7d", "suspend_30d", "ban", "escalate_external", "lift_sanction"]) {
     let msg = "";
-    try { await call(MOD, "public.staff_act($1, $2, 'harassment_bullying', $3, $4::jsonb, null)", [q, action, "n".repeat(40), JSON.stringify({ confirmText: "BAN", reference: "X-1" })]); } catch (e) { msg = e.message; }
+    try { await call(MOD, "public.console_act($1, $2, 'harassment_bullying', $3, $4::jsonb, null)", [q, action, "n".repeat(40), JSON.stringify({ confirmText: "BAN", reference: "X-1" })]); } catch (e) { msg = e.message; }
     check(msg === "ts:forbidden:Admins only.", `${action}: ${msg || "no error"}`);
   }
-  const packs = await call(ADMIN, "public.staff_rule_packs()");
+  const packs = await call(ADMIN, "public.console_rule_packs()");
   check(packs.length === 12 && packs.every((x) => x.enabled), JSON.stringify(packs));
-  await call(MOD, "public.staff_release($1)", [q]);
+  await call(MOD, "public.console_release($1)", [q]);
 });
 await expectOk("validation: notes, unknown actions, the typed BAN, the outside reference, and wellbeing never sanctions", async () => {
   const p = await postOf(PUB, "validation probe post");
   await as(R[4], () => db.query("insert into public.reports (reporter_id, target_type, target_id, reason) values ($1, 'post', $2, 'harassment')", [R[4], p]));
   const q = await queueIdOf("post", p);
-  const attempt = async (action, category, note, opts) => { try { await call(ADMIN, "public.staff_act($1, $2, $3, $4, $5::jsonb, null)", [q, action, category, note, JSON.stringify(opts ?? {})]); return "ok"; } catch (e) { return e.message; } };
+  const attempt = async (action, category, note, opts) => { try { await call(ADMIN, "public.console_act($1, $2, $3, $4, $5::jsonb, null)", [q, action, category, note, JSON.stringify(opts ?? {})]); return "ok"; } catch (e) { return e.message; } };
   check((await attempt("remove", "harassment_bullying", null)).includes("Add a note"), "remove without a note");
   check((await attempt("nuke", "harassment_bullying", null)).includes("Unknown action"), "unknown action");
   check((await attempt("remove", "not_a_category", "a long enough note")).includes("Pick the guideline"), "bad category");
@@ -540,14 +545,14 @@ await expectOk("validation: notes, unknown actions, the typed BAN, the outside r
   check((await attempt("ban", "harassment_bullying", "too short ban", { confirmText: "BAN" })).includes("at least 30"), "short ban note");
   check((await attempt("escalate_external", "harassment_bullying", "n".repeat(20))).includes("reference"), "no reference");
   check((await attempt("remove_and_warn", "self_harm", "n".repeat(20))).includes("never sanction"), "self-harm sanction");
-  await call(ADMIN, "public.staff_release($1)", [q]);
+  await call(ADMIN, "public.console_release($1)", [q]);
 });
 await expectOk("remove + mute on public content: deleted, a strike, a mute, reporters told it was actioned; history without actor names for moderators", async () => {
   const p = await postOf(PUB, "rude post that gets removed by an admin");
   await as(R[4], () => db.query("insert into public.reports (reporter_id, target_type, target_id, reason) values ($1, 'post', $2, 'harassment')", [R[4], p]));
   const q = await queueIdOf("post", p);
   await db.query("update public.mod_queue set severity = 'high' where id = $1", [q]);
-  const d = await call(ADMIN, "public.staff_act($1, 'remove_and_mute_24h', 'harassment_bullying', 'clearly targeted at a classmate', null, null)", [q]);
+  const d = await call(ADMIN, "public.console_act($1, 'remove_and_mute_24h', 'harassment_bullying', 'clearly targeted at a classmate', null, null)", [q]);
   check(d.status === "closed" && d.resolution === "sanctioned", JSON.stringify({ s: d.status, r: d.resolution }));
   check((await sql1("select count(*)::int as n from public.feed_posts where id = $1", [p])).n === 0, "not deleted");
   const strike = await sql1("select points, origin from public.strikes where user_id = $1 and entity_id = $2", [PUB, p]);
@@ -557,9 +562,9 @@ await expectOk("remove + mute on public content: deleted, a strike, a mute, repo
   check((await sql1("select status from public.reports where reporter_id = $1 and target_id = $2", [R[4], p])).status === "actioned", "report not actioned");
   const notice = await sql1("select title from public.notifications where user_id = $1 and type = 'moderation' and data ->> 'event' = 'content_removed' order by created_at desc limit 1", [PUB]);
   check(/was removed for breaking our guideline on Harassment & bullying/.test(notice.title), JSON.stringify(notice));
-  const asMod = await call(MOD, "public.staff_queue('closed', 50, 0, $1::jsonb)", [JSON.stringify({ q: String(q).slice(0, 8) })]);
+  const asMod = await call(MOD, "public.console_queue('closed', 50, 0, $1::jsonb)", [JSON.stringify({ q: String(q).slice(0, 8) })]);
   check(asMod.items.some((i) => i.id === q), "closed view by id prefix");
-  const detail = await call(MOD, "public.staff_queue_item($1)", [q]);
+  const detail = await call(MOD, "public.console_queue_item($1)", [q]);
   check(detail.history[0].actorName === null && detail.history[0].actorRole === "admin", JSON.stringify(detail.history));
   check(detail.author.kind === "public" && detail.author.user.id === PUB && detail.author.sanctions.some((s) => s.kind === "mute"), JSON.stringify(detail.author));
   await db.query("update public.user_sanctions set lifted_at = now() where user_id = $1", [PUB]);
@@ -568,28 +573,28 @@ await expectOk("lock_thread only on Buzz roots; escalate leaves the moderator qu
   const b = await postBuzz(AUTHOR2, "a thread that keeps getting heated in the replies");
   await fileBuzzReport(R[0], "buzz", b);
   const qb = await queueIdOf("buzz", b);
-  const locked = await call(MOD, "public.staff_act($1, 'lock_thread', 'harassment_bullying', 'locking the pile-on here', null, null)", [qb]);
+  const locked = await call(MOD, "public.console_act($1, 'lock_thread', 'harassment_bullying', 'locking the pile-on here', null, null)", [qb]);
   check(locked.status !== "closed", "locking closed the item");
   if (!V2) check((await sql1("select locked from public.buzz_posts where id = $1", [b])).locked === true, "not locked");
-  await call(MOD, "public.staff_act($1, 'unlock_thread', 'harassment_bullying', 'unlocking it again now', null, null)", [qb]);
+  await call(MOD, "public.console_act($1, 'unlock_thread', 'harassment_bullying', 'unlocking it again now', null, null)", [qb]);
   if (!V2) check((await sql1("select locked from public.buzz_posts where id = $1", [b])).locked === false, "not unlocked");
   const p = await postOf(PUB, "post to escalate to an admin");
   await as(R[1], () => db.query("insert into public.reports (reporter_id, target_type, target_id, reason) values ($1, 'post', $2, 'harassment')", [R[1], p]));
   const qp = await queueIdOf("post", p);
   let msg = "";
-  try { await call(MOD, "public.staff_act($1, 'lock_thread', 'harassment_bullying', 'locking the pile-on here', null, null)", [qp]); } catch (e) { msg = e.message; }
+  try { await call(MOD, "public.console_act($1, 'lock_thread', 'harassment_bullying', 'locking the pile-on here', null, null)", [qp]); } catch (e) { msg = e.message; }
   check(msg.includes("Only Buzz threads"), "lock on a post: " + msg);
-  const esc = await call(MOD, "public.staff_act($1, 'escalate', 'harassment_bullying', 'needs admin eyes on this', null, null)", [qp]);
+  const esc = await call(MOD, "public.console_act($1, 'escalate', 'harassment_bullying', 'needs admin eyes on this', null, null)", [qp]);
   check(esc.status === "escalated", "not escalated");
   msg = "";
-  try { await call(MOD, "public.staff_queue_item($1)", [qp]); } catch (e) { msg = e.message; }
+  try { await call(MOD, "public.console_queue_item($1)", [qp]); } catch (e) { msg = e.message; }
   check(msg.startsWith("ts:not_found:"), "the moderator still sees the escalated item");
-  check((await call(ADMIN, "public.staff_queue('escalated', 50, 0, '{}'::jsonb)")).items.some((i) => i.id === qp), "not in the admin's Escalated");
-  check((await call(MOD, "public.staff_queue('escalated', 50, 0, '{}'::jsonb)")).items.length === 0, "moderators see Escalated");
+  check((await call(ADMIN, "public.console_queue('escalated', 50, 0, '{}'::jsonb)")).items.some((i) => i.id === qp), "not in the admin's Escalated");
+  check((await call(MOD, "public.console_queue('escalated', 50, 0, '{}'::jsonb)")).items.length === 0, "moderators see Escalated");
   const z = await postOf(USER, "a post that turns out to be zero tolerance");
   await as(R[2], () => db.query("insert into public.reports (reporter_id, target_type, target_id, reason) values ($1, 'post', $2, 'minor_safety')", [R[2], z]));
   const qz = await queueIdOf("post", z);
-  await call(MOD, "public.staff_act($1, 'remove', 'sexual_minors', 'zero tolerance content here', null, null)", [qz]);
+  await call(MOD, "public.console_act($1, 'remove', 'sexual_minors', 'zero tolerance content here', null, null)", [qz]);
   check((await posting(USER)).reason === "suspended", "zero tolerance did not suspend");
   await db.query("update public.user_sanctions set lifted_at = now() where user_id = $1", [USER]);
 });
@@ -602,9 +607,9 @@ await expectOk("bulk: 1-50 ids; P0 and wellbeing items are skipped; one audit ro
   }
   const wb = (await rows(db.query("select id from public.mod_queue where label = 'wellbeing' and status <> 'closed' limit 1")))[0].id;
   let msg = "";
-  try { await call(MOD, "public.staff_bulk($1::uuid[], 'approve', 'spam_scam', null)", [Array.from({ length: 51 }, () => NIL)]); } catch (e) { msg = e.message; }
+  try { await call(MOD, "public.console_bulk($1::uuid[], 'approve', 'spam_scam', null)", [Array.from({ length: 51 }, () => NIL)]); } catch (e) { msg = e.message; }
   check(msg.includes("between 1 and 50"), "51 ids: " + msg);
-  const res = await call(MOD, "public.staff_bulk($1::uuid[], 'approve', 'spam_scam', null)", [[...ids, wb, NIL]]);
+  const res = await call(MOD, "public.console_bulk($1::uuid[], 'approve', 'spam_scam', null)", [[...ids, wb, NIL]]);
   const by = new Map(res.results.map((r) => [r.id, r]));
   for (const id of ids) check(by.get(id)?.ok === true, "not approved: " + JSON.stringify(by.get(id)));
   check(by.get(wb)?.error === "not_bulk_eligible" && by.get(NIL)?.error === "not_found", JSON.stringify(res.results));
@@ -624,12 +629,12 @@ await fileBuzzReport(F2, "buzz_reply", REPLY);
 const QR = await queueIdOf("buzz_reply", REPLY);
 let before;
 await expectOk("firewall: list and detail of a Buzz item are blind for moderators AND admins (no author, no reporter, blind panel)", async () => {
-  before = await call(MOD, "public.staff_user($1)", [AUTHOR]);
+  before = await call(MOD, "public.console_user($1)", [AUTHOR]);
   check(before.strikePoints === 0 && before.openQueueItems === 0 && before.sanctions.length === 0 && before.email === null, JSON.stringify(before));
   for (const who of [MOD, ADMIN]) {
-    const list = await call(who, "public.staff_queue('priority', 100, 0, '{}'::jsonb)");
+    const list = await call(who, "public.console_queue('priority', 100, 0, '{}'::jsonb)");
     noIdentity("queue list", list, ["author"]);
-    const d = await call(who, "public.staff_queue_item($1)", [QF]);
+    const d = await call(who, "public.console_queue_item($1)", [QF]);
     noIdentity("queue detail", d, ["author", "f1"]);
     noForbiddenKeys("queue detail", d);
     check(d.author.kind === "blind" && ["30d+", "<30d"].includes(d.author.accountAge) && d.author.strikePoints === "0", JSON.stringify(d.author));
@@ -638,13 +643,13 @@ await expectOk("firewall: list and detail of a Buzz item are blind for moderator
     check(d.canUnmask === (who === ADMIN), "canUnmask for " + who);
     check(/^Strike points after this violation: (0|1|2|3-5|6\+) → /.test(d.suggestion?.reason ?? ""), "the hint quotes an exact tally: " + JSON.stringify(d.suggestion));
     check(d.context && d.context.root, "no blind thread context");
-    await call(who, "public.staff_release($1)", [QF]);
+    await call(who, "public.console_release($1)", [QF]);
   }
   check((await sql1("select count(*)::int as n from public.audit_log where action = 'reporter_viewed'")).n === 0, "reporter identity was looked at on Buzz");
 });
 let acted;
 await expectOk("firewall: a moderator removes and mutes the buzz's author blind; the answer names nobody", async () => {
-  acted = await call(MOD, "public.staff_act($1, 'remove_and_mute_24h', 'harassment_bullying', 'pile-on call aimed at a floor mate @someone', null, null)", [QF]);
+  acted = await call(MOD, "public.console_act($1, 'remove_and_mute_24h', 'harassment_bullying', 'pile-on call aimed at a floor mate @someone', null, null)", [QF]);
   noIdentity("action answer", acted, ["author"]);
   noForbiddenKeys("action answer", acted);
   check(acted.resolution === "sanctioned" && acted.history.every((h) => h.actorName === null), JSON.stringify(acted.history));
@@ -663,11 +668,11 @@ await expectOk("firewall: a moderator removes and mutes the buzz's author blind;
   check(leaked.n === 0, "the author's id is in audit metadata");
 });
 await expectOk("firewall: nothing a moderator sees about the author moved; no Buzz text, no anon-origin row, no user-targeted audit row", async () => {
-  const after = await call(MOD, "public.staff_user($1)", [AUTHOR]);
+  const after = await call(MOD, "public.console_user($1)", [AUTHOR]);
   check(JSON.stringify(after) === JSON.stringify(before), "moderator view changed: " + JSON.stringify({ before, after }));
-  const search = await call(MOD, "public.staff_users('Zelda', 20, 0)");
+  const search = await call(MOD, "public.console_users('Zelda', 20, 0)");
   check(search.items.some((u) => u.user.id === AUTHOR), "search");
-  const audit = await call(MOD, "public.staff_audit(200, 0, '{}'::jsonb)");
+  const audit = await call(MOD, "public.console_audit(200, 0, '{}'::jsonb)");
   check(audit.items.length > 0, "no audit rows for the moderator");
   for (const body of [after, search, audit]) check(!JSON.stringify(body).includes("zq firewall"), "Buzz text in a named payload");
   for (const row of audit.items) {
@@ -676,40 +681,40 @@ await expectOk("firewall: nothing a moderator sees about the author moved; no Bu
   }
   noIdentity("moderator audit", audit, ["author"]);
   for (const view of ["priority", "wellbeing", "held", "auto_hidden", "reports", "escalated", "appeals", "mine", "closed"]) {
-    noIdentity(`queue view ${view}`, await call(MOD, `public.staff_queue('${view}', 100, 0, '{}'::jsonb)`), ["author"]);
+    noIdentity(`queue view ${view}`, await call(MOD, `public.console_queue('${view}', 100, 0, '{}'::jsonb)`), ["author"]);
   }
-  const reply = await call(MOD, "public.staff_queue_item($1)", [QR]);
+  const reply = await call(MOD, "public.console_queue_item($1)", [QR]);
   noIdentity("reply detail", reply, ["author"]);
   check(reply.author.kind === "blind" && reply.author.strikePoints === "3-5" && reply.author.sanction === null, JSON.stringify(reply.author));
-  await call(MOD, "public.staff_release($1)", [QR]);
+  await call(MOD, "public.console_release($1)", [QR]);
 });
 await expectOk("firewall: on a PUBLIC item by the same author, a moderator's ladder hint counts public-origin strikes only (it agrees with the panel); an admin's counts all", async () => {
   const p = await postOf(AUTHOR, "a public post by the same author as the buzz");
   await as(R[4], () => db.query("insert into public.reports (reporter_id, target_type, target_id, reason) values ($1, 'post', $2, 'harassment')", [R[4], p]));
   const q = await queueIdOf("post", p);
   await db.query("update public.mod_queue set severity = 'medium' where id = $1", [q]);
-  const asMod = await call(MOD2, "public.staff_queue_item($1)", [q]);
-  await call(MOD2, "public.staff_release($1)", [q]);
+  const asMod = await call(MOD2, "public.console_queue_item($1)", [q]);
+  await call(MOD2, "public.console_release($1)", [q]);
   check(asMod.author.kind === "public" && asMod.author.strikePoints === 0, JSON.stringify(asMod.author));
   check(/^2 active strike points after this violation/.test(asMod.suggestion?.reason ?? ""), "moderator hint: " + JSON.stringify(asMod.suggestion));
-  const asAdmin = await call(ADMIN2, "public.staff_queue_item($1)", [q]);
-  await call(ADMIN2, "public.staff_release($1)", [q]);
+  const asAdmin = await call(ADMIN2, "public.console_queue_item($1)", [q]);
+  await call(ADMIN2, "public.console_release($1)", [q]);
   check(/^5 active strike points after this violation/.test(asAdmin.suggestion?.reason ?? ""), "admin hint: " + JSON.stringify(asAdmin.suggestion));
   check(asAdmin.author.sanctions.some((s) => s.origin === "anon") && !asMod.author.sanctions.some((s) => s.origin === "anon"), "anon-origin rows on the public author panel");
   check(!JSON.stringify(asMod).includes("zq firewall") && !JSON.stringify(asAdmin).includes("zq firewall"), "Buzz text on a public item's author panel");
 });
 await expectOk("firewall: the blind panel moves with Buzz history only, never with what staff do to the named account (no oracle)", async () => {
-  const base = await call(MOD2, "public.staff_queue_item($1)", [QR]);
-  await call(MOD2, "public.staff_release($1)", [QR]);
-  await call(MOD2, "public.staff_sanction($1, 'mute', 3600000, 'all', 'spam_scam', 'probe: repeated low-effort spam')", [AUTHOR]);
-  await call(MOD2, "public.staff_sanction($1, 'warning', null, 'all', 'spam_scam', 'probe: repeated low-effort spam')", [AUTHOR]);
-  const after = await call(MOD2, "public.staff_queue_item($1)", [QR]);
-  await call(MOD2, "public.staff_release($1)", [QR]);
+  const base = await call(MOD2, "public.console_queue_item($1)", [QR]);
+  await call(MOD2, "public.console_release($1)", [QR]);
+  await call(MOD2, "public.console_sanction($1, 'mute', 3600000, 'all', 'spam_scam', 'probe: repeated low-effort spam')", [AUTHOR]);
+  await call(MOD2, "public.console_sanction($1, 'warning', null, 'all', 'spam_scam', 'probe: repeated low-effort spam')", [AUTHOR]);
+  const after = await call(MOD2, "public.console_queue_item($1)", [QR]);
+  await call(MOD2, "public.console_release($1)", [QR]);
   check(JSON.stringify({ a: base.author, s: base.suggestion }) === JSON.stringify({ a: after.author, s: after.suggestion }), "the blind panel reacted to a public sanction: " + JSON.stringify([base.author, after.author, base.suggestion, after.suggestion]));
   await db.query("update public.user_sanctions set lifted_at = now() where user_id = $1 and origin = 'public'", [AUTHOR]);
 });
 await expectOk("firewall: admins see the anon-origin rows on the account, sealed, day-floored, without the excerpt; the true strike total; the email", async () => {
-  const asAdmin = await call(ADMIN, "public.staff_user($1)", [AUTHOR]);
+  const asAdmin = await call(ADMIN, "public.console_user($1)", [AUTHOR]);
   const anon = asAdmin.sanctions.filter((s) => s.origin === "anon");
   check(anon.some((s) => s.kind === "mute") && anon.some((s) => s.kind === "removal"), JSON.stringify(asAdmin.sanctions));
   for (const s of anon) {
@@ -718,11 +723,11 @@ await expectOk("firewall: admins see the anon-origin rows on the account, sealed
   }
   check(asAdmin.strikePoints === 3 && asAdmin.email === people.author.email, JSON.stringify(asAdmin));
   check(!JSON.stringify(asAdmin).includes("zq firewall"), "Buzz text on the admin's user page");
-  const audit = await call(ADMIN, "public.staff_audit(200, 0, $1::jsonb)", [JSON.stringify({ action: "sanction_apply" })]);
+  const audit = await call(ADMIN, "public.console_audit(200, 0, $1::jsonb)", [JSON.stringify({ action: "sanction_apply" })]);
   const row = audit.items.find((r) => r.targetId === BF);
   check(row && row.metadata.sanctionId, "the content-targeted sanction row");
   check(!asAdmin.sanctions.some((s) => s.id === row.metadata.sanctionId), "the user page shows the raw anon-origin sanction id (joinable without unmask)");
-  const blind = await call(ADMIN, "public.staff_lift($1, 'lifting to review the context of it')", [row.metadata.sanctionId]);
+  const blind = await call(ADMIN, "public.console_lift($1, 'lifting to review the context of it')", [row.metadata.sanctionId]);
   check(blind.lifted === true && blind.origin === "anon" && !("user" in blind), "a raw-id lift named the account: " + JSON.stringify(blind));
   noIdentity("raw-id lift", blind, ["author"]);
 });
@@ -744,25 +749,25 @@ await expectOk("appeals: the author sees their removal notice (with their own ex
   check(staffNotice.n === 1, "the possible reviewer was not told");
   check((await sql1("select count(*)::int as n from public.notifications where user_id = $1 and data ->> 'event' = 'appeal_new'", [MOD])).n === 0, "the actor was told to review their own action");
   for (const who of [MOD, MOD2, ADMIN]) {
-    const list = await call(who, "public.staff_appeals('open', 50, 0)");
+    const list = await call(who, "public.console_appeals('open', 50, 0)");
     noIdentity("appeals list", list, ["author"]);
     noForbiddenKeys("appeals list", list);
     const a = list.items.find((x) => x.id === APPEAL);
     check(a && a.sanction.origin === "anon" && a.sanction.id === APPEAL && a.createdAt % 86400000 === 0 && a.contentExcerpt.includes("zq firewall"), JSON.stringify(a));
     check(a.canReview === (who !== MOD), `canReview for ${who}: ${a.canReview}`);
-    const item = await call(who, "public.staff_queue_item($1)", [a.queueId]);
+    const item = await call(who, "public.console_queue_item($1)", [a.queueId]);
     noIdentity("appeal queue item", item, ["author"]);
     check(item.author.kind === "blind", "the appeal item names the author");
-    await call(who, "public.staff_release($1)", [a.queueId]);
+    await call(who, "public.console_release($1)", [a.queueId]);
   }
 });
-await expectError("appeals: the moderator who acted cannot decide it", () => call(MOD, "public.staff_decide_appeal($1, 'reversed', 'we got this one wrong', null)", [APPEAL]), "ts:forbidden:A different staff member must review this appeal.");
+await expectError("appeals: the moderator who acted cannot decide it", () => call(MOD, "public.console_decide_appeal($1, 'reversed', 'we got this one wrong', null)", [APPEAL]), "ts:forbidden:A different staff member must review this appeal.");
 await expectError("appeals: one per notice", async () => {
   const removal = (await call(AUTHOR, "public.my_sanctions()")).find((s) => s.kind === "removal");
   await call(AUTHOR, "public.submit_appeal($1, $2)", [removal.id, "Please look again at this one, it was a joke."]);
 }, "ts:conflict:You already appealed this notice.");
 await expectOk("appeals: another moderator reverses it; content back up, strike revoked, notice lifted, the author told; decided once", async () => {
-  const decided = await call(MOD2, "public.staff_decide_appeal($1, 'reversed', 'public figure, no classmate named', null)", [APPEAL]);
+  const decided = await call(MOD2, "public.console_decide_appeal($1, 'reversed', 'public figure, no classmate named', null)", [APPEAL]);
   check(decided.status === "reversed", JSON.stringify(decided));
   check((await buzzStatus("buzz", BF)) === "active", "content not restored");
   check((await sql1("select public.ts_strike_points($1) as p", [AUTHOR])).p === 0, "strike not revoked");
@@ -771,7 +776,7 @@ await expectOk("appeals: another moderator reverses it; content back up, strike 
   check((await sql1("select status from public.mod_queue where appeal_id = $1", [APPEAL])).status === "closed", "the appeal item is open");
   check((await sql1("select count(*)::int as n from public.audit_log where action = 'appeal_decide' and target_id = $1", [String(APPEAL)])).n === 1, "not audited");
   let msg = "";
-  try { await call(ADMIN, "public.staff_decide_appeal($1, 'upheld', 'already decided here', null)", [APPEAL]); } catch (e) { msg = e.message; }
+  try { await call(ADMIN, "public.console_decide_appeal($1, 'upheld', 'already decided here', null)", [APPEAL]); } catch (e) { msg = e.message; }
   check(msg.startsWith("ts:conflict:"), "decided twice: " + msg);
 });
 await expectOk("appeals: warnings cannot be appealed; appeals need 10+ characters; suspension appeals are for admins", async () => {
@@ -783,21 +788,21 @@ await expectOk("appeals: warnings cannot be appealed; appeals need 10+ character
   const p = await postOf(PUB, "a post that gets an admin suspension");
   await as(R[2], () => db.query("insert into public.reports (reporter_id, target_type, target_id, reason) values ($1, 'post', $2, 'threat')", [R[2], p]));
   const q = await queueIdOf("post", p);
-  await call(ADMIN, "public.staff_act($1, 'suspend_7d', 'threat_violence', 'credible enough to suspend', null, null)", [q]);
+  await call(ADMIN, "public.console_act($1, 'suspend_7d', 'threat_violence', 'credible enough to suspend', null, null)", [q]);
   const s = (await call(PUB, "public.my_sanctions()")).find((x) => x.kind === "suspension");
   msg = "";
   try { await call(PUB, "public.submit_appeal($1, 'short')", [s.id]); } catch (e) { msg = e.message; }
   check(msg.includes("at least 10"), "short appeal: " + msg);
   const r = await call(PUB, "public.submit_appeal($1, $2)", [s.id, "I would like a second look at this decision please."]);
-  const modView = (await call(MOD, "public.staff_appeals('open', 50, 0)")).items.find((x) => x.id === r.id);
+  const modView = (await call(MOD, "public.console_appeals('open', 50, 0)")).items.find((x) => x.id === r.id);
   check(modView && modView.canReview === false && modView.sanction.origin === "public", JSON.stringify(modView));
   msg = "";
-  try { await call(MOD, "public.staff_decide_appeal($1, 'upheld', 'stands as decided', null)", [r.id]); } catch (e) { msg = e.message; }
+  try { await call(MOD, "public.console_decide_appeal($1, 'upheld', 'stands as decided', null)", [r.id]); } catch (e) { msg = e.message; }
   check(msg.includes("admin only"), "moderator decided a suspension appeal: " + msg);
   msg = "";
-  try { await call(ADMIN, "public.staff_decide_appeal($1, 'upheld', 'stands as decided', null)", [r.id]); } catch (e) { msg = e.message; }
+  try { await call(ADMIN, "public.console_decide_appeal($1, 'upheld', 'stands as decided', null)", [r.id]); } catch (e) { msg = e.message; }
   check(msg.includes("different staff member"), "the acting admin decided: " + msg);
-  const reduced = await call(ADMIN2, "public.staff_decide_appeal($1, 'reduced', 'shorter is enough for this one', $2)", [r.id, Date.now() + 3600000]);
+  const reduced = await call(ADMIN2, "public.console_decide_appeal($1, 'reduced', 'shorter is enough for this one', $2)", [r.id, Date.now() + 3600000]);
   check(reduced.status === "reduced", JSON.stringify(reduced));
   const left = await posting(PUB);
   check(left.reason === "suspended" && left.mutedUntil < Date.now() + 2 * 3600000, JSON.stringify(left));
@@ -811,7 +816,7 @@ const UB = await postBuzz(AUTHOR2, "do not come to the engineering building tomo
 await fileBuzzReport(R[3], "buzz", UB, "threat");
 const UQ = await queueIdOf("buzz", UB);
 const GOOD_REASON = "Vague warning to avoid a building tomorrow; campus safety asked us to identify the account tonight.";
-const unmask = (uid, type, id, code, reason, confirm, caseRef = null) => call(uid, "public.staff_unmask($1, $2, $3, $4, $5, $6)", [type, id, code, reason, confirm, caseRef]);
+const unmask = (uid, type, id, code, reason, confirm, caseRef = null) => call(uid, "public.console_unmask($1, $2, $3, $4, $5, $6)", [type, id, code, reason, confirm, caseRef]);
 const unmaskRows = () => rows(db.query("select * from public.audit_log where action in ('buzz_unmask', 'buzz_unmask_subject') order by seq"));
 await expectOk("unmask: moderators get 'not found'; a short reason, padding, no UNMASK, a bad code, the wrong type or no queue item are refused, and none writes an audit row", async () => {
   const tries = [
@@ -865,12 +870,12 @@ await expectOk("unmask: every other admin is told (no identity), the unmasking a
   noIdentity("unmask alert", alert, ["author2"]);
   check((await sql1("select count(*)::int as n from public.notifications where user_id = $1 and data ->> 'event' = 'unmask_alert'", [ADMIN])).n === 0, "the unmasking admin was alerted");
   check((await sql1("select count(*)::int as n from public.notifications where user_id = any($1) and data ->> 'event' = 'unmask_alert'", [[MOD, MOD2]])).n === 0, "moderators were alerted");
-  const modAudit = await call(MOD, "public.staff_audit(200, 0, $1::jsonb)", [JSON.stringify({ action: "buzz_unmask" })]);
+  const modAudit = await call(MOD, "public.console_audit(200, 0, $1::jsonb)", [JSON.stringify({ action: "buzz_unmask" })]);
   check(modAudit.items.length === 0, "a moderator reads buzz_unmask rows");
-  const adminAudit = await call(ADMIN2, "public.staff_audit(200, 0, $1::jsonb)", [JSON.stringify({ action: "buzz_unmask_subject" })]);
+  const adminAudit = await call(ADMIN2, "public.console_audit(200, 0, $1::jsonb)", [JSON.stringify({ action: "buzz_unmask_subject" })]);
   check(adminAudit.items.length === 1, "admins read the subject row");
   noIdentity("admin audit of the subject row", adminAudit, ["author2"]);
-  const metrics = await call(MOD, "public.staff_metrics(null, null)");
+  const metrics = await call(MOD, "public.console_metrics(null, null)");
   check(metrics.unmasksByReason.credible_threat === 1, JSON.stringify(metrics.unmasksByReason));
 });
 await expectOk("unmask: a blocked threat (no content) is unmaskable by its queue id; blocked spam is not; a queue id never stands in for real content", async () => {
@@ -880,13 +885,13 @@ await expectOk("unmask: a blocked threat (no content) is unmaskable by its queue
   })]);
   const q = await sql1("select * from public.mod_queue where id = $1", [threatQ]);
   check(q.entity_id === null && q.blocked_text.includes("k1ll") && q.author_id === AUTHOR2 && q.source === "rule_block_escalation", JSON.stringify(q));
-  const modDetail = await call(MOD, "public.staff_queue_item($1)", [threatQ]);
+  const modDetail = await call(MOD, "public.console_queue_item($1)", [threatQ]);
   check(modDetail.canUnmask === false && modDetail.author.kind === "blind" && modDetail.fields[0].text.includes("k1ll"), JSON.stringify(modDetail.fields));
   noIdentity("blocked item for a moderator", modDetail, ["author2"]);
-  await call(MOD, "public.staff_release($1)", [threatQ]);
-  const adminDetail = await call(ADMIN, "public.staff_queue_item($1)", [threatQ]);
+  await call(MOD, "public.console_release($1)", [threatQ]);
+  const adminDetail = await call(ADMIN, "public.console_queue_item($1)", [threatQ]);
   check(adminDetail.canUnmask === true, "admins cannot unmask a blocked threat");
-  await call(ADMIN, "public.staff_release($1)", [threatQ]);
+  await call(ADMIN, "public.console_release($1)", [threatQ]);
   const u = await unmask(ADMIN, "buzz", threatQ, "credible_threat", GOOD_REASON, "UNMASK");
   check(u.user.id === AUTHOR2, JSON.stringify(u.user));
   const spamQ = await callService("public.ts_record_blocked($1, 'buzz', 'dm me for cheap essays, guaranteed A', $2::jsonb)", [AUTHOR2, JSON.stringify({
@@ -916,11 +921,11 @@ await expectError("audit: an update is refused, even for the database owner", ()
 await expectError("audit: a delete is refused", () => db.query("delete from public.audit_log"), "ts:append_only:audit_log is append-only");
 await expectError("audit: a truncate is refused", () => db.query("truncate public.audit_log"), "ts:append_only:audit_log is append-only");
 await expectOk("audit: a moderator reads only their own rows; every mutation above wrote one", async () => {
-  const mine = await call(MOD, "public.staff_audit(500, 0, '{}'::jsonb)");
+  const mine = await call(MOD, "public.console_audit(500, 0, '{}'::jsonb)");
   check(mine.items.length > 0 && mine.items.every((r) => r.actor?.id === MOD), "a moderator read someone else's rows");
-  const all = await call(ADMIN, "public.staff_audit(500, 0, '{}'::jsonb)");
+  const all = await call(ADMIN, "public.console_audit(500, 0, '{}'::jsonb)");
   check(all.items.some((r) => r.actor?.id === MOD2) && all.items.some((r) => r.actor === null), "admins do not see everything");
-  const page = await call(ADMIN, "public.staff_audit(2, 0, '{}'::jsonb)");
+  const page = await call(ADMIN, "public.console_audit(2, 0, '{}'::jsonb)");
   check(page.items.length === 2 && page.nextOffset === 2, JSON.stringify(page.nextOffset));
 });
 
@@ -928,13 +933,13 @@ await expectOk("audit: a moderator reads only their own rows; every mutation abo
 // 12. Users, roles, direct sanctions, rule packs, metrics
 // =================================================================================================================
 await expectOk("users: search by name or username (admins also by email; moderators never see email)", async () => {
-  const mod = await call(MOD, "public.staff_users('quorvex', 20, 0)");
+  const mod = await call(MOD, "public.console_users('quorvex', 20, 0)");
   check(mod.items.length === 1 && mod.items[0].user.id === AUTHOR && mod.items[0].email === null, JSON.stringify(mod));
-  check((await call(MOD, "public.staff_users('zelda.q@', 20, 0)")).items.length === 0, "moderators search by email");
-  const admin = await call(ADMIN, "public.staff_users('zelda.q@', 20, 0)");
+  check((await call(MOD, "public.console_users('zelda.q@', 20, 0)")).items.length === 0, "moderators search by email");
+  const admin = await call(ADMIN, "public.console_users('zelda.q@', 20, 0)");
   check(admin.items.length === 1 && admin.items[0].email === people.author.email, JSON.stringify(admin));
-  check((await call(MOD, "public.staff_users('a', 20, 0)")).items.length === 0, "one character searched");
-  check((await call(MOD, "public.staff_users('%', 20, 0)")).items.length === 0, "% is a wildcard");
+  check((await call(MOD, "public.console_users('a', 20, 0)")).items.length === 0, "one character searched");
+  check((await call(MOD, "public.console_users('%', 20, 0)")).items.length === 0, "% is a wildcard");
 });
 await expectOk("direct sanctions: moderators warn and mute (up to 7 days) regular accounts; suspensions, longer mutes and staff are admin only", async () => {
   const tries = [
@@ -945,43 +950,44 @@ await expectOk("direct sanctions: moderators warn and mute (up to 7 days) regula
   ];
   for (const [kind, dur, who, expected] of tries) {
     let msg = "";
-    try { await call(MOD, "public.staff_sanction($1, $2, $3, 'all', 'spam_scam', 'repeated referral spam in chats')", [who, kind, dur]); } catch (e) { msg = e.message; }
+    try { await call(MOD, "public.console_sanction($1, $2, $3, 'all', 'spam_scam', 'repeated referral spam in chats')", [who, kind, dur]); } catch (e) { msg = e.message; }
     check(msg === expected, `${kind}: ${msg || "no error"}`);
   }
   let msg = "";
-  try { await call(MOD, "public.staff_sanction($1, 'mute', null, 'all', 'spam_scam', 'short')", [TARGET]); } catch (e) { msg = e.message; }
+  try { await call(MOD, "public.console_sanction($1, 'mute', null, 'all', 'spam_scam', 'short')", [TARGET]); } catch (e) { msg = e.message; }
   check(msg.includes("at least 10"), "short note: " + msg);
-  const d = await call(MOD, "public.staff_sanction($1, 'mute', $2, 'all', 'spam_scam', 'repeated referral spam in three group chats')", [TARGET, 72 * 3600000]);
+  const d = await call(MOD, "public.console_sanction($1, 'mute', $2, 'all', 'spam_scam', 'repeated referral spam in three group chats')", [TARGET, 72 * 3600000]);
   const mute = d.sanctions.find((s) => s.kind === "mute");
   check(mute && mute.origin === "public" && d.status === "active" && d.strikePoints === 0, JSON.stringify(d));
   check((await posting(TARGET, "public")).reason === "muted", "the direct mute does not hold");
-  const lifted = await call(ADMIN, "public.staff_lift($1, 'lifted after a second look')", [mute.id]);
+  const lifted = await call(ADMIN, "public.console_lift($1, 'lifted after a second look')", [mute.id]);
   check(lifted.user.id === TARGET && (await posting(TARGET)).allowed, "lift");
   check((await sql1("select count(*)::int as n from public.audit_log where action = 'sanction_lift' and target_id = $1", [String(TARGET)])).n === 1, "lift not audited");
 });
-await expectOk("roles: an admin grants and revokes (audited, never their own); the console role follows", async () => {
-  const d = await call(ADMIN, "public.staff_grant_role($1, 'moderator')", [USER]);
+if (STAFF_TABLE === "staff") await expectError("roles: with CampConnect Admin's staff list, the console refuses role changes", () => call(ADMIN, "public.console_grant_role($1, 'moderator')", [USER]), "ts:not_supported:");
+else await expectOk("roles: an admin grants and revokes (audited, never their own); the console role follows", async () => {
+  const d = await call(ADMIN, "public.console_grant_role($1, 'moderator')", [USER]);
   check(d.role === "moderator" && (await call(USER, "public.ts_staff_role()")) === "moderator", JSON.stringify(d));
   check((await sql1("select count(*)::int as n from public.audit_log where action = 'role_grant' and target_id = $1", [String(USER)])).n === 1, "not audited");
-  await call(ADMIN, "public.staff_grant_role($1, 'user')", [USER]);
+  await call(ADMIN, "public.console_grant_role($1, 'user')", [USER]);
   check((await call(USER, "public.ts_staff_role()")) === null, "not revoked");
   let msg = "";
-  try { await call(ADMIN, "public.staff_grant_role($1, 'user')", [ADMIN]); } catch (e) { msg = e.message; }
+  try { await call(ADMIN, "public.console_grant_role($1, 'user')", [ADMIN]); } catch (e) { msg = e.message; }
   check(msg.includes("your own role"), "own role: " + msg);
 });
 await expectOk("rule packs: admins toggle (audited); the engine context follows; the baseline pack stays on", async () => {
-  const off = await call(ADMIN, "public.staff_set_rule_pack('admin.spam', false, 'too many false positives this week')");
+  const off = await call(ADMIN, "public.console_set_rule_pack('admin.spam', false, 'too many false positives this week')");
   check(off.id === "admin.spam" && off.enabled === false && off.updatedBy === people.admin.full_name, JSON.stringify(off));
   const ctx = await callService("public.ts_writer_context($1)", [AUTHOR2]);
   check(!ctx.enabledRulePacks.includes("admin.spam") && ctx.disabledRulePacks.includes("admin.spam"), JSON.stringify(ctx.enabledRulePacks));
   check((await sql1("select count(*)::int as n from public.audit_log where action = 'rule_pack_toggle' and target_id = 'admin.spam'")).n === 1, "not audited");
   let msg = "";
-  try { await call(ADMIN, "public.staff_set_rule_pack('baseline', false, null)"); } catch (e) { msg = e.message; }
+  try { await call(ADMIN, "public.console_set_rule_pack('baseline', false, null)"); } catch (e) { msg = e.message; }
   check(msg.includes("baseline pack stays on"), "baseline: " + msg);
-  await call(ADMIN, "public.staff_set_rule_pack('admin.spam', true, null)");
+  await call(ADMIN, "public.console_set_rule_pack('admin.spam', true, null)");
 });
 await expectOk("metrics: the shape, from the moderation tables only, with no person in it", async () => {
-  const m = await call(MOD, "public.staff_metrics(null, null)");
+  const m = await call(MOD, "public.console_metrics(null, null)");
   for (const k of ["openByPriority", "timeToFirstAction", "rulePrecision", "autoHideReversalRate", "activeSanctions", "unmasksByReason", "perDay", "reportsPer1k", "range"]) check(k in m, "missing " + k);
   check(["p0", "p1", "p2", "p3"].every((p) => typeof m.openByPriority[p] === "number") && m.timeToFirstAction.p0.slaMin === 60 && m.timeToFirstAction.p3.slaMin === 4320, JSON.stringify(m.timeToFirstAction));
   check(m.perDay.length >= 30 && m.perDay.length <= 32 && m.perDay.some((d) => d.actions > 0), JSON.stringify(m.perDay.slice(-2)));
@@ -1020,5 +1026,19 @@ if (V2) {
     for (const ty of ["moderation", "staff", "buzz_reply", "buzz_milestone", "buzz_poll_closed", "snap", "message"]) check(def.includes(`'${ty}'`), `${ty} dropped from the check: ${def}`);
   });
 }
+
+// --- Two-factor sign-in (CampConnect Admin's rule): staff without an aal2 session get 'mfa_required' ------------------
+await expectError("two-factor: a moderator whose session did not pass two-factor sign-in gets mfa_required", () => callAal1(MOD, "public.console_queue_counts()"), "ts:mfa_required:");
+await expectError("two-factor: so does an admin, on an admin-only function", () => callAal1(ADMIN, "public.console_metrics(0, 1)"), "ts:mfa_required:");
+await expectError("two-factor: aal2 is not enough once the account's factor is gone (deleted in the dashboard)", async () => {
+  // The token still says aal2 (as() would add a factor back, so the claims are set by hand).
+  await db.query("delete from auth.mfa_factors where user_id = $1", [MOD2]);
+  await db.exec(`set role authenticated; select set_config('request.jwt.claims', '${JSON.stringify({ sub: MOD2, aal: "aal2" })}', false);`);
+  try { await db.query("select public.console_queue_counts()"); } finally { await db.exec("reset role; select set_config('request.jwt.claims', '', false);"); }
+}, "ts:mfa_required:");
+await expectError("two-factor: everyone else still gets not_found, with or without it", () => callAal1(USER, "public.console_queue_counts()"), "ts:not_found:");
+await expectOk("two-factor: ts_staff_role() still names a staff member's role before two-factor sign-in (the website sends them to it)", async () => {
+  check((await callAal1(MOD, "public.ts_staff_role()")) === "moderator", "role");
+});
 
 done("MIGRATION-41 TRUST & SAFETY");

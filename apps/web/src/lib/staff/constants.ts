@@ -1,6 +1,6 @@
 /**
  * The staff console's constants and copy, ported from UniVerse `shared/src/admin.ts` (+ UniBuzz's own limitations).
- * The database enforces the same rules (migration 20261103000000_trust_safety.sql: ts_action_def, staff_unmask).
+ * The database enforces the same rules (migration 20261103000000_trust_safety.sql: ts_action_def, console_unmask).
  */
 import { BUZZ_REPORT_REASONS, MODERATION_CATEGORY_LABELS, type ModerationCategory } from "@apartment-book/shared";
 import type { BulkActionId, ModerationPriority, QueueSource, QueueView, StaffActionId, UnmaskReasonCode } from "./types";

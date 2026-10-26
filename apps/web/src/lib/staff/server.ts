@@ -1,7 +1,7 @@
 import "server-only";
 import type { Metadata } from "next";
 import { cache } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getStaffRole, type Client } from "@apartment-book/shared";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -19,9 +19,13 @@ export interface StaffViewer {
   supabase: Client;
 }
 
+/** Where staff confirm it's them with their authenticator app before the console opens. */
+export const STAFF_TWO_FACTOR_PATH = "/two-factor";
+
 /**
  * The signed-in staff member, or Next's notFound() for everyone else (signed out included): the console answers
- * "not found" like the database does, never "forbidden". Cached per request.
+ * "not found" like the database does, never "forbidden". Staff whose session has not passed two-factor sign-in (aal2)
+ * go to STAFF_TWO_FACTOR_PATH first; the database checks the same (CampConnect Admin's rule). Cached per request.
  */
 export const requireStaff = cache(async (): Promise<StaffViewer> => {
   const user = await getCurrentUser();
@@ -29,12 +33,14 @@ export const requireStaff = cache(async (): Promise<StaffViewer> => {
   const supabase = await createClient();
   const role = await viewerRole();
   if (!role) notFound();
+  const { data: level } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (level?.currentLevel !== "aal2") redirect(STAFF_TWO_FACTOR_PATH);
   const profile = await getCurrentProfile();
   return { id: user.id, role, name: profile?.full_name || "Staff", username: profile?.username ?? null, supabase };
 });
 
 /** The caller's staff role, or null (signed out, or not staff). Cached per request. */
-const viewerRole = cache(async (): Promise<StaffRole | null> => {
+export const viewerRole = cache(async (): Promise<StaffRole | null> => {
   if (!(await getCurrentUser())) return null;
   const role = await getStaffRole(await createClient()).catch(() => null);
   return role === "moderator" || role === "admin" ? role : null;
@@ -55,7 +61,10 @@ export async function staffFetch<T>(fn: string, args: Record<string, unknown> = 
   try {
     return await staffRpc<T>(supabase, fn, args);
   } catch (e) {
-    if (toStaffError(e).code === "not_found") notFound();
+    const code = toStaffError(e).code;
+    if (code === "not_found") notFound();
+    // The token still says aal2 but its factor is gone (deleted in the dashboard): set one up again.
+    if (code === "mfa_required") redirect(STAFF_TWO_FACTOR_PATH);
     throw e;
   }
 }
@@ -69,16 +78,16 @@ export interface QueueFilters {
 }
 
 export const fetchQueue = (view: QueueView, offset: number, limit: number, filters: QueueFilters) =>
-  staffFetch<StaffPage<StaffQueueItem>>("staff_queue", { p_view: view, p_limit: limit, p_offset: offset, p_filters: filters });
-export const fetchQueueCounts = cache(() => staffFetch<QueueCounts>("staff_queue_counts"));
-export const fetchQueueItem = (id: string) => staffFetch<StaffQueueItemDetail>("staff_queue_item", { p_id: id });
+  staffFetch<StaffPage<StaffQueueItem>>("console_queue", { p_view: view, p_limit: limit, p_offset: offset, p_filters: filters });
+export const fetchQueueCounts = cache(() => staffFetch<QueueCounts>("console_queue_counts"));
+export const fetchQueueItem = (id: string) => staffFetch<StaffQueueItemDetail>("console_queue_item", { p_id: id });
 export const fetchAudit = (offset: number, limit: number, filters: Record<string, string | number>) =>
-  staffFetch<StaffPage<AuditRow>>("staff_audit", { p_limit: limit, p_offset: offset, p_filters: filters });
-export const fetchUsers = (q: string, offset: number, limit: number) => staffFetch<StaffPage<StaffUserDetail>>("staff_users", { p_q: q, p_limit: limit, p_offset: offset });
-export const fetchUser = (id: string) => staffFetch<StaffUserDetail>("staff_user", { p_id: id });
-export const fetchAppeals = (view: string, offset: number, limit: number) => staffFetch<StaffPage<StaffAppeal>>("staff_appeals", { p_view: view, p_limit: limit, p_offset: offset });
-export const fetchMetrics = (from: number, to: number) => staffFetch<ModerationMetrics>("staff_metrics", { p_from: from, p_to: to });
-export const fetchRulePacks = () => staffFetch<RulePackState[]>("staff_rule_packs");
+  staffFetch<StaffPage<AuditRow>>("console_audit", { p_limit: limit, p_offset: offset, p_filters: filters });
+export const fetchUsers = (q: string, offset: number, limit: number) => staffFetch<StaffPage<StaffUserDetail>>("console_users", { p_q: q, p_limit: limit, p_offset: offset });
+export const fetchUser = (id: string) => staffFetch<StaffUserDetail>("console_user", { p_id: id });
+export const fetchAppeals = (view: string, offset: number, limit: number) => staffFetch<StaffPage<StaffAppeal>>("console_appeals", { p_view: view, p_limit: limit, p_offset: offset });
+export const fetchMetrics = (from: number, to: number) => staffFetch<ModerationMetrics>("console_metrics", { p_from: from, p_to: to });
+export const fetchRulePacks = () => staffFetch<RulePackState[]>("console_rule_packs");
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Route params that cannot be an id are simply not found (the database would refuse the cast). */
