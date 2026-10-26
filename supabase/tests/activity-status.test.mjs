@@ -7,7 +7,16 @@
 // presence policies against a stand-in realtime schema.
 import { boot, read, expectOk, expectError, done } from "./harness.mjs";
 const MIGRATION = "migrations/20261011000000_activity_status.sql";
-const { db, mk, as, asAnon } = await boot();
+const { db, mk, as, asAnon, asService } = await boot();
+// Buzz v2 (migration 42): writes come from the website's write API (service role), after the Buzz guidelines are accepted.
+const buzzPost = async (uid, title) => {
+  await as(uid, () => db.query("select public.buzz_v2_accept_gate('2026-10-21')"));
+  return (await asService(() => one(db.query("select public.buzz_v2_create($1, $2::jsonb) as r", [uid, JSON.stringify({ title, scope: "global" })])))).r.id;
+};
+const buzzReply = async (uid, thread, text) => {
+  await as(uid, () => db.query("select public.buzz_v2_accept_gate('2026-10-21')"));
+  await asService(() => db.query("select public.buzz_v2_reply($1, $2, $3::jsonb)", [uid, thread, JSON.stringify({ text })]));
+};
 await expectOk("the activity-status migration re-runs cleanly, twice, without a realtime schema", async () => {
   await db.exec(read(MIGRATION));
   await db.exec(read(MIGRATION));
@@ -174,9 +183,10 @@ await expectOk("profiles: every user column is still readable signed in and out 
 });
 await expectOk("profiles: an anonymous Buzz reply leaves the replier's profile xmax at the reply's id (the owner sees it), but the thread author cannot match the notification to it any more", async () => {
   await db.query("update public.buzz_secrets set thread_jitter_seconds = 0, reply_jitter_seconds = 0 where id = 1");
-  const post = (await as(O, () => one(db.query("select public.buzz_create('thoughts', 'Anyone else stressed?', '') as id")))).id;
-  await as(H, () => db.query("select public.buzz_reply($1, 'same here')", [post]));
-  const xid = (await one(db.query("select xmin::text as x from public.notifications where user_id = $1 order by created_at desc limit 1", [O]))).x;
+  const post = await buzzPost(O, "Anyone else stressed?");
+  await buzzReply(H, post, "same here");
+  // (Buzz notifications are dated to the minute, so pick the reply's by its type rather than by the latest time.)
+  const xid = (await one(db.query("select xmin::text as x from public.notifications where user_id = $1 and type = 'buzz_reply' order by created_at desc limit 1", [O]))).x;
   // (The notification's own key locks the author's row too: the author knows that one.)
   const owner = await rows(db.query("select id from public.profiles where xmax = $1::xid and id <> $2", [xid, O]));
   if (owner.length !== 1 || owner[0].id !== H) throw new Error("setup: the trail is not there to hide: " + JSON.stringify(owner));
@@ -619,8 +629,8 @@ await expectOk("notifications: a scheduled one (an anonymous Buzz reply's) canno
   const Q = await user("Quinn", "quinn@txstate.edu");
   await db.query("update public.buzz_secrets set thread_jitter_seconds = 0, reply_jitter_seconds = 3600 where id = 1");
   try {
-    const post = (await as(Q, () => one(db.query("select public.buzz_create('thoughts', 'Is anyone up?', '') as id")))).id;
-    await as(O, () => db.query("select public.buzz_reply($1, 'me')", [post]));
+    const post = await buzzPost(Q, "Is anyone up?");
+    await buzzReply(O, post, "me");
     const owner = () => rows(db.query("select id, read_at, visible_at from public.notifications where user_id = $1", [Q]));
     const [n] = await owner();
     if (!n || !(n.visible_at > new Date())) throw new Error("setup: no scheduled notification");

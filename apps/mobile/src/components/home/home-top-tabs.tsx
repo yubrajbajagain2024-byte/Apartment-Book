@@ -13,6 +13,8 @@ import { useSession } from "@/lib/session";
 import { auroraGradient, radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useCreateMenu } from "./create-menu";
+import { BuzzBarLayer, BuzzLabelMask, BuzzMeGlyph, BuzzStatusStripLayer, useBuzzBar } from "./buzz-top-bar";
+import { phosphor } from "@/lib/palette";
 import { Icon } from "@/components/icon";
 import { GlassBackdrop } from "@/components/glass";
 
@@ -104,7 +106,7 @@ export function campusSegments(profile: { university_id: string | null; universi
 /**
  * Floating top bar of Home, X style, in three rows. Row 1: your photo in a gradient ring on the left, which opens your
  * profile, with Instagram's small "+" badge on its corner that opens the create sheet (Post / Reel / Buzz); the
- * CampConnect wordmark in the middle (it reads "Following" while that feed shows); on the right Search (the people search)
+ * UniBuzz wordmark in the middle (it reads "Following" while that feed shows); on the right Search (the people search)
  * and then the Notifications bell (it opens the notifications screen; its badge counts the unread). Row 2: the Home tabs (For you | Buzz | Reels) spread across the row
  * with X's sliding underline (violet, as wide as the label) over a hairline. Row 3: the Campus | Global toggle, a small
  * segmented pill whose thumb slides to the choice (see useHomeScope: it scopes For you, Buzz, Posts and Reels alike;
@@ -133,9 +135,12 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
   // Page i (offset i * pageWidth) shows SOLID[i]; in between the background follows the finger. Only once pageWidth > 0
   // (strictly increasing input range); until then it simply matches `overVideo`.
   const solid = useMemo(() => (pageWidth > 0 ? scrollX.interpolate({ inputRange: SOLID.map((_, i) => i * pageWidth), outputRange: SOLID, extrapolate: "clamp" }) : null), [pageWidth, scrollX]);
-  const fg = overVideo ? colors.onMedia : colors.text;
-  const dim = overVideo ? colors.onMediaMuted : colors.muted;
-  const ink = overVideo ? colors.onMedia : colors.accent;
+  // Near Buzz the bar is Phosphor (see useBuzzBar): light words, a lime underline, no photo of you at rest.
+  const buzzBar = useBuzzBar(scrollX, pageWidth, section);
+  const onBuzz = buzzBar.near && !overVideo;
+  const fg = overVideo ? colors.onMedia : onBuzz ? phosphor.ink : colors.text;
+  const dim = overVideo ? colors.onMediaMuted : onBuzz ? phosphor.ink3 : colors.muted;
+  const ink = overVideo ? colors.onMedia : onBuzz ? phosphor.accent : colors.accent;
   // Signed out there is nobody you follow: the Posts page drops the filter too (see PostsSection).
   const following = Boolean(user) && scope.following;
   // Like X's "Following", the wordmark reads it while that feed is showing. Only Posts can filter by follows, so on the
@@ -164,6 +169,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
     <>
       <Animated.View onLayout={onLayout} pointerEvents={overVideo ? "box-none" : "auto"} style={[styles.bar, { paddingTop: insets.top + TOP_GAP, transform: [{ translateY }] }]}>
         <Animated.View pointerEvents="none" style={[styles.solid, { opacity: solid ?? (overVideo ? 0 : 1) }]} />
+        <BuzzBarLayer layer={buzzBar.layer} />
         <View style={styles.row}>
           <View style={styles.sideSlot}>
             {overVideo ? (
@@ -172,15 +178,21 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
               </Pressable>
             ) : (
               <View style={styles.side}>
-                <Pressable onPress={() => router.push("/(tabs)/profile")} hitSlop={4} accessibilityRole="button" accessibilityLabel="Your profile" style={styles.ring}>
-                  <View style={styles.ringGap}>
-                    {profile ? <Avatar name={profile.full_name} url={profile.avatar_url} size={PHOTO} online={false} transition={0} /> : <Icon name="person-circle" size={PHOTO} color={colors.faint} />}
-                  </View>
-                </Pressable>
-                {/* The create badge, labelled "Create" like the "+" over Reels: the end-to-end flows start from it. */}
-                <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" accessibilityHint="A post, a reel, a Buzz thread or a Snap" style={styles.plus}>
-                  <Icon name="add" size={13} color={colors.onBrand} />
-                </Pressable>
+                {/* Your photo is not drawn at all while the pager rests on Buzz; near it, it crossfades to a neutral glyph. */}
+                {buzzBar.avatarShown ? (
+                  <Animated.View style={[styles.sideLayer, buzzBar.avatarOpacity ? { opacity: buzzBar.avatarOpacity } : null]}>
+                    <Pressable onPress={() => router.push("/(tabs)/profile")} hitSlop={4} accessibilityRole="button" accessibilityLabel="Your profile" style={styles.ring}>
+                      <View style={styles.ringGap}>
+                        {profile ? <Avatar name={profile.full_name} url={profile.avatar_url} size={PHOTO} online={false} transition={0} /> : <Icon name="person-circle" size={PHOTO} color={colors.faint} />}
+                      </View>
+                    </Pressable>
+                    {/* The create badge, labelled "Create" like the "+" over Reels: the end-to-end flows start from it. */}
+                    <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" accessibilityHint="A post, a reel, a Buzz thread or a Snap" style={styles.plus}>
+                      <Icon name="add" size={13} color={colors.onBrand} />
+                    </Pressable>
+                  </Animated.View>
+                ) : null}
+                {buzzBar.glyphShown ? <BuzzMeGlyph opacity={buzzBar.layer} onPress={() => router.push("/(tabs)/profile")} size={RING_SIZE - 6} /> : null}
               </View>
             )}
           </View>
@@ -197,7 +209,8 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
           </View>
         </View>
         <View style={styles.row}>
-          <SlidingTabs sections={HOME_TABS} section={section} onSelect={onSelect} scrollX={scrollX} pageWidth={pageWidth} tint={ink} tintGradient={overVideo ? undefined : auroraGradient(colors.auroraGlow, 90)} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} fontSize={LABEL_SIZE} spread />
+          <SlidingTabs sections={HOME_TABS} section={section} onSelect={onSelect} scrollX={scrollX} pageWidth={pageWidth} tint={ink} tintGradient={overVideo || onBuzz ? undefined : auroraGradient(colors.auroraGlow, 90)} labelColor={fg} dimColor={dim} textStyle={overVideo ? styles.shadow : undefined} fontSize={LABEL_SIZE} spread />
+          <BuzzLabelMask layer={buzzBar.layer} fontSize={LABEL_SIZE} sidePad={SIDE_PAD} />
         </View>
         {/* Temporarily hidden everywhere (SCOPE_TOGGLE_SHOWN): the bar is then its first two rows, as it is for anyone with
             no university to choose. */}
@@ -210,6 +223,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
       {/* The status bar's strip stays put while the bar slides away under it, as on iOS: the wordmark and the feed pass
           beneath the clock, never through it. Faded with the bar's solid look, so Reels keeps its video edge to edge. */}
       <Animated.View pointerEvents="none" style={[styles.statusStrip, { height: insets.top, opacity: solid ?? (overVideo ? 0 : 1) }]} />
+      <BuzzStatusStripLayer layer={buzzBar.layer} height={insets.top} />
     </>
   );
 });
@@ -257,6 +271,8 @@ const useStyles = makeStyles((colors, scheme) => ({
   statusStrip: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 11, backgroundColor: colors.bar },
   row: { height: ROW, flexDirection: "row", alignItems: "center", paddingHorizontal: SIDE_PAD },
   side: { width: SIDE, height: ROW, alignItems: "center", justifyContent: "center" },
+  // Your photo (and its "+") and, near Buzz, the glyph in its place: layers over each other in the same square.
+  sideLayer: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
   sideSlot: { width: SIDE_SLOT, height: ROW, flexDirection: "row", alignItems: "center" },
   sideEnd: { justifyContent: "flex-end", paddingRight: (SIDE - HEADER_ACTION_SIZE) / 2 },
   middle: { flex: 1, alignItems: "center", justifyContent: "center" },

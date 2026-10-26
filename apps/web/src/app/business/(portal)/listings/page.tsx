@@ -36,7 +36,7 @@ export default async function ListingsPage({ searchParams }: { searchParams: Pro
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Listings</h1>
           <p className="text-sm text-gray-600">
-            {rows.length} {rows.length === 1 ? "listing" : "listings"}. Active ones appear in Explore › Housing in the CampConnect app and on the website under {business.name}
+            {rows.length} {rows.length === 1 ? "listing" : "listings"}. Active ones appear in Explore › Housing in the UniBuzz app and on the website under {business.name}
             {business.verified_partner ? ", marked Verified Partner" : ""}; a listing with a paid promotion running is labelled Sponsored.
           </p>
         </div>

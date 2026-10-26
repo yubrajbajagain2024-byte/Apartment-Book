@@ -46,4 +46,4 @@ export function loadLiveKit(): LiveKit | null {
 }
 
 /** What the call screen says where the build cannot carry the call. */
-export const CALLS_UNAVAILABLE_TEXT = Platform.OS === "web" ? "Calls are made from the CampConnect app." : "This copy of CampConnect can't carry calls. Install the app build to talk.";
+export const CALLS_UNAVAILABLE_TEXT = Platform.OS === "web" ? "Calls are made from the UniBuzz app." : "This copy of UniBuzz can't carry calls. Install the app build to talk.";

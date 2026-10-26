@@ -57,7 +57,7 @@ export function BusinessProfileForm({ business, universities, userId }: { busine
           <Field label="Phone" htmlFor="phone" error={err?.phone}>
             <Input id="phone" name="phone" type="tel" defaultValue={def("phone", business.phone)} />
           </Field>
-          <Field label="Contact email" htmlFor="contactEmail" error={err?.contactEmail} hint="Shown to the CampConnect team; students message you through the app.">
+          <Field label="Contact email" htmlFor="contactEmail" error={err?.contactEmail} hint="Shown to the UniBuzz team; students message you through the app.">
             <Input id="contactEmail" name="contactEmail" type="email" defaultValue={def("contactEmail", business.contact_email)} />
           </Field>
           <Field label="City" htmlFor="city" error={err?.city}>

@@ -93,7 +93,7 @@ export function TeamPanel({ members, invites, currentUserId, isOwner }: { member
           <CardHeader>
             <CardTitle>Invite a teammate</CardTitle>
             <p className="mt-1 text-sm text-gray-600">
-              Enter their work email. You get a join link to send them; it works for that address only, for 14 days. Staff need an address that is not on CampConnect yet.
+              Enter their work email. You get a join link to send them; it works for that address only, for 14 days. Staff need an address that is not on UniBuzz yet.
             </p>
           </CardHeader>
           <CardBody className="flex flex-col gap-3">

@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@apartment-book/moderation": "^0.1.0",
     "@apartment-book/shared": "^0.1.0",
     "@mux/upchunk": "^3.5.0",
     "@supabase/ssr": "^0.12.6",

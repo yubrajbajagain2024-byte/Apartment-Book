@@ -37,10 +37,10 @@ const harness = fs.readFileSync(path.join(supabaseDir, "tests/harness.mjs"), "ut
 const db = new PGlite({ extensions: { pgcrypto, postgis } });
 await db.exec(harness.match(/await db\.exec\(`(create role anon[\s\S]*?)`\);/)[1]);
 // What Supabase has and the harness does not, which the outside migrations use (as in supabase/applied-outside-repo/verify.mjs).
-await db.exec(`create role service_role nologin;
+await db.exec(`do $do$ begin if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin; end if; end $do$; -- the harness may have made it already
   alter table auth.users add column if not exists email_confirmed_at timestamptz, add column if not exists created_at timestamptz not null default now(), add column if not exists banned_until timestamptz;
-  create table auth.mfa_factors (id uuid primary key default gen_random_uuid(), user_id uuid, status text, factor_type text);
-  create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;`);
+  create table if not exists auth.mfa_factors (id uuid primary key default gen_random_uuid(), user_id uuid, status text, factor_type text);
+  create or replace function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;`);
 const repo = fs.readdirSync(path.join(supabaseDir, "migrations")).filter((f) => f.endsWith(".sql")).sort();
 for (const f of repo.filter((f) => f <= "20261029000000_push.sql")) await db.exec(read(`migrations/${f}`));
 for (const f of ["20261023000000_admin.sql", "20261024000000_moderation_support.sql"]) await db.exec(read(`applied-outside-repo/${f}`));

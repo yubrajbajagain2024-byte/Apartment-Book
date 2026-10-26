@@ -109,35 +109,6 @@ export type Reel = {
   savedByMe: boolean;
 };
 
-export type BuzzTopic = "thoughts" | "experience" | "advice" | "question" | "housing" | "campus" | "rant" | "other";
-export type BuzzSort = "hot" | "new" | "top";
-/**
- * An anonymous Buzz thread as other people see it. There is deliberately no
- * author here: the server never sends it. `alias` ("Student 48213") is stable
- * inside one thread and different in every other thread.
- */
-export type BuzzPost = {
-  id: string;
-  topic: BuzzTopic;
-  title: string;
-  body: string;
-  images: string[];
-  imageMeta: unknown;
-  videos: unknown;
-  universityId: string | null;
-  score: number;
-  commentCount: number;
-  createdAt: string;
-  /** 1 upvoted, -1 downvoted, 0 no vote. */
-  myVote: -1 | 0 | 1;
-  isMine: boolean;
-  alias: string;
-};
-export type BuzzComment = { id: string; parentId: string | null; body: string; createdAt: string; alias: string; isOp: boolean; isMine: boolean; score: number; myVote: -1 | 0 | 1 };
-/** How replies under a thread are ordered (within each level of the tree). */
-export type BuzzCommentSort = "best" | "new" | "old";
-/** A reply placed in the thread tree: `depth` 0 is a reply to the thread itself. */
-export type BuzzCommentNode = BuzzComment & { depth: number; replyCount: number };
 
 /** A comment with who wrote it. */
 export type PostCommentWithAuthor = PostComment & { author: ProfileSummary };
@@ -293,3 +264,12 @@ export type Paginated<T> = {
   pageSize: number;
   totalPages: number;
 };
+
+// ---------------------------------------------------------------------------
+// Two-factor sign-in for staff (Supabase Auth TOTP; the same shapes as CampConnect Admin's)
+// ---------------------------------------------------------------------------
+export type MfaFactorSummary = { id: string; friendlyName: string | null; status: "verified" | "unverified"; createdAt: string };
+/** enrolled = a verified authenticator exists; verified = this session passed it (aal2) and it still exists, the rule staff_mfa_verified() applies in SQL. */
+export type MfaStatus = { currentLevel: "aal1" | "aal2"; nextLevel: "aal1" | "aal2"; verified: boolean; enrolled: boolean; factors: MfaFactorSummary[] };
+/** What to show while the user adds the authenticator: QR code (SVG data URL), the secret to type by hand and the otpauth URI. */
+export type TotpEnrollment = { factorId: string; qrCode: string; secret: string; uri: string };

@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   deleteMyAccount,
   listUniversities,
@@ -21,9 +23,9 @@ import { Avatar } from "@/components/avatar";
 import { VisibilityPicker } from "@/components/profile/visibility-row";
 import { Button, Card, Chip, Field } from "@/components/ui";
 import { errorText, useQuery } from "@/lib/hooks";
-import { DEFAULT_THEME_PREFERENCE, THEME_PREFERENCES } from "@/lib/palette";
+import { DEFAULT_THEME_PREFERENCE, phosphor, THEME_PREFERENCES } from "@/lib/palette";
 import { useSession } from "@/lib/session";
-import { supabase } from "@/lib/supabase";
+import { SITE_URL, supabase } from "@/lib/supabase";
 import { radius } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { useChangeAvatar } from "@/lib/use-change-avatar";
@@ -242,6 +244,45 @@ export default function SettingsScreen() {
           <VisibilityPicker key={section} section={section} value={visibility[section]} onChange={(v) => setVisibility((prev) => ({ ...prev, [section]: v }))} />
         ))}
       </Card>
+      {/* Buzz is anonymous: its own list and how that works live here, never on your profile or on Home. */}
+      <Card>
+        <Text style={styles.cardTitle} accessibilityRole="header">
+          Buzz
+        </Text>
+        <View>
+          <LinkRow icon={<BuzzMask />} title="My buzzes" subtitle="Everything you posted anonymously" onPress={() => router.push("/buzz/mine" as never)} />
+          <LinkRow icon={<BuzzMask />} title="How Buzz anonymity works" onPress={() => router.push("/settings/buzz-anonymity" as never)} divider />
+        </View>
+        <Text style={styles.hint}>Buzz is fully anonymous to other students. Your public profile never links to it.</Text>
+      </Card>
+      <Card>
+        <Text style={styles.cardTitle} accessibilityRole="header">
+          Safety
+        </Text>
+        <View>
+          <LinkRow
+            icon={
+              <View style={[styles.rowIcon, { backgroundColor: colors.brandSoft }]}>
+                <Icon name="shield-checkmark-outline" size={18} color={colors.brand} />
+              </View>
+            }
+            title="Account status"
+            subtitle="Warnings, removed content and appeals"
+            onPress={() => router.push("/settings/account-status" as never)}
+          />
+          <LinkRow
+            icon={
+              <View style={[styles.rowIcon, { backgroundColor: colors.brandSoft }]}>
+                <Icon name="book-outline" size={18} color={colors.brand} />
+              </View>
+            }
+            title="Community Guidelines"
+            onPress={() => void WebBrowser.openBrowserAsync(`${SITE_URL}/guidelines`, { dismissButtonStyle: "close" }).catch(() => {})}
+            divider
+            external
+          />
+        </View>
+      </Card>
       <Card>
         <ToggleRow label="Notify me about new places within 2 miles of campus" value={notify} onChange={setNotify} />
         <ToggleRow
@@ -302,6 +343,32 @@ function ThemeCard() {
   );
 }
 
+/** The Buzz mask on a Phosphor disc: Buzz rows are marked with it (UniVerse's RowIcon tone="incognito"). */
+function BuzzMask() {
+  const styles = useStyles();
+  return (
+    <View style={[styles.rowIcon, { backgroundColor: phosphor.surface2 }]}>
+      <MaterialCommunityIcons name="domino-mask" size={18} color={phosphor.accent} />
+    </View>
+  );
+}
+
+/** A row that opens another screen: its icon, its title (and a line under it) and the chevron. */
+function LinkRow({ icon, title, subtitle, onPress, divider, external }: { icon: ReactNode; title: string; subtitle?: string; onPress: () => void; divider?: boolean; external?: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
+  return (
+    <Pressable onPress={onPress} accessibilityRole={external ? "link" : "button"} accessibilityLabel={title} accessibilityHint={subtitle} style={({ pressed }) => [styles.linkRow, divider && styles.themeDivider, pressed && { opacity: 0.7 }]}>
+      {icon}
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={styles.themeLabel}>{title}</Text>
+        {subtitle ? <Text style={styles.hint}>{subtitle}</Text> : null}
+      </View>
+      <Icon name={external ? "open-outline" : "chevron-forward"} size={external ? 18 : 20} color={colors.faint} />
+    </Pressable>
+  );
+}
+
 /** A setting that is on or off, with an optional line under it saying what it does. */
 function ToggleRow({ label, hint, value, onChange }: { label: string; hint?: string; value: boolean; onChange: (v: boolean) => void }) {
   const styles = useStyles();
@@ -338,4 +405,6 @@ const useStyles = makeStyles((colors) => ({
   themeRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 48, paddingVertical: 8 },
   themeDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   themeLabel: { fontSize: 16, color: colors.text },
+  linkRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 56, paddingVertical: 8 },
+  rowIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
 }));

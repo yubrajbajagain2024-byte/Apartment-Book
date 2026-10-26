@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
-import type { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons, type Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { listNotifications, markNotificationsRead, timeAgo, type NotificationWithActor } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
+import { MaskGlyph } from "@/components/buzz/ui";
 import { Button, EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { useSession } from "@/lib/session";
-import { supabase } from "@/lib/supabase";
+import { phosphor } from "@/lib/palette";
+import { SITE_URL, supabase } from "@/lib/supabase";
 import { space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { refreshWithHaptic } from "@/lib/haptics";
@@ -16,6 +19,14 @@ const PAGE = 30;
 /** The small mark on each row saying what kind of notification it is (over the actor's photo, or alone without one). */
 const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = { message: "chatbubble", listing_saved: "bookmark", nearby_listing: "location", system: "notifications", like: "heart", comment: "chatbox", follow: "person-add", snap: "camera", snap_activity: "eye", call: "call" };
 const AVATAR = 44;
+/** Buzz's own notifications: anonymous by design (no actor, nothing about anyone in them), always the mask, never a photo. */
+const BUZZ_TYPES = new Set(["buzz_reply", "buzz_milestone", "buzz_poll_closed"]);
+/** Links only the website has (the staff console, the Community Guidelines): opened there. */
+const WEB_ONLY = /^\/(admin|guidelines)(\/|#|\?|$)/;
+/** "5 minutes ago". A Buzz reply's notice carries the reply's own (delayed) publication time, never later than now on screen. */
+function ago(iso: string): string {
+  return timeAgo(Date.parse(iso) > Date.now() ? new Date().toISOString() : iso);
+}
 
 /**
  * Notifications, opened from the bell in Home's top-right corner: every notification the database keeps for you (new
@@ -78,8 +89,10 @@ export default function NotificationsScreen() {
       setItems((cur) => cur?.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)) ?? null);
       markNotificationsRead(supabase, [n.id]).catch(() => {});
     }
-    // The link is the same address the website uses (/messages/<id>, /posts/<id>, /profile/<id>...), which the app's routes share.
-    if (n.link) router.push(n.link as never);
+    // The link is the same address the website uses (/messages/<id>, /posts/<id>, /buzz/<id>, /settings/account-status...),
+    // which the app's routes share; the staff console and the guidelines live on the website only.
+    if (n.link && WEB_ONLY.test(n.link)) void WebBrowser.openBrowserAsync(`${SITE_URL}${n.link}`, { dismissButtonStyle: "close" }).catch(() => {});
+    else if (n.link) router.push(n.link as never);
   }
 
   function markAll() {
@@ -118,15 +131,28 @@ export default function NotificationsScreen() {
         renderItem={({ item: n }) => {
           const icon = ICONS[n.type] ?? "notifications";
           const isUnread = n.read_at === null;
+          const buzz = BUZZ_TYPES.has(n.type);
           return (
             <Pressable
               onPress={() => open(n)}
               accessibilityRole="button"
-              accessibilityLabel={`${n.title}${n.body ? `. ${n.body}` : ""}, ${timeAgo(n.created_at)}${isUnread ? ", unread" : ""}`}
+              accessibilityLabel={`${n.title}${n.body ? `. ${n.body}` : ""}, ${ago(n.created_at)}${isUnread ? ", unread" : ""}`}
               style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
             >
               <View style={styles.mark}>
-                {n.actor ? (
+                {buzz ? (
+                  <View style={styles.buzzMark} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                    <MaskGlyph size={22} color={phosphor.accent} />
+                  </View>
+                ) : n.type === "moderation" ? (
+                  <View style={[styles.kindAlone, { backgroundColor: colors.warningSoft }]}>
+                    <MaterialCommunityIcons name="shield-alert-outline" size={22} color={colors.warningText} />
+                  </View>
+                ) : n.type === "staff" ? (
+                  <View style={styles.kindAlone}>
+                    <Icon name="shield-checkmark-outline" size={21} color={colors.brand} />
+                  </View>
+                ) : n.actor ? (
                   <>
                     <Avatar name={n.actor.full_name} url={n.actor.avatar_url} size={AVATAR} online={false} transition={0} />
                     <View style={[styles.kind, { borderColor: colors.bg }]}>
@@ -148,7 +174,7 @@ export default function NotificationsScreen() {
                     {n.body}
                   </Text>
                 ) : null}
-                <Text style={styles.time}>{timeAgo(n.created_at)}</Text>
+                <Text style={styles.time}>{ago(n.created_at)}</Text>
               </View>
               {isUnread ? <View style={styles.dot} accessibilityLabel="Unread" /> : null}
             </Pressable>
@@ -187,6 +213,8 @@ const useStyles = makeStyles((colors) => ({
   // The kind of notification, on the photo's corner, ringed in the row's colour so it reads over the photo.
   kind: { position: "absolute", right: -4, bottom: -4, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.brand, borderWidth: 2, alignItems: "center", justifyContent: "center" },
   kindAlone: { width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
+  // A Buzz notification's mark: the lime mask on a Phosphor disc, the same in both themes (Buzz is always that world).
+  buzzMark: { width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, backgroundColor: phosphor.surface2, alignItems: "center", justifyContent: "center" },
   text: { flex: 1, gap: 2 },
   title: { fontSize: 15, color: colors.text },
   body: { fontSize: 14, color: colors.muted },

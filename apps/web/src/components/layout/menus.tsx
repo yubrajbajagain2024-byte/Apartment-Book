@@ -7,6 +7,8 @@ import { signOutAction } from "@/lib/actions/auth";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { stopPresence } from "@/components/presence/presence-provider";
+import { StaffMenuLink } from "@/components/staff/staff-menu-link";
+import { resetBuzzState } from "@/components/buzz/store";
 
 function Dropdown({
   trigger,
@@ -144,9 +146,16 @@ export function UserMenu({ userId, name, avatarUrl }: { userId: string; name: st
           <MenuLink href="/settings/profile" icon={Settings} onClick={close}>
             Settings
           </MenuLink>
+          <StaffMenuLink userId={userId} onClick={close} />
           <div className="my-1 h-px bg-gray-100" />
-          {/* Stop appearing online before the session goes. */}
-          <form action={signOutAction} onSubmit={() => stopPresence()}>
+          {/* Stop appearing online before the session goes, and clear this account's anonymous Buzz state from memory. */}
+          <form
+            action={signOutAction}
+            onSubmit={() => {
+              stopPresence();
+              resetBuzzState();
+            }}
+          >
             <button
               type="submit"
               role="menuitem"

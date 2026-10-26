@@ -46,7 +46,7 @@ const DEVICE_ERRORS: Record<string, "PermissionDenied" | "NotFound" | "DeviceInU
 function deviceNoteFor(failure: string | undefined): string | null {
   switch (failure) {
     case "PermissionDenied":
-      return "Allow the microphone and camera for CampConnect in Settings to be heard and seen.";
+      return "Allow the microphone and camera for UniBuzz in Settings to be heard and seen.";
     case "DeviceInUse":
       return "Another app is using the microphone or camera.";
     case "NotFound":

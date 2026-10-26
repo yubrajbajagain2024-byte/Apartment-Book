@@ -50,7 +50,7 @@ export default async function BusinessProfilePage() {
     <div className="mx-auto flex max-w-3xl flex-col gap-4">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Business profile</h1>
-        <p className="text-sm text-gray-600">What students see next to your listings and deals, and what the CampConnect team reviews.</p>
+        <p className="text-sm text-gray-600">What students see next to your listings and deals, and what the UniBuzz team reviews.</p>
       </div>
       <BusinessProfileForm business={business} universities={universities} userId={user.id} />
     </div>

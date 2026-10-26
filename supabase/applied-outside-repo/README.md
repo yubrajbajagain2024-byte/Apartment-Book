@@ -1,11 +1,17 @@
 # Migrations applied outside this repo
 
-Two migrations reached the live Supabase project (`dskbzoqreandwwpxiplh`) on 2026-10-25 without coming from this repo or GitHub. They are kept here so the repo matches what production runs. Nothing reads this folder: `scripts/supabase-setup.mjs`, the Supabase CLI and `supabase/tests` only read `supabase/migrations`.
+Four migrations reached the live Supabase project (`dskbzoqreandwwpxiplh`) on 2026-10-25 without coming from `main`: CampConnect Admin's, the separate staff app. They are kept here so the repo matches what production runs. `scripts/supabase-setup.mjs` and the Supabase CLI only read `supabase/migrations`; `supabase/tests/harness.mjs` applies these where they ran when a suite asks for production's order (`boot({ live: true })`).
 
 | File | Its own title | Recorded in `public._migrations` |
 |---|---|---|
 | `20261023000000_admin.sql` | migration 14: staff access for the private /admin section | 2026-10-25 15:11:59 UTC |
 | `20261024000000_moderation_support.sql` | migration 15: database support for moderation | 2026-10-25 15:12:00 UTC |
+| `20261103100000_admin_dashboard.sql` | migration 16: read-only queries for the separate admin app | 2026-10-25 22:31:16 UTC |
+| `20261103100100_hardening.sql` | migration 17: privilege hardening | 2026-10-25 22:31:17 UTC |
+
+16 and 17 are copied unchanged from the `step-admin` branch on GitHub, where CampConnect Admin lives. `verify.mjs --live --except 20261103000000_trust_safety.sql,20261103000100_buzz_v2.sql` matched the live catalog exactly on 2026-10-26 (256 functions, 451 columns, 262 constraints, 97 triggers, 111 policies), before this repo's migrations 41 and 42 were applied.
+
+The sections below are about 14 and 15.
 
 ## Where they came from
 

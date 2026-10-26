@@ -11,7 +11,7 @@ import { useColors } from "@/lib/theme-provider";
 
 /**
  * A call ringing this phone, over whatever is on screen, laid out like FaceTime's: who is calling, large, on a soft
- * Aurora dusk, "CampConnect Audio" or "CampConnect Video", and Decline (red) and Accept (green) at the bottom. The
+ * Aurora dusk, "UniBuzz Audio" or "UniBuzz Video", and Decline (red) and Accept (green) at the bottom. The
  * photo breathes while it rings.
  */
 export function IncomingCallScreen({ call, onAccept, onDecline }: { call: CallRecord; onAccept: () => void; onDecline: () => void }) {
@@ -39,7 +39,7 @@ export function IncomingCallScreen({ call, onAccept, onDecline }: { call: CallRe
             {name}
           </Text>
           <Text style={styles.kind}>
-            CampConnect {call.kind === "video" ? "Video" : "Audio"}
+            UniBuzz {call.kind === "video" ? "Video" : "Audio"}
             {others > 1 ? ` · ${others + 1} people` : ""}
           </Text>
         </View>

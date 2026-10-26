@@ -1,31 +1,71 @@
 "use client";
 
-import { Bell, Bookmark, Camera, MapPin, MessageCircle, MessageSquare, ThumbsUp, UserPlus } from "lucide-react";
+import { ArrowBigUp, BarChart3, Bell, Bookmark, Camera, Flag, MapPin, MessageCircle, MessageSquare, ShieldAlert, ThumbsUp, UserPlus, VenetianMask } from "lucide-react";
 import { timeAgo, type NotificationWithActor } from "@apartment-book/shared";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 
-const ICONS = { message: MessageCircle, listing_saved: Bookmark, nearby_listing: MapPin, system: Bell, like: ThumbsUp, comment: MessageSquare, follow: UserPlus, snap: Camera } as const;
+const ICONS = {
+  message: MessageCircle,
+  listing_saved: Bookmark,
+  nearby_listing: MapPin,
+  system: Bell,
+  like: ThumbsUp,
+  comment: MessageSquare,
+  follow: UserPlus,
+  snap: Camera,
+  moderation: ShieldAlert,
+  staff: Flag,
+  buzz_reply: VenetianMask,
+  buzz_milestone: ArrowBigUp,
+  buzz_poll_closed: BarChart3,
+} as const;
+
+/**
+ * Buzz notifications are anonymous: no actor, and nothing about who replied or voted. They never show an avatar,
+ * only the mask (UniVerse's anonymous row), even for an old row from before Buzz v2 (a "comment" about a Buzz thread).
+ */
+function isAnonymous(n: NotificationWithActor): boolean {
+  if (n.type.startsWith("buzz_")) return true;
+  const data = n.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+  const d = data as Record<string, unknown>;
+  return d.anonymous === true || d.target_type === "buzz";
+}
 
 /** One row in the bell dropdown or the notifications page. */
 export function NotificationItem({ notification, onOpen, compact }: { notification: NotificationWithActor; onOpen: (n: NotificationWithActor) => void; compact?: boolean }) {
   const Icon = ICONS[notification.type as keyof typeof ICONS] ?? Bell;
   const unread = notification.read_at === null;
+  const anonymous = isAnonymous(notification);
+  const actor = anonymous ? null : notification.actor;
+  // A reply notification quotes the recipient's own buzz back to them, never the reply.
+  const body = notification.body ? (anonymous && notification.type === "buzz_reply" ? `“${notification.body}”` : notification.body) : null;
   return (
     <button
       type="button"
       onClick={() => onOpen(notification)}
       className={cn("flex w-full items-start gap-3 rounded-lg px-3 text-left hover:bg-gray-100", compact ? "py-2" : "py-3", unread && "bg-brand-50/60")}
+      data-testid={anonymous ? "notification-anonymous" : undefined}
     >
       <span className="relative shrink-0">
-        {notification.actor ? (
-          <Avatar name={notification.actor.full_name} src={notification.actor.avatar_url} size={compact ? "sm" : "md"} />
+        {anonymous ? (
+          <span
+            data-surface="incognito"
+            role="img"
+            aria-label="Anonymous"
+            className={cn("flex items-center justify-center rounded-full bg-incog-surface-2 text-incog-accent", compact ? "h-8 w-8" : "h-10 w-10")}
+          >
+            <VenetianMask className={compact ? "h-4 w-4" : "h-5 w-5"} strokeWidth={1.75} aria-hidden="true" />
+          </span>
+        ) : actor ? (
+          <Avatar name={actor.full_name} src={actor.avatar_url} size={compact ? "sm" : "md"} />
         ) : (
-          <span className={cn("flex items-center justify-center rounded-full bg-brand-100 text-brand-700", compact ? "h-8 w-8" : "h-10 w-10")}>
+          <span className={cn("flex items-center justify-center rounded-full", notification.type === "moderation" ? "bg-amber-100 text-amber-800" : "bg-brand-100 text-brand-700", compact ? "h-8 w-8" : "h-10 w-10")}>
             <Icon className="h-4 w-4" />
           </span>
         )}
-        {notification.actor ? (
+        {actor ? (
           <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white ring-2 ring-white">
             <Icon className="h-3 w-3" />
           </span>
@@ -33,7 +73,7 @@ export function NotificationItem({ notification, onOpen, compact }: { notificati
       </span>
       <span className="min-w-0 flex-1">
         <span className={cn("block truncate text-sm", unread ? "font-semibold text-gray-900" : "text-gray-800")}>{notification.title}</span>
-        {notification.body ? <span className="line-clamp-2 text-sm text-gray-600">{notification.body}</span> : null}
+        {body ? <span className="line-clamp-2 text-sm text-gray-600">{body}</span> : null}
         <span className={cn("block text-xs", unread ? "font-medium text-brand-700" : "text-gray-500")} suppressHydrationWarning>
           {timeAgo(notification.created_at)}
         </span>

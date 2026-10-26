@@ -53,7 +53,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       else if (state === "background") store.pause({ leaveNow: Platform.OS !== "web" });
     };
     // In step with the app as it is now (it may have moved since the store was made), then with every change.
-    follow(AppState.currentState);
+    follow(AppState.currentState as AppStateStatus);
     const sub = AppState.addEventListener("change", follow);
     // A block or unblock here: leave them out of (or bring them back into) who is online at once.
     const offBlocks = onBlocksChanged(() => store.refreshBlocks());

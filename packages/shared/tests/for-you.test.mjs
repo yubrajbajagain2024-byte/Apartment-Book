@@ -8,8 +8,8 @@ const post = (id, kind = "post") => ({ id, kind, body: id, author: { id: "u", fu
 const shape = (items) => items.map((p) => (p.kind === "reel" ? "R" : "P")).join("");
 
 test("Home's sections are For you | Buzz | Posts | Reels, its tabs For you | Buzz | Reels, and it lands on For you", () => {
-  assert.deepEqual(HOME_SECTIONS.map((s) => s.label), ["For you", "Buzz", "Posts", "Reels"]);
-  assert.deepEqual(HOME_TABS.map((s) => s.label), ["For you", "Buzz", "Reels"]);
+  assert.deepEqual(HOME_SECTIONS.map((s) => s.label), ["Orbit", "Buzz", "Posts", "Reels"]);
+  assert.deepEqual(HOME_TABS.map((s) => s.label), ["Orbit", "Buzz", "Reels"]);
   // Posts keeps its address without a tab; Reels has its tab and its address.
   assert.equal(homeSectionHref("posts"), "/?tab=posts");
   assert.equal(homeSectionHref("reels"), "/?tab=reels");

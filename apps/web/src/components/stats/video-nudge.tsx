@@ -15,7 +15,7 @@ export function VideoNudge({ editHref, comparison }: { editHref: string; compari
         <p className="font-semibold">Add a 30-second tour.</p>
         <p>
           {multiplier !== null && multiplier > 1
-            ? `On CampConnect, listings with a video tour get about ${multiplier}× more messages than photo-only listings (based on ${comparison?.videoListings} video and ${comparison?.photoListings} photo listings).`
+            ? `On UniBuzz, listings with a video tour get about ${multiplier}× more messages than photo-only listings (based on ${comparison?.videoListings} video and ${comparison?.photoListings} photo listings).`
             : "Video tours rank higher in the feed and let students see the place before they message you."}
         </p>
         <Link href={editHref} className="w-fit font-semibold text-accent-600 hover:underline">

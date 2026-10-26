@@ -127,7 +127,7 @@ function isMissingFunction(error: { code?: string; message?: string }): boolean 
 }
 
 /** The words the apps show when a Snap feature's migration is not on the server yet. */
-export const SNAP_NOT_SET_UP = "This isn't set up on the server yet (migration 33). Ask whoever runs CampConnect to apply it.";
+export const SNAP_NOT_SET_UP = "This isn't set up on the server yet (migration 33). Ask whoever runs UniBuzz to apply it.";
 
 /**
  * The chat received the Snap on this device: "Delivered" goes on its activity, once (migration 33). On a database

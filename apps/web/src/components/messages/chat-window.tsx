@@ -165,7 +165,7 @@ function SharedPostCard({
 }
 
 /**
- * A Snap: never its picture here. It opens once, in the CampConnect app. While the message carries its preview (waiting,
+ * A Snap: never its picture here. It opens once, in the UniBuzz app. While the message carries its preview (waiting,
  * and after it is opened), the card is the Snap at its own shape with that tiny preview softly visible under a pane of
  * frosted glass, in its own colours, as the app shows it, and the status over it; without one (expired, gone, or sent from an older app) it is
  * a small card on a neutral tile.
@@ -221,7 +221,7 @@ function SnapCard({ snap, mine }: { snap: MessageSnap; mine: boolean }) {
             </span>
             {fresh && !mine ? (
               <span className="text-xs font-medium drop-shadow">
-                Open the CampConnect app to view it
+                Open the UniBuzz app to view it
               </span>
             ) : null}
           </span>
@@ -235,7 +235,7 @@ function SnapCard({ snap, mine }: { snap: MessageSnap; mine: boolean }) {
   const title = !mine && fresh ? "New Snap" : video ? "Video Snap" : "Snap";
   const status =
     !mine && fresh
-      ? "Open the CampConnect app to view it"
+      ? "Open the UniBuzz app to view it"
       : snapStatusText(snap, mine);
   return (
     <>

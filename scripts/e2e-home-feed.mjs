@@ -76,33 +76,51 @@ try {
     const wrong = await A.client.storage.from("uploads").upload(`buzz/${A.id}/x.jpg`, JPEG, { contentType: "image/jpeg" }); if (!wrong.error) { uploaded.push(`buzz/${A.id}/x.jpg`); throw new Error("upload outside buzz/anon accepted"); }
     const normal = await A.client.storage.from("uploads").upload(`posts/${A.id}/${hex(16)}.jpg`, JPEG, { contentType: "image/jpeg" }); if (normal.error) throw new Error("normal uploads broke: " + normal.error.message); uploaded.push(normal.data.path);
   });
-  await step("buzz: create with that photo; others and signed-out visitors read it with an alias and no author", async () => {
-    const c = await A.client.rpc("buzz_create", { p_topic: "advice", p_title: `e2e thread ${stamp}`, p_body: "hello", p_images: [photoUrl], p_image_meta: [{ url: photoUrl, width: 1, height: 1, blur: null }], p_videos: [] }); if (c.error) throw c.error; thread = c.data;
-    for (const [who, cl, mine] of [["author", A.client, true], ["other", B.client, false], ["anon", anon, false]]) {
-      const g = await cl.rpc("buzz_get", { p_id: thread }); if (g.error || g.data.length !== 1) throw new Error(`${who}: ${JSON.stringify(g)}`);
-      const row = g.data[0]; if (row.is_mine !== mine || !/^Student \d{5}$/.test(row.alias) || JSON.stringify(row).includes(A.id) || Object.keys(row).some((k) => /author|user|visible/.test(k))) throw new Error(`${who}: ${JSON.stringify(row)}`);
+  // Buzz v2 (migration 42): reading needs the Buzz guidelines accepted; writes come only from the website's moderated write
+  // API, which calls buzz_v2_create / buzz_v2_reply with the service role (`admin` stands in for it here).
+  const v2 = async (cl, fn, args) => { const r = await cl.rpc(fn, args); if (r.error) throw new Error(`${fn}: ${r.error.message}`); return r.data; };
+  const noIdentityKeys = (o) => Object.keys(o).some((k) => /author|user|visible|email/i.test(k));
+  await step("buzz: signed-out visitors, people who have not accepted the guidelines and old app builds are turned away; users cannot call the write functions", async () => {
+    const out = await anon.rpc("buzz_v2_feed", { p_scope: "global", p_sort: "new" }); if (!out.error) throw new Error("signed out read Buzz");
+    const early = await B.client.rpc("buzz_v2_feed", { p_scope: "global", p_sort: "new" }); if (!early.error || !/buzz_gate_required/.test(early.error.message)) throw new Error("read before the gate: " + JSON.stringify(early));
+    for (const c of [A.client, B.client]) await v2(c, "buzz_v2_accept_gate", { p_version: "2026-10-21" });
+    const old = await B.client.rpc("buzz_feed", { p_sort: "new" }); if (!old.error || !/update_required/.test(old.error.message)) throw new Error("old builds: " + JSON.stringify(old));
+    const forged = await A.client.rpc("buzz_v2_create", { p_author: A.id, p_input: { text: "skipping moderation", scope: "global" } }); if (!forged.error) throw new Error("a user called buzz_v2_create");
+  });
+  await step("buzz: post with that photo; author and others read it with a per-thread alias, minute-cut time and no author; someone else's photo is refused", async () => {
+    thread = (await v2(admin, "buzz_v2_create", { p_author: A.id, p_input: { title: `e2e thread ${stamp}`, text: "hello", scope: "global", images: [photoUrl], imageMeta: [{ url: photoUrl, width: 1, height: 1, blur: null }] } })).id;
+    for (const [who, cl, mine] of [["author", A.client, true], ["other", B.client, false]]) {
+      const t = await v2(cl, "buzz_v2_thread", { p_thread: thread, p_limit: 50 }); const b = t.root;
+      if (b.isMine !== mine || !b.isOp || !/^Anon [A-Z][a-z]+( \d+)?$/.test(b.alias.label) || b.media.length !== 1 || b.createdAt % 60000 !== 0
+          || JSON.stringify(t).includes(A.id) || noIdentityKeys(b)) throw new Error(`${who}: ${JSON.stringify(t)}`);
     }
-    const notMine = await B.client.rpc("buzz_create", { p_topic: "other", p_title: "stealing a photo", p_images: [photoUrl] }); if (!notMine.error) throw new Error("someone else's photo accepted");
+    const stolen = await admin.rpc("buzz_v2_create", { p_author: B.id, p_input: { title: "stealing a photo", scope: "global", images: [photoUrl] } }); if (!stolen.error) throw new Error("someone else's photo accepted");
   });
-  await step("buzz: tables are closed to the API", async () => {
-    for (const t of ["buzz_posts", "buzz_comments", "buzz_votes", "buzz_mutes", "buzz_secrets", "buzz_rate_log"]) { const r = await A.client.from(t).select("*").limit(1); if (!r.error) throw new Error(`${t} readable: ${JSON.stringify(r.data)}`); }
-    for (const f of ["buzz_alias", "buzz_hidden", "buzz_can_see", "buzz_reply_count"]) { const r = await B.client.rpc(f, { p_author: A.id, p_post: thread }); if (!r.error) throw new Error(`${f} callable`); }
+  await step("buzz: tables and internal functions are closed to the API", async () => {
+    for (const t of ["buzz_posts", "buzz_comments", "buzz_votes", "buzz_comment_votes", "buzz_mutes", "buzz_secrets", "buzz_rate_log", "buzz_polls", "buzz_poll_options", "buzz_poll_votes", "buzz_hidden_threads", "buzz_milestones", "buzz_gate", "buzz_prompts", "buzz_notification_refs"]) { const r = await A.client.from(t).select("*").limit(1); if (!r.error) throw new Error(`${t} readable: ${JSON.stringify(r.data)}`); }
+    for (const [f, args] of [["buzz_v2_alias_book", { p_thread: thread }], ["buzz_alias_digest", { p_thread: thread, p_key: A.id }], ["buzz_v2_author_of", { p_entity_type: "buzz", p_id: thread }], ["buzz_v2_set_status", { p_entity_type: "buzz", p_id: thread, p_status: "removed" }]]) { const r = await B.client.rpc(f, args); if (!r.error) throw new Error(`${f} callable`); }
   });
-  await step("buzz: vote, reply, anonymous notification; blocking the author changes nothing; hide + undo", async () => {
-    const v = await B.client.rpc("buzz_vote", { p_post_id: thread, p_value: 1 }); if (v.error || v.data[0].score !== 1) throw new Error(JSON.stringify(v));
-    const r = await B.client.rpc("buzz_reply", { p_post_id: thread, p_body: "good luck" }); if (r.error) throw r.error;
-    const list = await A.client.rpc("buzz_comments_list", { p_post_id: thread }); if (list.error || list.data.length !== 1 || list.data[0].is_op || JSON.stringify(list.data).includes(B.id)) throw new Error(JSON.stringify(list));
-    const n = await A.client.from("notifications").select("actor_id, title").eq("link", `/buzz/${thread}`); if (n.error || n.data.length !== 1 || n.data[0].actor_id !== null) throw new Error(JSON.stringify(n));
+  await step("buzz: vote, reply through the write API, anonymous minute-cut notification; blocking the author changes nothing; hide + undo", async () => {
+    const v = await v2(B.client, "buzz_v2_vote", { p_id: thread, p_value: 1 }); if (v.score !== 1 || v.myVote !== 1) throw new Error(JSON.stringify(v));
+    await v2(admin, "buzz_v2_reply", { p_author: B.id, p_thread: thread, p_input: { text: "good luck" } });
+    const page = await v2(A.client, "buzz_v2_replies", { p_thread: thread, p_offset: 0, p_limit: 50 });
+    if (page.items.length !== 1 || page.items[0].isOp || page.items[0].isMine || JSON.stringify(page).includes(B.id) || noIdentityKeys(page.items[0])) throw new Error(JSON.stringify(page));
+    // (read as the service role: a Buzz notification only shows from the next minute boundary)
+    const n = await admin.from("notifications").select("actor_id, type, data, created_at").eq("user_id", A.id).eq("link", `/buzz/${thread}`);
+    if (n.error || n.data.length !== 1 || n.data[0].actor_id !== null || n.data[0].type !== "buzz_reply" || JSON.stringify(n.data[0]).includes(B.id)
+        || new Date(n.data[0].created_at).getTime() % 60000 !== 0) throw new Error(JSON.stringify(n));
     await B.client.from("blocks").insert({ blocker_id: B.id, blocked_id: A.id });
-    const still = await B.client.rpc("buzz_get", { p_id: thread }); if (still.data.length !== 1) throw new Error("blocking hid the thread: author oracle");
+    const still = await B.client.rpc("buzz_v2_thread", { p_thread: thread, p_limit: 5 }); if (still.error) throw new Error("blocking hid the thread: author oracle");
     await B.client.from("blocks").delete().eq("blocker_id", B.id);
-    await B.client.rpc("buzz_mute", { p_post_id: thread }); if ((await B.client.rpc("buzz_get", { p_id: thread })).data.length !== 0) throw new Error("hide did nothing");
-    await B.client.rpc("buzz_unmute", { p_post_id: thread }); if ((await B.client.rpc("buzz_get", { p_id: thread })).data.length !== 1) throw new Error("undo did nothing");
+    const inFeed = async () => (await v2(B.client, "buzz_v2_feed", { p_scope: "global", p_sort: "new", p_q: String(stamp) })).items.some((b) => b.id === thread);
+    await v2(B.client, "buzz_v2_hide_thread", { p_thread: thread, p_hide: true }); if (await inFeed()) throw new Error("hide did nothing");
+    await v2(B.client, "buzz_v2_hide_thread", { p_thread: thread, p_hide: false }); if (!(await inFeed())) throw new Error("undo did nothing");
   });
-  await step("buzz: only the author can delete; feed search finds it", async () => {
-    const f = await anon.rpc("buzz_feed", { p_q: String(stamp), p_sort: "new" }); if (f.error || f.data.length !== 1) throw new Error(JSON.stringify(f));
-    const no = await B.client.rpc("buzz_delete", { p_id: thread }); if (!no.error) throw new Error("someone else deleted it");
-    const yes = await A.client.rpc("buzz_delete", { p_id: thread }); if (yes.error) throw yes.error;
+  await step("buzz: search finds it; only the author can delete, and then it is gone for everyone", async () => {
+    const f = await v2(B.client, "buzz_v2_feed", { p_scope: "global", p_sort: "new", p_q: String(stamp) }); if (f.items.length !== 1 || f.items[0].id !== thread) throw new Error(JSON.stringify(f));
+    const no = await B.client.rpc("buzz_v2_delete", { p_id: thread }); if (!no.error) throw new Error("someone else deleted it");
+    await v2(A.client, "buzz_v2_delete", { p_id: thread });
+    const gone = await B.client.rpc("buzz_v2_thread", { p_thread: thread, p_limit: 5 }); if (!gone.error || !/not_found/.test(gone.error.message)) throw new Error("a deleted thread still opens: " + JSON.stringify(gone));
   });
   await step("activity status (migration 22): user_activity is closed to the API; signed out, activity_status, blocked_either_way_ids and the heartbeats are refused; signed in, activity_status answers only between people who show their status and have not blocked each other: 'recent' for people who share a chat, the time (to the minute) once the other has written there; profiles' and notifications' system columns are closed; only set_show_active_status shows a hidden status again; hiding stops 'Delivered'; 'Seen' moves only for something new (a message sent dated ahead is dated when it was sent); members change only their receipts and a group's name; touch_presence (old builds) is still accepted and leaves no public trail", async () => {
     for (const [who, c] of [["signed in", A.client], ["signed out", anon]]) {

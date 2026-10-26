@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { firstParam } from "@/lib/utils";
 import { AddUniversityForm, ProfileForm } from "@/components/profile/profile-form";
 import { DeleteAccount } from "@/components/profile/delete-account";
+import { BuzzSettingsLinks } from "@/components/buzz/settings-links";
 
 export const metadata: Metadata = { title: "Profile settings" };
 
@@ -29,6 +30,7 @@ export default async function ProfileSettingsPage({
         </p>
       </div>
       <ProfileForm profile={profile} universities={universities} welcome={welcome} />
+      {welcome ? null : <BuzzSettingsLinks />}
       <AddUniversityForm />
       <DeleteAccount />
     </div>

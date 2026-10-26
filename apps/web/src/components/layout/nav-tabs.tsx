@@ -16,10 +16,12 @@ export type NavTab = {
 
 /** Home = For you, Buzz, Posts and Reels. */
 const HOME_PREFIXES = ["/posts", "/reels", "/buzz"];
+/** My buzzes is opened from Settings, never from Home (UniVerse keeps it out of Home), so it lights Profile like Settings does. */
+const isMyBuzzes = (p: string) => p === "/buzz/mine" || p.startsWith("/buzz/mine/");
 /** Explore (housing) = the Apartments, Roommates and Marketplace pages, which keep their own addresses and switch through the Housing sub-tabs. */
 const HOUSING_PREFIXES = ["/apartments", "/roommates", "/marketplace"];
 
-const HOME: NavTab = { href: "/", label: "Home", icon: Home, match: (p) => p === "/" || HOME_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`)) };
+const HOME: NavTab = { href: "/", label: "Home", icon: Home, match: (p) => p === "/" || (!isMyBuzzes(p) && HOME_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`))) };
 const HOUSING: NavTab = { href: "/apartments", label: "Explore", icon: Compass, match: (p) => HOUSING_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`)) };
 const MESSAGES: NavTab = { href: "/messages", label: "Messages", icon: MessageCircle, match: (p) => p.startsWith("/messages") };
 /** Profile = your own profile (never someone else's) plus the pages the app's Profile tab lists (Saved, Settings). Signed out, /profile/me redirects to login. */
@@ -27,7 +29,7 @@ const PROFILE: NavTab = {
   href: "/profile/me",
   label: "Profile",
   icon: UserRound,
-  match: (p, me) => p === "/profile/me" || (me !== null && (p === `/profile/${me}` || p.startsWith(`/profile/${me}/`))) || p.startsWith("/saved") || p.startsWith("/settings"),
+  match: (p, me) => p === "/profile/me" || (me !== null && (p === `/profile/${me}` || p.startsWith(`/profile/${me}/`))) || p.startsWith("/saved") || p.startsWith("/settings") || isMyBuzzes(p),
 };
 
 /** Desktop header tabs. Search is not a tab: the header's search box is the search entry point on every screen, like TikTok's magnifier. */

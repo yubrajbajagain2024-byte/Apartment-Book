@@ -30,7 +30,7 @@ export default async function DealsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Deals</h1>
           <p className="text-sm text-gray-600">
-            Offers for students at the campuses you choose.{business.status === "approved" ? " Live deals show on CampConnect's Deals page." : " They go in front of students once the business is approved."}
+            Offers for students at the campuses you choose.{business.status === "approved" ? " Live deals show on UniBuzz's Deals page." : " They go in front of students once the business is approved."}
           </p>
         </div>
         {newDeal}

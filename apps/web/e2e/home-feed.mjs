@@ -5,6 +5,8 @@
 // signed out and signed in, on a desktop and a phone viewport.
 // Usage: start the site (npm run dev -w web -- -p 3060), seed test data (SUPABASE_ACCESS_TOKEN=... node apps/mobile/e2e/sim-seed.mjs),
 // then: BASE=http://localhost:3060 node apps/web/e2e/home-feed.mjs      (reads apps/mobile/e2e/.sim-state.json; Chromium only: the phone swipes go through a CDP session)
+// Buzz is v2 (UniVerse's Buzz): the database needs the buzz_v2 migration, and the dev server needs SUPABASE_SERVICE_ROLE_KEY in its
+// environment, because replying goes through the moderated POST /api/buzz/:id/replies, which writes with the service role (without it the reply step fails with 503).
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
@@ -42,8 +44,8 @@ try {
   await step("signed out: \"/\" lands on For you with For you | Buzz | Reels on top, in that order (Posts keeps /?tab=posts but has no tab); the feed blends posts and reels, never a Buzz thread", async () => {
     await D.goto(BASE + "/"); await D.waitForLoadState("domcontentloaded");
     const tabs = await D.locator("nav[aria-label='Home sections'] a").allInnerTexts();
-    const order = tabs.map((t) => t.trim()).filter(Boolean); if (order.join("|") !== "For you|Buzz|Reels") throw new Error("tabs: " + order.join("|"));
-    if (!(await D.locator("nav[aria-label='Home sections'] [data-testid='home-tab-foryou'][aria-current='page']").count())) throw new Error("For you is not the active tab");
+    const order = tabs.map((t) => t.trim()).filter(Boolean); if (order.join("|") !== "Orbit|Buzz|Reels") throw new Error("tabs: " + order.join("|"));
+    if (!(await D.locator("nav[aria-label='Home sections'] [data-testid='home-tab-foryou'][aria-current='page']").count())) throw new Error("Orbit is not the active tab");
     // The landing tab keeps the clean address; Posts moved to ?tab=posts (homeSectionHref in the shared package).
     const hrefs = await D.locator("nav[aria-label='Home sections'] a").evaluateAll((links) => links.map((a) => a.getAttribute("href"))); if (hrefs.join(" ") !== "/ /?tab=buzz /?tab=reels") throw new Error("tab links: " + hrefs.join(" "));
     const feed = D.getByTestId("for-you-feed"); await feed.waitFor();
@@ -107,14 +109,12 @@ try {
     await D.locator("nav[aria-label='Housing sections'] [data-testid='housing-tab-marketplace'][aria-current='page']").waitFor();
     if (!(await housingLit())) throw new Error("Explore is not the active main tab on /marketplace");
   });
-  await step("Buzz tab: Reddit-style row (topic, age, vote / replies / share pills), no author name, no profile link, no Message button", async () => {
-    await D.goto(BASE + "/?tab=buzz&sort=new"); const card = D.locator("[data-testid='buzz-card']").filter({ hasText: "Landlord wants to keep my whole deposit" }).first(); await card.waitFor();
-    // Like Reddit's feed, a row shows the topic and a short age ("6d"); the alias only appears inside the thread.
-    const text = await card.innerText(); if (!/(^|\s)(now|\d+(m|h|d|mo|y))(\s|$)/.test(text)) throw new Error("no short age: " + text.slice(0, 120));
-    for (const [what, sel] of [["vote pill", "[data-testid='buzz-vote']"], ["replies pill", "[data-testid='buzz-replies-link']"], ["share pill", "button[aria-label='Share']"]]) if (!(await card.locator(sel).count())) throw new Error(`no ${what} on the row`);
-    if (text.includes(state.other.name)) throw new Error("author name shown");
-    if (await card.locator("a[href^='/profile/']").count()) throw new Error("profile link on a Buzz card");
-    if (await card.getByRole("button", { name: "Message" }).count()) throw new Error("Message button on a Buzz card");
+  await step("signed out: the Buzz tab is a sign-in panel in Buzz's dark (Phosphor) pane, and nothing of Buzz loads: no card, not the seeded thread, not its author's id", async () => {
+    await D.goto(BASE + "/?tab=buzz"); const panel = D.getByTestId("buzz-signin"); await panel.waitFor();
+    if ((await D.locator("[data-buzz-root]").getAttribute("data-surface")) !== "incognito") throw new Error("the Buzz pane is not the Phosphor (incognito) surface");
+    if (!(await panel.locator("a[href^='/login?next=']").count())) throw new Error("no Log in link on the panel");
+    if (await D.locator("[data-testid='buzz-card'], [data-testid='buzz-feed']").count()) throw new Error("Buzz content for a signed-out visitor");
+    if (await D.getByText("Landlord wants to keep my whole deposit").count()) throw new Error("the seeded Buzz thread shows signed out");
     const html = await D.content(); if (html.includes(state.other.id)) throw new Error("the author's user id is in the page HTML");
     await D.screenshot({ caret: "initial", path: SHOTS + "web-02-buzz.png" });
   });
@@ -163,13 +163,13 @@ try {
     if (!(await bar.filter({ hasText: "Profile" }).and(M.locator("a[href='/profile/me']")).count())) throw new Error("the Profile tab does not link to /profile/me");
     await M.screenshot({ caret: "initial", path: SHOTS + "web-04-phone-posts.png" });
   });
-  await step("phone: swiping left on For you slides to Buzz", async () => {
+  await step("phone: swiping left on For you slides to Buzz (signed out: its sign-in panel)", async () => {
     await M.goto(BASE + "/"); await M.getByTestId("for-you-feed").waitFor();
     // Start the flick on a post's caption: a photo carousel keeps horizontal swipes for itself, a text row hands them to the section body.
     const row = M.locator("[data-testid='insta-post']").filter({ hasText: "First week back on campus" }).first().locator("[data-testid='insta-caption']"); await row.waitFor(); await row.evaluate((el) => el.scrollIntoView({ block: "center", behavior: "instant" }));
     const box = await row.boundingBox(); const y = box ? Math.round(box.y + box.height / 2) : 520;
     await swipe(M, { x: 300, y }, { x: 80, y });
-    await M.waitForURL(/tab=buzz/); await M.getByTestId("buzz-feed").waitFor();
+    await M.waitForURL(/tab=buzz/); await M.getByTestId("buzz-signin").waitFor();
     await M.screenshot({ caret: "initial", path: SHOTS + "web-04c-phone-buzz-after-swipe.png" });
   });
   await step("phone: swiping left on Housing slides to Roommate", async () => {
@@ -181,22 +181,57 @@ try {
     await M.waitForURL(/\/roommates/); await M.locator("nav[aria-label='Housing sections'] [data-testid='housing-tab-roommates'][aria-current='page']").waitFor();
     await M.screenshot({ caret: "initial", path: SHOTS + "web-04d-phone-housing-swipe.png" });
   });
-  await step("signed in: like a post, open the Buzz thread, reply anonymously, vote", async () => {
+  await step("signed in: Buzz v2: accept the guidelines gate if it shows; the seeded thread's card (alias and age, vote / replies / share, no author name, profile link, Message button or picture); open the thread, reply anonymously (not votable by me), vote on the thread; another student (Leo) sees two different aliases and nobody's name or id", async () => {
     await D.goto(BASE + "/login"); await D.fill("#email", state.me.email); await D.fill("#password", state.password); await D.getByRole("button", { name: "Log in" }).click(); await D.waitForURL((u) => !u.pathname.startsWith("/login"));
-    await D.goto(BASE + "/?tab=buzz&sort=new"); await D.getByText("Landlord wants to keep my whole deposit").first().click();
+    // The guidelines gate is an inline panel and nothing else of Buzz loads before it is accepted. The seed leaves the test
+    // account's gate open (the app's flows accept it on screen), so it shows on the first run and is gone on later ones.
+    const acceptGate = async (page, ready) => {
+      await page.locator(`[data-testid='buzz-gate'], [data-testid='${ready}']`).first().waitFor();
+      if (await page.getByTestId("buzz-gate").count()) await page.getByTestId("buzz-gate-accept").click();
+      await page.getByTestId(ready).waitFor();
+    };
+    await D.goto(BASE + "/?tab=buzz"); await acceptGate(D, "buzz-feed");
+    await D.getByRole("radiogroup", { name: "Sort" }).getByRole("radio", { name: "New" }).click();
+    const card = D.locator("[data-testid='buzz-card']").filter({ hasText: "Landlord wants to keep my whole deposit" }).first(); await card.waitFor();
+    // A card is UniVerse's: an alias ("Anon Comet") and a short age, never a person.
+    const alias = (await card.getByTestId("buzz-alias").first().innerText()).trim(); if (!/^Anon [A-Z][a-z]+( \d+)?$/.test(alias)) throw new Error("alias: " + alias);
+    const age = (await card.locator("time").first().innerText()).trim(); if (!/^(now|\d+[mhd]|[A-Z][a-z]{2} \d{1,2}(, \d{4})?)$/.test(age)) throw new Error("age: " + age);
+    for (const [what, sel] of [["vote pill", "[data-testid='buzz-vote']"], ["replies link", "[data-testid='buzz-replies-link']"], ["share button", "button[aria-label='Share']"]]) if (!(await card.locator(sel).count())) throw new Error(`no ${what} on the card`);
+    const text = await card.innerText(); if (text.includes(state.other.name)) throw new Error("author name shown");
+    if (await card.locator("a[href^='/profile/']").count()) throw new Error("profile link on a Buzz card");
+    if (await card.getByRole("button", { name: "Message" }).count()) throw new Error("Message button on a Buzz card");
+    if (await card.locator("img").count()) throw new Error("a picture on the card (the seeded thread has none, so it would be an avatar)");
+    const html = await D.content(); if (html.includes(state.other.id)) throw new Error("the author's user id is in the page HTML");
+    await D.screenshot({ caret: "initial", path: SHOTS + "web-02b-buzz-signed-in.png" });
+    await card.getByTestId("buzz-open-thread").click();
     await D.waitForURL(/\/buzz\/[0-9a-f-]{36}/); await D.waitForLoadState("networkidle"); // hydrated before typing
+    if (state.buzzId && !D.url().includes(state.buzzId)) throw new Error(`opened ${D.url()}, not the seeded thread ${state.buzzId}`);
+    // Replying goes through the moderated POST /api/buzz/:id/replies (the dev server needs SUPABASE_SERVICE_ROLE_KEY).
     const box = D.getByTestId("buzz-reply-input"); const stamp = Date.now(); await box.fill(`Small claims court worked for my roommate (web ${stamp})`);
-    await D.locator("form").filter({ has: box }).getByRole("button", { name: "Reply" }).click();
-    await D.locator("[data-testid='buzz-reply']").filter({ hasText: String(stamp) }).first().waitFor();
-    // What another viewer receives must not contain either participant's id or name.
-    await M.goto(D.url()); await M.locator("[data-testid='buzz-reply']").filter({ hasText: String(stamp) }).first().waitFor();
-    const theirs = await M.content();
-    for (const [who, u] of [["replier", state.me], ["thread author", state.other]]) if (theirs.includes(u.id) || theirs.includes(u.name)) throw new Error(`the ${who}'s identity is in the HTML other people receive`);
-    const aliases = [...new Set(theirs.match(/Student \d{5}/g) ?? [])]; if (aliases.length < 2) throw new Error("expected two different aliases (author and replier), got " + aliases.join(","));
-    // Votes on replies: the score moves by one and the arrow stays pressed.
-    const mine = D.locator("[data-testid='buzz-reply']").filter({ hasText: String(stamp) }).first(); await mine.getByRole("button", { name: "Upvote" }).click();
-    await mine.locator("button[aria-label='Upvote'][aria-pressed='true']").waitFor();
+    await D.getByTestId("buzz-reply-send").click();
+    const mine = D.locator("[data-testid='buzz-reply']").filter({ hasText: String(stamp) }).first(); await mine.waitFor();
+    if (!(await mine.getByText("You", { exact: true }).count())) throw new Error("my reply does not say You");
+    if (!(await mine.locator("[data-testid='buzz-vote'] button").first().isDisabled())) throw new Error("I can vote on my own reply");
+    // Votes on the thread (Maya's): the score moves by one and the arrow stays pressed (a second tap would undo it).
+    const vote = D.getByTestId("buzz-thread-root").getByTestId("buzz-vote"); const up = vote.locator("button").first();
+    if ((await up.getAttribute("aria-pressed")) !== "true") {
+      const before = Number((await vote.locator("span").innerText()).trim()); await up.click(); await vote.locator("button[aria-pressed='true']").first().waitFor();
+      const after = Number((await vote.locator("span").innerText()).trim()); if (after !== before + 1) throw new Error(`thread score ${before} -> ${after}`);
+    }
     await D.screenshot({ caret: "initial", path: SHOTS + "web-05-buzz-thread.png" });
+    // What another student receives must not contain either participant's id or name. Buzz is for signed-in students only,
+    // so the other viewer is Leo in a browser of his own (the phone page stays signed out for the visitor checks below).
+    const L = await newPage({ width: 1280, height: 900 });
+    try {
+      await L.goto(BASE + "/login"); await L.fill("#email", state.extra[0].email); await L.fill("#password", state.password); await L.getByRole("button", { name: "Log in" }).click(); await L.waitForURL((u) => !u.pathname.startsWith("/login"));
+      await L.goto(D.url()); await acceptGate(L, "buzz-thread");
+      await L.locator("[data-testid='buzz-reply']").filter({ hasText: String(stamp) }).first().waitFor();
+      const theirs = await L.content();
+      for (const [who, u] of [["replier", state.me], ["thread author", state.other]]) if (theirs.includes(u.id) || theirs.includes(u.name)) throw new Error(`the ${who}'s identity is in the HTML other people receive`);
+      const aliases = [...new Set((await L.getByTestId("buzz-alias").allInnerTexts()).map((a) => a.trim()))]; if (aliases.length < 2) throw new Error("expected two different aliases (author and replier), got " + aliases.join(","));
+    } finally {
+      await L.context().close();
+    }
   });
   await step("signed in: heart a post and the count goes up, the comment icon opens the TikTok-style thread under the post (heart a comment and clear it, reply to it, the \"N comments\" header and its sort menu, delete the reply from its options menu), the bookmark saves it, Share sends it to a friend (Leo) and it lands as a card in our chat", async () => {
     await D.goto(BASE + "/?tab=posts"); await D.waitForLoadState("networkidle");
@@ -343,9 +378,10 @@ try {
     await pick("Everyone", "public", "web-15-profile-saved-setting.png"); await visitorSees("public");
     await pick("Only me", "private"); await visitorSees("private");
   });
-  await step("create pages render: /posts/new, /reels/new, /buzz/new (with the anonymity notice)", async () => {
+  await step("create pages render: /posts/new, /reels/new, and /buzz/new opens the Buzz composer sheet on Home (/?tab=buzz&compose=1) with its \"You're anonymous\" banner", async () => {
     for (const p of ["/posts/new", "/reels/new", "/buzz/new"]) { const r = await D.goto(BASE + p); if (!r || r.status() >= 400) throw new Error(`${p} -> ${r?.status()}`); }
-    await D.getByText(/anonymous/i).first().waitFor(); await D.screenshot({ caret: "initial", path: SHOTS + "web-06-buzz-new.png" });
+    await D.waitForURL(/[?&]tab=buzz/); const composer = D.getByTestId("buzz-composer"); await composer.waitFor();
+    await composer.getByText(/you're anonymous/i).first().waitFor(); await D.screenshot({ caret: "initial", path: SHOTS + "web-06-buzz-new.png" });
   });
   await step("no browser errors", async () => { const real = errors.filter((e) => !/favicon|DevTools|Failed to load resource.*(mux|picsum)|net::ERR_ABORTED/i.test(e)); if (real.length) throw new Error(real.slice(0, 4).join(" | ")); });
 } finally { await browser.close(); console.log(failures ? `\n${failures} WEB CHECK(S) FAILED` : "\nALL WEB HOME-FEED CHECKS PASSED"); process.exit(failures ? 1 : 0); }

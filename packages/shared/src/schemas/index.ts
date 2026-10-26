@@ -2,7 +2,6 @@ import { z } from "zod";
 import {
   AMENITY_VALUES,
   BUSINESS_CATEGORY_VALUES,
-  BUZZ_TOPIC_VALUES,
   CLEANLINESS_LEVELS,
   CURRENCIES,
   DEAL_STATUS_VALUES,
@@ -217,22 +216,6 @@ export const reelSchema = z.object({
   videos: listingVideos.refine((v) => v.length === 1, { error: "Add one video for your reel" }),
 });
 export type ReelInput = z.infer<typeof reelSchema>;
-
-export const buzzPostSchema = z.object({
-  topic: z.enum(BUZZ_TOPIC_VALUES, { error: "Pick a topic" }),
-  title: z.string().trim().min(3, "Give it a short title").max(160),
-  body: z.string().trim().max(6000).default(""),
-  universityId: optionalUuid,
-  images: imageUrls.refine((v) => v.length <= 6, { error: "Up to 6 photos" }),
-  imageMeta,
-  videos: listingVideos.refine((v) => v.length <= 1, { error: "One video per Buzz post" }),
-});
-export type BuzzPostInput = z.infer<typeof buzzPostSchema>;
-
-export const buzzCommentSchema = z.object({
-  body: z.string().trim().min(1, "Write a reply").max(2000, "Keep replies under 2,000 characters"),
-});
-export type BuzzCommentInput = z.infer<typeof buzzCommentSchema>;
 
 // ---------------------------------------------------------------------------
 // Push notifications (mobile apps)

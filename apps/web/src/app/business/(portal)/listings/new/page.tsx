@@ -15,7 +15,7 @@ export default async function NewBusinessListingPage() {
     return (
       <div className="rounded-xl bg-white p-6 text-center shadow-sm ring-1 ring-gray-200">
         <h1 className="text-xl font-bold text-gray-900">Listings open once your business is approved</h1>
-        <p className="mt-2 text-sm text-gray-600">The CampConnect team is reviewing {business.name}. You can prepare deals and your profile in the meantime.</p>
+        <p className="mt-2 text-sm text-gray-600">The UniBuzz team is reviewing {business.name}. You can prepare deals and your profile in the meantime.</p>
         <PortalLink href="/" className="mt-4 inline-block font-semibold text-brand-600 hover:underline">
           Back to the dashboard
         </PortalLink>
