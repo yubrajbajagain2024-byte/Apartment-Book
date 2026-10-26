@@ -23,6 +23,9 @@ export function staffLinkRedirect(next: "/password" = "/password"): string {
 /** Plain-language reasons for what Supabase Auth answers when it cannot send. */
 export function emailErrorMessage(error: unknown): string {
   const raw = errorMessage(error, "The email could not be sent.");
+  if (/invalid api key|no api key|user not allowed|not_admin/i.test(raw)) {
+    return "This app's Supabase key (SUPABASE_SERVICE_ROLE_KEY on the admin Vercel project) is wrong: Supabase refused it. Replace it with the service_role key from Supabase (Project Settings → API Keys) and redeploy (README: Invitation emails).";
+  }
   if (/rate limit|too many/i.test(raw)) {
     return "Supabase's email limit was reached. Its built-in email service sends only a few emails per hour; set up custom SMTP in Supabase (Authentication → Emails) and try again later.";
   }
