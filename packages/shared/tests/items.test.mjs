@@ -35,7 +35,7 @@ function recorder() {
 const base = { title: "Desk lamp", description: "Works fine, warm white bulb included", price: "12", currency: "USD", category: "decor", condition: "good", images: ["https://example.com/a.jpg"], imageMeta: [] };
 const video = { media_id: "11111111-1111-4111-8111-111111111111", playback_id: "pb1", poster_url: null, width: 1080, height: 1920, duration_seconds: 9 };
 
-test("an item with photos only writes no videos column (a database without migration 41 still takes it)", async () => {
+test("an item with photos only writes no videos column (a database without migration 43 still takes it)", async () => {
   const input = itemSchema.parse(base);
   assert.deepEqual(input.videos, []);
   const db = recorder();

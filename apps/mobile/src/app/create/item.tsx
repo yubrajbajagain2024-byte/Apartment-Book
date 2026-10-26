@@ -39,7 +39,7 @@ export default function CreateItemScreen() {
       router.replace({ pathname: "/marketplace/[id]", params: { id: created.id } });
     } catch (e) {
       const message = e instanceof Error ? e.message : "";
-      // A database without migration 41 has no place for the video yet: say so plainly, the photos still work.
+      // A database without migration 43 (marketplace video) has no place for the video yet: say so plainly, the photos still work.
       if (/'videos' column/.test(message)) alertWithHaptic("error", "Videos are not on yet", "Videos on Marketplace items arrive with the next update. Remove the video to post with your photos now.");
       else alertWithHaptic("error", "Could not post", message || "Try again");
     } finally {

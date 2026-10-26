@@ -468,7 +468,7 @@ export type Database = {
           status: Database["public"]["Enums"]["item_status"];
           created_at: string;
           updated_at: string;
-          /** Migration 41: a video snapshot, at most one (absent on a database without it). */
+          /** Migration 43 (marketplace video): a video snapshot, at most one (absent on a database without it). */
           videos: Json;
           has_video: boolean;
         };

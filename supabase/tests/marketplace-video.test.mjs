@@ -1,10 +1,10 @@
-// Migration 41 (videos on Marketplace items) against PGlite: a seller adds one video and has_video follows it, a second
+// Migration 43 (videos on Marketplace items, 20261103000200_marketplace_video.sql) against PGlite: a seller adds one video and has_video follows it, a second
 // video or a non-list is refused, nobody else can change it, the migration re-runs cleanly, and its rollback refuses
 // while an item has a video and undoes it otherwise.
 import { boot, read, expectOk, expectError, done } from "./harness.mjs";
 
-const MIGRATION = "migrations/20261103000000_item_videos.sql";
-const ROLLBACK = "rollbacks/20261103000000_item_videos.down.sql";
+const MIGRATION = "migrations/20261103000200_marketplace_video.sql";
+const ROLLBACK = "rollbacks/20261103000200_marketplace_video.down.sql";
 const clip = (n) => `{"media_id":"00000000-0000-4000-8000-00000000000${n}","playback_id":"pb${n}","poster_url":null,"width":1080,"height":1920,"duration_seconds":9}`;
 const ONE = `'[${clip(1)}]'::jsonb`;
 const TWO = `'[${clip(1)},${clip(2)}]'::jsonb`;
@@ -57,4 +57,4 @@ await expectOk("and the migration applies again after it", async () => {
   const r = (await sell(ONE)).rows[0];
   if (r.has_video !== true) throw new Error(JSON.stringify(r));
 });
-done("MIGRATION-41 ITEM VIDEOS");
+done("MIGRATION-43 MARKETPLACE VIDEO");

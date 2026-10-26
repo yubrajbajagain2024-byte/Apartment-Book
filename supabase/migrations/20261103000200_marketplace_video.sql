@@ -1,5 +1,5 @@
 -- =============================================================================
--- CampConnect - migration 41: videos on Marketplace items
+-- UniBuzz - migration 43: videos on Marketplace items
 -- A Marketplace post now reads like a roommate post (the seller, the words, the
 -- price, then large swipeable photos and videos), so an item can carry a video
 -- as apartments and roommate posts have since migration 5: the same snapshot
@@ -10,7 +10,7 @@
 -- Additive only: every existing item gets an empty list; nothing reads the new
 -- columns until the app does. The app writes `videos` only when one was added,
 -- so selling with photos keeps working on a database without this migration.
--- Rollback: supabase/rollbacks/20261103000000_item_videos.down.sql.
+-- Rollback: supabase/rollbacks/20261103000200_marketplace_video.down.sql.
 -- =============================================================================
 
 alter table public.items
