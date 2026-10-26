@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { Home, Search } from "lucide-react";
+import { Search } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
 import { APP_NAME, getTotalUnread, getUnreadNotificationCount } from "@apartment-book/shared";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -32,7 +33,7 @@ export async function Navbar() {
           <div className="flex min-w-0 flex-1 items-center gap-3 md:flex-none md:basis-72 2xl:basis-[30rem]">
             <Link href="/" className="flex shrink-0 items-center gap-2 text-brand-600" aria-label={APP_NAME}>
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-600 bg-aurora text-white">
-                <Home className="h-6 w-6" />
+                <BrandMark id="nav" className="h-7 w-7" />
               </span>
               <span className="hidden text-xl font-bold 2xl:inline">{APP_NAME}</span>
             </Link>

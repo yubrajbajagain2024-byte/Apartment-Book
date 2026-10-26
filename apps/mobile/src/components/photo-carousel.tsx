@@ -33,13 +33,29 @@ type PhotoCarouselProps = {
    * and with a `time`, that slide's video jumps there (the viewer handing back where it had got to).
    */
   jump?: { index: number; time?: number } | null;
+  /**
+   * "watch": a video feed's look (the Housing feed, YouTube style): the sound button at the top right, the time left at
+   * the bottom right, a thin progress line along the bottom edge, and the photo counter at the top left. "post" (default)
+   * is the look of a post's frame.
+   */
+  chrome?: "post" | "watch";
 };
+
+/** 125 → "2:05", 3725 → "1:02:05". */
+function clock(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = String(total % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+}
 
 /**
  * Swipeable photos and videos, one slide at a time, with a 1/3 counter and dots.
  * `videoLabel` is the pill shown when the first slide is a video: "Video tour" suits listings; pass another word, or null for no pill.
  */
-export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, active = true, videoLabel = "Video tour", dots = true, onIndexChange, jump }: PhotoCarouselProps) {
+export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, active = true, videoLabel = "Video tour", dots = true, onIndexChange, jump, chrome = "post" }: PhotoCarouselProps) {
+  const watch = chrome === "watch";
   const colors = useColors();
   const styles = useStyles();
   const [width, setWidth] = useState(0);
@@ -140,7 +156,7 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
                 // The tiny blurred preview saved at upload shows at once, and the full photo fades in over it: no blank frames.
                 <Image source={{ uri: item.url }} placeholder={item.blur ? { uri: item.blur } : undefined} placeholderContentFit="cover" style={{ width, height }} contentFit="cover" transition={250} accessibilityLabel={`Photo ${i + 1} of ${count}`} />
               ) : (
-                <VideoSlide media={item} index={i} width={width} height={height} playing={active && i === index} onPlayer={onPlayer} />
+                <VideoSlide media={item} index={i} width={width} height={height} playing={active && i === index} onPlayer={onPlayer} watch={watch} />
               )}
             </Pressable>
           )}
@@ -150,13 +166,13 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
       )}
       {count > 1 ? (
         <>
-          <View style={styles.counter} accessibilityLabel={`${index + 1} of ${count}`}>
+          <View style={[styles.counter, watch && styles.counterLeft]} accessibilityLabel={`${index + 1} of ${count}`}>
             <Text style={styles.counterText}>
               {index + 1}/{count}
             </Text>
           </View>
           {dots ? (
-            <View style={styles.dots} accessibilityRole="tablist">
+            <View style={[styles.dots, watch && styles.dotsWatch]} accessibilityRole="tablist">
               {media.map((_, i) => (
                 <Pressable key={i} onPress={() => go(i)} hitSlop={6} accessibilityRole="tab" accessibilityState={{ selected: i === index }} style={[styles.dot, i === index && styles.dotActive]} />
               ))}
@@ -164,7 +180,7 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
           ) : null}
         </>
       ) : null}
-      {videoLabel && media[0]?.type === "video" ? (
+      {videoLabel && !watch && media[0]?.type === "video" ? (
         <View style={styles.videoBadge}>
           <Icon name="videocam" size={13} color={colors.onMedia} />
           <Text style={styles.videoBadgeText}>{videoLabel}</Text>
@@ -174,14 +190,22 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
   );
 }
 
-function VideoSlide({ media, index, width, height, playing, onPlayer }: { media: Extract<FeedMedia, { type: "video" }>; index: number; width: number; height: number; playing: boolean; onPlayer: (index: number, player: VideoPlayer | null) => void }) {
+function VideoSlide({ media, index, width, height, playing, onPlayer, watch = false }: { media: Extract<FeedMedia, { type: "video" }>; index: number; width: number; height: number; playing: boolean; onPlayer: (index: number, player: VideoPlayer | null) => void; watch?: boolean }) {
   const colors = useColors();
   const styles = useStyles();
   const player = useLendablePlayer(media.playbackUrl, (p) => {
     p.loop = true;
     p.muted = videosMuted();
     p.audioMixingMode = VIDEO_AUDIO_MODE;
+    // The watch look's time left and progress line: four reports a second is smooth enough for a thin line.
+    if (watch) p.timeUpdateEventInterval = 0.25;
   });
+  const [time, setTime] = useState(0);
+  useEffect(() => {
+    if (!watch) return;
+    const sub = player.addListener("timeUpdate", ({ currentTime }) => setTime(currentTime));
+    return () => sub.remove();
+  }, [player, watch]);
   useEffect(() => {
     onPlayer(index, player);
     return () => onPlayer(index, null);
@@ -227,10 +251,28 @@ function VideoSlide({ media, index, width, height, playing, onPlayer }: { media:
       />
       {/* Poster stays on top until the first video frame is painted, so the slide is never a black box. */}
       {media.poster && !hasFrame ? <Image source={{ uri: media.poster }} style={StyleSheet.absoluteFill} contentFit="cover" pointerEvents="none" /> : null}
-      <Animated.View style={[styles.mute, { opacity: control }]} pointerEvents={away ? "none" : "box-none"}>
+      <Animated.View style={[watch ? styles.muteTop : styles.mute, { opacity: control }]} pointerEvents={away ? "none" : "box-none"}>
         <GlassIconButton icon={muted ? "volume-mute" : "volume-high"} label={muted ? "Unmute" : "Mute"} onPress={() => setVideosMuted(!muted)} variant="media" size={32} iconSize={15} haptic="select" />
       </Animated.View>
+      {watch ? <WatchTimeline duration={media.durationSeconds ?? (player.duration > 0 ? player.duration : null)} time={shouldPlay || time > 0 ? time : 0} /> : null}
     </View>
+  );
+}
+
+/** The watch look's time left (the whole length before it starts) and the line of how far it has played. */
+function WatchTimeline({ duration, time }: { duration: number | null; time: number }) {
+  const styles = useStyles();
+  if (!duration) return null;
+  const played = Math.min(1, Math.max(0, time / duration));
+  return (
+    <>
+      <View style={styles.timePill} pointerEvents="none">
+        <Text style={styles.timeText}>{clock(duration - time)}</Text>
+      </View>
+      <View style={styles.track} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <View style={[styles.progress, { width: `${played * 100}%` }]} />
+      </View>
+    </>
   );
 }
 
@@ -244,4 +286,12 @@ const useStyles = makeStyles((colors) => ({
   videoBadge: { position: "absolute", top: 10, left: 10, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   videoBadgeText: { color: colors.onMedia, fontSize: 12, fontWeight: "700" },
   mute: { position: "absolute", right: 10, bottom: 28 },
+  // The watch look.
+  counterLeft: { right: undefined, left: 10 },
+  dotsWatch: { bottom: 12 },
+  muteTop: { position: "absolute", right: 10, top: 10 },
+  timePill: { position: "absolute", right: 10, bottom: 12, backgroundColor: colors.mediaPill, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  timeText: { color: colors.onMedia, fontSize: 12, fontWeight: "600", fontVariant: ["tabular-nums"] },
+  track: { position: "absolute", left: 0, right: 0, bottom: 0, height: 3, backgroundColor: "rgba(255,255,255,0.28)" },
+  progress: { height: 3, backgroundColor: colors.brand },
 }));

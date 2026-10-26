@@ -1,4 +1,4 @@
-import { Fragment, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from "react";
 import { Tabs } from "expo-router";
 import { Pressable, StyleSheet, Text, View, type ColorValue } from "react-native";
 import Animated, { Extrapolation, interpolate, useAnimatedStyle, useSharedValue, withSpring, type SharedValue } from "react-native-reanimated";
@@ -16,6 +16,39 @@ type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>["tabBar"]>
  * readers). It opens something rather than going somewhere, so it never takes the capsule.
  */
 export type TabBarAction = { label: string; hint?: string; icon: (p: { color: ColorValue; size: number }) => ReactNode; onPress: () => void };
+
+/**
+ * The bar as it is right now (its tabs, the one on screen, their icons and badges, the "+"), for a screen drawn over the
+ * tabs that keeps the bar in view: the full-screen viewer (app/reels/[id].tsx) is a modal above them, so the bar itself
+ * is under it, and the viewer draws this same bar in the same place instead. Published by the tabs' own bar each time
+ * it renders (a new tab, a new unread count), and gone with it.
+ */
+export type TabBarMirror = { props: TabBarProps; action?: TabBarAction };
+/** By the navigator's first tab's route key: a screen over the tabs copies the bar of the tabs right under it. */
+const mirrors = new Map<string, TabBarMirror>();
+let latestMirror: string | null = null;
+const mirrorListeners = new Set<() => void>();
+function publishMirror(key: string, next: TabBarMirror | null) {
+  if (next) {
+    mirrors.set(key, next);
+    latestMirror = key;
+  } else {
+    mirrors.delete(key);
+    if (latestMirror === key) latestMirror = mirrors.size > 0 ? [...mirrors.keys()].at(-1)! : null;
+  }
+  mirrorListeners.forEach((l) => l());
+}
+function subscribeMirror(listener: () => void) {
+  mirrorListeners.add(listener);
+  return () => {
+    mirrorListeners.delete(listener);
+  };
+}
+/** The bar of the tabs whose first tab has this route key, or (no key known) the one that rendered last. */
+export function useTabBarMirror(firstTabKey?: string | null): TabBarMirror | null {
+  const read = () => (firstTabKey ? mirrors.get(firstTabKey) : undefined) ?? (latestMirror ? (mirrors.get(latestMirror) ?? null) : null);
+  return useSyncExternalStore(subscribeMirror, read, read);
+}
 
 /** iOS 26 draws real liquid glass; older iOS and Android get a translucent fill instead (expo-glass-effect falls back to a plain View there). */
 const GLASS = isLiquidGlassAvailable();
@@ -80,8 +113,19 @@ function restOf(groups: Group[], index: number): { left: number; width: number }
  * (tabPress can be prevented, tabLongPress is sent), each tab keeps its icon, title and badge from its screen options,
  * and screen readers hear "Home, tab, 1 of 4". Everything that moves runs on the UI thread (Reanimated).
  */
-export function FloatingTabBar({ state, descriptors, emitter, navigateToTab, action }: TabBarProps & { action?: TabBarAction }) {
+export function FloatingTabBar({ state, descriptors, emitter, navigateToTab, action, onSelect, ...rest }: TabBarProps & { action?: TabBarAction; onSelect?: (routeKey: string, focused: boolean) => void }) {
   const insets = useSafeAreaInsets();
+  // The tabs' own bar publishes itself for the screens drawn over it (see TabBarMirror); a copy (`onSelect`) does not.
+  // Under its first tab's route key, which names this navigator (the state handed to the bar carries only its routes
+  // and index); a screen over these tabs finds the same key in the root stack (see app/reels/[id].tsx).
+  const navigatorKey = state.routes[0]?.key ?? "tabs";
+  useEffect(() => {
+    if (!onSelect) publishMirror(navigatorKey, { props: { state, descriptors, emitter, navigateToTab, ...rest } as TabBarProps, action });
+  });
+  useEffect(() => {
+    if (onSelect) return;
+    return () => publishMirror(navigatorKey, null);
+  }, [onSelect, navigatorKey]);
   const { colors, isDark } = useAppTheme();
   const reduceTransparency = useReduceTransparency();
   const reduceMotion = useReduceMotion();
@@ -147,13 +191,15 @@ export function FloatingTabBar({ state, descriptors, emitter, navigateToTab, act
           const color = focused ? colors.text : colors.muted;
           const badge = options.tabBarBadge;
           const onPress = () => {
+            // A copy of the bar over another screen decides for itself what a tab does there (see TabBarMirror).
+            if (onSelect) return onSelect(route.key, focused);
             const event = emitter.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
             if (focused || event.defaultPrevented) return;
             // No haptic here: switching tabs is silent, the capsule's glide is the feedback. The navigator switches by
             // route key and keeps the tab's params, as its own bar does.
             navigateToTab(route.key);
           };
-          const onLongPress = () => emitter.emit({ type: "tabLongPress", target: route.key });
+          const onLongPress = () => (onSelect ? undefined : emitter.emit({ type: "tabLongPress", target: route.key }));
           const group = groups.find((g) => g.members.includes(index)) ?? groups[0]!;
           return (
             <Fragment key={route.key}>

@@ -3,11 +3,16 @@ import { getPostEngagementMany, getPostPreviewsMany, getSavedIds, type PostEngag
 import { onPostEngagement } from "./posts-events";
 import { supabase } from "./supabase";
 
-/** Saved ids and like/comment counts for the posts currently in a feed. */
+/**
+ * Saved ids and like/comment counts for the posts currently in a feed. `refresh` reads them all again (pull to refresh,
+ * or coming back from a post's own page, where a like or a save does not reach the feed by itself).
+ */
 export function useEngagement(type: PostTargetType, items: { id: string }[], userId: string | null) {
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [engagement, setEngagement] = useState<Record<string, PostEngagement>>({});
   const ids = useMemo(() => items.map((i) => i.id).join(","), [items]);
+  const current = useRef({ ids, userId });
+  current.current = { ids, userId };
   const loadedFor = useRef(userId);
   useEffect(() => {
     const list = ids ? ids.split(",") : [];
@@ -43,7 +48,13 @@ export function useEngagement(type: PostTargetType, items: { id: string }[], use
       }),
     [type],
   );
-  return { savedIds, engagement };
+  const refresh = useCallback(() => {
+    const { ids: now, userId: who } = current.current;
+    const list = now ? now.split(",") : [];
+    if (list.length > 0) getPostEngagementMany(supabase, type, list).then((rows) => setEngagement((prev) => ({ ...prev, ...rows }))).catch(() => {});
+    if (who) getSavedIds(supabase, who, type).then(setSavedIds).catch(() => {});
+  }, [type]);
+  return { savedIds, engagement, refresh };
 }
 
 /** "Liked by …" faces and the newest comment for the posts in a feed. `refresh(id)` reloads one post, e.g. after its comment sheet closes. */

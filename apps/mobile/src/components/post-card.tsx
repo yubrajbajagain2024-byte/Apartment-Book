@@ -1,16 +1,11 @@
 import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { APP_NAME, getOrCreateDirectConversation, inquiryPrefill, startListingConversation, reportContent, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type PostTargetType, type SharedPost, REPORT_REASONS } from "@apartment-book/shared";
-import { useSession } from "@/lib/session";
+import type { FeedMedia, PostEngagement, PostTargetType } from "@apartment-book/shared";
 import { shortDate } from "@/lib/short-date";
-import { SITE_URL, supabase } from "@/lib/supabase";
 import { makeStyles } from "@/lib/theme-provider";
-import { useActionSheet } from "./action-sheet";
-import { useLike, useSave } from "./engagement";
-import { ExpandableText } from "./expandable-text";
+import { useListingActions } from "./listing-actions";
 import { PhotoCarousel } from "./photo-carousel";
-import { POST_GUTTER, POST_TEXT, PostActions, PostFrame, PostHeader } from "./post-bits";
-import { firstImageOf, useShareSheet } from "./share-sheet";
+import { POST_GUTTER, PostActions, PostFrame, PostHeader } from "./post-bits";
 
 export type PostCardProps = {
   targetType: PostTargetType;
@@ -21,20 +16,18 @@ export type PostCardProps = {
   poster: { id: string; name: string; avatarUrl: string | null; verified: boolean; badge?: string | null };
   /** The business behind a portal listing: Message opens its inquiry chat with the whole team. */
   businessId?: string | null;
+  /** Under the poster's name, before the age: what kind of post it is ("Has a Room"), or an item's price. */
   subtitle?: string;
   /** Listings have a title; Home-feed posts do not. */
   title?: string;
+  /** A short line for the share card (the price, the budget): not shown on the post itself. */
   lead?: string;
   description?: string | null;
   media: FeedMedia[];
   createdAt: string;
   saved: boolean;
   engagement?: PostEngagement;
-  /** Extra chips under the text. */
-  details?: React.ReactNode;
   active?: boolean;
-  /** How much of the description shows before "more…": three lines by default, 0 to hide it whole behind the fold (roommate posts). */
-  descriptionLines?: number;
   /** What the chat pill reads: "Message" by default, "Inbox" on roommate posts. */
   messageLabel?: string;
   /** The chat pill right after share instead of at the right (roommate posts). */
@@ -46,89 +39,39 @@ export type PostCardProps = {
 /** Side padding for a feed's header (search, chips, composer): the posts keep their own gutter. */
 export const FEED_HEADER_PADDING = 12;
 
+/** How much of the description a feed shows, as a Buzz post does: three lines, then "…" (the rest is on the post's page). */
+const PREVIEW_LINES = 3;
+
 /**
- * An apartment or roommate post in a feed, laid out like the posts on Home (see post-bits): header → title, price line
- * and the description folded to three lines ("more…" / "less") with its chips → the photos or video in a rounded frame →
- * heart, comment and share with their counts, the chat pill (not on your own listing) and the bookmark. No card box: posts follow each other on the screen with room between them.
+ * A roommate post or a Marketplace item in a feed, captioned the way a Buzz post is: the header (the poster, what kind of
+ * post it is or the price, and its age) → the title in bold and the start of the description, muted, three lines at most
+ * → the photos or video in a rounded frame → heart, comment and share with their counts, the chat pill (not on your own
+ * post) and the bookmark. Nothing else: the budget, the place, the dates and the details are on the post's own page. No
+ * card box: posts follow each other on the screen with room between them. (Apartments have their own card:
+ * housing/housing-card.tsx.)
  */
 export function PostCard(props: PostCardProps) {
   const { poster, title, lead, description, media, createdAt, path } = props;
+  // "Has a Room · 2d", "$65 · 3h"
   const styles = useStyles();
   const router = useRouter();
-  const show = useActionSheet();
-  const shareSheet = useShareSheet();
-  const { user } = useSession();
-  const needLogin = () => router.push("/(auth)/login");
-  const like = useLike(props.targetType, props.targetId, props.engagement, user?.id ?? null, needLogin);
-  const save = useSave(props.targetType, props.targetId, props.saved, user?.id ?? null, needLogin);
+  const actions = useListingActions({ targetType: props.targetType, targetId: props.targetId, path, poster, businessId: props.businessId, title, lead, description, media, engagement: props.engagement, saved: props.saved });
+  const { like, save, own, openDetail } = actions;
   const text = description?.trim() ?? "";
-  const own = user?.id === poster.id;
-  // "1.2 mi from campus · San Marcos · Oct 2"
   const meta = [props.subtitle, shortDate(createdAt)].filter(Boolean).join(" · ");
-
-  const openDetail = (focusComments = false) => router.push({ pathname: path as never, params: focusComments ? { comment: "1" } : {} } as never);
-
-  async function message() {
-    if (!user) return needLogin();
-    if (own) return router.push("/messages");
-    try {
-      const business = props.businessId && props.targetType === "apartment" ? props.businessId : null;
-      const id = business ? await startListingConversation(supabase, { targetType: "apartment", targetId: props.targetId, posterId: poster.id, businessId: business }) : await getOrCreateDirectConversation(supabase, poster.id);
-      const prefill = business && title ? inquiryPrefill(poster.name, title) : title ? `Hi ${poster.name.split(" ")[0]}! I saw your post "${title}" and I'd like to chat.` : `Hi ${poster.name.split(" ")[0]}! I saw your post and I'd like to chat.`;
-      router.push({ pathname: "/messages/[id]", params: { id, prefill, ...(props.targetType === "post" ? {} : { targetType: props.targetType, targetId: props.targetId }) } });
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Could not open the chat");
-    }
-  }
-
-  /** The friends sheet, with the card's title, price line (or description) and first picture; its "Share to…" row is the system share as before. */
-  function share() {
-    const author = { id: poster.id, name: poster.name, avatar_url: poster.avatarUrl };
-    const imageUrl = firstImageOf(media);
-    const caption = lead || text || null;
-    const shared: SharedPost =
-      props.targetType === "post"
-        ? { target_type: "post", target_id: props.targetId, kind: "post", path, title: null, caption, image_url: imageUrl, author }
-        : sharedPostFromListing({ targetType: props.targetType, targetId: props.targetId, title: title ?? poster.name, caption, imageUrl, author });
-    shareSheet.open(shared, { url: `${SITE_URL}${path}`, label: title ?? APP_NAME });
-  }
-
-  function report() {
-    if (!user) return needLogin();
-    show(
-      REPORT_REASONS.map((r) => ({
-        label: r.label,
-        onPress: async () => {
-          await reportContent(supabase, user.id, { targetType: props.targetType, targetId: props.targetId, reason: r.value as ReportReason }).catch(() => {});
-          alert("Thanks. Our team will review this post.");
-        },
-      })),
-      "Why are you reporting this post?",
-    );
-  }
-
-  function menu() {
-    show([
-      { label: save.saved ? "Unsave post" : "Save post", icon: save.saved ? "bookmark" : "bookmark-outline", onPress: () => void save.toggle() },
-      { label: "Share post", icon: "share-outline", onPress: share },
-      ...(own ? [] : [{ label: "Report post", icon: "flag-outline" as const, destructive: true, onPress: report }]),
-    ]);
-  }
 
   return (
     <View style={styles.post} accessibilityLabel={`Post: ${title ?? description?.slice(0, 40) ?? "post"}`}>
-      <PostHeader name={poster.name} avatarUrl={poster.avatarUrl} userId={poster.id} verified={poster.verified} badge={poster.badge} meta={meta} onOpen={() => (poster.badge ? openDetail() : router.push({ pathname: "/profile/[id]", params: { id: poster.id } }))} onMenu={menu} />
+      <PostHeader name={poster.name} avatarUrl={poster.avatarUrl} userId={poster.id} verified={poster.verified} badge={poster.badge} meta={meta} onOpen={() => (poster.badge ? openDetail() : router.push({ pathname: "/profile/[id]", params: { id: poster.id } }))} onMenu={actions.menu} />
 
-      {/* The words come before the picture, Facebook style; a tap on them opens the listing. */}
+      {/* The words come before the picture, as on a Buzz post; a tap on them opens the listing. */}
       <Pressable onPress={() => openDetail()} style={styles.body}>
         {title ? <Text style={styles.title}>{title}</Text> : null}
-        {lead ? <Text style={styles.lead}>{lead}</Text> : null}
         {text ? (
-          <ExpandableText style={styles.description} lines={props.descriptionLines ?? 3}>
+          <Text style={styles.description} numberOfLines={PREVIEW_LINES}>
             {text}
-          </ExpandableText>
+          </Text>
         ) : null}
-        {props.details ? <View style={styles.details}>{props.details}</View> : null}
       </Pressable>
 
       {media.length > 0 ? (
@@ -139,17 +82,15 @@ export function PostCard(props: PostCardProps) {
       ) : null}
 
       {/* The chat pill is for reaching the owner: your own listing has none. */}
-      <PostActions liked={like.liked} likes={like.likes} comments={props.engagement?.comments ?? 0} saved={save.saved} onLike={() => void like.toggle()} onComment={props.comments === false ? undefined : () => openDetail(true)} onShare={share} onSave={() => void save.toggle()} message={own ? undefined : { label: props.messageLabel ?? "Message", onPress: () => void message() }} messageBeside={props.messageBeside} />
+      <PostActions liked={like.liked} likes={like.likes} comments={props.engagement?.comments ?? 0} saved={save.saved} onLike={() => void like.toggle()} onComment={props.comments === false ? undefined : () => openDetail(true)} onShare={actions.share} onSave={() => void save.toggle()} message={own ? undefined : { label: props.messageLabel ?? "Message", onPress: () => void actions.message() }} messageBeside={props.messageBeside} />
     </View>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
   post: { width: "100%", backgroundColor: colors.bg, paddingTop: 4, paddingBottom: 18 },
-  body: { paddingHorizontal: POST_GUTTER, paddingTop: 2, paddingBottom: 12, gap: 3 },
-  // The title reads like a Home post's words: the same size and weight, nothing bold.
-  title: { ...POST_TEXT, color: colors.text },
-  lead: { fontSize: 14, fontWeight: "700", color: colors.brand },
-  description: { ...POST_TEXT, color: colors.text },
-  details: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 6 },
+  // Buzz's caption: the bold title over the muted start of the words (see buzz-card.tsx).
+  body: { paddingHorizontal: POST_GUTTER, paddingTop: 6, paddingBottom: 12, gap: 4 },
+  title: { fontSize: 17, fontWeight: "700", lineHeight: 22, color: colors.text },
+  description: { fontSize: 14, lineHeight: 20, color: colors.muted },
 }));

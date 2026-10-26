@@ -5,7 +5,7 @@ import { makeStyles } from "@/lib/theme-provider";
 import { CommentComposer, CommentList, commentCountLabel, CommentSortButton, useCommentThread } from "./comments";
 import { Sheet, SheetFooter, SheetHeader } from "./sheet";
 
-/** `focusComposer` opens the sheet straight into typing (the "Add comment…" bar under a reel), once the sheet has slid up. */
+/** `focusComposer` opens the sheet straight into typing, once the sheet has slid up. */
 export type CommentsTarget = { targetType: PostTargetType; targetId: string; ownerId: string; comments: number; focusComposer?: boolean };
 
 /**

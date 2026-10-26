@@ -1,9 +1,10 @@
-import { memo, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { RefreshControl, Text, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type ListViewToken } from "react-native";
-import { formatDistance, formatPrice, isVerifiedPoster, KM_PER_MILE, listApartments, listingMedia, listingPoster, businessLabel, videosFor, type ApartmentWithOwner, type PostEngagement } from "@apartment-book/shared";
+import { KM_PER_MILE, listApartments, videosFor, type ApartmentWithOwner } from "@apartment-book/shared";
 import type { RoomFilters } from "@/components/housing/filter-sheet";
-import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
-import { Badge, EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
+import { HousingCard } from "@/components/housing/housing-card";
+import { FEED_HEADER_PADDING } from "@/components/post-card";
+import { EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -14,36 +15,10 @@ import { useEngagement } from "@/lib/use-engagement";
 import { useTabReselect } from "@/lib/tab-reselect";
 import { refreshWithHaptic } from "@/lib/haptics";
 
-/**
- * One listing, memoised: only a row whose listing, save or counts changed draws again as the feed scrolls and loads.
- */
-const ApartmentRow = memo(function ApartmentRow({ a, saved, engagement, playing }: { a: ApartmentWithOwner; saved: boolean; engagement: PostEngagement | undefined; playing: boolean }) {
-  return (
-    <PostCard
-      active={playing}
-      targetType="apartment"
-      targetId={a.id}
-      path={`/apartments/${a.id}`}
-      poster={{ ...listingPoster(a.owner, a.business), verified: !a.business && isVerifiedPoster(a.owner), badge: businessLabel(a.business, a.sponsored) }}
-      businessId={a.business?.id ?? null}
-      subtitle={[a.distance_km !== null ? `${formatDistance(a.distance_km)} from campus` : null, a.city].filter(Boolean).join(" · ")}
-      title={a.title}
-      lead={`${formatPrice(a.price_per_month, a.currency)}/mo · ${a.bedrooms === 0 ? "Studio" : `${a.bedrooms} bd`} · ${a.bathrooms} ba`}
-      description={a.description}
-      media={listingMedia(a.images, a.image_meta, a.videos)}
-      createdAt={a.created_at}
-      saved={saved}
-      engagement={engagement}
-      details={
-        <>
-          {a.furnished ? <Badge label="Furnished" tone="blue" /> : null}
-          {a.utilities_included ? <Badge label="Utilities included" tone="green" /> : null}
-          {a.pets_allowed ? <Badge label="Pets OK" /> : null}
-        </>
-      }
-    />
-  );
-});
+/** The room between two cards, YouTube style. */
+function CardGap() {
+  return <View style={{ height: 12 }} />;
+}
 
 /**
  * The Apartments half of the Explore tab: the listings feed, starting `topInset` under the floating labels and pills and
@@ -88,7 +63,8 @@ export function ApartmentsSection({ topInset, onScroll, q, campus, filters, filt
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: 90 + tabBar, paddingTop: inset.paddingTop }}
         CellRendererComponent={appearCells}
-        renderItem={({ item: a }) => <ApartmentRow a={a} saved={savedIds.has(a.id)} engagement={engagement[a.id]} playing={active && playingId === a.id} />}
+        renderItem={({ item: a }) => <HousingCard apartment={a} saved={savedIds.has(a.id)} engagement={engagement[a.id]} playing={active && playingId === a.id} />}
+        ItemSeparatorComponent={CardGap}
         onViewableItemsChanged={onViewable}
         viewabilityConfig={viewability}
         windowSize={9}

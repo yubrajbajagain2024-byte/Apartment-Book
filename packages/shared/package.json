@@ -2,7 +2,7 @@
   "name": "@apartment-book/shared",
   "version": "0.1.0",
   "private": true,
-  "description": "Platform-agnostic types, validation schemas and data access shared by the web app and future mobile app",
+  "description": "Platform-agnostic types, validation schemas and data access shared by the UniBuzz website and mobile app",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

@@ -52,7 +52,7 @@ const TOP_SHADE_MIN = 170;
 const TOP_SHADE_EXTRA = 96;
 /** Tall enough to sit under the whole rail (like, comments, share, save, "…") with room to fade in above the like. */
 const SHADE_HEIGHT = 540;
-/** How far above the bottom inset (the comment bar or the tab bar) the frosted blur reaches: past the name and the words. */
+/** How far above the bottom inset (the tab bar, or the home indicator) the frosted blur reaches: past the name and the words. */
 const BLUR_REACH = 230;
 /** The overlay's own bottom padding: the "…" centre 46pt above the bottom inset, Instagram's geometry. */
 const OVERLAY_PAD = 31;
@@ -242,7 +242,7 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   /** A photo on its page: the theme's colours. A video, or a photo too tall for a page: dark, white words over shades. */
   const surface = surfaceOf(media[slide], aspectAt(slide), width, height, photoAt, floor);
   const onPage = surface === "page";
-  // The screen's own chrome (its top row, the comment bar, the status bar) follows the slide on screen.
+  // The screen's own chrome (its top row, the status bar) follows the slide on screen.
   useEffect(() => {
     onSlideChange?.(key, slide, surface);
   }, [onSlideChange, key, slide, surface]);
@@ -783,7 +783,7 @@ function MediaFrame({ place, whole, backdrop, width, height, topInset, bottomIns
     <View style={{ width, height, backgroundColor: colors.mediaBg }} pointerEvents="none">
       {backdrop && !coversPage(place, width, height) ? <Backdrop uri={backdrop} /> : null}
       {children}
-      {/* Behind the words and the comment bar, the picture frosts over gradually towards the bottom, as under an iOS bar. */}
+      {/* Behind the words and the tab bar, the picture frosts over gradually towards the bottom, as under an iOS bar. */}
       {frost ? <ProgressiveBlur height={bottomInset + BLUR_REACH} shown={chrome} style={across} /> : null}
       {/* Soft shades so white words and icons stay readable over a bright picture: at the top under the bar, at the bottom under the name and the rail. */}
       <Reanimated.View style={[StyleSheet.absoluteFill, across, shadesStyle]}>

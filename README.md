@@ -1,16 +1,16 @@
-# CampConnect
+# UniBuzz
 
 **A private social network for university life — connecting students, clubs, events, campus news, housing, and the student marketplace in one place.**
 
-## What CampConnect is
+## What UniBuzz is
 
-CampConnect is a **social network for verified university students**. Students connect with each other and with their campus: they post photos, videos and reels, talk anonymously in Buzz, follow each other, and message friends, groups and their classes. Each university is its own private community, where students mainly see their own campus's people, clubs, events, discussions and news.
+UniBuzz is a **social network for verified university students**. Students connect with each other and with their campus: they post photos, videos and reels, talk anonymously in Buzz, follow each other, and message friends, groups and their classes. Each university is its own private community, where students mainly see their own campus's people, clubs, events, discussions and news.
 
 It launches first at **Texas State University (TXST)**, with plans to expand to campuses worldwide.
 
 **Mission:** connect students, clubs, organizations and campus communities in one place, so university life is more social, more connected and more convenient.
 
-Facebook began as a network for college students and then became a network for everyone. CampConnect brings back that university-only feel. It isn't a general social network, and it isn't an apartment or marketplace app. It's the digital home of campus life.
+Facebook began as a network for college students and then became a network for everyone. UniBuzz brings back that university-only feel. It isn't a general social network, and it isn't an apartment or marketplace app. It's the digital home of campus life.
 
 ### The core: the social network
 
@@ -43,8 +43,8 @@ These help with everyday student life and keep students in their community. They
 
 ### Three connected platforms
 
-1. **CampConnect:** the social network for students, as an app for iOS and Android and a website.
-2. **CampConnect Business:** a portal at `/business` for local businesses, from apartment communities to restaurants, shops and services. They post listings and deals targeted to campuses, promote them, answer student inquiries, see per-listing analytics and add staff.
+1. **UniBuzz:** the social network for students, as an app for iOS and Android and a website.
+2. **UniBuzz Business:** a portal at `/business` for local businesses, from apartment communities to restaurants, shops and services. They post listings and deals targeted to campuses, promote them, answer student inquiries, see per-listing analytics and add staff.
 3. **CampConnect Admin:** managing users, businesses, content and platform security. It covers the staff console at `/admin` on the website and the separate CampConnect Admin staff app (see [Buzz (anonymous)](#buzz-anonymous)).
 
 ### Business model and design
@@ -58,7 +58,7 @@ The design is modern, minimal and Apple-inspired, combining the best of Instagra
 - **Social first.** Lead with people, posts, Orbit, Buzz, Reels and messages. Housing, roommates and the marketplace are supporting tools, so don't let them set the app's identity, navigation or wording outside Explore.
 - **Campus first.** Every feature belongs to a university community, and only verified students join, with a university email.
 - **Businesses stay off the social side.** They can answer students who contact them but never start a conversation. "Sponsored" appears only on paid promotions, and "Verified Partner" only on businesses that have been checked.
-- **Legacy names.** The project began as an apartment finder called "Apartment Book". That name survives only in identifiers: the package names (`@apartment-book/shared`), the app's slug, URL scheme and bundle ID (`apartmentbook`), the Vercel project and old migration comments. They're history, not direction. Don't rename them, because that would break builds, deep links and the database history.
+- **Legacy names.** The product was called CampConnect until 2026-10-26 and is now **UniBuzz**; the separate staff app keeps the name CampConnect Admin. The project began as an apartment finder called "Apartment Book". That name survives only in identifiers: the package names (`@apartment-book/shared`), the app's slug, URL scheme and bundle ID (`apartmentbook`), the Vercel project and old migration comments. They're history, not direction. Don't rename them, because that would break builds, deep links and the database history.
 
 ### Long-term vision
 
