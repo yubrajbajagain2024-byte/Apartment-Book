@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin, School, Tag } from "lucide-react";
-import { formatPrice, getItem, getListingStats, isSaved, ITEM_CATEGORIES, ITEM_CONDITIONS, labelFor, photosFor } from "@apartment-book/shared";
+import { formatPrice, getItem, getListingStats, isSaved, ITEM_CATEGORIES, ITEM_CONDITIONS, labelFor, listingMedia, photosFor } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { timeAgo } from "@/lib/utils";
@@ -45,7 +45,7 @@ export default async function ItemPage({ params }: Props) {
       <ViewTracker targetType="item" targetId={item.id} />
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-4">
-          <PhotoHero photos={photosFor(item.images, item.image_meta)} alt={item.title} />
+          <PhotoHero photos={photosFor(item.images, item.image_meta)} media={listingMedia(item.images, item.image_meta, item.videos)} alt={item.title} />
           <Card>
             <CardBody className="flex flex-col gap-4">
               <div className="flex flex-wrap items-start justify-between gap-3">

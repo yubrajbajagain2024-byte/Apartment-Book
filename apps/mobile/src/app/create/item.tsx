@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Alert, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { createItem, ITEM_CATEGORIES, ITEM_CONDITIONS, itemSchema, type PhotoMeta } from "@apartment-book/shared";
+import { createItem, ITEM_CATEGORIES, ITEM_CONDITIONS, itemSchema, type ListingVideo, type PhotoMeta } from "@apartment-book/shared";
 import { FormSection, Segmented } from "@/components/form";
 import { MediaPicker } from "@/components/photo-picker";
 import { Button, Chip, Field } from "@/components/ui";
@@ -15,6 +15,8 @@ export default function CreateItemScreen() {
   const { user, profile } = useSession();
   const router = useRouter();
   const [photos, setPhotos] = useState<PhotoMeta[]>([]);
+  // One optional video, shown first on the post like a roommate post's.
+  const [video, setVideo] = useState<ListingVideo | null>(null);
   const [f, setF] = useState({ title: "", description: "", price: "", category: "", condition: "good" as "new" | "like_new" | "good" | "fair" | "poor", pickupLocation: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -22,7 +24,7 @@ export default function CreateItemScreen() {
   if (!user) return null;
 
   async function submit() {
-    const parsed = itemSchema.safeParse({ ...f, currency: "USD", universityId: profile?.university_id ?? undefined, pickupLocation: f.pickupLocation || undefined, images: photos.map((p) => p.url), imageMeta: photos.map((p) => JSON.stringify(p)) });
+    const parsed = itemSchema.safeParse({ ...f, currency: "USD", universityId: profile?.university_id ?? undefined, pickupLocation: f.pickupLocation || undefined, images: photos.map((p) => p.url), imageMeta: photos.map((p) => JSON.stringify(p)), videos: video ? [JSON.stringify(video)] : [] });
     if (!parsed.success) {
       const e: Record<string, string> = {};
       for (const issue of parsed.error.issues) e[String(issue.path[0])] ??= issue.message;
@@ -36,7 +38,10 @@ export default function CreateItemScreen() {
       hapticSuccess();
       router.replace({ pathname: "/marketplace/[id]", params: { id: created.id } });
     } catch (e) {
-      alertWithHaptic("error", "Could not post", e instanceof Error ? e.message : "Try again");
+      const message = e instanceof Error ? e.message : "";
+      // A database without migration 43 (marketplace video) has no place for the video yet: say so plainly, the photos still work.
+      if (/'videos' column/.test(message)) alertWithHaptic("error", "Videos are not on yet", "Videos on Marketplace items arrive with the next update. Remove the video to post with your photos now.");
+      else alertWithHaptic("error", "Could not post", message || "Try again");
     } finally {
       setBusy(false);
     }
@@ -44,8 +49,8 @@ export default function CreateItemScreen() {
 
   return (
     <ScrollView contentContainerStyle={{ padding: 12, gap: 12, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-      <FormSection title="Photos">
-        <MediaPicker kind="items" userId={user.id} photos={photos} onPhotos={setPhotos} />
+      <FormSection title="Photos and video">
+        <MediaPicker kind="items" userId={user.id} photos={photos} onPhotos={setPhotos} video={video} onVideo={setVideo} plain />
       </FormSection>
       <FormSection title="What are you selling?">
         <Field label="Title" value={f.title} onChangeText={(v) => set("title", v)} placeholder="Queen mattress, 1 year old" error={errors.title} />

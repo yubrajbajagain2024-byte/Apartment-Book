@@ -168,6 +168,8 @@ export const itemSchema = z.object({
   pickupLocation: optionalText(160),
   images: imageUrls,
   imageMeta,
+  /** One video at most (migration 43, marketplace video). Empty when the form has none, as the web's form never does. */
+  videos: listingVideos.refine((v) => v.length <= 1, { error: "One video per item" }),
 });
 export type ItemInput = z.infer<typeof itemSchema>;
 

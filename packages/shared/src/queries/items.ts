@@ -101,6 +101,9 @@ function toRow(input: ItemInput) {
     pickup_location: input.pickupLocation ?? null,
     images: input.images,
     image_meta: input.imageMeta.filter((m) => input.images.includes(m.url)),
+    // Only when there is one: an edit without the field (the web's form) keeps the item's video, and selling with photos
+    // alone works on a database without migration 43 (marketplace video).
+    ...(input.videos.length > 0 ? { videos: input.videos } : {}),
   };
 }
 

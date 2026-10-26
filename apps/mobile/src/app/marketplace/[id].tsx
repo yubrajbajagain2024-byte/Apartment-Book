@@ -20,7 +20,7 @@ export default function ItemScreen() {
       targetId={item.id}
       title={item.title}
       lead={item.price === 0 ? "Free" : formatPrice(item.price, item.currency)}
-      media={listingMedia(item.images, item.image_meta)}
+      media={listingMedia(item.images, item.image_meta, item.videos)}
       poster={{ id: item.seller.id, name: item.seller.full_name, avatarUrl: item.seller.avatar_url }}
       createdAt={item.created_at}
       focusComments={comment === "1"}
