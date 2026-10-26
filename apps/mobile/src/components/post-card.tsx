@@ -3,10 +3,9 @@ import { useRouter } from "expo-router";
 import type { FeedMedia, PostEngagement, PostTargetType } from "@apartment-book/shared";
 import { shortDate } from "@/lib/short-date";
 import { makeStyles } from "@/lib/theme-provider";
-import { ExpandableText } from "./expandable-text";
 import { useListingActions } from "./listing-actions";
 import { PhotoCarousel } from "./photo-carousel";
-import { POST_GUTTER, POST_TEXT, PostActions, PostFrame, PostHeader } from "./post-bits";
+import { POST_GUTTER, PostActions, PostFrame, PostHeader } from "./post-bits";
 
 export type PostCardProps = {
   targetType: PostTargetType;
@@ -17,20 +16,18 @@ export type PostCardProps = {
   poster: { id: string; name: string; avatarUrl: string | null; verified: boolean; badge?: string | null };
   /** The business behind a portal listing: Message opens its inquiry chat with the whole team. */
   businessId?: string | null;
+  /** Under the poster's name, before the age: what kind of post it is ("Has a Room"), or an item's price. */
   subtitle?: string;
   /** Listings have a title; Home-feed posts do not. */
   title?: string;
+  /** A short line for the share card (the price, the budget): not shown on the post itself. */
   lead?: string;
   description?: string | null;
   media: FeedMedia[];
   createdAt: string;
   saved: boolean;
   engagement?: PostEngagement;
-  /** Extra chips under the text. */
-  details?: React.ReactNode;
   active?: boolean;
-  /** How much of the description shows before "more…": three lines by default, 0 to hide it whole behind the fold (roommate posts). */
-  descriptionLines?: number;
   /** What the chat pill reads: "Message" by default, "Inbox" on roommate posts. */
   messageLabel?: string;
   /** The chat pill right after share instead of at the right (roommate posts). */
@@ -42,36 +39,39 @@ export type PostCardProps = {
 /** Side padding for a feed's header (search, chips, composer): the posts keep their own gutter. */
 export const FEED_HEADER_PADDING = 12;
 
+/** How much of the description a feed shows, as a Buzz post does: three lines, then "…" (the rest is on the post's page). */
+const PREVIEW_LINES = 3;
+
 /**
- * A roommate post in a feed, laid out like the posts on Home (see post-bits): header → title, price line and the
- * description folded to three lines ("more…" / "less") with its chips → the photos or video in a rounded frame → heart,
- * comment and share with their counts, the chat pill (not on your own post) and the bookmark. No card box: posts follow
- * each other on the screen with room between them. (Apartments have their own card: housing/housing-card.tsx.)
+ * A roommate post or a Marketplace item in a feed, captioned the way a Buzz post is: the header (the poster, what kind of
+ * post it is or the price, and its age) → the title in bold and the start of the description, muted, three lines at most
+ * → the photos or video in a rounded frame → heart, comment and share with their counts, the chat pill (not on your own
+ * post) and the bookmark. Nothing else: the budget, the place, the dates and the details are on the post's own page. No
+ * card box: posts follow each other on the screen with room between them. (Apartments have their own card:
+ * housing/housing-card.tsx.)
  */
 export function PostCard(props: PostCardProps) {
   const { poster, title, lead, description, media, createdAt, path } = props;
+  // "Has a Room · 2d", "$65 · 3h"
   const styles = useStyles();
   const router = useRouter();
   const actions = useListingActions({ targetType: props.targetType, targetId: props.targetId, path, poster, businessId: props.businessId, title, lead, description, media, engagement: props.engagement, saved: props.saved });
   const { like, save, own, openDetail } = actions;
   const text = description?.trim() ?? "";
-  // "1.2 mi from campus · San Marcos · Oct 2"
   const meta = [props.subtitle, shortDate(createdAt)].filter(Boolean).join(" · ");
 
   return (
     <View style={styles.post} accessibilityLabel={`Post: ${title ?? description?.slice(0, 40) ?? "post"}`}>
       <PostHeader name={poster.name} avatarUrl={poster.avatarUrl} userId={poster.id} verified={poster.verified} badge={poster.badge} meta={meta} onOpen={() => (poster.badge ? openDetail() : router.push({ pathname: "/profile/[id]", params: { id: poster.id } }))} onMenu={actions.menu} />
 
-      {/* The words come before the picture, Facebook style; a tap on them opens the listing. */}
+      {/* The words come before the picture, as on a Buzz post; a tap on them opens the listing. */}
       <Pressable onPress={() => openDetail()} style={styles.body}>
         {title ? <Text style={styles.title}>{title}</Text> : null}
-        {lead ? <Text style={styles.lead}>{lead}</Text> : null}
         {text ? (
-          <ExpandableText style={styles.description} lines={props.descriptionLines ?? 3}>
+          <Text style={styles.description} numberOfLines={PREVIEW_LINES}>
             {text}
-          </ExpandableText>
+          </Text>
         ) : null}
-        {props.details ? <View style={styles.details}>{props.details}</View> : null}
       </Pressable>
 
       {media.length > 0 ? (
@@ -89,10 +89,8 @@ export function PostCard(props: PostCardProps) {
 
 const useStyles = makeStyles((colors) => ({
   post: { width: "100%", backgroundColor: colors.bg, paddingTop: 4, paddingBottom: 18 },
-  body: { paddingHorizontal: POST_GUTTER, paddingTop: 2, paddingBottom: 12, gap: 3 },
-  // The title reads like a Home post's words: the same size and weight, nothing bold.
-  title: { ...POST_TEXT, color: colors.text },
-  lead: { fontSize: 14, fontWeight: "700", color: colors.brand },
-  description: { ...POST_TEXT, color: colors.text },
-  details: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 6 },
+  // Buzz's caption: the bold title over the muted start of the words (see buzz-card.tsx).
+  body: { paddingHorizontal: POST_GUTTER, paddingTop: 6, paddingBottom: 12, gap: 4 },
+  title: { fontSize: 17, fontWeight: "700", lineHeight: 22, color: colors.text },
+  description: { fontSize: 14, lineHeight: 20, color: colors.muted },
 }));

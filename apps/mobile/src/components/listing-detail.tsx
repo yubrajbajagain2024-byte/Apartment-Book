@@ -22,7 +22,8 @@ import { Icon } from "@/components/icon";
  * Shared detail layout: media, title, facts, body, poster card, then like / comment / message and the comment thread.
  * A roommate post has no public comments (see hasPublicComments): it carries the Posts action bar instead, Like with its
  * count, Share, the Inbox pill that opens a private chat with the poster, and Save at the far right, right under its
- * photos (under its words when it has none).
+ * photos (under its words when it has none). `postBar` gives a listing with comments (a Marketplace item) that same bar
+ * in the same place; its thread then closes the page as a section of its own, with no Like / Comment / Message row.
  */
 export function ListingDetail({
   targetType,
@@ -38,6 +39,7 @@ export function ListingDetail({
   ownerActions,
   contact,
   aurora = false,
+  postBar = false,
 }: {
   targetType: SavedTargetType;
   targetId: string;
@@ -58,6 +60,8 @@ export function ListingDetail({
    * so the screen's few Aurora accents (its preference panels, its status pill, its headings) carry the colour.
    */
   aurora?: boolean;
+  /** The roommate post's action bar under the media on a listing with public comments too (see above). */
+  postBar?: boolean;
 }) {
   const colors = useColors();
   const baseStyles = useStyles();
@@ -128,8 +132,9 @@ export function ListingDetail({
   }
 
   const comments = commentCount ?? engagement?.comments ?? 0;
-  // Without public comments: the Posts action bar, the Inbox pill right after Share (your own listing's opens your Inbox).
-  const actionBar = publicComments ? null : (
+  // Without public comments, or asked for: the Posts action bar, the Inbox pill right after Share (your own listing's
+  // opens your Inbox).
+  const actionBar = publicComments && !postBar ? null : (
     <View style={styles.actionBar}>
       <PostActions liked={like.liked} likes={like.likes} comments={0} saved={save.saved} onLike={() => void like.toggle()} onShare={share} onSave={() => void save.toggle()} message={{ label: "Inbox", onPress: () => void message() }} messageBeside />
     </View>
@@ -168,7 +173,22 @@ export function ListingDetail({
         {own && ownerActions ? <View style={{ marginTop: 12 }}>{ownerActions}</View> : null}
       </View>
 
-      {publicComments ? (
+      {publicComments && postBar ? (
+        // The thread alone: the bar under the media already likes, shares, messages and saves.
+        <View style={styles.section} onLayout={(e) => (engagementY.current = e.nativeEvent.layout.y)}>
+          <Comments
+            targetType={targetType}
+            targetId={targetId}
+            ownerId={poster.id}
+            autoFocus={focusComments}
+            revealComposer={showThread}
+            onCountChange={(d) => {
+              setCommentCount((n) => Math.max(0, (n ?? engagement?.comments ?? 0) + d));
+              setData((prev) => (prev ? { ...prev, comments: Math.max(0, prev.comments + d) } : prev));
+            }}
+          />
+        </View>
+      ) : publicComments ? (
         <View style={[styles.section, { paddingHorizontal: 0, paddingVertical: 0 }]} onLayout={(e) => (engagementY.current = e.nativeEvent.layout.y)}>
           <EngagementSummary likes={like.likes} comments={comments} />
           <EngagementBar liked={like.liked} likes={like.likes} onLike={() => void like.toggle()} onComment={showThread} onMessage={() => void message()} messageLabel={own ? "Inbox" : "Message"} />

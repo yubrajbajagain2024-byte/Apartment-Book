@@ -1,17 +1,15 @@
 import { memo, useMemo, useRef, useState } from "react";
-import { RefreshControl, Text, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type ListViewToken } from "react-native";
-import { budgetLabel, formatDate, formatDistance, isVerifiedPoster, KM_PER_MILE, listRoommatePosts, listingMedia, videosFor, type PostEngagement, type RoommatePostWithAuthor } from "@apartment-book/shared";
+import { RefreshControl, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type ListViewToken } from "react-native";
+import { budgetLabel, isVerifiedPoster, KM_PER_MILE, listRoommatePosts, listingMedia, videosFor, type PostEngagement, type RoommatePostWithAuthor } from "@apartment-book/shared";
 import type { RoommateFilters } from "@/components/housing/filter-sheet";
 import { OnlineStrip } from "@/components/online-strip";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
-import { Badge, EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
+import { EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useTabBarInset } from "@/lib/tab-bar";
-import { useColors } from "@/lib/theme-provider";
-import { Icon } from "@/components/icon";
 import { useEngagement } from "@/lib/use-engagement";
 import { useTabReselect } from "@/lib/tab-reselect";
 import { refreshWithHaptic } from "@/lib/haptics";
@@ -23,7 +21,6 @@ export type RoommateType = "has_room" | "needs_room";
  * One roommate post, memoised: only a row whose post, save or counts changed draws again as the feed scrolls and loads.
  */
 const RoommateRow = memo(function RoommateRow({ p, saved, engagement, playing }: { p: RoommatePostWithAuthor; saved: boolean; engagement: PostEngagement | undefined; playing: boolean }) {
-  const colors = useColors();
   const budget = budgetLabel(p);
   return (
     <PostCard
@@ -32,12 +29,12 @@ const RoommateRow = memo(function RoommateRow({ p, saved, engagement, playing }:
       targetId={p.id}
       path={`/roommates/${p.id}`}
       poster={{ id: p.author.id, name: p.author.full_name, avatarUrl: p.author.avatar_url, verified: isVerifiedPoster(p.author) }}
-      subtitle={[p.university?.name, p.distance_km !== null ? `${formatDistance(p.distance_km)} from campus` : null].filter(Boolean).join(" · ")}
+      // Everyone here is at the same university: under the name, what kind of post it is instead.
+      subtitle={p.post_type === "has_room" ? "Has a Room" : "Looking for a Room"}
       title={p.title}
+      // The budget goes on the share card; the post's own page shows it with the place and the dates.
       lead={budget ? `${budget}/mo` : undefined}
       description={p.description}
-      // The description stays behind "more…" until it is wanted: the title, the budget and the chips say enough.
-      descriptionLines={0}
       // Heart, share, Inbox and the bookmark: no comment button here (the thread is on the post's own screen).
       messageLabel="Inbox"
       messageBeside
@@ -46,20 +43,6 @@ const RoommateRow = memo(function RoommateRow({ p, saved, engagement, playing }:
       createdAt={p.created_at}
       saved={saved}
       engagement={engagement}
-      details={
-        <>
-          <Badge label={p.post_type === "has_room" ? "Has a room" : "Looking for a room"} tone={p.post_type === "has_room" ? "green" : "blue"} />
-          {p.location ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flexShrink: 1 }}>
-              <Icon name="location" size={13} color={colors.muted} />
-              <Text style={{ fontSize: 13, color: colors.muted, flexShrink: 1 }} numberOfLines={1}>
-                {p.location}
-              </Text>
-            </View>
-          ) : null}
-          {p.move_in_date ? <Text style={{ fontSize: 13, color: colors.muted }}>Move in {formatDate(p.move_in_date)}</Text> : null}
-        </>
-      }
     />
   );
 });
@@ -70,7 +53,6 @@ const RoommateRow = memo(function RoommateRow({ p, saved, engagement, playing }:
  * Housing screen's own bar, which also owns the "+" button.
  */
 export function RoommatesSection({ topInset, onScroll, q, campus, type, filters, filtered, active = true }: { topInset: number; onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => void; q: string; campus: "mine" | "all"; type: RoommateType | undefined; filters: RoommateFilters; filtered: boolean; active?: boolean }) {
-  const colors = useColors();
   const { user, profile } = useSession();
   const universityId = campus === "all" ? undefined : (profile?.university_id ?? undefined);
   // The filter sheet's choices; distance needs a campus to measure from, so it is dropped on "every university".

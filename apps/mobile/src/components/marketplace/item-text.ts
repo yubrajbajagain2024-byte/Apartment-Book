@@ -3,7 +3,7 @@ import { formatPrice, type ItemCategoryValue, type ItemWithSeller } from "@apart
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-/** Each category's icon: beside the category on a Marketplace post, and on the empty feed of that category. */
+/** Each category's icon, on the empty feed of that category. */
 const CATEGORY_ICONS: Record<ItemCategoryValue, IconName> = {
   mattress_bedding: "bed-outline",
   furniture: "cube-outline",
@@ -21,11 +21,6 @@ const CATEGORY_ICONS: Record<ItemCategoryValue, IconName> = {
 
 export function categoryIcon(category: string | null | undefined): IconName {
   return category && Object.prototype.hasOwnProperty.call(CATEGORY_ICONS, category) ? CATEGORY_ICONS[category as ItemCategoryValue] : "bag-handle-outline";
-}
-
-/** The pickup location as the seller wrote it, trimmed and on one line ("" when none was given). */
-export function pickupText(location: string | null | undefined): string {
-  return (location ?? "").replace(/\s+/g, " ").trim();
 }
 
 /** "$80", or "Free" for a price of 0. */

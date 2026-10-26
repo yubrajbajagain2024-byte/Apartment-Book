@@ -1,12 +1,25 @@
-import { Alert, Text } from "react-native";
+import { Alert, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { deleteItem, formatPrice, getItem, ITEM_CATEGORIES, ITEM_CONDITIONS, labelFor, listingMedia, setItemStatus } from "@apartment-book/shared";
+import { deleteItem, getItem, ITEM_CATEGORIES, ITEM_CONDITIONS, labelFor, listingMedia, setItemStatus } from "@apartment-book/shared";
+import { AuroraHeading, AuroraPill } from "@/components/aurora";
 import { Fact, ListingDetail, useDetailStyles } from "@/components/listing-detail";
-import { Button, EmptyState, Loading } from "@/components/ui";
+import { categoryIcon, priceText } from "@/components/marketplace/item-text";
+import { Badge, Button, EmptyState, Loading } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
 import { alertWithHaptic } from "@/lib/haptics";
 
+/** "Good condition", "Fair condition"; "New" and "Like new" read fine alone. */
+function conditionLabel(condition: string): string {
+  const label = labelFor(ITEM_CONDITIONS, condition);
+  return condition === "new" || condition === "like_new" ? label : `${label} condition`;
+}
+
+/**
+ * A Marketplace item's own page, laid out as a roommate post's is: the photos and video full width and swipeable, the
+ * heart, share, Inbox and the bookmark right under them, then the item's name and price, where to pick it up and its
+ * category, its condition, About (the seller's description), the seller with Message, and the comment thread.
+ */
 export default function ItemScreen() {
   const { id, comment } = useLocalSearchParams<{ id: string; comment?: string }>();
   const router = useRouter();
@@ -14,22 +27,23 @@ export default function ItemScreen() {
   const detailStyles = useDetailStyles();
   if (loading) return <Loading />;
   if (!item) return <EmptyState icon="bag-handle-outline" title="This item is no longer available" />;
+  const description = item.description.trim();
   return (
     <ListingDetail
       targetType="item"
       targetId={item.id}
       title={item.title}
-      lead={item.price === 0 ? "Free" : formatPrice(item.price, item.currency)}
+      lead={priceText(item)}
       media={listingMedia(item.images, item.image_meta, item.videos)}
       poster={{ id: item.seller.id, name: item.seller.full_name, avatarUrl: item.seller.avatar_url }}
       createdAt={item.created_at}
       focusComments={comment === "1"}
+      aurora
+      postBar
       facts={
         <>
-          <Fact icon="pricetag-outline" label={labelFor(ITEM_CATEGORIES, item.category)} />
-          <Fact icon="sparkles-outline" label={labelFor(ITEM_CONDITIONS, item.condition)} />
-          {item.pickup_location ? <Fact icon="location-outline" label={item.pickup_location} /> : null}
-          {item.status !== "available" ? <Fact icon="checkmark-done-outline" label={item.status === "sold" ? "Sold" : "Archived"} /> : null}
+          {item.pickup_location ? <Fact accent icon="location-outline" label={item.pickup_location} /> : null}
+          <Fact accent icon={categoryIcon(item.category)} label={labelFor(ITEM_CATEGORIES, item.category)} />
         </>
       }
       ownerActions={
@@ -49,8 +63,17 @@ export default function ItemScreen() {
         </>
       }
     >
-      <Text style={detailStyles.h2}>Details</Text>
-      <Text style={detailStyles.body}>{item.description}</Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+        <AuroraPill icon="sparkles-outline" label={conditionLabel(item.condition)} />
+        {/* A status that wants attention keeps its own colour. */}
+        {item.status !== "available" ? <Badge label={item.status === "sold" ? "Sold" : "No longer for sale"} tone="amber" /> : null}
+      </View>
+      {description ? (
+        <>
+          <AuroraHeading>About</AuroraHeading>
+          <Text style={detailStyles.body}>{description}</Text>
+        </>
+      ) : null}
     </ListingDetail>
   );
 }

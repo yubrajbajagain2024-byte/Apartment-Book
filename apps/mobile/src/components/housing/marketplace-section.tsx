@@ -1,13 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Keyboard, RefreshControl, Text, View, type ListViewToken, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { ActivityIndicator, FlatList, Keyboard, RefreshControl, View, type ListViewToken, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import { campusShortName, isVerifiedPoster, ITEM_CATEGORIES, ITEM_CONDITIONS, labelFor, listingMedia, listItems, videosFor, type ItemCategoryValue, type ItemWithSeller, type PostEngagement } from "@apartment-book/shared";
+import { campusShortName, isVerifiedPoster, ITEM_CATEGORIES, labelFor, listingMedia, listItems, videosFor, type ItemCategoryValue, type ItemWithSeller, type PostEngagement } from "@apartment-book/shared";
 import type { MarketFilters } from "@/components/housing/filter-sheet";
 import type { CampusChoice } from "@/components/marketplace/campus-menu";
-import { categoryIcon, pickupText, priceText } from "@/components/marketplace/item-text";
-import { Icon } from "@/components/icon";
+import { categoryIcon, priceText } from "@/components/marketplace/item-text";
 import { PostCard } from "@/components/post-card";
-import { Badge, Button, EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
+import { Button, EmptyState, ErrorBanner, Loading, useAppearingCells } from "@/components/ui";
 import { AnimatedFlatList, listInset } from "@/lib/collapsing-header";
 import { useFeed } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -23,8 +22,6 @@ const PAGE_SIZE = 20;
 const SIDE = 12;
 /** The feed searches once typing pauses this long. */
 const SEARCH_DELAY_MS = 300;
-/** A condition that reads well: "New" and "Like new" in green, the rest quietly grey. */
-const FRESH = new Set(["new", "like_new"]);
 
 /** `text` once it has stopped changing for `ms`; clearing it applies at once. */
 function useSettled(text: string, ms: number): string {
@@ -41,17 +38,14 @@ function useSettled(text: string, ms: number): string {
 }
 
 /**
- * One item, laid out as a roommate post is (see PostCard): the seller's photo and name with their campus and when it was
- * posted, the item's name, its price in the brand colour and the description folded to two lines, its condition,
- * category and pickup place, then the photos and the video large and swipeable, and the heart, share, Inbox and the
- * bookmark under them. A tap on the words or the picture opens the item's own page (its comments are there). Memoised:
- * only a row whose item, save or counts changed draws again as the feed scrolls and loads.
+ * One item, captioned as a roommate post and a Buzz post are (see PostCard): the seller, the price and when it was
+ * posted under their name, the item's name in bold and the start of its description, then the photos and the video
+ * large and swipeable, and the heart, share, Inbox and the bookmark under them. The condition, category and pickup place
+ * are on the item's own page (a tap on the words or the picture opens it; its comments are there too). Memoised: only a
+ * row whose item, save or counts changed draws again as the feed scrolls and loads.
  */
 const MarketplaceRow = memo(function MarketplaceRow({ item, saved, engagement, playing }: { item: ItemWithSeller; saved: boolean; engagement: PostEngagement | undefined; playing: boolean }) {
-  const colors = useColors();
-  const pickup = pickupText(item.pickup_location);
-  const condition = labelFor(ITEM_CONDITIONS, item.condition);
-  const category = labelFor(ITEM_CATEGORIES, item.category);
+  const price = priceText(item);
   return (
     // A tap anywhere on the row puts the search keyboard away first, as opening an item from the grid did.
     <View onTouchEnd={Keyboard.dismiss}>
@@ -61,11 +55,11 @@ const MarketplaceRow = memo(function MarketplaceRow({ item, saved, engagement, p
         targetId={item.id}
         path={`/marketplace/${item.id}`}
         poster={{ id: item.seller.id, name: item.seller.full_name, avatarUrl: item.seller.avatar_url, verified: isVerifiedPoster(item.seller) }}
-        subtitle={item.university?.name}
+        // Everyone here is at the same university: under the name, the price instead ("$65 · 3h", "Free · 2d").
+        subtitle={price}
         title={item.title}
-        lead={priceText(item)}
+        lead={price}
         description={item.description}
-        descriptionLines={2}
         // Heart, share, Inbox and the bookmark, as on a roommate post: the comments are on the item's own page.
         messageLabel="Inbox"
         messageBeside
@@ -74,25 +68,6 @@ const MarketplaceRow = memo(function MarketplaceRow({ item, saved, engagement, p
         createdAt={item.created_at}
         saved={saved}
         engagement={engagement}
-        details={
-          <>
-            {condition ? <Badge label={condition} tone={FRESH.has(item.condition) ? "green" : "gray"} /> : null}
-            {category ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                <Icon name={categoryIcon(item.category)} size={13} color={colors.muted} />
-                <Text style={{ fontSize: 13, color: colors.muted }}>{category}</Text>
-              </View>
-            ) : null}
-            {pickup ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flexShrink: 1 }}>
-                <Icon name="location" size={13} color={colors.muted} />
-                <Text style={{ fontSize: 13, color: colors.muted, flexShrink: 1 }} numberOfLines={1}>
-                  {pickup}
-                </Text>
-              </View>
-            ) : null}
-          </>
-        }
       />
     </View>
   );
