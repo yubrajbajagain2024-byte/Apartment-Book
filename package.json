@@ -2,7 +2,7 @@
   "name": "apartment-book",
   "version": "0.1.0",
   "private": true,
-  "description": "Apartment Book - apartments, roommates, marketplace and messaging for university students",
+  "description": "CampConnect: A private social network for university life — connecting students, clubs, events, campus news, housing, and the student marketplace in one place.",
   "workspaces": [
     "apps/*",
     "packages/*"

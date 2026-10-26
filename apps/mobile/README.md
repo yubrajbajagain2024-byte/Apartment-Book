@@ -1,6 +1,6 @@
-# Apartment Book – mobile app (Expo)
+# CampConnect – mobile app (Expo)
 
-React Native app for iOS and Android. All data access lives in `packages/shared`
+The CampConnect app for iOS and Android: a private social network for university life — connecting students, clubs, events, campus news, housing, and the student marketplace in one place. React Native, with Expo. All data access lives in `packages/shared`
 (the same code the website uses); this app only adds screens.
 
 ## Run it

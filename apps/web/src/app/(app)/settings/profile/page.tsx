@@ -25,7 +25,7 @@ export default async function ProfileSettingsPage({
       <div>
         <h1 className="text-2xl font-bold">{welcome ? `Welcome, ${profile.full_name.split(" ")[0]}!` : "Profile settings"}</h1>
         <p className="text-sm text-gray-600">
-          {welcome ? "Pick your university so we can show you apartments, roommates and items near campus." : "Update how other students see you."}
+          {welcome ? "Pick your university to join its community: its students, posts and Buzz, plus housing and items near campus." : "Update how other students see you."}
         </p>
       </div>
       <ProfileForm profile={profile} universities={universities} welcome={welcome} />

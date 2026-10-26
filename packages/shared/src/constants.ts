@@ -1,9 +1,12 @@
 export const APP_NAME = "CampConnect";
 /** The wordmark in the app's Home top bar (Instagram puts its logotype there), with the feed dropdown next to it. */
 export const HOME_BRAND = "CampConnect";
-/** The line under the wordmark at every signed-out entry point, verbatim. */
-export const APP_TAGLINE =
-  "A private social network for university life — connecting students, clubs, events, campus news, housing, roommates, and the student marketplace in one place.";
+/**
+ * What CampConnect is, in one line: the line under the wordmark at every signed-out entry point and the website's
+ * description, verbatim. Social networking and campus connection are the product; housing, roommates and the
+ * marketplace support it.
+ */
+export const APP_TAGLINE = "A private social network for university life — connecting students, clubs, events, campus news, housing, and the student marketplace in one place.";
 
 export const DEFAULT_PAGE_SIZE = 12;
 export const MESSAGES_PAGE_SIZE = 50;
@@ -236,7 +239,7 @@ export const MUTE_DURATIONS = [
 
 /** The business portal (business.campconnect.com): businesses post listings and deals, and answer students' inquiries. */
 export const BUSINESS_PORTAL_NAME = "CampConnect Business";
-export const BUSINESS_PORTAL_TAGLINE = "Reach students where they already look for housing, food and deals around campus.";
+export const BUSINESS_PORTAL_TAGLINE = "Reach students where campus life happens: CampConnect, the private social network for their university.";
 export const BUSINESS_CATEGORIES = [
   { value: "housing", label: "Housing & property" },
   { value: "food", label: "Food & drink" },

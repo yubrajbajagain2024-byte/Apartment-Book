@@ -27,7 +27,7 @@ export default async function PortalLayout({ children }: { children: React.React
             <>
               <h1 className="text-xl font-bold text-gray-900">This is {BUSINESS_PORTAL_NAME}</h1>
               <p className="text-sm text-gray-600">
-                Your account is a student account. Housing, roommates, the marketplace and your messages are on {APP_NAME}.
+                Your account is a student account. Your feed, Buzz, messages, housing and the marketplace are on {APP_NAME}.
               </p>
               <a href={getSiteUrl()} className="font-semibold text-brand-600 hover:underline">
                 Go to {APP_NAME}

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * One-shot Supabase setup for Apartment Book.
+ * One-shot Supabase setup for CampConnect.
  *
  * Preferred: a personal access token (https://supabase.com/dashboard/account/tokens)
  *   SUPABASE_ACCESS_TOKEN=sbp_xxx SUPABASE_PROJECT_REF=abcdefghij node scripts/supabase-setup.mjs
