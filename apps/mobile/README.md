@@ -119,11 +119,10 @@ sign in with `apartmentbook://dev-login?email=…&password=…` once that dialog
 
 ## Home and the tabs
 
-The bottom bar is Home, Explore, +, Messages, Profile: four tabs (Profile is your own photo in a circle, ringed while
-the tab is on screen; the person icon signed out) and, in the middle, Create: the plain "+" inside a thin Aurora ring
-(cyan, blue, violet, the glow the app keeps for rings, drawn through a ring-shaped mask), nothing filled and no label
-(screen readers hear "Create"); the ring is as tall as a tab's icon and label together and lines up with them. It opens
-the create sheet (Post / Reel / Buzz / Snap), the same one as the "+" on your photo in Home's top bar. It floats over the content as a rounded
+The bottom bar is Home, Discover, Messages, Explore, Profile: five tabs in Instagram's order (Profile is your own photo
+in a circle, ringed while the tab is on screen; the person icon signed out). There is no "+" in the bar: creating starts
+from Home, where the "+" on your photo in the top bar (and the one over Reels) opens the create sheet (Post / Reel / Buzz
+/ Snap). It floats over the content as a rounded
 glass pill, low like Instagram's: just above the home indicator (12pt into the home-indicator inset, 22pt up from the screen's edge on a
 Face ID iPhone; 10pt up where there is no indicator) (`src/app/(tabs)/_layout.tsx`, its size and place in `src/lib/tab-bar.ts`): on iOS 26 real liquid glass, with what scrolls
 under it blurred through, elsewhere a translucent fill; the tab on screen sits in a soft aurora capsule with its icon filled. When you tap
@@ -131,12 +130,9 @@ another tab the capsule glides there from the old one, never blinking or fading:
 so it stretches a touch in flight and settles as it lands. The new tab's symbol bounces once (silently: no haptic), the tab you left returns
 to its plain look with no bounce, and the tabs make room for the capsule, GroupMe style, on a critically damped spring
 (`src/components/floating-tab-bar.tsx`, on Reanimated); every tab's list and floating button keeps `tabBarInset` clear
-under it. The "+" is an action, not a place: the capsule passes behind it but never stops on it, and it never moves, as
-the two tabs on either side make room within their own half of the bar (`action` in FloatingTabBar; its slot is as wide
-as an idle tab, so the five sit evenly). Search (find
-accounts by name and follow them) is the magnifying glass in the top-right corner of Home's floating top bar, just before
-the Notifications bell (`src/components/header-actions.tsx`): it pushes the people search with the box focused
-(`src/app/find-people.tsx`, the same screen the share sheet's Find people and a profile's Find friends open). The Notifications bell in the top-right corner of Home's floating top bar opens every
+under it. (FloatingTabBar can still hold an action in the middle, `action`, which the capsule passes behind but never
+stops on; the app's bar has none.) Search is the Discover tab (below); the people search the share sheet's Find people
+and a profile's Find friends push is `src/app/find-people.tsx`. The Notifications bell in the top-right corner of Home's floating top bar opens every
 notification the database keeps for you (`src/app/notifications.tsx`: likes, comments and replies, follows,
 saves of your listings, places near campus, newest first; new messages and Snaps stay in Messages, with its unread
 counts and the push, each unread one marked only by a small blue dot, the row
@@ -424,7 +420,7 @@ screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.de
 ```bash
 cd apps/mobile
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts (the test account and Leo follow each other, so Leo is a friend to share with; Maya lists CS 3358 and MATH 3398 for this semester, visible to everyone); prints the login, writes e2e/.sim-state.json
-e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you (no Campus | Global toggle signed out), swipes to Buzz, opens Notifications from the bell in Home's top-right corner (signed out: the log-in prompt), Search (the magnifying glass beside the bell: the people list), Messages (bottom tab), Explore (Housing, Roommate, swipe back, Marketplace), Profile (several flows at once is fine)
+e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you (no Campus | Global toggle signed out), swipes to Buzz, opens Notifications from the bell in Home's top-right corner (signed out: the log-in prompt), Discover (bottom tab: the search box over the grid), Messages (bottom tab), Explore (Housing, Roommate, swipe back, Marketplace), Profile (several flows at once is fine)
 EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # your own profile (adds CS 1428 under Classes and removes it, Saved says only you can see it), then likes, comments (write, heart, reply, delete from the hold menu), shares the top post with Leo and finds the card in your chat with him (Messages), votes, replies, the Campus | Global toggle under the labels (skipped while it is hidden), follows and unfollows Maya (her Classes tab shows CS 3358, her Listings tab her apartment), opens your own Followers (Leo) and Maya's Mutual friends (none: Leo follows her one way), as the seeded account
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed-thread.mjs   # nested replies and votes for 03-buzz-thread.yaml (Buzz v2 writes are service-role only)
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards
@@ -442,6 +438,28 @@ detail, the poster card with Message, and the menu (Save, Share, Report) stay. A
 its rail in place of the comments one, and a "Message Maya…" bar in place of "Add comment…"; the chat opens with a first message
 about the post. `hasPublicComments()` in `packages/shared` decides it for the app and the website; posts, reels, apartments,
 marketplace items and Buzz keep their threads.
+
+## Discover
+
+The second tab (`src/app/(tabs)/discover.tsx`) is Instagram's search tab for every campus at once. The box at the top
+finds people (any university: `searchPeople`), topics (#tags, by their start) and posts (the start of each word typed),
+under Top | Accounts | Topics | Posts (`src/components/discover/discover-search.tsx`); a tag typed in full always offers
+its page. With the box empty it shows what is popular: trending topics, then the posts and reels with the most going on
+lately as Instagram's Explore grid (a tall tile, the first video among five, beside four squares, then a row of three,
+the tall side alternating: `discoverMosaic` in packages/shared), with "Suggested for you" (accounts from every
+university, with their campus and follower count) a little way down. Everywhere by default, your own campus at a tap.
+A tile opens the full-screen viewer with the rest of the grid to swipe through, as on a profile. A #tag in a caption, a
+trending topic or a topic result opens the topic's page (`src/app/topics/[tag].tsx`): its post count and grid, Top or
+Recent.
+
+The rankings are the database's (migration 44, `supabase/migrations/20261103000300_discover.sql`): `discover_refresh()`
+scores every post and reel of the last 90 days (likes, comments and views against age, as Reddit's "hot"), every tag
+(recent use, weighted by engagement and by how many different people use it) and every student account (followers, new
+followers, engagement on recent posts) every 10 minutes (pg_cron), and the readers (`discover_feed`, `discover_accounts`,
+`discover_topics`, `discover_topic_posts`, the searches) run as the caller, so blocks, posts hidden by moderators,
+suspended accounts and business sessions stay out exactly as everywhere else. Before migration 44 the tab still works:
+the grid is the newest posts and reels, the suggestions the newest people, and topics are empty
+(`packages/shared/src/queries/discover.ts`).
 
 ## Buzz
 

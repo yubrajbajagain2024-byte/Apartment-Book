@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HOME_BRAND, HOME_TABS, type HomeSection } from "@apartment-book/shared";
 import { Avatar } from "@/components/avatar";
-import { HEADER_ACTION_GAP, HEADER_ACTION_SIZE, HeaderActions } from "@/components/header-actions";
+import { HEADER_ACTION_SIZE, HeaderActions } from "@/components/header-actions";
 import { SlidingTabs } from "@/components/sliding-tabs";
 import { hapticTap } from "@/lib/haptics";
 import { SCOPE_TOGGLE_SHOWN, useHomeScope } from "@/lib/home-scope";
@@ -39,11 +39,10 @@ const RING_SIZE = PHOTO + 2 * (PHOTO_GAP + RING);
 /** The square your photo (or, over Reels, the "+") sits in at the left, as the bell does at the right. */
 const SIDE = 44;
 /**
- * The slot on each side of the wordmark: on the right Search and the Notifications bell side by side, the bell centred in
- * the last SIDE as it always was; on the left the photo in the first SIDE. The same width both sides keeps the wordmark
- * centred on the screen.
+ * The slot on each side of the wordmark, one SIDE square each: the Notifications bell centred on the right (search is the
+ * Discover tab), your photo on the left. The same width both sides keeps the wordmark centred on the screen.
  */
-const SIDE_SLOT = (SIDE - HEADER_ACTION_SIZE) / 2 + 2 * HEADER_ACTION_SIZE + HEADER_ACTION_GAP;
+const SIDE_SLOT = SIDE;
 const LABEL_SIZE = 16;
 /** The toggle: each segment this wide, the sliding thumb inset by the pill's padding. */
 const SEGMENT = 108;
@@ -205,7 +204,7 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
             </View>
           </View>
           <View style={[styles.sideSlot, styles.sideEnd]}>
-            <HeaderActions search color={fg} iconStyle={overVideo ? styles.shadow : undefined} />
+            <HeaderActions color={fg} iconStyle={overVideo ? styles.shadow : undefined} />
           </View>
         </View>
         <View style={styles.row}>

@@ -81,14 +81,13 @@ appId: host.exp.Exponent
 - extendedWaitUntil:
     visible: "Create"
     timeout: 30000
-# Search: the magnifying glass before the bell in Home's top-right corner pushes the people search under a "Search"
-# header, its box focused (the keyboard is up); signed out the list still shows people to follow. Back returns to Home.
-- tapOn: "Search"
+# Discover (the second tab): the search box for people, topics and posts on every campus, over what is popular
+# everywhere (trending topics, the grid, accounts to follow); signed out it still shows posts and people.
+- tapOn: "Discover.*"
 - extendedWaitUntil:
-    visible: "Search people"
+    visible: "Search people, topics and posts"
     timeout: 30000
-- takeScreenshot: e2e/screenshots/07-search-people
-- back
+- takeScreenshot: e2e/screenshots/07-discover
 # Explore (housing.tsx): its own top bar ("Find", then Housing | Roommate | Marketplace, then the search box of the page on
 # screen, named "Search apartments", "Search roommate posts" or "Search marketplace", then the pills). The bottom tab opens on Housing (apartments); the "Roommate" label above the
 # pager slides to the other half and a flick to the right brings Housing back. The floating "+" follows the visible half.
