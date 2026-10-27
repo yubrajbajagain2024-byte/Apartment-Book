@@ -32,6 +32,8 @@ Investigated 2026-10-27 from the local Claude Code session logs:
 
 ## Pending
 
+- [ ] Close PR #47 without merging: it would add only the old `CLAUDE.md` copy and the stub
+      (checked 2026-10-27; every note in the copy is in these docs).
 - [ ] Owner to choose: delete the branch (it holds nothing else `main` lacks), or `git revert
       b09910d` on it. Since the commit is pushed, do not rewrite it.
 

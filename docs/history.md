@@ -40,8 +40,8 @@ open work is in [status.md](status.md).
   `create-flow-redesign`: the camera-first create flow, post details, anonymous listings).
 - **2026-10-27:** migration 45 reaches production; PR #41 (`ankur/dev`: an emoji no
   longer holds a Buzz for review); PR #42 adds the root `CLAUDE.md`; PRs #43 and #44 are opened
-  from two merged branches and conflict with `main`; the AI documentation is restructured into one
-  shared `CLAUDE.md` plus `docs/`.
+  from two merged branches and conflict with `main`; PR #45 restructures the AI documentation into
+  one shared `CLAUDE.md` plus `docs/`; PRs #46 and #47 are opened from two more merged branches.
 
 ## The AI documentation
 
@@ -50,7 +50,10 @@ open work is in [status.md](status.md).
 - 2026-10-27: every branch gets a `CLAUDE.md` with shared sections and a branch-specific §9; `main`'s
   arrives in PR #42. Each branch's copy differs, so merges conflict (PRs #43 and #44). The same day
   it is replaced by one shared root `CLAUDE.md` on `main`, folder files in `apps/mobile/` and
-  `supabase/`, and these docs ([decisions.md](decisions.md), last row).
+  `supabase/`, and these docs ([decisions.md](decisions.md), last row): PR #45, merged without a
+  formal GitHub review (an independent AI review ran before it was pushed, and its findings were
+  fixed). PRs #46 and #47 are then opened from two more merged branches; like #43 and #44 they carry
+  only old copies (and, in #47, the stray `app.json`).
 
 ## Retired branches
 

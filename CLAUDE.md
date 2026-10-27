@@ -3,8 +3,9 @@
 Shared instructions for every AI session (and person) working in this repository: what the project
 is, how to work in it, and the rules that do not change week to week. **This file is the single
 source of truth on `main`**: branches inherit it unchanged, and nothing branch-specific or
-status-like belongs in it. Keep it under 200 lines. Status, history and branch notes live in
-[docs/](docs/README.md).
+status-like belongs in it. Never add a per-branch copy or another instruction file on a branch;
+change these files through a PR into `main`. Keep it under 200 lines. Status, history and branch
+notes live in [docs/](docs/README.md).
 
 More specific instructions load when you work in these folders:
 [apps/mobile/CLAUDE.md](apps/mobile/CLAUDE.md), [supabase/CLAUDE.md](supabase/CLAUDE.md), and
@@ -99,8 +100,10 @@ App, device and EAS commands: [apps/mobile/CLAUDE.md](apps/mobile/CLAUDE.md).
 - Branch from `main` and land work through a **reviewed pull request**. Never push to `main`.
 - **Every push to `main` deploys the website to production** (Vercel is connected to Git). Merging
   is deploying, so a migration the code needs must already be live.
-- Before opening a PR: `npm run check`, the tests your change touches (`npm run db:test` for any
-  SQL), and the documentation updates below.
+- Before opening a PR, check what it would bring (`git log origin/main..<branch>`); a branch that
+  is already merged needs none, whatever GitHub's "Compare & pull request" banner suggests. Then
+  run `npm run check`, the tests your change touches (`npm run db:test` for any SQL), and the
+  documentation updates below.
 - Commit messages: a plain-English subject saying what changed; a body with why, the migrations
   (and whether they are on production) and the tests run. AI-written commits end with a
   `Co-Authored-By:` trailer.

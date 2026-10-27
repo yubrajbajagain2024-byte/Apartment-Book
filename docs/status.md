@@ -27,7 +27,7 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 - **Video:** Mux uploads and tours. **Mobile:** Expo SDK 58 / RN 0.88; Android release build works
   (R8 rule for LiveKit).
 - **AI documentation:** the root `CLAUDE.md` (PR #42), restructured on 2026-10-27 into one shared
-  file plus these docs.
+  file plus these docs (PR #45).
 
 ## Open work, in priority order
 
@@ -46,8 +46,9 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 - **Reconcile the Supabase CLI migration history** on production (applied-outside-repo README
   step 5), only after `step-admin` is merged, never with a real `db push`.
 - **Fix the duplicate "migration 44" headers** ([migrations.md](migrations.md)).
-- **Housekeeping**, when the owner says so: close PRs #43 and #44 (they only carry old per-branch
-  `CLAUDE.md` copies and conflict with `main`); delete the branches
+- **Housekeeping**, when the owner says so: close PRs #43, #44, #46 and #47 without merging (they
+  only carry old per-branch `CLAUDE.md` copies, #47 also the stray `app.json`, and conflict with
+  `main`); delete the branches
   [branches/README.md](branches/README.md) lists as safe to delete; revert the stray `app.json` on
   `business-portal-prelaunch`; retire `step-1-brand-shell`; remove the leftover `claude/…`
   worktree branch.
