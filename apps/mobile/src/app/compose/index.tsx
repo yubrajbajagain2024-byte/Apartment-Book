@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Keyboard, Linking, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useIsFocused, useLocalSearchParams, useRouter } from "expo-router";
@@ -23,7 +23,7 @@ import { Button } from "@/components/ui";
 import { useReduceMotion } from "@/lib/accessibility";
 import { useDrafts, type Draft } from "@/lib/compose-drafts";
 import { clock, photoFromCamera, videoFromCamera, videoStill } from "@/lib/compose-media";
-import { REEL_MAX_SECONDS, compose, roomFor, useCompose, type ComposeMedia } from "@/lib/compose-store";
+import { REEL_MAX_SECONDS, compose, composeNoun, isListing, roomFor, useCompose, type ComposeMedia, type ListingMode } from "@/lib/compose-store";
 import { alertWithHaptic, hapticSoft } from "@/lib/haptics";
 import { openHomeSection } from "@/lib/home-section";
 import { useSession } from "@/lib/session";
@@ -36,7 +36,7 @@ import { useAppTheme } from "@/lib/theme-provider";
  * What the + makes: a post or a reel (the create flow's session), an anonymous Buzz thread (written right on the stage),
  * or a Snap (handed to the Snap screen).
  */
-type CameraMode = "post" | "reel" | "buzz" | "snap";
+type CameraMode = "post" | "reel" | "buzz" | "snap" | ListingMode;
 
 /** Along the bottom, left to right; the camera opens on POST. */
 const MODES: { value: CameraMode; label: string }[] = [
@@ -100,7 +100,8 @@ export default function CameraScreen() {
   /** BUZZ or SNAP, which live on this screen only; null for POST and REEL, which are the create session's own mode. */
   const [extraMode, setExtraMode] = useState<"buzz" | "snap" | null>(params.mode === "snap" || params.mode === "buzz" ? params.mode : null);
   // The selfie camera first, every time the + is opened (POST, REEL, SNAP or BUZZ); the flip beside the shutter turns it.
-  const [facing, setFacing] = useState<CameraType>("front");
+  // A listing starts on the back lens: it is the room, or the thing for sale, that is photographed.
+  const [facing, setFacing] = useState<CameraType>(() => (isListing(compose.get().mode) ? "back" : "front"));
   const [flash, setFlash] = useState<"off" | "on" | "auto">("off");
   const [timer, setTimer] = useState<0 | 3 | 10>(0);
   const [zoom, setZoom] = useState(0);
@@ -133,6 +134,10 @@ export default function CameraScreen() {
 
   const mode: CameraMode = extraMode ?? s.mode;
   const buzz = mode === "buzz";
+  /** A roommate post or an item (Explore's +): one kind only, no modes to switch, and Skip for one without pictures. */
+  const listing = isListing(s.mode);
+  // Only this kind's drafts: a post's drafts belong to the Home +, a listing's to Explore's.
+  const shownDrafts = useMemo(() => drafts.filter((d) => (listing ? d.state.mode === s.mode : !isListing(d.state.mode))), [drafts, listing, s.mode]);
   const adding = s.media.length > 0;
   const room = roomFor(s);
   const video = mode === "reel" || capture === "video";
@@ -153,7 +158,7 @@ export default function CameraScreen() {
 
   // Adding to a post with no room left for a photo (or a video): the capture switches to what still fits.
   useEffect(() => {
-    if (mode === "post" && adding) {
+    if ((mode === "post" || listing) && adding) {
       if (room.photos === 0 && room.videos > 0) setCapture("video");
       if (room.videos === 0 && room.photos > 0) setCapture("photo");
     }
@@ -334,7 +339,7 @@ export default function CameraScreen() {
   }
 
   function switchMode(next: CameraMode) {
-    if (recording || adding || countdown !== null) return;
+    if (recording || adding || listing || countdown !== null) return;
     setExtraMode(next === "snap" || next === "buzz" ? next : null);
     if (next === "post" || next === "reel") compose.setMode(next);
   }
@@ -347,6 +352,7 @@ export default function CameraScreen() {
   }
 
   function stepMode(by: 1 | -1) {
+    if (listing) return;
     const i = MODES.findIndex((m) => m.value === mode);
     const next = MODES[i + by];
     if (next) switchMode(next.value);
@@ -505,7 +511,7 @@ export default function CameraScreen() {
             </Animated.View>
           ) : adding ? (
             <View style={styles.pill}>
-              <Text style={styles.pillText}>Adding to your {mode}</Text>
+              <Text style={styles.pillText}>Adding to your {composeNoun(s.mode)}</Text>
             </View>
           ) : notice && !buzz ? (
             <Animated.View key={notice.id} entering={reduceMotion ? undefined : FadeIn.duration(140)} exiting={reduceMotion ? undefined : FadeOut.duration(220)} style={styles.pill} accessibilityLiveRegion="polite">
@@ -516,7 +522,14 @@ export default function CameraScreen() {
               <Text style={styles.pillText}>Simulator: no live camera</Text>
             </View>
           ) : null}
-          <View style={{ width: 40 }} />
+          {/* A listing may have no pictures (a roommate post often has none): straight on to its words. */}
+          {listing && !adding && !recording ? (
+            <Pressable onPress={() => router.push("/compose/listing" as never)} hitSlop={10} style={({ pressed }) => [styles.pill, styles.skip, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel="Skip photos and videos">
+              <Text style={styles.pillText}>Skip</Text>
+            </Pressable>
+          ) : (
+            <View style={{ width: 40 }} />
+          )}
         </View>
 
         {cameraReady && !recording && !buzz ? (
@@ -586,14 +599,20 @@ export default function CameraScreen() {
           </Pressable>
         )}
         <View style={styles.modes}>
-          {adding ? <Text style={styles.modeFixed}>{mode === "reel" ? "REEL" : "POST"}</Text> : <ModeSwitcher options={MODES} value={mode} onChange={switchMode} disabled={recording || countdown !== null} slide={false} />}
+          {listing ? (
+            <Text style={styles.modeFixed}>{s.mode === "roommate" ? "ROOMMATE POST" : "SELL AN ITEM"}</Text>
+          ) : adding ? (
+            <Text style={styles.modeFixed}>{mode === "reel" ? "REEL" : "POST"}</Text>
+          ) : (
+            <ModeSwitcher options={MODES} value={mode} onChange={switchMode} disabled={recording || countdown !== null} slide={false} />
+          )}
         </View>
-        {drafts.length > 0 && !adding && !buzz ? (
-          <Pressable onPress={() => setDraftsOpen(true)} disabled={recording} style={({ pressed }) => [styles.side, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={`Drafts, ${drafts.length}`} hitSlop={8}>
+        {shownDrafts.length > 0 && !adding && !buzz ? (
+          <Pressable onPress={() => setDraftsOpen(true)} disabled={recording} style={({ pressed }) => [styles.side, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={`Drafts, ${shownDrafts.length}`} hitSlop={8}>
             <View style={styles.draftsIcon}>
               <Icon name="archive-outline" sf="archivebox" size={22} color="#fff" />
               <View style={styles.draftsCount}>
-                <Text style={styles.draftsCountText}>{drafts.length > 99 ? "99+" : drafts.length}</Text>
+                <Text style={styles.draftsCountText}>{shownDrafts.length > 99 ? "99+" : shownDrafts.length}</Text>
               </View>
             </View>
           </Pressable>
@@ -620,7 +639,7 @@ export default function CameraScreen() {
       {user ? (
         <DraftsSheet
           visible={draftsOpen}
-          drafts={drafts}
+          drafts={shownDrafts}
           userId={user.id}
           onClose={() => setDraftsOpen(false)}
           onDismiss={() => {
@@ -631,7 +650,7 @@ export default function CameraScreen() {
           onOpen={(draft: Draft) => {
             afterSheet.current = () => {
               compose.restore(draft.state);
-              router.push("/compose/publish");
+              router.push(isListing(draft.state.mode) ? ("/compose/listing" as never) : "/compose/publish");
             };
             setDraftsOpen(false);
           }}
@@ -753,6 +772,7 @@ const styles = StyleSheet.create({
   topRow: { position: "absolute", top: 20, left: 12, right: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   pill: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 12, height: 30, borderRadius: 15, backgroundColor: "rgba(0,0,0,0.45)" },
   pillText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  skip: { height: 34, borderRadius: 17, paddingHorizontal: 15 },
   recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#ff453a" },
   recText: { color: "#fff", fontSize: 15, fontWeight: "700", fontVariant: ["tabular-nums"] },
   recMax: { color: "rgba(255,255,255,0.6)", fontWeight: "600" },

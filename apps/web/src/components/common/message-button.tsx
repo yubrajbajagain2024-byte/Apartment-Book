@@ -25,6 +25,7 @@ export function MessageButton({
   tone = "primary",
   target,
   businessId,
+  anonymous = false,
 }: {
   userId: string;
   currentUserId: string | null;
@@ -40,11 +41,13 @@ export function MessageButton({
   target?: { type: PostTargetType; id: string };
   /** A listing from the business portal: the button opens the business's inquiry chat with its whole team. */
   businessId?: string | null;
+  /** An anonymous roommate post or item: there is no poster to name, so the button opens the anonymous inquiry chat. */
+  anonymous?: boolean;
 }) {
   const dock = useChatDock();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  if (currentUserId === userId) return null;
+  if (!anonymous && currentUserId === userId) return null;
   const listing = target && target.type !== "post" ? { type: target.type, id: target.id } : null;
 
   const actionClasses = "inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-gray-800 hover:bg-gray-100 disabled:opacity-60";
@@ -68,7 +71,7 @@ export function MessageButton({
     if (!dock || !desktop) return; // let the form submit and navigate
     e.preventDefault();
     startTransition(async () => {
-      const result = await openDirectConversationAction(userId, listing, businessId);
+      const result = await openDirectConversationAction(userId, listing, businessId, anonymous);
       if (result.conversationId) dock.openChat(result.conversationId, { prefill });
       else router.push(`/messages`);
     });
@@ -83,6 +86,7 @@ export function MessageButton({
       {listing ? <input type="hidden" name="targetType" value={listing.type} /> : null}
       {listing ? <input type="hidden" name="targetId" value={listing.id} /> : null}
       {listing && businessId ? <input type="hidden" name="businessId" value={businessId} /> : null}
+      {listing && anonymous ? <input type="hidden" name="anonymous" value="1" /> : null}
       {variant === "action" ? (
         <button type="submit" onClick={onClick} disabled={pending} className={cn(actionClasses, className)}>
           <MessageCircle className="h-5 w-5" /> {label}

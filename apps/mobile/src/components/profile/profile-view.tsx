@@ -135,9 +135,9 @@ async function postTiles(userId: string, kind: "post" | "reel", cursor: GridCurs
   return { tiles: result.tiles, next: result.hasMore ? page + 1 : null };
 }
 
-/** Someone's live apartments, roommate posts and items for sale, newest first, all at once: a single page. */
-async function listingTiles(userId: string): Promise<GridPage> {
-  return { tiles: await listProfileListings(supabase, userId), next: null };
+/** Someone's live apartments, roommate posts and items for sale, newest first, all at once: a single page. Your own include your anonymous ones. */
+async function listingTiles(userId: string, own: boolean): Promise<GridPage> {
+  return { tiles: await listProfileListings(supabase, userId, { own }), next: null };
 }
 
 const before = (cursor: GridCursor | null) => (typeof cursor === "string" ? cursor : null);
@@ -779,7 +779,7 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   const saved = useTileGrid((c) => listProfileSaved(supabase, userId, { before: before(c) }), { resetKey, enabled: mounted.has(tabIndex("saved")) && canSee("saved") });
   const liked = useTileGrid((c) => listProfileLiked(supabase, userId, { before: before(c) }), { resetKey, enabled: mounted.has(tabIndex("liked")) && canSee("liked") });
   // Listings come as a single page, once the viewer may see them.
-  const listings = useTileGrid(() => listingTiles(userId), { resetKey, enabled: mounted.has(tabIndex("listings")) && canSee("listings") });
+  const listings = useTileGrid(() => listingTiles(userId, own), { resetKey, enabled: mounted.has(tabIndex("listings")) && canSee("listings") });
   const grids: Record<GridTab, TileGrid> = { posts, reels, saved, liked, listings };
   const grid = tab === "classes" ? null : grids[tab];
 

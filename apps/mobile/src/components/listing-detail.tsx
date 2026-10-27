@@ -2,7 +2,8 @@ import { type ReactNode, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { getOrCreateDirectConversation, inquiryPrefill, startListingConversation, getPostEngagement, hasPublicComments, listingChatPrefill, recordContact, recordView, reportContent, REPORT_REASONS, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType } from "@apartment-book/shared";
+import { ANONYMOUS_POSTER, getOrCreateDirectConversation, inquiryPrefill, startListingConversation, startListingInquiry, getPostEngagement, hasPublicComments, listingChatPrefill, recordContact, recordView, reportContent, REPORT_REASONS, sharedPostFromListing, type FeedMedia, type PostEngagement, type ReportReason, type SavedTargetType } from "@apartment-book/shared";
+import { useMyAnonymousListings } from "@/lib/listing-poster";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { radius, textStyle } from "@/lib/theme";
@@ -46,8 +47,11 @@ export function ListingDetail({
   title: string;
   lead?: string;
   media: FeedMedia[];
-  /** `badge` and `businessId`: a listing posted from the business portal. The business is the poster (no profile to open) and Message opens its inquiry chat. */
-  poster: { id: string; name: string; avatarUrl: string | null; badge?: string | null; businessId?: string | null };
+  /**
+   * `badge` and `businessId`: a listing posted from the business portal. The business is the poster (no profile to open) and Message opens its inquiry chat.
+   * `anonymous`: an anonymous roommate post or item (lib/listing-poster.ts): nobody to show, and Message opens the anonymous inquiry chat.
+   */
+  poster: { id: string; name: string; avatarUrl: string | null; badge?: string | null; businessId?: string | null; anonymous?: boolean };
   createdAt: string;
   facts?: ReactNode;
   children?: ReactNode;
@@ -81,7 +85,9 @@ export function ListingDetail({
   const engagementY = useRef(0);
   /** Bring the likes row, the comment thread and its composer to the top of the screen. */
   const showThread = () => scroll.current?.scrollTo({ y: engagementY.current, animated: true });
-  const own = user?.id === poster.id;
+  const isMine = useMyAnonymousListings(user?.id);
+  const anonymous = poster.anonymous === true;
+  const own = anonymous ? isMine(targetType, targetId) : user?.id === poster.id;
   const publicComments = hasPublicComments(targetType);
   useQuery(() => recordView(supabase, targetType, targetId).catch(() => {}), [targetType, targetId]);
 
@@ -89,6 +95,13 @@ export function ListingDetail({
     if (!user) return needLogin();
     if (own) return router.push("/messages");
     try {
+      if (anonymous && (targetType === "roommate" || targetType === "item")) {
+        // The database opens the chat with whoever posted it, and keeps them hidden there until they choose otherwise.
+        const id = await startListingInquiry(supabase, targetType, targetId);
+        recordContact(supabase, targetType, targetId).catch(() => {});
+        router.push({ pathname: "/messages/[id]", params: { id, prefill: listingChatPrefill("", title) } });
+        return;
+      }
       const business = poster.businessId && targetType === "apartment" ? poster.businessId : null;
       const id = business ? await startListingConversation(supabase, { targetType, targetId, posterId: poster.id, businessId: business }) : await getOrCreateDirectConversation(supabase, poster.id);
       recordContact(supabase, targetType, targetId).catch(() => {});
@@ -100,7 +113,7 @@ export function ListingDetail({
   }
   /** The friends sheet; its "Share to…" row is the system share with the same link as before. */
   function share() {
-    shareSheet.open(sharedPostFromListing({ targetType, targetId, title, caption: lead, imageUrl: firstImageOf(media), author: { id: poster.id, name: poster.name, avatar_url: poster.avatarUrl } }), { url: `${SITE_URL}${path}`, label: title });
+    shareSheet.open(sharedPostFromListing({ targetType, targetId, title, caption: lead, imageUrl: firstImageOf(media), author: anonymous ? ANONYMOUS_POSTER : { id: poster.id, name: poster.name, avatar_url: poster.avatarUrl } }), { url: `${SITE_URL}${path}`, label: title });
   }
   function menu() {
     show([
@@ -160,12 +173,14 @@ export function ListingDetail({
       {media.length === 0 ? actionBar : null}
 
       <View style={[styles.section, { paddingVertical: 12 }]}>
-        <Pressable disabled={Boolean(poster.badge)} onPress={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.badge ? undefined : poster.id} online={poster.badge ? false : undefined} ringColor={aurora ? colors.bg : colors.card} />
+        <Pressable disabled={Boolean(poster.badge) || anonymous} onPress={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.badge ? undefined : poster.id} online={poster.badge ? false : undefined} ringColor={aurora ? colors.bg : colors.card} anonymous={anonymous} />
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: "700", color: colors.text }}>{poster.name}</Text>
+            <Text style={{ fontWeight: "700", color: colors.text }}>{anonymous && own ? "You, anonymously" : poster.name}</Text>
             {poster.badge ? <Badge label={poster.badge} tone={poster.badge === "Business" ? "gray" : poster.badge === "Verified Partner" ? "green" : "blue"} /> : null}
-            <Text style={{ fontSize: 12, color: colors.muted }}>Posted {new Date(createdAt).toLocaleDateString()}</Text>
+            <Text style={{ fontSize: 12, color: colors.muted }}>
+              {anonymous ? (own ? "Only you can see that this is yours" : `Posted anonymously · ${new Date(createdAt).toLocaleDateString()}`) : `Posted ${new Date(createdAt).toLocaleDateString()}`}
+            </Text>
           </View>
           {!own ? <Button title="Message" size="compact" icon="chatbubble-ellipses-outline" onPress={() => void message()} /> : null}
         </Pressable>

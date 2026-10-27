@@ -360,7 +360,7 @@ function SharedPostBubble({ shared, width, dimmed, onLongPress }: { shared: Shar
         style={({ pressed }) => [styles.card, dimmed && styles.dim, pressed && { opacity: 0.8 }]}
       >
         <View style={styles.cardAuthor}>
-          <Avatar name={shared.author.name} url={shared.author.avatar_url} size="xs" online={false} />
+          <Avatar name={shared.author.name} url={shared.author.avatar_url} size="xs" online={false} anonymous={!shared.author.id && shared.target_type !== "post"} />
           <Text style={styles.cardName} numberOfLines={1}>
             {shared.author.name}
           </Text>
@@ -394,7 +394,7 @@ function SharedPostBubble({ shared, width, dimmed, onLongPress }: { shared: Shar
       </View>
       <View style={styles.shade} pointerEvents="none">
         <View style={styles.shadeRow}>
-          <Avatar name={shared.author.name} url={shared.author.avatar_url} size={22} online={false} />
+          <Avatar name={shared.author.name} url={shared.author.avatar_url} size={22} online={false} anonymous={!shared.author.id && shared.target_type !== "post"} />
           <Text style={styles.shadeName} numberOfLines={1}>
             {shared.author.name}
           </Text>

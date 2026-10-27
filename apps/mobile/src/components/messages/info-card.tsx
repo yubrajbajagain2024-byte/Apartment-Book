@@ -14,11 +14,11 @@ type IconName = keyof typeof Ionicons.glyphMap;
  * and one more line (their university). Tapping it opens their profile. Without `onPress` (a deleted account) it is
  * just a picture and a name.
  */
-export function InfoPersonCard({ name, username, detail, avatarUrl, userId, onPress }: { name: string; username?: string | null; detail?: string | null; avatarUrl?: string | null; userId?: string; onPress?: () => void }) {
+export function InfoPersonCard({ name, username, detail, avatarUrl, userId, onPress, anonymous = false }: { name: string; username?: string | null; detail?: string | null; avatarUrl?: string | null; userId?: string; onPress?: () => void; /** An anonymous listing's poster who has not shown who they are. */ anonymous?: boolean }) {
   const styles = useStyles();
   const content = (
     <>
-      <Avatar name={name} url={avatarUrl} size="xl" userId={userId} />
+      <Avatar name={name} url={avatarUrl} size="xl" userId={userId} anonymous={anonymous} />
       <Text style={styles.name} numberOfLines={2}>
         {name}
       </Text>

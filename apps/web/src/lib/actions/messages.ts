@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
+  startListingInquiry,
   addGroupMembers,
   createGroupConversation,
   flattenZodError,
@@ -30,17 +31,20 @@ export async function startDirectConversationAction(formData: FormData): Promise
   const prefill = String(formData.get("prefill") ?? "").slice(0, 300);
   const returnTo = String(formData.get("returnTo") ?? "/");
   const user = await requireUser(returnTo);
-  if (!otherUserId || otherUserId === user.id) redirect(returnTo);
-
-  const supabase = await createClient();
   const targetType = String(formData.get("targetType") ?? "");
   const targetId = String(formData.get("targetId") ?? "");
+  // An anonymous listing names nobody: the database opens the chat with its poster and keeps them hidden there.
+  const anonymous = formData.get("anonymous") === "1" && (targetType === "roommate" || targetType === "item") && Boolean(targetId);
+  if (!anonymous && (!otherUserId || otherUserId === user.id)) redirect(returnTo);
+
+  const supabase = await createClient();
   // A listing from the business portal opens the business's inquiry chat (the whole team answers), not a chat with one person.
   const businessId = String(formData.get("businessId") ?? "") || null;
   let conversationId: string;
   try {
-    conversationId =
-      businessId && targetType === "apartment" && targetId
+    conversationId = anonymous
+      ? await startListingInquiry(supabase, targetType as "roommate" | "item", targetId)
+      : businessId && targetType === "apartment" && targetId
         ? await startListingConversation(supabase, { targetType, targetId, posterId: otherUserId, businessId })
         : await getOrCreateDirectConversation(supabase, otherUserId);
   } catch (error) {
@@ -76,14 +80,17 @@ export async function openDirectConversationAction(
   otherUserId: string,
   target?: { type: "apartment" | "item" | "roommate"; id: string } | null,
   businessId?: string | null,
+  anonymous = false,
 ): Promise<{ conversationId?: string; error?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "Sign in to send messages" };
-  if (!otherUserId || otherUserId === user.id) return { error: "Invalid user" };
+  const inquiry = anonymous && target && (target.type === "roommate" || target.type === "item") ? (target as { type: "roommate" | "item"; id: string }) : null;
+  if (!inquiry && (!otherUserId || otherUserId === user.id)) return { error: "Invalid user" };
   try {
     const supabase = await createClient();
-    const conversationId =
-      businessId && target?.type === "apartment"
+    const conversationId = inquiry
+      ? await startListingInquiry(supabase, inquiry.type, inquiry.id)
+      : businessId && target?.type === "apartment"
         ? await startListingConversation(supabase, { targetType: "apartment", targetId: target.id, posterId: otherUserId, businessId })
         : await getOrCreateDirectConversation(supabase, otherUserId);
     if (target) await recordContact(supabase, target.type, target.id).catch(() => {});

@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { deleteItem, getItem, ITEM_CATEGORIES, ITEM_CONDITIONS, labelFor, listingMedia, setItemStatus } from "@apartment-book/shared";
 import { AuroraHeading, AuroraPill } from "@/components/aurora";
 import { Fact, ListingDetail, useDetailStyles } from "@/components/listing-detail";
+import { listingPoster } from "@/lib/listing-poster";
 import { categoryIcon, priceText } from "@/components/marketplace/item-text";
 import { Badge, Button, EmptyState, Loading } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
@@ -36,7 +37,7 @@ export default function ItemScreen() {
       title={item.title}
       lead={priceText(item)}
       media={listingMedia(item.images, item.image_meta, item.videos)}
-      poster={{ id: item.seller.id, name: item.seller.full_name, avatarUrl: item.seller.avatar_url }}
+      poster={listingPoster(item.seller)}
       createdAt={item.created_at}
       aurora
       facts={

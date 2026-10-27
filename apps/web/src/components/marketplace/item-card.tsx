@@ -57,7 +57,7 @@ export function ItemCard({
         <Link href={href} className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900">{item.title}</h3>
           <p className="truncate text-xs text-gray-500">
-            {labelFor(ITEM_CONDITIONS, item.condition)} · {item.pickup_location || item.university?.name || item.seller.full_name}
+            {labelFor(ITEM_CONDITIONS, item.condition)} · {item.pickup_location || item.university?.name || (item.seller?.full_name ?? "Anonymous")}
           </p>
           <p className="truncate text-xs text-gray-500" suppressHydrationWarning>
             {timeAgo(item.created_at)}

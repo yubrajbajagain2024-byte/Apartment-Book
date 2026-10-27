@@ -5,7 +5,7 @@ import * as ImagePicker from "expo-image-picker";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as MediaLibrary from "expo-media-library/legacy";
 import * as VideoThumbnails from "expo-video-thumbnails";
-import { muxPosterUrl, uploadImage, type ListingVideo, type PhotoMeta } from "@apartment-book/shared";
+import { muxPosterUrl, uploadImage, type ListingVideo, type PhotoMeta, type UploadKind } from "@apartment-book/shared";
 import { localId, type ComposeMedia, type ComposeMode } from "./compose-store";
 import { supabase } from "./supabase";
 import { uploadVideo } from "./video";
@@ -147,7 +147,15 @@ export function clock(seconds: number | null | undefined): string {
 
 export type UploadStatus = { phase: "uploading" | "processing" | "done" | "failed"; progress: number; error?: string };
 type Uploaded = { kind: "photo"; photo: PhotoMeta } | { kind: "video"; video: ListingVideo };
-type Job = { uri: string; status: UploadStatus; done: Promise<Uploaded>; cancel: () => void };
+type Job = { uri: string; place: string; status: UploadStatus; done: Promise<Uploaded>; cancel: () => void };
+/**
+ * Where a photo goes: a post's to posts/<you>/…, a listing's to its own folder (roommates, items), and an anonymous
+ * listing's to the folder with no names in it (uploads/buzz/anon/<random>, see uploadImage): a picture's address would
+ * otherwise carry its poster's id. Videos go to the video provider either way, whose record of them only the uploader
+ * can read.
+ */
+export type UploadPlace = { kind: UploadKind; anonymous: boolean };
+const POST_PLACE: UploadPlace = { kind: "posts", anonymous: false };
 
 /**
  * Uploads start as soon as the publish screen opens (while the title and caption are being written), one job per item
@@ -168,15 +176,17 @@ function setStatus(id: string, job: Job, status: UploadStatus) {
   publish();
 }
 
-/** The upload of `item`'s current file: the one already running, or a new one. */
-export function ensureUpload(item: ComposeMedia, userId: string): Promise<Uploaded> {
+/** The upload of `item`'s current file to `place`: the one already running, or a new one (a new file, or a new place). */
+export function ensureUpload(item: ComposeMedia, userId: string, place: UploadPlace = POST_PLACE): Promise<Uploaded> {
+  const where = `${place.kind}:${place.anonymous ? "anon" : "named"}`;
   const existing = jobs.get(item.id);
-  if (existing && existing.uri === item.uri && existing.status.phase !== "failed") return existing.done;
+  if (existing && existing.uri === item.uri && existing.place === where && existing.status.phase !== "failed") return existing.done;
   existing?.cancel();
   let cancelled = false;
   let stopTransfer: (() => void) | null = null;
   const job: Job = {
     uri: item.uri,
+    place: where,
     status: { phase: "uploading", progress: 0 },
     done: Promise.resolve(null as never),
     cancel: () => {
@@ -192,7 +202,7 @@ export function ensureUpload(item: ComposeMedia, userId: string): Promise<Upload
         if (cancelled) throw new Error("Upload cancelled");
         const data = await fetch(ready.uri).then((r) => r.arrayBuffer());
         if (cancelled) throw new Error("Upload cancelled");
-        const url = await uploadImage(supabase, { kind: "posts", userId, file: data, fileName: `${item.id}.jpg`, contentType: "image/jpeg" });
+        const url = await uploadImage(supabase, { kind: place.kind, userId, file: data, fileName: `${item.id}.jpg`, contentType: "image/jpeg", anonymous: place.anonymous });
         setStatus(item.id, job, { phase: "done", progress: 1 });
         return { kind: "photo", photo: { url, width: ready.width || item.width || null, height: ready.height || item.height || null, blur: null } };
       }

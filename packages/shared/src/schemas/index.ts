@@ -5,8 +5,10 @@ import {
   CLEANLINESS_LEVELS,
   CURRENCIES,
   DEAL_STATUS_VALUES,
+  DEFAULT_LISTING_AUDIENCE,
   DEFAULT_POST_AUDIENCE,
   ITEM_CATEGORY_VALUES,
+  LISTING_AUDIENCE_VALUES,
   MAX_POST_VIEWERS,
   POST_AUDIENCE_VALUES,
   POST_TITLE_MAX,
@@ -124,6 +126,18 @@ export type ApartmentInput = z.infer<typeof apartmentSchema>;
 // ---------------------------------------------------------------------------
 // Roommates
 // ---------------------------------------------------------------------------
+/**
+ * Who a roommate post or Marketplace item is for, and whether it carries its poster's name (20261105000000_anonymous_listings.sql).
+ * Left out (the website's forms), a listing is Global and under its poster's name, as every listing before. Both are
+ * set when it is posted: an edit never changes them.
+ */
+const listingPrivacyFields = {
+  isAnonymous: z.boolean().default(false),
+  audience: z.enum(LISTING_AUDIENCE_VALUES).default(DEFAULT_LISTING_AUDIENCE),
+};
+const campusHasUniversity = (v: { audience: string; universityId?: string }) => v.audience !== "campus" || Boolean(v.universityId);
+const campusError = { error: "Campus-only listings need a confirmed university email on your account", path: ["audience"] };
+
 export const roommatePostSchema = z
   .object({
     postType: z.enum(["has_room", "needs_room"], { error: "Choose what you are looking for" }),
@@ -150,31 +164,36 @@ export const roommatePostSchema = z
     imageMeta,
     videos: listingVideos,
     ...coordinateFields,
+    ...listingPrivacyFields,
   })
   .refine(
     (v) => v.budgetMin === undefined || v.budgetMax === undefined || v.budgetMin <= v.budgetMax,
     { error: "Minimum budget cannot be higher than maximum budget", path: ["budgetMax"] },
   )
-  .refine(bothOrNeither, coordinateError);
+  .refine(bothOrNeither, coordinateError)
+  .refine(campusHasUniversity, campusError);
 export type RoommatePostInput = z.infer<typeof roommatePostSchema>;
 
 // ---------------------------------------------------------------------------
 // Marketplace
 // ---------------------------------------------------------------------------
-export const itemSchema = z.object({
-  title: z.string().trim().min(3, "Give the item a short title").max(120),
-  description: z.string().trim().min(10, "Describe the item in at least 10 characters").max(4000),
-  price: z.coerce.number({ error: "Enter a price (0 for free)" }).min(0).max(1_000_000),
-  currency: z.enum(CURRENCIES),
-  category: z.enum(ITEM_CATEGORY_VALUES, { error: "Choose a category" }),
-  condition: z.enum(["new", "like_new", "good", "fair", "poor"]),
-  universityId: optionalUuid,
-  pickupLocation: optionalText(160),
-  images: imageUrls,
-  imageMeta,
-  /** One video at most (migration 43, marketplace video). Empty when the form has none, as the web's form never does. */
-  videos: listingVideos.refine((v) => v.length <= 1, { error: "One video per item" }),
-});
+export const itemSchema = z
+  .object({
+    title: z.string().trim().min(3, "Give the item a short title").max(120),
+    description: z.string().trim().min(10, "Describe the item in at least 10 characters").max(4000),
+    price: z.coerce.number({ error: "Enter a price (0 for free)" }).min(0).max(1_000_000),
+    currency: z.enum(CURRENCIES),
+    category: z.enum(ITEM_CATEGORY_VALUES, { error: "Choose a category" }),
+    condition: z.enum(["new", "like_new", "good", "fair", "poor"]),
+    universityId: optionalUuid,
+    pickupLocation: optionalText(160),
+    images: imageUrls,
+    imageMeta,
+    /** One video at most (migration 43, marketplace video). Empty when the form has none, as the web's form never does. */
+    videos: listingVideos.refine((v) => v.length <= 1, { error: "One video per item" }),
+    ...listingPrivacyFields,
+  })
+  .refine(campusHasUniversity, campusError);
 export type ItemInput = z.infer<typeof itemSchema>;
 
 // ---------------------------------------------------------------------------

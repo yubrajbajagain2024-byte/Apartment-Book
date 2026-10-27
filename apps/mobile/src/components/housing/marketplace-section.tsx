@@ -1,7 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Keyboard, RefreshControl, View, type ListViewToken, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import { campusShortName, isVerifiedPoster, ITEM_CATEGORIES, labelFor, listingMedia, listItems, videosFor, type ItemCategoryValue, type ItemWithSeller, type PostEngagement } from "@apartment-book/shared";
+import { campusShortName, ITEM_CATEGORIES, labelFor, listingMedia, listItems, videosFor, type ItemCategoryValue, type ItemWithSeller, type PostEngagement } from "@apartment-book/shared";
+import { listingPoster } from "@/lib/listing-poster";
 import type { MarketFilters } from "@/components/housing/filter-sheet";
 import type { CampusChoice } from "@/components/marketplace/campus-menu";
 import { categoryIcon, priceText } from "@/components/marketplace/item-text";
@@ -54,7 +55,7 @@ const MarketplaceRow = memo(function MarketplaceRow({ item, saved, engagement, p
         targetType="item"
         targetId={item.id}
         path={`/marketplace/${item.id}`}
-        poster={{ id: item.seller.id, name: item.seller.full_name, avatarUrl: item.seller.avatar_url, verified: isVerifiedPoster(item.seller) }}
+        poster={listingPoster(item.seller)}
         // Everyone here is at the same university: under the name, the price instead ("$65 · 3h", "Free · 2d").
         subtitle={price}
         title={item.title}

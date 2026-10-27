@@ -22,6 +22,12 @@ export function hasPublicComments(targetType: string): boolean {
   return targetType !== "roommate" && targetType !== "item";
 }
 
+/**
+ * The poster of an anonymous listing, wherever a listing names one (its card, a shared card, the chat with them): a
+ * name and nothing else (20261105000000_anonymous_listings.sql). Pass "" as the poster's name to listingChatPrefill.
+ */
+export const ANONYMOUS_POSTER: { id: string; name: string; avatar_url: string | null } = { id: "", name: "Anonymous", avatar_url: null };
+
 /** The first message a chat opened from someone's listing starts with: "Hi Maya! I saw your post "…" and I'd like to chat." */
 export function listingChatPrefill(posterName: string, title?: string | null): string {
   const first = posterName.trim().split(/\s+/)[0] || "there";

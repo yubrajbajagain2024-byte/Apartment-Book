@@ -69,7 +69,7 @@ export function DraftsSheet({ visible, drafts, userId, onClose, onDismiss, onOpe
                   onLongPress={() => remove(item)}
                   style={({ pressed }) => [styles.cell, { width: cell, height: (cell * 4) / 3 }, pressed && { opacity: 0.8 }]}
                   accessibilityRole="button"
-                  accessibilityLabel={`${item.state.mode === "reel" ? "Reel" : "Post"} draft${words ? `: ${words.slice(0, 40)}` : ""}, saved ${shortDate(new Date(item.savedAt).toISOString())}`}
+                  accessibilityLabel={`${item.state.mode === "reel" ? "Reel" : item.state.mode === "roommate" ? "Roommate post" : item.state.mode === "item" ? "Listing" : "Post"} draft${words ? `: ${words.slice(0, 40)}` : ""}, saved ${shortDate(new Date(item.savedAt).toISOString())}`}
                   accessibilityHint="Opens the draft. Hold to delete it."
                 >
                   {picture ? <Image source={{ uri: picture }} style={StyleSheet.absoluteFill} contentFit="cover" /> : <View style={styles.words}><Text style={styles.wordsText} numberOfLines={5}>{words || "Untitled"}</Text></View>}

@@ -58,7 +58,7 @@ export function GallerySheet({ visible, mode, room, onClose, onDismiss, onPicked
   const request = useRef(0);
 
   const onlyVideos = mode === "reel" || room.photos === 0;
-  const onlyPhotos = mode === "post" && room.videos === 0;
+  const onlyPhotos = mode !== "reel" && room.videos === 0;
   const shownFilter: Filter = onlyVideos ? "video" : onlyPhotos ? "photo" : filter;
   const maxPicks = mode === "reel" ? 1 : room.photos + room.videos;
 
@@ -188,7 +188,7 @@ export function GallerySheet({ visible, mode, room, onClose, onDismiss, onPicked
 
   const cell = gridWidth > 0 ? (gridWidth - GAP * (COLUMNS - 1)) / COLUMNS : 0;
   const order = useMemo(() => new Map(picked.map((a, i) => [a.id, i + 1])), [picked]);
-  const full = mode === "post" && picked.length >= maxPicks;
+  const full = mode !== "reel" && picked.length >= maxPicks;
 
   const title = (
     <Pressable onPress={() => void openAlbums()} disabled={access !== "all" && access !== "limited"} style={({ pressed }) => [styles.albumPill, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={`${album.title}, choose an album`} hitSlop={6}>

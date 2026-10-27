@@ -80,7 +80,9 @@ export function ChatHeader({
             accessibilityLabel={`${title}${subtitle ? `, ${subtitle}` : ""}. Chat details`}
             style={({ pressed }) => [styles.identity, pressed && { opacity: 0.7 }]}
           >
-            {conversation.business ? (
+            {conversation.anonymous?.role === "asker" && conversation.anonymous.hidden ? (
+              <Avatar name={title} size={AVATAR} anonymous />
+            ) : conversation.business ? (
               <Avatar name={conversation.business.name} url={conversation.business.logo_url} size={AVATAR} online={false} ringColor={colors.bg} />
             ) : isGroup ? (
               <View style={styles.groupAvatar}>

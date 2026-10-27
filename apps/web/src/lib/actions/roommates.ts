@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import {
+import { isMyListing,
   createRoommatePost,
   deleteRoommatePost,
   flattenZodError,
@@ -45,7 +45,7 @@ export async function updateRoommatePostAction(id: string, _prev: FormState, for
   try {
     const supabase = await createClient();
     const existing = await getRoommatePost(supabase, id);
-    if (!existing || existing.author_id !== user.id) return { error: "You can only edit your own posts." };
+    if (!existing || !(await isMyListing(supabase, user.id, "roommate", existing))) return { error: "You can only edit your own posts." };
     await updateRoommatePost(supabase, id, parsed.data);
   } catch (error) {
     return { error: errorMessage(error), values: formValues(formData) };

@@ -122,7 +122,8 @@ export function Composer({
   value: string;
   onChangeText: (text: string) => void;
   items: PendingAttachment[];
-  onAddItems: (items: PendingAttachment[]) => void;
+  /** Files picked to send; without it there is no "+" (an anonymous poster's chat: a file's path would name them). */
+  onAddItems?: (items: PendingAttachment[]) => void;
   onRemoveItem: (id: string) => void;
   onSend: () => void;
   /** A voice message just recorded: sent at once. Without it there is no microphone. */
@@ -147,7 +148,7 @@ export function Composer({
     setBusy(true);
     try {
       const { items: picked, problems } = await pick();
-      if (picked.length > 0) onAddItems(picked);
+      if (picked.length > 0) onAddItems?.(picked);
       if (problems.length > 0) Alert.alert(picked.length > 0 ? "Some files weren't added" : "Couldn't add that", problems.join("\n"));
     } catch (e) {
       alertWithHaptic("error", "Couldn't add that", errorText(e, "Please try again."));
@@ -207,9 +208,11 @@ export function Composer({
     <FloatingBar onHeight={onHeight}>
       {panels}
       <View style={styles.row}>
-        <GlassIconButton icon="add" label="Attach a photo, video or file" variant="float" size={BAR} iconSize={24} weight="medium" disabled={busy} onPress={attach}>
-          {busy ? <ActivityIndicator color={colors.text} /> : undefined}
-        </GlassIconButton>
+        {onAddItems ? (
+          <GlassIconButton icon="add" label="Attach a photo, video or file" variant="float" size={BAR} iconSize={24} weight="medium" disabled={busy} onPress={attach}>
+            {busy ? <ActivityIndicator color={colors.text} /> : undefined}
+          </GlassIconButton>
+        ) : null}
         <View style={[styles.capsule, { borderColor: colors.glassEdge }]}>
           <GlassBackdrop variant="float" radius={CAPSULE} />
           <TextInput

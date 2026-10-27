@@ -40,9 +40,9 @@ export function RoommateCard({ post, saved, signedIn }: { post: RoommatePostWith
       </div>
       <Link href={href} className="flex flex-1 flex-col gap-2 p-4">
         <div className="flex items-center gap-3 pr-10">
-          <Avatar name={post.author.full_name} src={post.author.avatar_url} size="md" />
+          <Avatar name={post.author?.full_name ?? "Anonymous"} src={post.author?.avatar_url ?? null} size="md" />
           <div className="min-w-0">
-            <p className="truncate font-semibold text-gray-900">{post.author.full_name}</p>
+            <p className="truncate font-semibold text-gray-900">{post.author?.full_name ?? "Anonymous"}</p>
             <p className="truncate text-xs text-gray-500" suppressHydrationWarning>
               {post.university?.name ?? "University not set"} · {timeAgo(post.created_at)}
             </p>

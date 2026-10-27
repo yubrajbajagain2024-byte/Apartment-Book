@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import {
+import { isMyListing,
   createItem,
   deleteItem,
   flattenZodError,
@@ -45,7 +45,7 @@ export async function updateItemAction(id: string, _prev: FormState, formData: F
   try {
     const supabase = await createClient();
     const existing = await getItem(supabase, id);
-    if (!existing || existing.seller_id !== user.id) return { error: "You can only edit your own items." };
+    if (!existing || !(await isMyListing(supabase, user.id, "item", existing))) return { error: "You can only edit your own items." };
     await updateItem(supabase, id, parsed.data);
   } catch (error) {
     return { error: errorMessage(error), values: formValues(formData) };

@@ -55,7 +55,7 @@ export default function SavedScreen() {
       {data.roommates.map((p) => (
         <Card key={p.id} style={{ padding: 12, gap: 2 }}>
           <Text onPress={() => router.push({ pathname: "/roommates/[id]", params: { id: p.id } })} style={{ fontWeight: "700", color: colors.text }}>{p.title}</Text>
-          <Text style={{ color: colors.muted }}>{p.author.full_name}</Text>
+          <Text style={{ color: colors.muted }}>{p.author?.full_name ?? "Anonymous"}</Text>
         </Card>
       ))}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>

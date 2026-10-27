@@ -105,14 +105,14 @@ export function LinkSheet({ visible, value, onClose, onSave }: { visible: boolea
  * Who can see it: the author's campus ("Texas State"), every campus (Global), friends only, or people picked one by one
  * (Selected people, which opens the picker). Enforced by the database, not just hidden in the app.
  */
-export function AudienceSheet({ visible, value, noun, campus, people, onClose, onDismiss, onChange, onChoosePeople }: { visible: boolean; value: PostAudience; noun: string; campus: string | null; people: number; onClose: () => void; onDismiss?: () => void; onChange: (audience: PostAudience) => void; onChoosePeople: () => void }) {
+export function AudienceSheet({ visible, value, noun, campus, people, onClose, onDismiss, onChange, onChoosePeople, options = POST_AUDIENCES, note }: { visible: boolean; value: PostAudience; noun: string; campus: string | null; people: number; onClose: () => void; onDismiss?: () => void; onChange: (audience: PostAudience) => void; onChoosePeople?: () => void; /** The choices (a listing has no "Selected people"). */ options?: readonly (typeof POST_AUDIENCES)[number][]; /** The line under them, in place of the one about sharing posts into chats. */ note?: string }) {
   const styles = useStyles();
   const { colors } = useAppTheme();
   return (
     <Sheet visible={visible} onClose={onClose} onDismiss={onDismiss} closeLabel="Close audience" draggable="sheet">
       <SheetHeader title={`Who can view this ${noun}`} />
       <View style={styles.list} accessibilityRole="radiogroup">
-        {POST_AUDIENCES.map((a) => {
+        {options.map((a) => {
           const on = a.value === value;
           const noCampus = a.value === "campus" && !campus;
           const title = a.value === "campus" && campus ? campusLabel(campus) : a.label;
@@ -123,7 +123,7 @@ export function AudienceSheet({ visible, value, noun, campus, people, onClose, o
               disabled={noCampus}
               onPress={() => {
                 hapticSelect();
-                if (a.value === "selected") onChoosePeople();
+                if (a.value === "selected") onChoosePeople?.();
                 else onChange(a.value);
               }}
               style={({ pressed }) => [styles.option, pressed && { backgroundColor: colors.input }, noCampus && { opacity: 0.45 }]}
@@ -150,7 +150,7 @@ export function AudienceSheet({ visible, value, noun, campus, people, onClose, o
           );
         })}
         <Text style={[styles.hint, { paddingHorizontal: 16, paddingTop: 6 }]}>
-          {value === "global" || value === "campus" ? "Anyone who can view it can share it into a chat with people who can view it too." : "Posts for friends or selected people can't be shared into chats."}
+          {note ?? (value === "global" || value === "campus" ? "Anyone who can view it can share it into a chat with people who can view it too." : "Posts for friends or selected people can't be shared into chats.")}
         </Text>
       </View>
       <SheetFooter>

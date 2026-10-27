@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View, type TextInputInstance } from "react-native";
+import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View, type TextInputInstance } from "react-native";
 import { Stack, useNavigation, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DEFAULT_POST_AUDIENCE, POST_TITLE_MAX, captionParts, createFeedPost, createReel, feedPostSchema, postDetailsAvailable, reelSchema, sharedPostFromFeedPost, startingAudience, verifiedCampus, type FeedPostWithAuthor, type ListingVideo, type PhotoMeta } from "@apartment-book/shared";
 import { CaptionSuggestions, tokenAt, type CaptionToken } from "@/components/compose/caption-suggestions";
 import { CoverPicker } from "@/components/compose/cover-picker";
+import { DraftsButton } from "@/components/compose/drafts-button";
 import { GallerySheet } from "@/components/compose/gallery-sheet";
 import { PeopleSheet } from "@/components/compose/people-sheet";
 import { AUDIENCE_ICONS, AudienceSheet, LinkSheet, MoreOptionsSheet, SettingRow, ShareToSheet, audienceSentence } from "@/components/compose/publish-sheets";
@@ -14,7 +15,7 @@ import { markReelsStale } from "@/components/home/reels-section";
 import { useActionSheet } from "@/components/action-sheet";
 import { Icon } from "@/components/icon";
 import { useShareSheet } from "@/components/share-sheet";
-import { AnimatedPressable, Button, usePressScale } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { useReduceMotion } from "@/lib/accessibility";
 import { deleteDraft, saveDraft } from "@/lib/compose-drafts";
 import { clock, dropUploads, ensureUpload, saveToDevice, useUploads, withCover } from "@/lib/compose-media";
@@ -26,7 +27,6 @@ import { linkLabel } from "@/lib/post-details";
 import { markForYouStale, markPostsStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
-import { radius } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 
 const CAPTION_MAX = { post: 4000, reel: 2200 } as const;
@@ -62,7 +62,7 @@ export default function PublishScreen() {
   const [busy, setBusy] = useState<"post" | "draft" | null>(null);
   const caption = useRef<TextInputInstance>(null);
   const noun = s.mode === "reel" ? "reel" : "post";
-  const max = CAPTION_MAX[s.mode];
+  const max = s.mode === "reel" ? CAPTION_MAX.reel : CAPTION_MAX.post;
 
   useEffect(() => {
     let active = true;
@@ -436,19 +436,6 @@ function ToolChip({ label, hint, onPress }: { label: string; hint: string; onPre
   );
 }
 
-/** TikTok's grey Drafts capsule beside Post. */
-function DraftsButton({ busy, disabled, onPress }: { busy: boolean; disabled: boolean; onPress: () => void }) {
-  const styles = useStyles();
-  const { colors } = useAppTheme();
-  const press = usePressScale();
-  return (
-    <AnimatedPressable onPress={onPress} onPressIn={press.onPressIn} onPressOut={press.onPressOut} disabled={disabled} accessibilityRole="button" accessibilityLabel="Save as a draft" style={[styles.drafts, { opacity: disabled && !busy ? 0.5 : press.opacity, transform: [{ scale: press.scale }] }]}>
-      {busy ? <ActivityIndicator color={colors.text} /> : <Icon name="archive-outline" sf="archivebox" size={19} weight="semibold" color={colors.text} />}
-      <Text style={styles.draftsText}>Drafts</Text>
-    </AnimatedPressable>
-  );
-}
-
 const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   media: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4, gap: 10 },
@@ -474,6 +461,4 @@ const useStyles = makeStyles((colors) => ({
   count: { fontSize: 13, color: colors.muted, fontVariant: ["tabular-nums"] },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginBottom: 4 },
   bar: { flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingTop: 10, backgroundColor: colors.bg },
-  drafts: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 50, borderRadius: radius.pill, backgroundColor: colors.input },
-  draftsText: { fontSize: 17, fontWeight: "600", color: colors.text },
 }));

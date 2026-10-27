@@ -23,7 +23,7 @@ export function ItemTile({ item }: { item: ItemWithSeller }) {
           {item.title}
         </Text>
         <Text style={styles.meta} numberOfLines={1}>
-          {labelFor(ITEM_CONDITIONS, item.condition)} · {item.pickup_location || item.university?.name || item.seller.full_name}
+          {labelFor(ITEM_CONDITIONS, item.condition)} · {item.pickup_location || item.university?.name || (item.seller?.full_name ?? "Anonymous")}
         </Text>
         <Text style={styles.time}>{timeAgo(item.created_at)}</Text>
       </View>

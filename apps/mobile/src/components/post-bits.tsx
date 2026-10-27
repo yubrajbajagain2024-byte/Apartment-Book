@@ -22,13 +22,13 @@ const AVATAR = 42;
  * row of heart, comment and share with their counts, the bookmark on the right. The words of a post sit between the
  * header and the frame, Facebook style (see ExpandableText).
  */
-export function PostHeader({ name, avatarUrl, userId, verified, meta, onOpen, onMenu, badge, audience, audienceName }: { name: string; avatarUrl: string | null | undefined; userId: string; verified: boolean; meta: string; onOpen: () => void; onMenu: () => void; /** A business listing's "Sponsored" / "Verified Partner": the business is the poster, with no presence dot. */ badge?: string | null; /** Your own post that is not Global: who can see it, after the date ("2h · 🎓 Texas State"). `audienceName`: its university, for a campus post. */ audience?: Exclude<PostAudience, "global">; audienceName?: string | null }) {
+export function PostHeader({ name, avatarUrl, userId, verified, meta, onOpen, onMenu, badge, audience, audienceName, anonymous = false }: { name: string; avatarUrl: string | null | undefined; userId: string; verified: boolean; meta: string; onOpen: () => void; onMenu: () => void; /** A business listing's "Sponsored" / "Verified Partner": the business is the poster, with no presence dot. */ badge?: string | null; /** Your own post that is not Global: who can see it, after the date ("2h · 🎓 Texas State"). `audienceName`: its university, for a campus post. */ audience?: Exclude<PostAudience, "global">; audienceName?: string | null; /** An anonymous listing: the mask, no photo, no presence, no badge. */ anonymous?: boolean }) {
   const styles = useStyles();
   const colors = useColors();
   return (
     <View style={styles.header}>
-      <Pressable onPress={onOpen} accessibilityLabel={badge ? name : `${name}'s profile`}>
-        <Avatar name={name} url={avatarUrl} size={AVATAR} userId={badge ? undefined : userId} online={badge ? false : undefined} />
+      <Pressable onPress={onOpen} accessibilityLabel={badge || anonymous ? name : `${name}'s profile`}>
+        <Avatar name={name} url={avatarUrl} size={AVATAR} userId={badge ? undefined : userId} online={badge ? false : undefined} anonymous={anonymous} />
       </Pressable>
       {/* Labelled with the name alone: the verified icon would otherwise join the label and hide the name from assistive tech (and Maestro). */}
       <Pressable style={{ flex: 1, minWidth: 0 }} onPress={onOpen} accessibilityRole="button" accessibilityLabel={name}>
@@ -36,7 +36,7 @@ export function PostHeader({ name, avatarUrl, userId, verified, meta, onOpen, on
           <Text style={styles.name} numberOfLines={1}>
             {name}
           </Text>
-          {verified && !badge ? <Icon name="checkmark-circle" sf="checkmark.seal.fill" size={16} color={colors.brand} accessibilityLabel="Verified student" /> : null}
+          {verified && !badge && !anonymous ? <Icon name="checkmark-circle" sf="checkmark.seal.fill" size={16} color={colors.brand} accessibilityLabel="Verified student" /> : null}
         </View>
         {/* Like Instagram's "Sponsored": the label opens the grey line under the name, so the name keeps its whole row. */}
         {(badge || meta) && !audience ? (

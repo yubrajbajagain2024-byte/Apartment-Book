@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { MAX_IMAGES_PER_POST, type PostAudience } from "@apartment-book/shared";
+import { MAX_IMAGES_PER_LISTING, MAX_IMAGES_PER_POST, type PostAudience } from "@apartment-book/shared";
 
 /**
  * The post or reel being made, from the camera to the Post button. One in-memory session for the whole create flow
@@ -7,7 +7,51 @@ import { MAX_IMAGES_PER_POST, type PostAudience } from "@apartment-book/shared";
  * forth between them (or popping back to the camera to add another shot) never loses a photo or a word. A saved draft
  * is this same state written to the phone (lib/compose-drafts.ts).
  */
-export type ComposeMode = "post" | "reel";
+export type ComposeMode = "post" | "reel" | ListingMode;
+
+/**
+ * A roommate post or a Marketplace item, made in the same flow (Explore's +): the camera and the editor as for a post,
+ * then the listing's own steps (app/compose/listing*.tsx): title, description, who sees it and whether it carries the
+ * poster's name; the listing's form; a preview and Post.
+ */
+export type ListingMode = "roommate" | "item";
+export const isListing = (mode: ComposeMode): mode is ListingMode => mode === "roommate" || mode === "item";
+
+/** The rest of a listing's fields, as typed (the schema reads them when it is posted): a roommate post's, then an item's. */
+export type ListingForm = {
+  postType: "needs_room" | "has_room";
+  budgetMin: string;
+  budgetMax: string;
+  /** YYYY-MM-DD, or "" for none. */
+  moveInDate: string;
+  location: string;
+  genderPreference: "any" | "male" | "female" | "nonbinary";
+  sleepSchedule: string;
+  cleanliness: string;
+  smokingOk: boolean;
+  petsOk: boolean;
+  price: string;
+  category: string;
+  condition: "new" | "like_new" | "good" | "fair" | "poor";
+  pickupLocation: string;
+};
+
+export const BLANK_LISTING: ListingForm = {
+  postType: "needs_room",
+  budgetMin: "",
+  budgetMax: "",
+  moveInDate: "",
+  location: "",
+  genderPreference: "any",
+  sleepSchedule: "",
+  cleanliness: "",
+  smokingOk: false,
+  petsOk: false,
+  price: "",
+  category: "",
+  condition: "good",
+  pickupLocation: "",
+};
 
 /** A text laid over a photo in the editor, baked into the picture when the editor moves on. */
 export type TextOverlay = {
@@ -78,12 +122,18 @@ export type ComposeState = {
   draftId: string | null;
   /** The camera was opened from the editor's "+": a shot is added to what is there instead of starting over. */
   adding: boolean;
+  /** A listing's form (roommate and item modes; kept blank otherwise). */
+  listing: ListingForm;
+  /** A listing posted without the poster's name: nobody but them can tell it is theirs (the database keeps it apart). */
+  anonymous: boolean;
 };
 
 /** A reel is one video of up to three minutes (the reel schema's one video); a post up to 12 photos and one video. */
 export const REEL_MAX_SECONDS = 180;
 export const POST_MAX_PHOTOS = MAX_IMAGES_PER_POST;
 export const POST_MAX_VIDEOS = 1;
+/** A listing: its photos (the listing limit) and one video, as the listing forms always took. */
+export const LISTING_MAX_PHOTOS = MAX_IMAGES_PER_LISTING;
 
 function blank(mode: ComposeMode): ComposeState {
   return {
@@ -100,6 +150,8 @@ function blank(mode: ComposeMode): ComposeState {
     shareToApps: false,
     draftId: null,
     adding: false,
+    listing: { ...BLANK_LISTING },
+    anonymous: false,
   };
 }
 
@@ -131,7 +183,12 @@ export const compose = {
   },
   /** A saved draft, as it was. */
   restore(saved: ComposeState) {
-    emit({ ...saved, media: ordered(saved.media), adding: false });
+    // Drafts saved before listings came along have no listing fields: blank ones.
+    emit({ ...blank(saved.mode), ...saved, listing: { ...BLANK_LISTING, ...saved.listing }, media: ordered(saved.media), adding: false });
+  },
+  /** Changes some of a listing's fields. */
+  updateListing(patch: Partial<ListingForm>) {
+    emit({ ...state, listing: { ...state.listing, ...patch } });
   },
   update(patch: Partial<ComposeState>) {
     emit({ ...state, ...patch });
@@ -171,12 +228,18 @@ export function roomFor(s: Pick<ComposeState, "mode" | "media">): { photos: numb
   const photos = s.media.filter((m) => m.kind === "photo").length;
   const videos = s.media.filter((m) => m.kind === "video").length;
   if (s.mode === "reel") return { photos: 0, videos: Math.max(0, 1 - videos) };
+  if (isListing(s.mode)) return { photos: Math.max(0, LISTING_MAX_PHOTOS - photos), videos: Math.max(0, POST_MAX_VIDEOS - videos) };
   return { photos: Math.max(0, POST_MAX_PHOTOS - photos), videos: Math.max(0, POST_MAX_VIDEOS - videos) };
 }
 
 /** Whether the session holds anything worth asking about before it is thrown away. */
 export function hasWork(s: ComposeState): boolean {
-  return s.media.length > 0 || s.title.trim() !== "" || s.caption.trim() !== "" || s.link.trim() !== "";
+  return s.media.length > 0 || s.title.trim() !== "" || s.caption.trim() !== "" || s.link.trim() !== "" || JSON.stringify(s.listing) !== JSON.stringify(BLANK_LISTING);
+}
+
+/** "post", "reel", "roommate post", "listing": what the flow's words call it. */
+export function composeNoun(mode: ComposeMode): string {
+  return mode === "roommate" ? "roommate post" : mode === "item" ? "listing" : mode;
 }
 
 let seq = 0;

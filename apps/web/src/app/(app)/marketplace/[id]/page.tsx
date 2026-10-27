@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin, School, Tag } from "lucide-react";
-import { formatPrice, getItem, getListingStats, isSaved, ITEM_CATEGORIES, ITEM_CONDITIONS, labelFor, listingMedia, photosFor } from "@apartment-book/shared";
+import { formatPrice, getItem, getListingStats, isSaved, ITEM_CATEGORIES, ITEM_CONDITIONS, labelFor, listingMedia, myAnonymousListings, photosFor } from "@apartment-book/shared";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { timeAgo } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
 import { PhotoHero } from "@/components/photos/photo-hero";
+import { AnonymousPoster } from "@/components/common/anonymous-poster";
 import { MessageButton } from "@/components/common/message-button";
 import { SaveButton } from "@/components/common/save-button";
 import { ItemOwnerActions } from "@/components/marketplace/item-owner-actions";
@@ -32,7 +33,8 @@ export default async function ItemPage({ params }: Props) {
   if (!item) notFound();
 
   const saved = user ? await isSaved(supabase, user.id, "item", item.id) : false;
-  const isOwner = user?.id === item.seller_id;
+  // An anonymous item names nobody: its seller finds it among their own (only they can read that list).
+  const isOwner = item.seller ? user?.id === item.seller_id : Boolean(user) && (await myAnonymousListings(supabase)).item.includes(item.id);
   const stats = isOwner ? await getListingStats(supabase, "item", item.id).catch(() => null) : null;
   const path = `/marketplace/${item.id}`;
 
@@ -80,16 +82,20 @@ export default async function ItemPage({ params }: Props) {
         <aside className="flex flex-col gap-4 lg:sticky lg:top-20 lg:self-start">
           <Card>
             <CardBody className="flex flex-col gap-4">
-              <Link href={`/profile/${item.seller.id}`} className="flex items-center gap-3">
-                <Avatar name={item.seller.full_name} src={item.seller.avatar_url} size="lg" />
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-gray-900">{item.seller.full_name}</p>
-                  <p className="text-xs text-gray-500">Listed {timeAgo(item.created_at)}</p>
-                </div>
-              </Link>
+              {item.seller ? (
+                <Link href={`/profile/${item.seller.id}`} className="flex items-center gap-3">
+                  <Avatar name={item.seller.full_name} src={item.seller.avatar_url} size="lg" />
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-gray-900">{item.seller.full_name}</p>
+                    <p className="text-xs text-gray-500">Listed {timeAgo(item.created_at)}</p>
+                  </div>
+                </Link>
+              ) : (
+                <AnonymousPoster own={isOwner} createdAt={item.created_at} verb="Listed" />
+              )}
               {!isOwner ? (
                 <div className="flex flex-col gap-2">
-                  <MessageButton userId={item.seller.id} currentUserId={user?.id ?? null} returnTo={path} prefill={`Hi! Is "${item.title}" still available?`} label="Message seller" target={{ type: "item", id: item.id }} />
+                  <MessageButton userId={item.seller?.id ?? ""} anonymous={!item.seller} currentUserId={user?.id ?? null} returnTo={path} prefill={`Hi! Is "${item.title}" still available?`} label="Message seller" target={{ type: "item", id: item.id }} />
                   <SaveButton targetType="item" targetId={item.id} initialSaved={saved} signedIn={Boolean(user)} />
                 </div>
               ) : (

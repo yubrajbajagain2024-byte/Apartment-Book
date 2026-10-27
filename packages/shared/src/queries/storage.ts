@@ -49,7 +49,7 @@ export type UploadSource = Blob | ArrayBuffer | Uint8Array;
  */
 export async function uploadImage(
   supabase: Client,
-  input: { kind: UploadKind; userId: string; file: UploadSource; fileName?: string; contentType?: string },
+  input: { kind: UploadKind; userId: string; file: UploadSource; fileName?: string; contentType?: string; anonymous?: boolean },
 ): Promise<string> {
   const isBlob = typeof Blob !== "undefined" && input.file instanceof Blob;
   const contentType = input.contentType || (isBlob ? (input.file as Blob).type : "") || "application/octet-stream";
@@ -62,7 +62,8 @@ export async function uploadImage(
   }
   // Buzz is anonymous: its files go to buzz/anon/… so the public URL never contains the uploader's id.
   // Their names are random only: a timestamp in a public URL would give away when the author was online.
-  const anonymous = input.kind === "buzz";
+  // An anonymous listing's photos go there too (`anonymous`): that folder is the app's one place without names.
+  const anonymous = input.kind === "buzz" || input.anonymous === true;
   const folder = anonymous ? "buzz/anon" : `${input.kind}/${input.userId}`;
   const name = anonymous ? `${randomId()}${randomId()}${randomId()}` : `${Date.now()}-${randomId()}${randomId()}`;
   const path = `${folder}/${name}.${extensionFor(contentType, anonymous ? undefined : input.fileName)}`;

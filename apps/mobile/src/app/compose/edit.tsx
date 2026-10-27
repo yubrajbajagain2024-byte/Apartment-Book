@@ -19,7 +19,7 @@ import { useReduceMotion } from "@/lib/accessibility";
 import { saveDraft } from "@/lib/compose-drafts";
 import { clock, dropUploads } from "@/lib/compose-media";
 import { useCloseCompose } from "@/lib/compose-nav";
-import { compose, roomFor, useCompose, type ComposeMedia, type TextOverlay } from "@/lib/compose-store";
+import { compose, composeNoun, isListing, roomFor, useCompose, type ComposeMedia, type TextOverlay } from "@/lib/compose-store";
 import { alertWithHaptic, hapticSuccess } from "@/lib/haptics";
 import { useSession } from "@/lib/session";
 import { motion } from "@/lib/theme";
@@ -61,7 +61,8 @@ export default function EditScreen() {
   const media = s.media;
   const current = media[Math.min(index, media.length - 1)] ?? null;
   const room = roomFor(s);
-  const strip = s.mode === "post";
+  // Everything but a reel (one video) lines its items up under the stage.
+  const strip = s.mode !== "reel";
   const bottom = Math.max(insets.bottom, 10);
   const stageTop = insets.top + 2;
   const stageHeight = screenHeight - stageTop - bottom - ACTIONS - 12 - (strip ? STRIP + 10 : 0);
@@ -100,7 +101,7 @@ export default function EditScreen() {
         },
         { label: "Save draft", icon: "archive-outline", onPress: () => void finish("draft") },
       ],
-      s.mode === "reel" ? "Discard this reel? Your edits will be lost." : "Discard this post? Your edits will be lost.",
+      `Discard this ${composeNoun(s.mode)}? Your edits will be lost.`,
     );
   }
 
@@ -121,7 +122,8 @@ export default function EditScreen() {
     try {
       if (!(await bakeAll())) throw new Error("Couldn't add your text to the photo.");
       if (kind === "next") {
-        router.push("/compose/publish");
+        // A listing goes on to its own steps (title and who sees it, the form, a preview); a post or reel to its publish screen.
+        router.push(isListing(compose.get().mode) ? "/compose/listing" : "/compose/publish");
         return;
       }
       if (!user) return;
@@ -144,7 +146,7 @@ export default function EditScreen() {
         { label: "Take a photo or video", icon: "camera-outline", onPress: () => router.back() },
         { label: "Choose from library", icon: "images-outline", onPress: () => setGalleryOpen(true) },
       ],
-      `Add to your ${s.mode}`,
+      `Add to your ${composeNoun(s.mode)}`,
     );
   }
 

@@ -130,7 +130,10 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
     if (scrollY.current > headerHeight.current) listRef.current?.scrollToOffset({ offset: headerHeight.current, animated: false });
   }, []);
 
-  const name = other?.full_name ?? (isGroup ? conversation.title : "Deleted user");
+  // A chat with an anonymous listing's poster who has not shown who they are: no profile, nobody to block or share.
+  const anonymity = conversation.anonymous;
+  const hiddenFromMe = anonymity?.role === "asker" && anonymity.hidden;
+  const name = other?.full_name ?? (isGroup || hiddenFromMe ? conversation.title : "Deleted user");
   const firstName = (other?.full_name ?? "").trim().split(/\s+/)[0] || "them";
   const blocked = blockedQ.data === true;
 
@@ -254,12 +257,15 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
   }
 
   async function sendReport(reason: ReportReason) {
-    if (!other) return;
+    const listing = hiddenFromMe ? anonymity?.target : null;
+    if (!other && !listing) return;
     setBusy("report");
     try {
-      await reportContent(supabase, userId, { targetType: "profile", targetId: other.id, reason });
+      // The hidden poster is reported through their listing: our team can see who posted it, nobody else can.
+      if (listing) await reportContent(supabase, userId, { targetType: listing.type, targetId: listing.id, reason });
+      else if (other) await reportContent(supabase, userId, { targetType: "profile", targetId: other.id, reason });
       hapticSuccess();
-      notify("Thanks for letting us know", `Our team will review ${firstName}'s profile.`);
+      notify("Thanks for letting us know", listing ? "Our team will review this listing and its poster." : `Our team will review ${firstName}'s profile.`);
     } catch (e) {
       notify("Could not send the report", errorText(e));
     } finally {
@@ -268,10 +274,10 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
   }
 
   function report() {
-    if (!other || busy) return;
+    if ((!other && !hiddenFromMe) || busy) return;
     show(
       REPORT_REASONS.map((r) => ({ label: r.label, onPress: () => void sendReport(r.value) })),
-      `Why are you reporting ${firstName}?`,
+      hiddenFromMe ? "Why are you reporting this poster?" : `Why are you reporting ${firstName}?`,
     );
   }
 
@@ -292,8 +298,9 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
   }
 
   // Muting: a person's messages everywhere (a direct chat) or this group, for a while or until unmuted; a group also offers every group chat at once.
-  const muteScope: MuteScope = isGroup ? "conversation" : "user";
-  const muteTarget = isGroup ? conversation.id : (other?.id ?? null);
+  // A hidden poster has no id to mute: their chat is muted instead.
+  const muteScope: MuteScope = isGroup || hiddenFromMe ? "conversation" : "user";
+  const muteTarget = isGroup || hiddenFromMe ? conversation.id : (other?.id ?? null);
   const muted = muteTarget ? mutes.find(muteScope, muteTarget) : null;
   const pickDuration = (scope: MuteScope, targetId: string | null, title: string) =>
     show(
@@ -321,7 +328,9 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
             : { key: "block", label: `Block ${firstName}`, icon: "ban-outline", onPress: () => void toggleBlock(), busy: busy === "block", disabled: busy !== null || (blockedQ.loading && blockedQ.data === null) },
           { key: "report", label: `Report ${firstName}`, icon: "flag-outline", onPress: report, busy: busy === "report", disabled: busy !== null },
         ]
-      : [];
+      : hiddenFromMe
+        ? [{ key: "report", label: "Report this poster", icon: "flag-outline", onPress: report, busy: busy === "report", disabled: busy !== null }]
+        : [];
   const menu: SheetOption[] = actions.map((a) => ({ label: a.label, icon: a.icon, destructive: a.tone !== "brand", onPress: a.onPress }));
   const openMenu = () => {
     if (!busy) show(menu);
@@ -334,10 +343,16 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
         { key: "share", label: "Share", icon: "share-outline", onPress: () => void shareProfile() },
         { key: "mute", label: muted ? "Unmute" : "Mute", icon: muted ? "notifications-off" : "notifications-outline", onPress: toggleMute },
       ]
-    : [
-        { key: "search", label: "Search", icon: "search", onPress: openSearch },
-        { key: "mute", label: muted ? "Unmute" : "Mute", icon: muted ? "notifications-off" : "notifications-outline", onPress: toggleMute },
-      ];
+    : hiddenFromMe && anonymity?.target
+      ? [
+          { key: "listing", label: "Listing", icon: anonymity.target.type === "item" ? "bag-handle-outline" : "home-outline", onPress: () => router.push({ pathname: anonymity.target!.type === "item" ? "/marketplace/[id]" : "/roommates/[id]", params: { id: anonymity.target!.id } }) },
+          { key: "search", label: "Search", icon: "search", onPress: openSearch },
+          { key: "mute", label: muted ? "Unmute" : "Mute", icon: muted ? "notifications-off" : "notifications-outline", onPress: toggleMute },
+        ]
+      : [
+          { key: "search", label: "Search", icon: "search", onPress: openSearch },
+          { key: "mute", label: muted ? "Unmute" : "Mute", icon: muted ? "notifications-off" : "notifications-outline", onPress: toggleMute },
+        ];
 
   const state: SharedTab = shared.tabs[tab];
   const rows = useMemo<Row[]>(() => {
@@ -384,6 +399,8 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
             </Text>
           ) : null}
         </>
+      ) : hiddenFromMe ? (
+        <InfoPersonCard name={name} detail={anonymity?.target?.title ? `Posted "${anonymity.target.title}" anonymously` : "Posted anonymously"} anonymous />
       ) : (
         <InfoPersonCard name={name} />
       )}

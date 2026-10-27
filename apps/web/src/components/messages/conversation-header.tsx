@@ -34,7 +34,9 @@ export function ConversationHeader({ conversation, currentUserId }: { conversati
       ? business.verified_partner
         ? "Verified Partner"
         : "Business"
-      : (line?.label ?? (waiting ? " " : other ? "Direct message" : ""));
+      : conversation.anonymous?.role === "asker" && conversation.anonymous.hidden
+        ? (conversation.anonymous.target?.title ?? "Anonymous listing")
+        : (line?.label ?? (waiting ?" " : other ? "Direct message" : ""));
 
   return (
     <div className="border-b border-gray-200">

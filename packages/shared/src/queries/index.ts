@@ -3,6 +3,7 @@ export * from "./profiles";
 export * from "./apartments";
 export * from "./roommates";
 export * from "./items";
+export * from "./listing-privacy";
 export * from "./saved";
 export * from "./messages";
 export * from "./snaps";

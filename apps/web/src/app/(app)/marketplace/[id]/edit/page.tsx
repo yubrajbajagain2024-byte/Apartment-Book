@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { getItem, listUniversities } from "@apartment-book/shared";
+import { isMyListing, getItem, listUniversities } from "@apartment-book/shared";
 import { updateItemAction } from "@/lib/actions/items";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -14,7 +14,7 @@ export default async function EditItemPage({ params }: { params: Promise<{ id: s
   const supabase = await createClient();
   const [item, universities] = await Promise.all([getItem(supabase, id), listUniversities(supabase)]);
   if (!item) notFound();
-  if (item.seller_id !== user.id) redirect(`/marketplace/${id}`);
+  if (!(await isMyListing(supabase, user.id, "item", item))) redirect(`/marketplace/${id}`);
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4">
       <h1 className="text-2xl font-bold">Edit item</h1>

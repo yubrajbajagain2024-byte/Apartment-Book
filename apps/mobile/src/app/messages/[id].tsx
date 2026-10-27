@@ -5,6 +5,7 @@ import {
   MESSAGE_ATTACHMENT_LIMITS,
   MESSAGES_PAGE_SIZE,
   REPORT_REASONS,
+  asSeenBy,
   getConversation,
   getMemberStatus,
   isBlocked,
@@ -19,6 +20,7 @@ import {
   replyOf,
   replySnapshotOf,
   reportContent,
+  revealListingIdentity,
   sendMessage,
   signMessageMedia,
   snapDelivered,
@@ -40,6 +42,7 @@ import { useActionSheet } from "@/components/action-sheet";
 import { CallBanner } from "@/components/calls/call-banner";
 import { useCalls } from "@/components/calls/call-provider";
 import { CALLS_PAUSED } from "@/lib/calls";
+import { AnonymityBar } from "@/components/messages/anonymity-bar";
 import { ChatHeader } from "@/components/messages/chat-header";
 import { shareVideoThumbnail } from "@/components/messages/attachment-thumb";
 import { Composer, ComposerNotice, type ComposerReply } from "@/components/messages/composer";
@@ -49,7 +52,7 @@ import type { ReplyContext } from "@/components/messages/reply-quote";
 import { SnapActivitySheet } from "@/components/snap/snap-activity-sheet";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { reduceMotionEnabled } from "@/lib/accessibility";
-import { hapticTap, alertWithHaptic } from "@/lib/haptics";
+import { hapticSuccess, hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText, useQuery } from "@/lib/hooks";
 import { openMessageFile, removeUploadedFiles, uploadAttachment, type ChatMessage, type OutgoingFiles, type PendingAttachment, type UploadStatus } from "@/lib/message-attachments";
 import { useSession } from "@/lib/session";
@@ -74,6 +77,8 @@ const RETRY_UNSIGNED_MS = 60 * 1000;
 const BIG_FILE_BYTES = 15 * 1024 * 1024;
 /** A message that just arrived rises in; one drawn again later (scrolled away and back) simply appears. */
 const APPEAR_FOR_MS = 2500;
+/** Room the anonymity pill takes under the chat's bar (its 44 points and the gap). */
+const ANONYMITY_BAR = 52;
 
 type BlockState = "none" | "byMe" | "byThem";
 type SignedUrl = { url: string | null; at: number };
@@ -85,7 +90,12 @@ export default function ChatScreen() {
   const navigation = useNavigation();
   const styles = useStyles();
   const userId = user?.id ?? "";
-  const { data: conversation, loading } = useQuery(() => (userId ? getConversation(supabase, id, userId) : Promise.resolve(null)), [id, userId]);
+  const { data: conversation, loading, setData } = useQuery(() => (userId ? getConversation(supabase, id, userId) : Promise.resolve(null)), [id, userId]);
+  // The chat itself stays on screen while its summary is read again (the poster of an anonymous listing showed who they are).
+  const reload = useCallback(async () => {
+    const fresh = await getConversation(supabase, id, userId).catch(() => null);
+    if (fresh) setData(fresh);
+  }, [id, userId, setData]);
   useEffect(() => {
     if (!sessionLoading && !user) router.replace("/(auth)/login");
   }, [sessionLoading, user, router]);
@@ -110,6 +120,7 @@ export default function ChatScreen() {
       contact={targetType && targetId ? { type: targetType as "apartment" | "item" | "roommate", id: targetId } : null}
       jumpTo={typeof at === "string" && at ? at : null}
       onBack={back}
+      onReload={reload}
     />
   );
 }
@@ -199,6 +210,7 @@ function Chat({
   contact,
   jumpTo,
   onBack,
+  onReload,
 }: {
   conversation: ConversationSummary;
   userId: string;
@@ -206,6 +218,8 @@ function Chat({
   contact: { type: "apartment" | "item" | "roommate"; id: string } | null;
   jumpTo: string | null;
   onBack: () => void;
+  /** Reads the chat's summary again, keeping the chat on screen. */
+  onReload: () => Promise<void>;
 }) {
   const { colors } = useAppTheme();
   const styles = useStyles();
@@ -272,6 +286,24 @@ function Chat({
   );
 
   const membersById = useMemo(() => new Map(conversation.members.map((m) => [m.id, m])), [conversation.members]);
+  // A chat about an anonymous listing (20261105000000_anonymous_listings.sql). While its poster is hidden, their messages
+  // are stored with no sender: on the poster's own screen they are theirs again (asSeenBy); they send words only (a
+  // file's path would carry their id), and there are no calls.
+  const anonymity = conversation.anonymous;
+  const posterHidden = anonymity?.hidden === true;
+  const hiddenPoster = posterHidden && anonymity?.role === "poster";
+  const anonymityRef = useRef(anonymity);
+  anonymityRef.current = anonymity;
+  const membersRef = useRef(membersById);
+  membersRef.current = membersById;
+  /** A row as this person sees it: the hidden poster's own messages carry them again. */
+  const seen = useCallback(
+    <T extends ChatMessage>(row: T): T => {
+      const mine = asSeenBy(row, userId, anonymityRef.current);
+      return mine === row ? row : { ...mine, sender: membersRef.current.get(userId) ?? mine.sender };
+    },
+    [userId],
+  );
   const other = conversation.otherMembers[0];
   const otherId = other?.id ?? null;
   const isGroup = conversation.type === "group";
@@ -320,7 +352,7 @@ function Chat({
   const loadInitial = useCallback(async () => {
     setLoadError(null);
     try {
-      const rows = await listMessages(supabase, conversation.id);
+      const rows = (await listMessages(supabase, conversation.id)).map(seen);
       setMessages((prev) => addFromServer(prev, rows, userId));
       setHasOlder(rows.length >= MESSAGES_PAGE_SIZE);
       if (rows.length === 0 && prefill) setText((t) => t || prefill);
@@ -339,7 +371,7 @@ function Chat({
       .channel(`conversation:${conversation.id}:${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversation.id}` }, (payload) => {
         // Realtime rows carry attachments as raw JSON.
-        const row = chatMessageOf(payload.new as Message & { attachments?: unknown }, membersById);
+        const row = seen(chatMessageOf(payload.new as Message & { attachments?: unknown }, membersById));
         if (row.sender_id !== userId) noteArrival([row.id]);
         setMessages((prev) => addFromServer(prev, [row], userId));
         if (row.sender_id !== userId) {
@@ -350,9 +382,12 @@ function Chat({
       })
       // A Snap opened, or gone, on either side, or a call moving on (answered, over): the Snap and call functions are
       // all that ever change a message.
+      // And an anonymous poster showing who they are: their earlier messages get their sender back.
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${conversation.id}` }, (payload) => {
         const row = payload.new as Message;
-        setMessages((prev) => prev.map((m) => (m.id === row.id ? { ...m, snap: row.snap ?? null, call: row.call ?? null } : m)));
+        const revealed = row.anonymous === false && messagesRef.current.some((m) => m.id === row.id && m.anonymous);
+        setMessages((prev) => prev.map((m) => (m.id === row.id ? seen({ ...m, snap: row.snap ?? null, call: row.call ?? null, sender_id: row.sender_id ?? m.sender_id, anonymous: row.anonymous ?? m.anonymous, sender: row.sender_id ? (membersRef.current.get(row.sender_id) ?? m.sender) : m.sender }) : m)));
+        if (revealed) void onReload();
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversation_members", filter: `conversation_id=eq.${conversation.id}` }, (payload) => {
         const row = payload.new as ConversationMember;
@@ -366,7 +401,7 @@ function Chat({
         const newest = [...messagesRef.current].reverse().find((m) => !m.pending && !m.failed)?.created_at;
         listMessages(supabase, conversation.id, newest ? { after: newest } : {})
           .then((rows) => {
-            if (rows.length > 0) setMessages((prev) => addFromServer(prev, rows, userId));
+            if (rows.length > 0) setMessages((prev) => addFromServer(prev, rows.map(seen), userId));
           })
           .catch(() => {});
       });
@@ -383,7 +418,7 @@ function Chat({
     olderBusy.current = true;
     setLoadingOlder(true);
     try {
-      const rows = await listMessages(supabase, conversation.id, { before: oldest });
+      const rows = (await listMessages(supabase, conversation.id, { before: oldest })).map(seen);
       setMessages((prev) => prependOlder(prev, rows));
       setHasOlder(rows.length >= MESSAGES_PAGE_SIZE);
     } catch {
@@ -434,7 +469,7 @@ function Chat({
           setLoadingOlder(true);
           let rows: ChatMessage[] | null;
           try {
-            rows = await listMessages(supabase, conversation.id, { before: oldest, limit: JUMP_PAGE_SIZE });
+            rows = (await listMessages(supabase, conversation.id, { before: oldest, limit: JUMP_PAGE_SIZE })).map(seen);
           } catch {
             rows = null;
           } finally {
@@ -708,6 +743,7 @@ function Chat({
       shared_post: null,
       attachments: [],
       reply_to: answering ? replySnapshotOf(answering) : null,
+      anonymous: false,
       created_at: new Date().toISOString(),
       sender: me,
       pending: true,
@@ -913,8 +949,8 @@ function Chat({
     };
   }, [conversation.id]);
   const inLiveCall = liveCall?.participants.some((p) => p.user_id === userId && p.state === "joined") ?? false;
-  // A business answers in writing; its team is never rung.
-  const canCall = block === "none" && !business;
+  // A business answers in writing; its team is never rung. Nor is an anonymous poster, nor by one (a call names who joins).
+  const canCall = block === "none" && !business && !posterHidden;
   const startAudioCall = useCallback(() => {
     Keyboard.dismiss();
     void place(conversation.id, "audio");
@@ -959,7 +995,47 @@ function Chat({
     () => (lastMine ? (lastMine.pending ? ("sending" as const) : receiptFor(lastMine.created_at, others.map((o) => o.status))) : null),
     [lastMine, others],
   );
-  const subtitle = isGroup ? `${conversation.members.length} members` : business ? (business.verified_partner ? "Verified Partner" : "Business") : (activity.line?.label ?? "");
+  // The person writing to a hidden poster sees what the chat is about where an activity line would be.
+  const subtitle = isGroup ? `${conversation.members.length} members` : business ? (business.verified_partner ? "Verified Partner" : "Business") : posterHidden && anonymity?.role === "asker" ? (anonymity.target?.title ?? "Anonymous listing") : (activity.line?.label ?? "");
+
+  // ---------------------------------------------------------------------------
+  // An anonymous poster showing who they are: to this one person, in this one chat, once they have written.
+  // ---------------------------------------------------------------------------
+  const [revealing, setRevealing] = useState(false);
+  const otherFirst = firstName(other?.full_name);
+  const theyWrote = messages.some((m) => !m.pending && !m.failed && m.sender_id !== null && m.sender_id !== userId);
+  const reveal = useCallback(() => {
+    if (!theyWrote) {
+      Alert.alert("Not yet", `You can show who you are once ${otherFirst} has messaged you.`);
+      return;
+    }
+    alertWithHaptic("warning", `Show ${otherFirst} who you are?`, `${otherFirst} will see your name and profile in this chat, and your earlier messages here will show as yours. Your listing stays anonymous to everyone else, and so do your other chats about it.`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Show who I am",
+        onPress: async () => {
+          setRevealing(true);
+          try {
+            await revealListingIdentity(supabase, conversation.id);
+            hapticSuccess();
+            await onReload();
+          } catch (e) {
+            alertWithHaptic("error", "Couldn't do that", errorText(e, "Please try again."));
+          } finally {
+            if (alive.current) setRevealing(false);
+          }
+        },
+      },
+    ]);
+  }, [theyWrote, otherFirst, conversation.id, onReload]);
+  const explainAnonymity = useCallback(() => {
+    if (anonymity?.role === "poster") {
+      Alert.alert("You're anonymous here", `${otherFirst} can't see your name, photo or profile. Show who you are whenever you're ready: it's only ever for this chat. Until then you can send messages, not photos, files or voice messages.`);
+    } else {
+      const what = anonymity?.target?.title ? `"${anonymity.target.title}"` : "this listing";
+      Alert.alert("The poster is anonymous", `They posted ${what} without their name. They can see who you are, and can choose to show you who they are in this chat.`);
+    }
+  }, [anonymity, otherFirst]);
 
   // Newest first: the list is inverted, so it opens at the bottom and stays there as the keyboard comes and goes.
   const data = useMemo(() => [...messages].reverse(), [messages]);
@@ -1023,7 +1099,7 @@ function Chat({
           keyExtractor={(m) => m.id}
           renderItem={renderItem}
           style={[styles.flex, { marginBottom: -barHeight }]}
-          contentContainerStyle={[styles.list, { paddingTop: barHeight + 6, paddingBottom: headerHeight + 6 }]}
+          contentContainerStyle={[styles.list, { paddingTop: barHeight + 6, paddingBottom: headerHeight + 6 + (posterHidden ? ANONYMITY_BAR : 0) }]}
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           keyboardShouldPersistTaps="handled"
           onScroll={(e) => {
@@ -1059,10 +1135,11 @@ function Chat({
             value={text}
             onChangeText={setText}
             items={picked}
-            onAddItems={addPicked}
+            onAddItems={hiddenPoster ? undefined : addPicked}
             onRemoveItem={removePicked}
             onSend={send}
-            onSendVoice={sendVoice}
+            onSendVoice={hiddenPoster ? undefined : sendVoice}
+            placeholder={hiddenPoster ? "Message anonymously" : undefined}
             reply={composerReply}
             onCancelReply={cancelReply}
             inputRef={inputRef}
@@ -1082,6 +1159,7 @@ function Chat({
         onHeight={setHeaderHeight}
       />
       {liveCall && !inLiveCall && canCall ? <CallBanner call={liveCall} top={headerHeight + 4} onJoin={() => void join(liveCall.id, liveCall.kind)} /> : null}
+      {posterHidden && anonymity ? <AnonymityBar anonymity={anonymity} otherName={otherFirst} top={headerHeight + 4} busy={revealing} onReveal={reveal} onExplain={explainAnonymity} /> : null}
       <MediaViewer visible={viewer !== null} items={viewer?.items ?? []} index={viewer?.index ?? 0} onClose={() => setViewer(null)} />
       <SnapActivitySheet
         snap={activitySnap}

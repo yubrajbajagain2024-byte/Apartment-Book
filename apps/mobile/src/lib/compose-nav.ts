@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useNavigation, useRouter } from "expo-router";
-import { compose, type ComposeMode } from "./compose-store";
+import { compose, type ComposeMode, type ListingMode } from "./compose-store";
 import { dropUploads } from "./compose-media";
 
 type Router = ReturnType<typeof useRouter>;
@@ -13,6 +13,16 @@ export function openCompose(router: Router, mode: ComposeMode, opts: { upload?: 
   dropUploads();
   compose.start(mode);
   router.push({ pathname: "/compose", params: opts.upload ? { mode, upload: "1" } : { mode } } as never);
+}
+
+/**
+ * Opens the create flow for a roommate post or a Marketplace item (Explore's +): the same camera, on the back lens
+ * (it is the room or the thing that is photographed), with Skip for a listing without pictures.
+ */
+export function openListingCompose(router: Router, mode: ListingMode) {
+  dropUploads();
+  compose.start(mode);
+  router.push({ pathname: "/compose", params: { mode } } as never);
 }
 
 /**
