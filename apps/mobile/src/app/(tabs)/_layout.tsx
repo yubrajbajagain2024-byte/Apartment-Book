@@ -92,7 +92,7 @@ function createIcon() {
  * Home | Explore (Housing | Roommate | Marketplace) | + | Messages | Profile. Search is the magnifying glass in Home's
  * top-right corner, before the Notifications bell (see HeaderActions). The "+" in the middle (CreateIcon: a thin Aurora
  * ring round the plain plus, no label; screen readers hear "Create") opens the live camera
- * (POST | REEL | SNAP, see app/compose), as the "+" on your photo on Home does; signed out, the login screen. No haptic, like the
+ * (SNAP | POST | REEL | BUZZ, see app/compose), as the "+" on your photo on Home does; signed out, the login screen. No haptic, like the
  * tabs. The bar is FloatingTabBar: a rounded glass pill floating over the tabs' content (see lib/tab-bar.ts for its size
  * and the room each tab keeps clear under it) with a capsule that slides to the tab on screen.
  */

@@ -8,7 +8,7 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library/legacy";
 import { Directions, Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, FadeIn, FadeOut, ZoomIn, cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, FadeOut, ZoomIn, cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { SFSymbol } from "expo-symbols";
 import { SNAP_LIMITS } from "@apartment-book/shared";
@@ -38,10 +38,11 @@ import { useAppTheme } from "@/lib/theme-provider";
  */
 type CameraMode = "post" | "reel" | "buzz" | "snap";
 
+/** Along the bottom, left to right; the camera opens on POST. */
 const MODES: { value: CameraMode; label: string }[] = [
+  { value: "snap", label: "SNAP" },
   { value: "post", label: "POST" },
   { value: "reel", label: "REEL" },
-  { value: "snap", label: "SNAP" },
   { value: "buzz", label: "BUZZ" },
 ];
 const CAPTURE: { value: "photo" | "video"; label: string }[] = [
@@ -64,12 +65,15 @@ const SIMULATOR = Platform.OS === "ios" && !Device.isDevice;
 /**
  * Create, TikTok's way: the + opens straight onto the live camera, full screen. The picture fills a rounded stage with
  * the camera's switches down its right edge (flip, flash, timer), the capture choices above the shutter, and below the
- * stage the library's newest picture (the in-app gallery), POST | REEL | SNAP | BUZZ, and the drafts. Tap the shutter
+ * stage the library's newest picture (the in-app gallery), SNAP | POST | REEL | BUZZ, and the drafts. Tap the shutter
  * for a photo, or to start and stop a video; pinch to zoom, double-tap to flip, swipe sideways to change mode. A post's
  * or reel's shot goes to the editor at once; a Snap goes to Send To (app/snap). BUZZ turns the stage into an anonymous
  * text composer (components/compose/buzz-stage.tsx) while the camera pauses underneath; its X comes back to POST.
  * Minimal, as TikTok's: the switches are bare icons, and a change of flash, timer or lens is told in a passing pill
  * at the top, as the iPhone's camera does.
+ *
+ * It opens on the front (selfie) camera every time, with the flip beside the shutter; the preview fades in once the
+ * camera is ready and dims for a moment as the lens turns. Selfies are kept mirrored, as they looked on screen.
  *
  * The camera and the microphone are asked for as the screen opens, one after the other, as TikTok does. Without the
  * camera the stage explains what each is for, with Allow (or Settings, once iOS won't ask again) and the library.
@@ -95,7 +99,8 @@ export default function CameraScreen() {
   const [attempt, setAttempt] = useState(0);
   /** BUZZ or SNAP, which live on this screen only; null for POST and REEL, which are the create session's own mode. */
   const [extraMode, setExtraMode] = useState<"buzz" | "snap" | null>(params.mode === "snap" || params.mode === "buzz" ? params.mode : null);
-  const [facing, setFacing] = useState<CameraType>("back");
+  // The selfie camera first, every time the + is opened (POST, REEL, SNAP or BUZZ); the flip beside the shutter turns it.
+  const [facing, setFacing] = useState<CameraType>("front");
   const [flash, setFlash] = useState<"off" | "on" | "auto">("off");
   const [timer, setTimer] = useState<0 | 3 | 10>(0);
   const [zoom, setZoom] = useState(0);
@@ -119,6 +124,12 @@ export default function CameraScreen() {
   const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const progress = useSharedValue(0);
   const flashOverlay = useSharedValue(0);
+  /**
+   * A dark veil over the preview: it lifts as the camera reports it is ready (a soft fade-in, never a pop), and dips
+   * for a moment as the lens turns, hiding the frame or two a switch takes, as the iPhone's camera does.
+   */
+  const veil = useSharedValue(1);
+  const veilFallback = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const mode: CameraMode = extraMode ?? s.mode;
   const buzz = mode === "buzz";
@@ -183,6 +194,19 @@ export default function CameraScreen() {
     const t = setInterval(() => setElapsed((Date.now() - startedAt.current) / 1000), 200);
     return () => clearInterval(t);
   }, [recording]);
+
+  // Each time the camera mounts (first allowed, or started again after a failure) it starts veiled.
+  const cameraAllowed = cameraPermission?.granted === true && !mountError;
+  useEffect(() => {
+    if (!cameraAllowed) return;
+    veil.value = 1;
+    veilFallback.current = setTimeout(() => {
+      veil.value = withTiming(0, { duration: 240 });
+    }, 1200);
+    return () => {
+      if (veilFallback.current) clearTimeout(veilFallback.current);
+    };
+  }, [cameraAllowed, attempt, veil]);
 
   useEffect(
     () => () => {
@@ -346,11 +370,22 @@ export default function CameraScreen() {
   }
 
   const flip = () => {
+    // A lens can't change mid-recording.
+    if (recording) return;
     const next = facing === "back" ? "front" : "back";
     setFacing(next);
-    flipTurn.value = reduceMotion ? 0 : withTiming(flipTurn.value + 180, { duration: 320, easing: Easing.out(Easing.cubic) });
+    if (!reduceMotion) {
+      flipTurn.value = withTiming(flipTurn.value + 180, { duration: 320, easing: Easing.out(Easing.cubic) });
+      veil.value = withSequence(withTiming(0.82, { duration: 110 }), withDelay(170, withTiming(0, { duration: 260, easing: Easing.out(Easing.quad) })));
+    }
     tell(next === "front" ? "Front Camera" : "Back Camera");
   };
+
+  /** The camera is up: the veil lifts. Also on a timer, so a camera that never says so is never left hidden. */
+  const reveal = useCallback(() => {
+    if (veilFallback.current) clearTimeout(veilFallback.current);
+    veil.value = reduceMotion ? 0 : withTiming(0, { duration: 240, easing: Easing.out(Easing.quad) });
+  }, [reduceMotion, veil]);
   const cycleFlash = () => {
     const next = flash === "off" ? "on" : flash === "on" ? "auto" : "off";
     setFlash(next);
@@ -393,6 +428,7 @@ export default function CameraScreen() {
   );
 
   const flashStyle = useAnimatedStyle(() => ({ opacity: flashOverlay.value }));
+  const veilStyle = useAnimatedStyle(() => ({ opacity: veil.value }));
   const progressStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
 
   const bottom = Math.max(insets.bottom, 12);
@@ -412,13 +448,17 @@ export default function CameraScreen() {
             ref={camera}
             style={StyleSheet.absoluteFill}
             facing={facing}
+            // Selfies come out as they looked on screen, as TikTok's and Snapchat's do.
+            mirror={facing === "front"}
             mode={video ? "video" : "picture"}
-            flash={flash as FlashMode}
+            // The front camera has no flash of its own: the screen lights the face instead.
+            flash={(facing === "front" && flash !== "off" ? "screen" : flash) as FlashMode}
             enableTorch={video && recording && flash === "on" && facing === "back"}
             zoom={zoom}
             mute={micOff}
             active={focused && !buzz}
             videoQuality="1080p"
+            onCameraReady={reveal}
             onMountError={(e) => setMountError(e.message || "The camera didn't start.")}
           />
         ) : cameraPermission && !cameraPermission.granted ? (
@@ -435,6 +475,7 @@ export default function CameraScreen() {
         ) : (
           <View style={styles.dark} />
         )}
+        {cameraReady ? <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.veil, veilStyle]} /> : null}
         {cameraReady && !buzz ? (
           <GestureDetector gesture={gestures}>
             <View style={StyleSheet.absoluteFill} collapsable={false} />
@@ -476,7 +517,6 @@ export default function CameraScreen() {
 
         {cameraReady && !recording && !buzz ? (
           <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(180)} exiting={reduceMotion ? undefined : FadeOut.duration(120)} style={styles.rail} pointerEvents="box-none">
-            <RailButton icon="camera-reverse-outline" sf="arrow.triangle.2.circlepath.camera" label={facing === "back" ? "Switch to the front camera" : "Switch to the back camera"} onPress={flip} turn={flipStyle} />
             <RailButton icon={flashIcon.icon} sf={flashIcon.sf} label={flashIcon.label} active={flash !== "off"} bounce={flashBounce} onPress={cycleFlash} />
             <RailButton icon="timer-outline" sf="timer" label={timer === 0 ? "Timer off" : `Timer ${timer} seconds`} active={timer > 0} bounce={timerBounce} badge={timer > 0 ? String(timer) : undefined} onPress={cycleTimer} />
           </Animated.View>
@@ -509,14 +549,26 @@ export default function CameraScreen() {
             ) : (
               <View style={styles.lengths} />
             )}
-            <CaptureButton
-              kind={video ? "video" : "photo"}
-              recording={recording}
-              busy={busy && !recording}
-              disabled={!canCapture}
-              onPress={shoot}
-              label={recording ? "Stop recording" : countdown !== null ? "Cancel the timer" : video ? "Record a video" : "Take a photo"}
-            />
+            <View style={styles.shutterRow}>
+              <CaptureButton
+                kind={video ? "video" : "photo"}
+                recording={recording}
+                busy={busy && !recording}
+                disabled={!canCapture}
+                onPress={shoot}
+                label={recording ? "Stop recording" : countdown !== null ? "Cancel the timer" : video ? "Record a video" : "Take a photo"}
+              />
+              {/* The lens, in thumb's reach beside the shutter (Instagram's place); a double tap on the picture turns it too. */}
+              {!recording ? (
+                <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(160)} exiting={reduceMotion ? undefined : FadeOut.duration(120)} style={styles.flipSpot}>
+                  <GlassIconButton icon="camera-reverse-outline" sf="arrow.triangle.2.circlepath.camera" label={facing === "front" ? "Switch to the back camera" : "Switch to the front camera"} onPress={flip} variant="media" size={48} haptic={false}>
+                    <Animated.View style={flipStyle}>
+                      <Icon name="camera-reverse-outline" sf="arrow.triangle.2.circlepath.camera" size={24} weight="medium" color="#fff" />
+                    </Animated.View>
+                  </GlassIconButton>
+                </Animated.View>
+              ) : null}
+            </View>
           </Animated.View>
         ) : null}
       </View>
@@ -708,6 +760,9 @@ const styles = StyleSheet.create({
   countdown: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
   countdownText: { color: "#fff", fontSize: 120, fontWeight: "800", ...shadow, textShadowRadius: 18 },
   captureArea: { position: "absolute", left: 0, right: 0, bottom: 14, alignItems: "center", gap: 10 },
+  shutterRow: { alignSelf: "stretch", alignItems: "center", justifyContent: "center" },
+  flipSpot: { position: "absolute", right: 36 },
+  veil: { backgroundColor: "#0b0b0f" },
   micNote: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, height: 28, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.5)" },
   micNoteText: { color: "#fff", fontSize: 13, fontWeight: "600" },
   lengths: { height: 36, alignSelf: "stretch", justifyContent: "center" },
