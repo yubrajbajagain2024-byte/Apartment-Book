@@ -231,14 +231,15 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   const faces = (preview?.likers ?? []).filter((l) => l.id !== user?.id).slice(0, 3);
   const others = like.likes - 1;
 
-  // Hashtags and @mentions in the brand blue; a mention opens the profile it names.
+  // Hashtags and @mentions in the brand blue: a tag opens its topic page (posts with it from every campus), as
+  // Instagram's hashtags do, and a mention opens the profile it names.
   const caption = captionParts(text).map((part, i) =>
     part.mention ? (
       <Text key={i} style={styles.tag} onPress={() => openMention(part.mention!)} accessibilityRole="link">
         {part.text}
       </Text>
     ) : part.tag ? (
-      <Text key={i} style={styles.tag}>
+      <Text key={i} style={styles.tag} onPress={() => router.push({ pathname: "/topics/[tag]", params: { tag: part.text.slice(1) } })} accessibilityRole="link">
         {part.text}
       </Text>
     ) : (

@@ -5,11 +5,14 @@ import { dropUploads } from "./compose-media";
 
 type Router = ReturnType<typeof useRouter>;
 
-/** Opens the create flow on its camera, starting a fresh post or reel. What every create button calls. */
-export function openCompose(router: Router, mode: ComposeMode) {
+/**
+ * Opens the create flow on its camera, starting a fresh post or reel. What every create button calls; `upload` (the
+ * profile menu's Upload) has the camera open its library at once.
+ */
+export function openCompose(router: Router, mode: ComposeMode, opts: { upload?: boolean } = {}) {
   dropUploads();
   compose.start(mode);
-  router.push({ pathname: "/compose", params: { mode } } as never);
+  router.push({ pathname: "/compose", params: opts.upload ? { mode, upload: "1" } : { mode } } as never);
 }
 
 /**

@@ -12,13 +12,13 @@ import { useAppTheme } from "@/lib/theme-provider";
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>["tabBar"]>>[0];
 
 /**
- * An action in the middle of the bar (the app's "+"): its icon alone, centred in its slot (the label is for screen
+ * An action in the middle of the bar (a "+", say; the app's bar has none since Discover took its place): its icon alone, centred in its slot (the label is for screen
  * readers). It opens something rather than going somewhere, so it never takes the capsule.
  */
 export type TabBarAction = { label: string; hint?: string; icon: (p: { color: ColorValue; size: number }) => ReactNode; onPress: () => void };
 
 /**
- * The bar as it is right now (its tabs, the one on screen, their icons and badges, the "+"), for a screen drawn over the
+ * The bar as it is right now (its tabs, the one on screen, their icons and badges, any middle action), for a screen drawn over the
  * tabs that keeps the bar in view: the full-screen viewer (app/reels/[id].tsx) is a modal above them, so the bar itself
  * is under it, and the viewer draws this same bar in the same place instead. Published by the tabs' own bar each time
  * it renders (a new tab, a new unread count), and gone with it.
@@ -107,11 +107,11 @@ function restOf(groups: Group[], index: number): { left: number; width: number }
  * screen. The capsule never blinks or jumps: it glides from the tab you were on to the one you tap (see LEAD and TRAIL),
  * while the tabs make room for it (the tab on screen is ACTIVE_SHARE as wide as the others) on a critically damped
  * spring. Only the new tab's symbol bounces (silently: no haptic); the tab you left returns to its plain look at once.
- * `action` sits in the middle of the row, between the two halves of the tabs (the app's "+"), its icon centred in a slot
+ * `action`, when given, sits in the middle of the row, between the two halves of the tabs, its icon centred in a slot
  * as wide as an idle tab: it opens something rather than going somewhere, so the capsule passes behind it but never
  * stops on it, and it stays put while the tabs on either side make room (see shareRow). The navigator's own events still fire
  * (tabPress can be prevented, tabLongPress is sent), each tab keeps its icon, title and badge from its screen options,
- * and screen readers hear "Home, tab, 1 of 4". Everything that moves runs on the UI thread (Reanimated).
+ * and screen readers hear "Home, tab, 1 of 5". Everything that moves runs on the UI thread (Reanimated).
  */
 export function FloatingTabBar({ state, descriptors, emitter, navigateToTab, action, onSelect, ...rest }: TabBarProps & { action?: TabBarAction; onSelect?: (routeKey: string, focused: boolean) => void }) {
   const insets = useSafeAreaInsets();
@@ -131,7 +131,7 @@ export function FloatingTabBar({ state, descriptors, emitter, navigateToTab, act
   const reduceMotion = useReduceMotion();
   const [rowWidth, setRowWidth] = useState(0);
   const count = state.routes.length;
-  // The first tab after the middle slot (Home, Explore | + | Messages, Profile), or none; the slot is as wide as an idle tab.
+  // The first tab after the middle slot (with four tabs: Home, Explore | + | Messages, Profile), or none; the slot is as wide as an idle tab.
   const middle = action ? Math.ceil(count / 2) : -1;
   const centerWidth = action ? rowWidth / (count + 1) : 0;
   const groups = useMemo(() => shareRow(rowWidth, count, middle, centerWidth), [rowWidth, count, middle, centerWidth]);

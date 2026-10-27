@@ -15,6 +15,7 @@ export * from "./profile";
 export * from "./campus";
 export * from "./business";
 export * from "./qr";
+export * from "./discover";
 export * from "./types/database";
 export * from "./types/models";
 export * from "./schemas";

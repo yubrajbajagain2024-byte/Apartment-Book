@@ -81,7 +81,7 @@ const SIMULATOR = Platform.OS === "ios" && !Device.isDevice;
  */
 export default function CameraScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ mode?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; upload?: string }>();
   const { user, loading } = useSession();
   const { colors } = useAppTheme();
   const s = useCompose();
@@ -140,9 +140,13 @@ export default function CameraScreen() {
   const canCapture = mode === "snap" || (video ? room.videos > 0 : room.photos > 0);
   const micOff = micPermission !== null && !micPermission.granted;
 
-  // A link straight to /compose?mode=reel starts in that mode (the + sets it before opening).
+  // A link straight to /compose?mode=reel starts in that mode (the + sets it before opening); `upload` (the profile
+  // menu's Upload) brings the library up as soon as the camera has risen.
   useEffect(() => {
     if (params.mode === "post" || params.mode === "reel") compose.setMode(params.mode);
+    if (params.upload !== "1") return;
+    const t = setTimeout(() => setGalleryOpen(true), 380);
+    return () => clearTimeout(t);
     // Once, on arrival.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
