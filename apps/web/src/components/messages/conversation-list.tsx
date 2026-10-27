@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { SquarePen, Users } from "lucide-react";
+import { SquarePen, Users, EyeOff } from "lucide-react";
 import { markConversationsRead, type ConversationSummary } from "@apartment-book/shared";
 import { useHydrated } from "@/lib/hooks";
 import { createClient, ensureRealtimeAuth, uniqueChannelName } from "@/lib/supabase/client";
@@ -16,6 +16,14 @@ export function ConversationAvatar({ conversation, size = "md" }: { conversation
   // A student's inquiry chat shows the business, not whichever team member answered last.
   if (conversation.business) {
     return <Avatar name={conversation.business.name} src={conversation.business.logo_url} size={size === "md" ? "lg" : size} />;
+  }
+  // An anonymous listing's poster who has not shown who they are: a mask, nothing about them.
+  if (conversation.anonymous?.role === "asker" && conversation.anonymous.hidden) {
+    return (
+      <span aria-label="Anonymous" className={cn("flex shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500", size === "lg" ? "h-14 w-14" : size === "md" ? "h-12 w-12" : "h-8 w-8")}>
+        <EyeOff className={size === "sm" ? "h-4 w-4" : "h-6 w-6"} />
+      </span>
+    );
   }
   if (conversation.type === "group") {
     return (

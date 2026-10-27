@@ -7,15 +7,17 @@ import { useVideoPlayer, VideoView, type VideoPlayer } from "expo-video";
 import { GestureDetector } from "react-native-gesture-handler";
 import Reanimated, { cancelAnimation, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
 import type { SFSymbol } from "expo-symbols";
-import { APP_NAME, deleteFeedPost, getFeedPost, getOrCreateDirectConversation, hasPublicComments, likePost, listingChatPrefill, reelPath, REPORT_REASONS, reportContent, setPostPinned, sharedPostPath, toggleSaved, unlikePost, type FeedMedia, type Reel, type ReportReason } from "@apartment-book/shared";
+import { APP_NAME, captionParts, deleteFeedPost, getFeedPost, getOrCreateDirectConversation, hasPublicComments, likePost, listingChatPrefill, reelPath, REPORT_REASONS, reportContent, setPostPinned, sharedPostPath, toggleSaved, unlikePost, type FeedMedia, type Reel, type ReportReason } from "@apartment-book/shared";
 import { hapticLike, hapticSelect, hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
+import { canShareAudience, postLink, useOpenMention } from "@/lib/post-details";
 import { asViewerItem, posterAt, viewerThumb, type ViewerItem } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { SITE_URL, supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { useActionSheet } from "../action-sheet";
+import { POST_LINK_HEIGHT, PostLink } from "../post-bits";
 import { useShareSheet } from "../share-sheet";
 import { Icon, useBounceOn } from "@/components/icon";
 import { ProgressiveBlur } from "@/components/progressive-blur";
@@ -61,6 +63,8 @@ const OVERLAY_PAD = 31;
  * of words, and a little air between the photo and the name. A photo too tall to leave it is shown full screen instead.
  */
 const WORDS_ROOM = OVERLAY_PAD + 64;
+/** What a page's link adds under its words: the pill (see PostLink) and the words' gap above it. */
+const LINK_ROOM = POST_LINK_HEIGHT + 6;
 /** An opened description on a photo's page reads on the page's own colour, which fades in this far above it. */
 const UNDERLAY_FADE = 28;
 /** The sound button sits this far above the play button's centre, Instagram style: its 44pt disc, then a gap. */
@@ -238,7 +242,7 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
     return m ? (aspectOf(m) ?? aspects[i] ?? null) : null;
   };
   const photoAt = photoTop(contentTop, media.length);
-  const floor = photoFloor(height, bottomInset);
+  const floor = photoFloor(height, bottomInset, reel);
   /** A photo on its page: the theme's colours. A video, or a photo too tall for a page: dark, white words over shades. */
   const surface = surfaceOf(media[slide], aspectAt(slide), width, height, photoAt, floor);
   const onPage = surface === "page";
@@ -253,6 +257,13 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   const oneLine = [reel.title, reel.caption].filter(Boolean).join(" · ");
   const [clipped, setClipped] = useState(false);
   const canExpand = clipped || oneLine.includes("\n");
+  /** A posted reel's or post's link (migration 44), in a pill under the words. Video tours have none. */
+  const link = postLink(reel.link);
+  /** Comments turned off by the author: no comment button (and, in the viewer, no comment bar). */
+  const commentsOff = reel.commentsOff ?? false;
+  /** Only a Global or campus post can be sent into a chat (see canShareAudience); a video tour is always Global. */
+  const shareable = canShareAudience(reel.audience ?? "global");
+  const openMention = useOpenMention();
   const poster = viewerThumb(media) ?? "";
   const login = () => router.push("/(auth)/login");
   /** Your own posted reel: pinned to your profile or not. A Reel does not carry it, so it is read once the reel is on screen (null until then). */
@@ -398,7 +409,7 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
         image_url: poster || null,
         author: { id: reel.author.id, name: reel.author.name, avatar_url: reel.author.avatarUrl },
       },
-      { url, label },
+      { url, label, restricted: (reel.audience ?? "global") !== "global" },
     );
   }
 
@@ -562,8 +573,17 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
                   </Text>
                 ) : null}
                 {reel.caption ? (
+                  // Opened, hashtags and @mentions stand out (white and bold over a picture), and a mention opens its profile.
                   <Text style={[styles.caption, onPage && styles.captionPage]} numberOfLines={10}>
-                    {reel.caption}
+                    {captionParts(reel.caption).map((part, i) =>
+                      part.tag || part.mention ? (
+                        <Text key={i} style={onPage ? styles.tagPage : styles.tag} onPress={part.mention ? unlessSwiped(() => openMention(part.mention!)) : undefined} accessibilityRole={part.mention ? "link" : undefined}>
+                          {part.text}
+                        </Text>
+                      ) : (
+                        part.text
+                      ),
+                    )}
                   </Text>
                 ) : null}
                 <Text onPress={unlessSwiped(() => setExpanded(false))} style={[styles.more, onPage && styles.morePage]} accessibilityRole="button" accessibilityLabel="Show less">
@@ -590,17 +610,18 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
               </>
             )
           ) : null}
+          {link ? <PostLink url={link} media={!onPage} guard={unlessSwiped} /> : null}
         </View>
 
         <View style={styles.rail} onLayout={(e) => setRailBox({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height })}>
           <RailButton icon={reel.likedByMe ? "heart" : "heart-outline"} tint={reel.likedByMe ? { media: colors.like, page: colors.like } : undefined} label={compact(reel.likes)} onPress={unlessSwiped(() => void toggleLike())} a11y={reel.likedByMe ? "Unlike" : "Like"} selected={reel.likedByMe} scale={pop} edge={railEdge} />
           {hasPublicComments(reel.sourceType) ? (
-            <RailButton icon="chatbubble-ellipses-outline" label={compact(reel.comments)} onPress={unlessSwiped(() => onOpenComments(reel))} a11y="Comments" edge={railEdge} />
+            commentsOff ? null : <RailButton icon="chatbubble-ellipses-outline" label={compact(reel.comments)} onPress={unlessSwiped(() => onOpenComments(reel))} a11y="Comments" edge={railEdge} />
           ) : (
             // A roommate tour has no public comments: the poster is reached in private (your own opens your Inbox).
             <RailButton icon="chatbubble-ellipses-outline" label="Inbox" onPress={unlessSwiped(() => (own ? router.push("/messages") : void message()))} a11y={own ? "Inbox" : `Message ${reel.author.name.split(" ")[0]}`} edge={railEdge} />
           )}
-          <RailButton icon="paper-plane-outline" label="Share" onPress={unlessSwiped(share)} a11y="Share" edge={railEdge} />
+          {shareable ? <RailButton icon="paper-plane-outline" label="Share" onPress={unlessSwiped(share)} a11y="Share" edge={railEdge} /> : null}
           {/* Saved: the filled bookmark, in the same colour as the rest of the rail (white over a picture). */}
           <RailButton icon={reel.savedByMe ? "bookmark" : "bookmark-outline"} label={reel.savedByMe ? "Saved" : "Save"} onPress={unlessSwiped(() => void toggleSave())} a11y={reel.savedByMe ? "Unsave" : "Save"} selected={reel.savedByMe} edge={railEdge} />
           <RailButton icon="ellipsis-horizontal" onPress={unlessSwiped(() => void more())} a11y="More options" small edge={railEdge} />
@@ -688,9 +709,12 @@ export function photoTop(contentTop: number, count: number): number {
   return contentTop + (count > 1 ? DOTS_LINE : PHOTO_GAP);
 }
 
-/** The lowest a photo on its page may reach: the name and the words keep the space below it (see WORDS_ROOM). */
-export function photoFloor(pageH: number, bottomInset: number): number {
-  return pageH - bottomInset - WORDS_ROOM;
+/**
+ * The lowest a photo on its page may reach: the name and the words keep the space below it (see WORDS_ROOM), and the
+ * page's link, if it has one, its pill under them.
+ */
+export function photoFloor(pageH: number, bottomInset: number, item?: Pick<ViewerItem, "link"> | null): number {
+  return pageH - bottomInset - WORDS_ROOM - (item && postLink(item.link) ? LINK_ROOM : 0);
 }
 
 /** TikTok's canvas: a 9:16 column, as wide as the screen on a phone (as tall as the screen allows on a wider one). */
@@ -1084,6 +1108,9 @@ const useStyles = makeStyles((colors) => {
     title: { color: colors.onMedia, fontSize: 15, fontWeight: "700", ...shadow },
     caption: { color: colors.onMedia, fontSize: 14, lineHeight: 19, ...shadow },
     more: { color: colors.onMediaMuted, fontSize: 13, fontWeight: "700", ...shadow },
+    // Hashtags and mentions in an opened caption: bold white over a picture, the feed's blue on a photo's page.
+    tag: { fontWeight: "700" },
+    tagPage: { color: colors.hashtag },
     rail: { width: 60, alignItems: "center", gap: 21 },
     railButton: { alignItems: "center", gap: 3, minWidth: 48 },
     // The unseen copy of the description that tells whether its one line was cut.

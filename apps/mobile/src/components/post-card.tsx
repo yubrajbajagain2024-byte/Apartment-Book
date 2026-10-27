@@ -13,7 +13,7 @@ export type PostCardProps = {
   /** Web path, e.g. /roommates/abc, used for sharing and for opening the detail screen. */
   path: string;
   /** `badge`: a business listing ("Sponsored" / "Verified Partner"); the business is the poster and has no profile to open. */
-  poster: { id: string; name: string; avatarUrl: string | null; verified: boolean; badge?: string | null };
+  poster: { id: string; name: string; avatarUrl: string | null; verified: boolean; badge?: string | null; anonymous?: boolean };
   /** The business behind a portal listing: Message opens its inquiry chat with the whole team. */
   businessId?: string | null;
   /** Under the poster's name, before the age: what kind of post it is ("Has a Room"), or an item's price. */
@@ -62,7 +62,7 @@ export function PostCard(props: PostCardProps) {
 
   return (
     <View style={styles.post} accessibilityLabel={`Post: ${title ?? description?.slice(0, 40) ?? "post"}`}>
-      <PostHeader name={poster.name} avatarUrl={poster.avatarUrl} userId={poster.id} verified={poster.verified} badge={poster.badge} meta={meta} onOpen={() => (poster.badge ? openDetail() : router.push({ pathname: "/profile/[id]", params: { id: poster.id } }))} onMenu={actions.menu} />
+      <PostHeader name={poster.name} avatarUrl={poster.avatarUrl} userId={poster.id} verified={poster.verified} badge={poster.badge} anonymous={poster.anonymous} meta={meta} onOpen={() => (poster.badge || poster.anonymous ? openDetail() : router.push({ pathname: "/profile/[id]", params: { id: poster.id } }))} onMenu={actions.menu} />
 
       {/* The words come before the picture, as on a Buzz post; a tap on them opens the listing. */}
       <Pressable onPress={() => openDetail()} style={styles.body}>

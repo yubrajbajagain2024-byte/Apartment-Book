@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, MapPin, School } from "lucide-react";
-import { budgetLabel, formatDistance, GENDER_PREFERENCES, getListingStats, getPostEngagement, getRoommatePost, isSaved, labelFor, listingMedia, photosFor } from "@apartment-book/shared";
+import { budgetLabel, formatDistance, GENDER_PREFERENCES, getListingStats, getPostEngagement, getRoommatePost, isSaved, labelFor, listingMedia, myAnonymousListings, photosFor } from "@apartment-book/shared";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, timeAgo } from "@/lib/utils";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
 import { PhotoHero } from "@/components/photos/photo-hero";
 import { ListingMap, type MapPin as Pin } from "@/components/map/listing-map";
+import { AnonymousPoster } from "@/components/common/anonymous-poster";
 import { MessageButton } from "@/components/common/message-button";
 import { SaveButton } from "@/components/common/save-button";
 import { RoommateOwnerActions } from "@/components/roommates/roommate-owner-actions";
@@ -35,7 +36,8 @@ export default async function RoommatePostPage({ params }: Props) {
   const engagement = await getPostEngagement(supabase, "roommate", post.id).catch(() => ({ likes: 0, comments: 0, likedByMe: false }));
 
   const saved = user ? await isSaved(supabase, user.id, "roommate", post.id) : false;
-  const isOwner = user?.id === post.author_id;
+  // An anonymous post names nobody: its poster finds it among their own (only they can read that list).
+  const isOwner = post.author ? user?.id === post.author_id : Boolean(user) && (await myAnonymousListings(supabase)).roommate.includes(post.id);
   const stats = isOwner ? await getListingStats(supabase, "roommate", post.id).catch(() => null) : null;
   const budget = budgetLabel(post);
   const path = `/roommates/${post.id}`;
@@ -117,7 +119,7 @@ export default async function RoommatePostPage({ params }: Props) {
             <PostEngagementPanel
               targetType="roommate"
               targetId={post.id}
-              ownerId={post.author.id}
+              ownerId={post.author?.id ?? ""}
               engagement={engagement}
               initialComments={[]}
               signedIn={Boolean(user)}
@@ -129,16 +131,20 @@ export default async function RoommatePostPage({ params }: Props) {
         <aside className="flex flex-col gap-4 lg:sticky lg:top-20 lg:self-start">
           <Card>
             <CardBody className="flex flex-col gap-4">
-              <Link href={`/profile/${post.author.id}`} className="flex items-center gap-3">
-                <Avatar name={post.author.full_name} src={post.author.avatar_url} size="lg" />
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-gray-900">{post.author.full_name}</p>
-                  <p className="text-xs text-gray-500">Posted {timeAgo(post.created_at)}</p>
-                </div>
-              </Link>
+              {post.author ? (
+                <Link href={`/profile/${post.author.id}`} className="flex items-center gap-3">
+                  <Avatar name={post.author.full_name} src={post.author.avatar_url} size="lg" />
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-gray-900">{post.author.full_name}</p>
+                    <p className="text-xs text-gray-500">Posted {timeAgo(post.created_at)}</p>
+                  </div>
+                </Link>
+              ) : (
+                <AnonymousPoster own={isOwner} createdAt={post.created_at} />
+              )}
               {!isOwner ? (
                 <div className="flex flex-col gap-2">
-                  <MessageButton userId={post.author.id} currentUserId={user?.id ?? null} returnTo={path} prefill={`Hi ${post.author.full_name.split(" ")[0]}! I saw your roommate post "${post.title}" and I'd like to chat.`} target={{ type: "roommate", id: post.id }} />
+                  <MessageButton userId={post.author?.id ?? ""} anonymous={!post.author} currentUserId={user?.id ?? null} returnTo={path} prefill={`Hi ${post.author?.full_name.split(" ")[0] ?? "there"}! I saw your roommate post "${post.title}" and I'd like to chat.`} target={{ type: "roommate", id: post.id }} />
                   <SaveButton targetType="roommate" targetId={post.id} initialSaved={saved} signedIn={Boolean(user)} />
                 </div>
               ) : (

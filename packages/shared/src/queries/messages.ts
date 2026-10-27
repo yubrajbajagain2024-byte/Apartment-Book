@@ -1,5 +1,5 @@
 import { MESSAGES_PAGE_SIZE } from "../constants";
-import type { BusinessSummary, Client, ConversationSummary, CourseGroup, ConversationType, MemberStatus, MessageWithSender, ProfileSummary, SharedPost } from "../types/models";
+import type { BusinessSummary, ChatAnonymity, Client, ConversationSummary, CourseGroup, ConversationType, MemberStatus, MessageWithSender, ProfileSummary, SharedPost } from "../types/models";
 import type { Json } from "../types/database";
 import {
   MESSAGE_ATTACHMENT_LIMITS,
@@ -88,6 +88,76 @@ async function businessesFor(supabase: Client, conversationIds: string[]): Promi
   return out;
 }
 
+/**
+ * Which of these conversations are chats with an anonymous listing's poster (20261105000000_anonymous_listings.sql),
+ * by conversation id: which side the caller is on, whether the poster is still hidden, and the listing (its title while
+ * the caller can see it). Asked for on its own and never fatal, like the course groups: a database without the migration
+ * has no such chats.
+ */
+async function anonymityFor(supabase: Client, conversationIds: string[]): Promise<Map<string, ChatAnonymity>> {
+  const out = new Map<string, ChatAnonymity>();
+  if (conversationIds.length === 0) return out;
+  try {
+    const { data, error } = await supabase
+      .from("conversations")
+      .select("id, poster_hidden, poster_revealed_at, inquiry_target_type, inquiry_target_id")
+      .in("id", conversationIds)
+      .in("inquiry_target_type", ["roommate", "item"]);
+    if (error || !data || data.length === 0) return out;
+    const ids = data.map((r) => r.id);
+    const ofType = (type: string) => [...new Set(data.filter((r) => r.inquiry_target_type === type && r.inquiry_target_id).map((r) => r.inquiry_target_id as string))];
+    const [mine, roommates, items] = await Promise.all([
+      supabase.from("anonymous_chat_posters").select("conversation_id").in("conversation_id", ids),
+      ofType("roommate").length ? supabase.from("roommate_posts").select("id, title").in("id", ofType("roommate")) : Promise.resolve({ data: [] as { id: string; title: string }[] }),
+      ofType("item").length ? supabase.from("items").select("id, title").in("id", ofType("item")) : Promise.resolve({ data: [] as { id: string; title: string }[] }),
+    ]);
+    const poster = new Set((mine.data ?? []).map((r) => r.conversation_id));
+    const titles = new Map<string, string>([...(roommates.data ?? []), ...(items.data ?? [])].map((r) => [r.id, r.title]));
+    for (const r of data) {
+      out.set(r.id, {
+        role: poster.has(r.id) ? "poster" : "asker",
+        hidden: r.poster_hidden,
+        revealedAt: r.poster_revealed_at,
+        target: r.inquiry_target_id ? { type: r.inquiry_target_type as "roommate" | "item", id: r.inquiry_target_id, title: titles.get(r.inquiry_target_id) ?? null } : null,
+      });
+    }
+  } catch {
+    // The inbox does not depend on it.
+  }
+  return out;
+}
+
+/** The chat's name: "Anonymous poster" for the person writing to a poster who is still hidden. */
+function titleOf(type: ConversationType, name: string | null, otherMembers: ProfileSummary[], anonymous: ChatAnonymity | null): string {
+  if (anonymous?.role === "asker" && anonymous.hidden) return "Anonymous poster";
+  return conversationTitle(type, name, otherMembers);
+}
+
+/**
+ * A message as `userId` sees it in a chat with an anonymous listing's poster: the hidden poster's own messages are
+ * stored with no sender (so the other person never learns it), and are theirs again on their own screen.
+ */
+export function asSeenBy<T extends { sender_id: string | null; anonymous?: boolean }>(message: T, userId: string, anonymous: ChatAnonymity | null | undefined): T {
+  return anonymous?.role === "poster" && message.anonymous && message.sender_id === null ? { ...message, sender_id: userId } : message;
+}
+
+/**
+ * The caller's chat with an anonymous listing's poster (start_listing_inquiry): the same chat every time, in which the
+ * poster stays hidden until they choose to show who they are.
+ */
+export async function startListingInquiry(supabase: Client, targetType: "roommate" | "item", targetId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("start_listing_inquiry", { p_target_type: targetType, p_target_id: targetId });
+  if (error) throw error;
+  return data;
+}
+
+/** The hidden poster shows who they are, to the one person in this chat (once they have written). Returns when. */
+export async function revealListingIdentity(supabase: Client, conversationId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("reveal_listing_identity", { p_conversation_id: conversationId });
+  if (error) throw error;
+  return data;
+}
+
 /** All conversations the user belongs to, newest activity first, with unread counts. */
 export async function listConversations(supabase: Client, userId: string): Promise<ConversationSummary[]> {
   const { data: memberships, error } = await supabase
@@ -101,11 +171,12 @@ export async function listConversations(supabase: Client, userId: string): Promi
   const conversationIds = memberships.map((m) => m.conversation_id);
   if (conversationIds.length === 0) return [];
 
-  const [{ data: members, error: membersError }, { data: unread, error: unreadError }, courseGroups, businesses] = await Promise.all([
+  const [{ data: members, error: membersError }, { data: unread, error: unreadError }, courseGroups, businesses, anonymity] = await Promise.all([
     supabase.from("conversation_members").select(MEMBER_SELECT).in("conversation_id", conversationIds),
     supabase.rpc("get_unread_counts"),
     courseGroupsFor(supabase, conversationIds),
     businessesFor(supabase, conversationIds),
+    anonymityFor(supabase, conversationIds),
   ]);
   if (membersError) throw membersError;
   if (unreadError) throw unreadError;
@@ -126,6 +197,7 @@ export async function listConversations(supabase: Client, userId: string): Promi
     const rows = membersByConversation.get(c.id) ?? [];
     const allMembers = summaryOf(rows);
     const otherMembers = allMembers.filter((p) => p.id !== userId);
+    const anonymous = anonymity.get(c.id) ?? null;
     summaries.push({
       id: c.id,
       type: c.type as ConversationType,
@@ -139,7 +211,8 @@ export async function listConversations(supabase: Client, userId: string): Promi
       unreadCount: unreadByConversation.get(c.id) ?? 0,
       courseGroup: courseGroups.get(c.id) ?? null,
       business: businesses.get(c.id) ?? null,
-      title: conversationTitle(c.type as ConversationType, c.name, otherMembers),
+      anonymous,
+      title: titleOf(c.type as ConversationType, c.name, otherMembers, anonymous),
     });
   }
 
@@ -164,16 +237,18 @@ export async function getConversation(
   if (error) throw error;
   if (!c) return null;
 
-  const [{ data: members, error: membersError }, courseGroups, businesses] = await Promise.all([
+  const [{ data: members, error: membersError }, courseGroups, businesses, anonymity] = await Promise.all([
     supabase.from("conversation_members").select(MEMBER_SELECT).eq("conversation_id", conversationId),
     courseGroupsFor(supabase, [conversationId]),
     businessesFor(supabase, [conversationId]),
+    anonymityFor(supabase, [conversationId]),
   ]);
   if (membersError) throw membersError;
 
   const rows = members as MemberRow[];
   const allMembers = summaryOf(rows);
   const otherMembers = allMembers.filter((p) => p.id !== userId);
+  const anonymous = anonymity.get(conversationId) ?? null;
   return {
     id: c.id,
     type: c.type as ConversationType,
@@ -187,7 +262,8 @@ export async function getConversation(
     unreadCount: 0,
     courseGroup: courseGroups.get(conversationId) ?? null,
     business: businesses.get(conversationId) ?? null,
-    title: conversationTitle(c.type as ConversationType, c.name, otherMembers),
+    anonymous,
+    title: titleOf(c.type as ConversationType, c.name, otherMembers, anonymous),
   };
 }
 

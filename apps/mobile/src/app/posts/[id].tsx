@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { ScrollView, StyleSheet, View, type ScrollViewInstance } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { getFeedPost, getPostEngagement, getPostPreviewsMany, isSaved, recordView, type FeedPostWithAuthor, type PostEngagement, type PostPreview } from "@apartment-book/shared";
-import { Comments } from "@/components/comments";
+import { Comments, CommentsOff } from "@/components/comments";
 import { EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { InstaPost } from "@/components/home/insta-post";
 import { markReelsStale } from "@/components/home/reels-section";
@@ -40,6 +40,8 @@ function PostDetail({ post, engagement, saved, preview, focusComments }: { post:
   const { user } = useSession();
   const router = useRouter();
   const [comments, setComments] = useState(engagement.comments);
+  /** The author turned comments off (migration 44; a row read before it has no such field): no thread, no composer. */
+  const commentsOff = post.comments_off ?? false;
   const scroll = useRef<ScrollViewInstance>(null);
   const commentsY = useRef(0);
   /** Bring the thread, composer first, to the top of the screen. */
@@ -67,7 +69,7 @@ function PostDetail({ post, engagement, saved, preview, focusComments }: { post:
         onDeleted={deleted}
       />
       <View style={styles.thread} onLayout={(e) => (commentsY.current = e.nativeEvent.layout.y)}>
-        <Comments targetType="post" targetId={post.id} ownerId={post.author.id} autoFocus={focusComments} revealComposer={showThread} onCountChange={(d) => setComments((n) => Math.max(0, n + d))} />
+        {commentsOff ? <CommentsOff /> : <Comments targetType="post" targetId={post.id} ownerId={post.author.id} autoFocus={focusComments} revealComposer={showThread} onCountChange={(d) => setComments((n) => Math.max(0, n + d))} />}
       </View>
     </ScrollView>
   );

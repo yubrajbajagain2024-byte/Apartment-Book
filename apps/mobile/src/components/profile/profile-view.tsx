@@ -42,6 +42,7 @@ import {
 import { useActionSheet } from "@/components/action-sheet";
 import { useFollow } from "@/components/follow-button";
 import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { openCompose } from "@/lib/compose-nav";
 import { hapticTap, alertWithHaptic, refreshWithHaptic } from "@/lib/haptics";
 import { errorText, useQuery } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned, onPostRemoved } from "@/lib/posts-events";
@@ -134,9 +135,9 @@ async function postTiles(userId: string, kind: "post" | "reel", cursor: GridCurs
   return { tiles: result.tiles, next: result.hasMore ? page + 1 : null };
 }
 
-/** Someone's live apartments, roommate posts and items for sale, newest first, all at once: a single page. */
-async function listingTiles(userId: string): Promise<GridPage> {
-  return { tiles: await listProfileListings(supabase, userId), next: null };
+/** Someone's live apartments, roommate posts and items for sale, newest first, all at once: a single page. Your own include your anonymous ones. */
+async function listingTiles(userId: string, own: boolean): Promise<GridPage> {
+  return { tiles: await listProfileListings(supabase, userId, { own }), next: null };
 }
 
 const before = (cursor: GridCursor | null) => (typeof cursor === "string" ? cursor : null);
@@ -778,7 +779,7 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   const saved = useTileGrid((c) => listProfileSaved(supabase, userId, { before: before(c) }), { resetKey, enabled: mounted.has(tabIndex("saved")) && canSee("saved") });
   const liked = useTileGrid((c) => listProfileLiked(supabase, userId, { before: before(c) }), { resetKey, enabled: mounted.has(tabIndex("liked")) && canSee("liked") });
   // Listings come as a single page, once the viewer may see them.
-  const listings = useTileGrid(() => listingTiles(userId), { resetKey, enabled: mounted.has(tabIndex("listings")) && canSee("listings") });
+  const listings = useTileGrid(() => listingTiles(userId, own), { resetKey, enabled: mounted.has(tabIndex("listings")) && canSee("listings") });
   const grids: Record<GridTab, TileGrid> = { posts, reels, saved, liked, listings };
   const grid = tab === "classes" ? null : grids[tab];
 
@@ -1260,9 +1261,9 @@ function TabEmpty({ tab, own }: { tab: GridTab; own: boolean }) {
   const styles = useStyles();
   const colors = useColors();
   const router = useRouter();
-  const copy: Record<GridTab, { icon: keyof typeof Ionicons.glyphMap; title: string; action?: { title: string; href: "/create/post" | "/create/reel" } }> = {
-    posts: own ? { icon: "grid-outline", title: "Share your first post", action: { title: "Create post", href: "/create/post" } } : { icon: "grid-outline", title: "No posts yet" },
-    reels: own ? { icon: "film-outline", title: "No reels yet", action: { title: "Create reel", href: "/create/reel" } } : { icon: "film-outline", title: "No reels yet" },
+  const copy: Record<GridTab, { icon: keyof typeof Ionicons.glyphMap; title: string; action?: { title: string; mode: "post" | "reel" } }> = {
+    posts: own ? { icon: "grid-outline", title: "Share your first post", action: { title: "Create post", mode: "post" } } : { icon: "grid-outline", title: "No posts yet" },
+    reels: own ? { icon: "film-outline", title: "No reels yet", action: { title: "Create reel", mode: "reel" } } : { icon: "film-outline", title: "No reels yet" },
     saved: { icon: "bookmark-outline", title: "Nothing saved yet" },
     liked: { icon: "heart-outline", title: "No liked posts yet" },
     listings: { icon: "storefront-outline", title: "No listings yet" },
@@ -1274,7 +1275,7 @@ function TabEmpty({ tab, own }: { tab: GridTab; own: boolean }) {
         <Icon name={icon} size={26} color={colors.text} />
       </View>
       <Text style={styles.emptyTitle}>{title}</Text>
-      {action ? <Button title={action.title} icon="add" onPress={() => router.push(action.href)} style={styles.emptyAction} /> : null}
+      {action ? <Button title={action.title} icon="add" onPress={() => openCompose(router, action.mode)} style={styles.emptyAction} /> : null}
     </View>
   );
 }

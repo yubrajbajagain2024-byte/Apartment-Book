@@ -4,10 +4,10 @@ import { makeStyles } from "@/lib/theme-provider";
 
 /**
  * Text folded to its first few lines with "more…" under it, "less" once opened, Facebook style. `children` are the
- * inline parts (plain strings and styled <Text> spans such as hashtags). A hidden copy laid out at full length counts the
- * lines, so the fold only shows when there really is more: a short text has no "more…" at all. With `lines` 0 the text
- * starts hidden altogether behind "more…" (a roommate post's description). `expanded` starts it open; with `collapsible`
- * false (a post's own screen) it is simply all there, without "less".
+ * inline parts (plain strings and styled <Text> spans such as hashtags and mentions). A hidden copy laid out at full
+ * length counts the lines, so the fold only shows when there really is more: a short text has no "more…" at all. With
+ * `lines` 0 the text starts hidden altogether behind "more…" (a roommate post's description). `expanded` starts it open;
+ * with `collapsible` false (a post's own screen) it is simply all there, without "less".
  */
 export function ExpandableText({ children, style, lines = 3, expanded: startOpen = false, collapsible = true, selectable, accessibilityLabel }: { children: ReactNode; style?: StyleProp<TextStyle>; lines?: number; expanded?: boolean; collapsible?: boolean; selectable?: boolean; accessibilityLabel?: string }) {
   const styles = useStyles();
@@ -24,10 +24,14 @@ export function ExpandableText({ children, style, lines = 3, expanded: startOpen
         </Text>
       )}
       {measure ? (
-        // Same text, same style, same width, never seen: its line count says whether the fold is needed.
-        <Text style={[style, styles.measure]} onTextLayout={(e) => setFolds(e.nativeEvent.lines.length > lines)} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" aria-hidden>
-          {children}
-        </Text>
+        // Same text, same style, same width, never seen: its line count says whether the fold is needed. It lies over the
+        // real text (and "more…"), so a View that takes no touches holds it: a tappable span in it (an @mention) never
+        // catches a tap meant for what is underneath.
+        <View style={styles.measure} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" aria-hidden>
+          <Text style={style} onTextLayout={(e) => setFolds(e.nativeEvent.lines.length > lines)}>
+            {children}
+          </Text>
+        </View>
       ) : null}
       {hidden || (measure && folds) ? (
         <Text style={[styles.toggle, hidden && !open && styles.toggleAlone]} onPress={() => setOpen((o) => !o)} accessibilityRole="button" accessibilityLabel={open ? "less" : "more"}>

@@ -5,6 +5,7 @@ import { AuroraHeading, AuroraPanel, AuroraPill } from "@/components/aurora";
 import type { IconName } from "@/components/icon";
 import { Icon } from "@/components/icon";
 import { Fact, ListingDetail, useDetailStyles } from "@/components/listing-detail";
+import { listingPoster } from "@/lib/listing-poster";
 import { Badge, Button, EmptyState, Loading } from "@/components/ui";
 import { useQuery } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
@@ -34,7 +35,7 @@ export default function RoommateScreen() {
       title={p.title}
       lead={budget ? `${budget} / month` : undefined}
       media={listingMedia(p.images, p.image_meta, p.videos)}
-      poster={{ id: p.author.id, name: p.author.full_name, avatarUrl: p.author.avatar_url }}
+      poster={listingPoster(p.author)}
       createdAt={p.created_at}
       aurora
       facts={

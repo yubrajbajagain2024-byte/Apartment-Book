@@ -1,6 +1,7 @@
 import { memo, useMemo, useRef, useState } from "react";
 import { RefreshControl, View, type FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type ListViewToken } from "react-native";
-import { budgetLabel, isVerifiedPoster, KM_PER_MILE, listRoommatePosts, listingMedia, videosFor, type PostEngagement, type RoommatePostWithAuthor } from "@apartment-book/shared";
+import { budgetLabel, KM_PER_MILE, listRoommatePosts, listingMedia, videosFor, type PostEngagement, type RoommatePostWithAuthor } from "@apartment-book/shared";
+import { listingPoster } from "@/lib/listing-poster";
 import type { RoommateFilters } from "@/components/housing/filter-sheet";
 import { OnlineStrip } from "@/components/online-strip";
 import { FEED_HEADER_PADDING, PostCard } from "@/components/post-card";
@@ -28,7 +29,7 @@ const RoommateRow = memo(function RoommateRow({ p, saved, engagement, playing }:
       targetType="roommate"
       targetId={p.id}
       path={`/roommates/${p.id}`}
-      poster={{ id: p.author.id, name: p.author.full_name, avatarUrl: p.author.avatar_url, verified: isVerifiedPoster(p.author) }}
+      poster={listingPoster(p.author)}
       // Everyone here is at the same university: under the name, what kind of post it is instead.
       subtitle={p.post_type === "has_room" ? "Has a Room" : "Looking for a Room"}
       title={p.title}

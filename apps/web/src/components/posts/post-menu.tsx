@@ -23,6 +23,7 @@ function placeBelow(button: HTMLButtonElement | null): { top: number; right: num
 /**
  * Facebook-style "•••" menu in a post header: Save/Unsave post and Share post; on your own post or reel also
  * Pin to profile / Unpin from profile. The dropdown is position:fixed so the card's overflow-hidden can't clip it.
+ * A post not everyone can see (`shareable` false) has no Share post.
  */
 export function PostMenu({
   save,
@@ -32,6 +33,7 @@ export function PostMenu({
   report,
   extra,
   pin,
+  shareable = true,
 }: {
   save: SaveController;
   path: string;
@@ -43,6 +45,8 @@ export function PostMenu({
   extra?: React.ReactNode;
   /** Your own post or reel: pin it to the top of your profile, or unpin it. */
   pin?: { postId: string; pinned: boolean };
+  /** False for a post only some people can see: its link is no use to anyone else, so there is nothing to share. */
+  shareable?: boolean;
 }) {
   const [reporting, setReporting] = useState(false);
   const [open, setOpen] = useState(false);
@@ -154,20 +158,22 @@ export function PostMenu({
               <Bookmark className="h-5 w-5" /> Save post
             </a>
           )}
-          <button
-            type="button"
-            role="menuitem"
-            onClick={async () => {
-              const copiedNow = await share();
-              // Leave "Link copied" on screen for a beat when there is no share sheet.
-              if (copiedNow) setTimeout(() => setOpen(false), 900);
-              else setOpen(false);
-            }}
-            className={item}
-          >
-            {copied ? <Check className="h-5 w-5 text-brand-600" /> : <Share2 className="h-5 w-5" />}
-            {copied ? "Link copied" : "Share post"}
-          </button>
+          {shareable ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={async () => {
+                const copiedNow = await share();
+                // Leave "Link copied" on screen for a beat when there is no share sheet.
+                if (copiedNow) setTimeout(() => setOpen(false), 900);
+                else setOpen(false);
+              }}
+              className={item}
+            >
+              {copied ? <Check className="h-5 w-5 text-brand-600" /> : <Share2 className="h-5 w-5" />}
+              {copied ? "Link copied" : "Share post"}
+            </button>
+          ) : null}
           {pin ? (
             <button type="button" role="menuitem" onClick={togglePin} aria-disabled={pinPending || undefined} className={cn(item, "aria-disabled:opacity-60")} data-testid="post-pin">
               {pinPending ? <Spinner className="h-5 w-5" /> : pinned ? <PinOff className="h-5 w-5" /> : <Pin className="h-5 w-5" />}

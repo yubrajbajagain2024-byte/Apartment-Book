@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Camera,
   Check,
   Circle,
+  EyeOff,
   ImagePlus,
   Phone,
   Send,
@@ -14,6 +16,7 @@ import {
 } from "lucide-react";
 import {
   MESSAGES_PAGE_SIZE,
+  asSeenBy,
   callOf,
   callRowText,
   formatDayLabel,
@@ -25,6 +28,7 @@ import {
   receiptFor,
   replyOf,
   replyText,
+  revealListingIdentity,
   sendMessage,
   sharedPostLabel,
   sharedPostOf,
@@ -392,7 +396,14 @@ export function ChatWindow({
    */
   teamIds?: string[];
 }) {
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  // A chat about an anonymous listing (20261105000000_anonymous_listings.sql): while its poster is hidden, their
+  // messages are stored with no sender, and are theirs again on their own screen.
+  const anonymity = conversation.anonymous;
+  const hiddenPoster = anonymity?.role === "poster" && anonymity.hidden;
+  const view = useCallback(<T extends { sender_id: string | null; anonymous?: boolean }>(m: T): T => asSeenBy(m, currentUserId, anonymity), [currentUserId, anonymity]);
+  const router = useRouter();
+  const [revealing, setRevealing] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => initialMessages.map(view));
   const [memberStatus, setMemberStatus] = useState<
     Record<string, MemberStatus>
   >(conversation.memberStatus);
@@ -452,10 +463,10 @@ export function ChatWindow({
             const raw = payload.new as Omit<Message, "attachments"> & {
               attachments?: unknown;
             };
-            const row: Message = {
+            const row: Message = view({
               ...raw,
               attachments: parseAttachments(raw.attachments),
-            };
+            } as Message);
             setMessages((prev) => {
               if (prev.some((m) => m.id === row.id)) return prev;
               const sender = row.sender_id
@@ -533,8 +544,9 @@ export function ChatWindow({
             conversation.id,
             newest ? { after: newest } : {},
           )
-            .then((rows) => {
-              if (cancelled || rows.length === 0) return;
+            .then((found) => {
+              if (cancelled || found.length === 0) return;
+              const rows = found.map(view);
               setMessages((prev) => {
                 const fresh = rows.filter(
                   (r) => !prev.some((m) => m.id === r.id),
@@ -562,7 +574,7 @@ export function ChatWindow({
       cancelled = true;
       if (channel) supabase.removeChannel(channel);
     };
-  }, [conversation.id, currentUserId, membersById]);
+  }, [conversation.id, currentUserId, membersById, view]);
 
   // Receipts: where each other member has read up to, and the state of my newest message.
   const others = conversation.otherMembers
@@ -624,6 +636,7 @@ export function ChatWindow({
       content: body,
       image_url: imageUrl ?? null,
       shared_post: null,
+      anonymous: false,
       created_at: new Date().toISOString(),
       sender: me,
       pending: true,
@@ -666,9 +679,11 @@ export function ChatWindow({
     const list = listRef.current;
     const previousHeight = list?.scrollHeight ?? 0;
     try {
-      const older = await listMessages(createClient(), conversation.id, {
-        before: oldest.created_at,
-      });
+      const older = (
+        await listMessages(createClient(), conversation.id, {
+          before: oldest.created_at,
+        })
+      ).map(view);
       setMessages((prev) => [
         ...older.filter((o) => !prev.some((p) => p.id === o.id)),
         ...prev,
@@ -899,6 +914,38 @@ export function ChatWindow({
         <div ref={bottomRef} />
       </div>
 
+      {anonymity?.hidden ? (
+        <div className="flex items-center gap-3 border-t border-gray-200 bg-brand-50 px-4 py-2.5 text-sm text-gray-700">
+          <EyeOff className="h-4 w-4 shrink-0 text-brand-600" />
+          <p className="min-w-0 flex-1">
+            {hiddenPoster
+              ? `You're anonymous to ${conversation.otherMembers[0]?.full_name.split(" ")[0] ?? "them"}. Show who you are only if you want to: it's just for this chat.`
+              : `The poster of ${anonymity.target?.title ? `"${anonymity.target.title}"` : "this listing"} is anonymous. They can choose to show you who they are here.`}
+          </p>
+          {hiddenPoster ? (
+            <button
+              type="button"
+              disabled={revealing}
+              onClick={async () => {
+                const name = conversation.otherMembers[0]?.full_name.split(" ")[0] ?? "them";
+                if (!window.confirm(`Show ${name} who you are? They'll see your name and profile in this chat. Your listing stays anonymous to everyone else.`)) return;
+                setRevealing(true);
+                try {
+                  await revealListingIdentity(createClient(), conversation.id);
+                  router.refresh();
+                } catch (e) {
+                  setError(errorMessage(e));
+                } finally {
+                  setRevealing(false);
+                }
+              }}
+              className="shrink-0 rounded-full bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+            >
+              {revealing ? "Showing…" : "Show who I am"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <form
         className="flex items-end gap-2 border-t border-gray-200 px-3 py-3 sm:px-4"
         onSubmit={(e) => {
@@ -906,23 +953,26 @@ export function ChatWindow({
           void send(text);
         }}
       >
-        <label
-          className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-brand-600 hover:bg-brand-50"
-          aria-label="Send a photo"
-        >
-          {uploading ? (
-            <Spinner className="h-5 w-5" />
-          ) : (
-            <ImagePlus className="h-5 w-5" />
-          )}
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            className="sr-only"
-            disabled={uploading}
-            onChange={(e) => attachImage(e.target.files)}
-          />
-        </label>
+        {/* An anonymous poster sends words only: a photo's address would carry their id. */}
+        {hiddenPoster ? null : (
+          <label
+            className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-brand-600 hover:bg-brand-50"
+            aria-label="Send a photo"
+          >
+            {uploading ? (
+              <Spinner className="h-5 w-5" />
+            ) : (
+              <ImagePlus className="h-5 w-5" />
+            )}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="sr-only"
+              disabled={uploading}
+              onChange={(e) => attachImage(e.target.files)}
+            />
+          </label>
+        )}
         <textarea
           ref={textareaRef}
           value={text}

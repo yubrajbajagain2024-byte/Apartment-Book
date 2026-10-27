@@ -147,6 +147,46 @@ export const TOUR_CHECKLIST = [
 /** Home feed */
 export const MAX_IMAGES_PER_POST = 12;
 export const REELS_PAGE_SIZE = 8;
+/** A post's or reel's title, shown in bold over its caption (migration 44). */
+export const POST_TITLE_MAX = 100;
+/**
+ * Who can see a post or reel (migration 44), chosen on the publish screen: students at the author's own campus,
+ * students at every campus, friends only (people who follow each other), or people the author picks one by one. The
+ * database enforces it (a restrictive policy on feed_posts), so a post never reaches anyone outside it. Posts made
+ * before migration 44 are Global, as every post was. The campus choice is shown with the university's name
+ * ("Texas State"), see campusLabel in format.ts.
+ */
+export const POST_AUDIENCES = [
+  { value: "campus", label: "Campus only", hint: "Only students at your university" },
+  { value: "global", label: "Global", hint: "Students at every campus on UniBuzz" },
+  { value: "friends", label: "Friends only", hint: "People you follow who follow you back" },
+  { value: "selected", label: "Selected people", hint: "Only the people you choose" },
+] as const;
+export type PostAudience = (typeof POST_AUDIENCES)[number]["value"];
+export const POST_AUDIENCE_VALUES = POST_AUDIENCES.map((a) => a.value) as [PostAudience, ...PostAudience[]];
+/**
+ * The column's default: what a post is when its writer says nothing (the website's form, older apps, every post made
+ * before audiences): Global.
+ */
+export const DEFAULT_POST_AUDIENCE: PostAudience = "global";
+/**
+ * Where the app's composer starts a new post: the author's own campus (the user's choice, 2026-10-26), or Global for
+ * someone without a university, who has no campus to keep it to.
+ */
+export function startingAudience(universityId: string | null | undefined): PostAudience {
+  return universityId ? "campus" : "global";
+}
+/** The most people a "Selected people" post can be shown to. */
+export const MAX_POST_VIEWERS = 50;
+/**
+ * Who can see a roommate post or a Marketplace item (20261105000000_anonymous_listings.sql): the post audiences without
+ * "Selected people" (a listing is for people its poster does not know yet), kept by the database the same way.
+ */
+export type ListingAudience = Exclude<PostAudience, "selected">;
+export const LISTING_AUDIENCE_VALUES: [ListingAudience, ...ListingAudience[]] = ["campus", "global", "friends"];
+export const LISTING_AUDIENCES = POST_AUDIENCES.filter((a): a is (typeof POST_AUDIENCES)[number] & { value: ListingAudience } => a.value !== "selected");
+/** A listing's column default, as for posts: Global. */
+export const DEFAULT_LISTING_AUDIENCE: ListingAudience = "global";
 /**
  * The sections of Home, left to right, like TikTok's top tabs: swiping the page moves between them.
  * "Orbit" (internally `foryou`) is the landing tab and blends Posts and Reels (see blendForYou); Buzz threads show only on the Buzz tab.

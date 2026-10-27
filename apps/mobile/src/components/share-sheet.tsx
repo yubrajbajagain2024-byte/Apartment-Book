@@ -25,7 +25,11 @@ import { Icon } from "@/components/icon";
 import { Sheet, SheetFooter, SheetHeader } from "./sheet";
 
 /** Besides the snapshot, the sheet needs the website link for "Share to…" and, optionally, the words that go before it. */
-export type ShareOptions = { url: string; label?: string };
+/**
+ * `restricted`: the post is not Global (a campus post). The database refuses its card in a chat with anyone who cannot
+ * see it, and sendSharedPost reports only who missed out, not why, so a failed send names that reason first.
+ */
+export type ShareOptions = { url: string; label?: string; restricted?: boolean };
 type ShareRequest = { shared: SharedPost; options: ShareOptions; seq: number };
 type ShareSheetApi = {
   /** Opens the sheet over whatever is on screen. Selection, note and search start empty every time. */
@@ -193,7 +197,7 @@ function SheetBody({ shared, options, onClose, closeThen }: { shared: SharedPost
         const missed = recipients.filter((p) => failed.includes(p.id));
         setPicked(new Map(missed.map((p) => [p.id, p])));
         setStatus("idle");
-        alertWithHaptic("error", `Could not send to ${missed.map((p) => p.full_name).join(", ")}`, "Check your connection and try again.");
+        alertWithHaptic("error", `Could not send to ${missed.map((p) => p.full_name).join(", ")}`, options.restricted ? "Some people in this chat can't see this post. If they should, check your connection and try again." : "Check your connection and try again.");
         return;
       }
       hapticSuccess();

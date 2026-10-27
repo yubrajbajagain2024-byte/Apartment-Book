@@ -5,6 +5,7 @@ import { pageRange } from "../utils";
 import { getApartmentsByIds, listApartmentsByOwner } from "./apartments";
 import { FEED_POST_SELECT, getFeedPostsByIds } from "./feed";
 import { getItemsByIds, listItemsBySeller } from "./items";
+import { myAnonymousListings } from "./listing-privacy";
 import { getRoommatePostsByIds, listRoommatePostsByAuthor } from "./roommates";
 
 /** Squares per page in the Posts and Reels grids (six rows of three). */
@@ -241,17 +242,24 @@ export async function listProfileLiked(supabase: Client, userId: string, opts: {
 // -----------------------------------------------------------------------------
 // Listings tab
 // -----------------------------------------------------------------------------
-/** Someone's live apartments, roommate posts and items, newest first, for the Listings tab on their profile. */
-export async function listProfileListings(supabase: Client, userId: string): Promise<ProfileTile[]> {
-  const [apartments, roommates, items] = await Promise.all([
+/**
+ * Someone's live apartments, roommate posts and items, newest first, for the Listings tab on their profile. On your own
+ * profile (`own`) your anonymous ones are there too, which nobody else's Listings tab can show: they have no poster.
+ */
+export async function listProfileListings(supabase: Client, userId: string, opts: { own?: boolean } = {}): Promise<ProfileTile[]> {
+  const anonymous = opts.own ? await myAnonymousListings(supabase) : { roommate: [], item: [] };
+  const [apartments, named, items, anonymousRoommates, anonymousItems] = await Promise.all([
     listApartmentsByOwner(supabase, userId),
     listRoommatePostsByAuthor(supabase, userId),
     listItemsBySeller(supabase, userId),
+    getRoommatePostsByIds(supabase, anonymous.roommate).then((rows) => rows.filter((r) => r.is_active)),
+    getItemsByIds(supabase, anonymous.item).then((rows) => rows.filter((i) => i.status === "available")),
   ]);
+  const roommates = [...named, ...anonymousRoommates];
   const dated = [
     ...apartments.map((a) => ({ at: a.created_at, tile: tileFromListing("apartment", a, listingMedia(a.images, a.image_meta, a.videos)) })),
     ...roommates.map((r) => ({ at: r.created_at, tile: tileFromListing("roommate", r, listingMedia(r.images, r.image_meta, r.videos)) })),
-    ...items.map((i) => ({ at: i.created_at, tile: tileFromListing("item", i, listingMedia(i.images, i.image_meta)) })),
+    ...[...items, ...anonymousItems].map((i) => ({ at: i.created_at, tile: tileFromListing("item", i, listingMedia(i.images, i.image_meta)) })),
   ];
   return dated.sort((a, b) => b.at.localeCompare(a.at)).map((d) => d.tile);
 }

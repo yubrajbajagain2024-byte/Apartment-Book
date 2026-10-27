@@ -9,6 +9,7 @@ import type {
   RoommatePostWithAuthor,
 } from "../types/models";
 import { pageRange, sanitizeSearch, searchOrFilter } from "../utils";
+import { LISTING_PRIVACY_UNAVAILABLE, listingPrivacyColumns, missingPrivacyColumns } from "./listing-privacy";
 
 export const ROOMMATE_SELECT =
   "*, author:profiles!roommate_posts_author_id_fkey(id, full_name, avatar_url, university:universities(email_domain)), university:universities(id, name, latitude, longitude)";
@@ -128,6 +129,10 @@ function toRow(input: RoommatePostInput) {
   };
 }
 
+/**
+ * A new roommate post. Anonymous or not, it is written with its poster (the database moves an anonymous one's poster
+ * out of the row); whether it is anonymous and who sees it are set here only, never by an edit.
+ */
 export async function createRoommatePost(
   supabase: Client,
   authorId: string,
@@ -135,9 +140,10 @@ export async function createRoommatePost(
 ): Promise<RoommatePost> {
   const { data, error } = await supabase
     .from("roommate_posts")
-    .insert({ ...toRow(input), author_id: authorId })
+    .insert({ ...toRow(input), author_id: authorId, ...listingPrivacyColumns(input) })
     .select("*")
     .single();
+  if (missingPrivacyColumns(error)) throw new Error(LISTING_PRIVACY_UNAVAILABLE);
   if (error) throw error;
   return data;
 }

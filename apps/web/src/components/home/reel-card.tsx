@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, Bookmark, Heart, MessageCircle, Play, Plus, Share2, Volume2, VolumeX } from "lucide-react";
 import { muxPlaybackUrl, muxPosterUrl, reelPath, sharedPostFromReel, timeAgo, type Reel } from "@apartment-book/shared";
+import { canShareAudience, postLink } from "@/lib/post-details";
 import { cn } from "@/lib/utils";
 import { useSaveToggle } from "@/components/common/save-button";
 import { ShareDialog, useShareDialog } from "@/components/common/share-dialog";
 import { useLikeToggle } from "@/components/posts/like-button";
+import { AudienceNote, CaptionText, PostLinkChip } from "@/components/posts/post-details";
 
 export const REELS_PATH = "/?tab=reels";
 export const REELS_LOGIN_HREF = `/login?next=${encodeURIComponent(REELS_PATH)}`;
@@ -45,8 +47,10 @@ const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFracti
 
 /**
  * One full-height reel: the video, a column of actions on the right and the
- * author + caption at the bottom left. The feed decides which card is `active`
- * (the only one that plays) and which are `near` (stream attached, ready to go).
+ * author + caption (and its link) at the bottom left. The feed decides which card
+ * is `active` (the only one that plays) and which are `near` (stream attached,
+ * ready to go). A reel with comments off has no Comments button; a friends-only or
+ * selected-people one has no Share (the database refuses to send it into a chat).
  */
 export function ReelCard({
   reel,
@@ -77,6 +81,11 @@ export function ReelCard({
   const like = useLikeToggle(reel.sourceType, reel.sourceId, { liked: reel.likedByMe, likes: reel.likes }, signedIn);
   const save = useSaveToggle(reel.sourceType, reel.sourceId, reel.savedByMe, signedIn);
   const shareDialog = useShareDialog(path);
+  /** A posted reel's link (migration 44; video tours have none), and who may comment on it and share it. */
+  const link = postLink(reel.link);
+  const commentsOff = reel.commentsOff ?? false;
+  const audience = reel.audience ?? "global";
+  const shareable = canShareAudience(audience);
   const [expanded, setExpanded] = useState(false);
   /** Bumped on every like so the heart replays its pop, and on every double tap so the big heart flashes again. */
   const [pop, setPop] = useState(0);
@@ -153,18 +162,22 @@ export function ReelCard({
             {/* A new key on every like restarts the pop. */}
             <Heart key={pop} className={cn("h-7 w-7", like.liked && "fill-current text-red-500", like.liked && pop > 0 && "ab-pop")} />
           </ActionButton>
-          <ActionButton
-            label="Comments"
-            count={commentCount}
-            onClick={() => {
-              if (!needsLogin()) onOpenComments();
-            }}
-          >
-            <MessageCircle className="h-7 w-7" />
-          </ActionButton>
-          <ActionButton label="Share" text="Share" onClick={shareDialog.show}>
-            <Share2 className="h-7 w-7" />
-          </ActionButton>
+          {commentsOff ? null : (
+            <ActionButton
+              label="Comments"
+              count={commentCount}
+              onClick={() => {
+                if (!needsLogin()) onOpenComments();
+              }}
+            >
+              <MessageCircle className="h-7 w-7" />
+            </ActionButton>
+          )}
+          {shareable ? (
+            <ActionButton label="Share" text="Share" onClick={shareDialog.show}>
+              <Share2 className="h-7 w-7" />
+            </ActionButton>
+          ) : null}
           <ActionButton
             label={save.saved ? "Saved" : "Save"}
             text={save.saved ? "Saved" : "Save"}
@@ -189,6 +202,12 @@ export function ReelCard({
             <span className="shrink-0 text-xs font-normal text-white/80" suppressHydrationWarning>
               · {timeAgo(reel.createdAt)}
             </span>
+            {/* Your own reel that not everyone can see: who can, after its age. */}
+            {isMine && audience !== "global" ? (
+              <span className="flex shrink-0 items-center gap-1 text-xs font-normal text-white/80">
+                · <AudienceNote audience={audience} />
+              </span>
+            ) : null}
           </div>
           {/* Collapsed: one line with a tail ellipsis, like Instagram; the line is the button. Expanded: title (a tour's title opens its listing, which has the Message button), caption, "less". */}
           {oneLine ? (
@@ -203,7 +222,12 @@ export function ReelCard({
                     <p className="line-clamp-3 text-sm font-semibold">{reel.title}</p>
                   )
                 ) : null}
-                {reel.caption ? <p className="max-h-40 overflow-y-auto whitespace-pre-line break-words pr-1 text-sm">{reel.caption}</p> : null}
+                {/* Opened, hashtags and @mentions stand out in bold, and a mention opens its profile. */}
+                {reel.caption ? (
+                  <p className="max-h-40 overflow-y-auto whitespace-pre-line break-words pr-1 text-sm">
+                    <CaptionText text={reel.caption} tagClassName="font-semibold" />
+                  </p>
+                ) : null}
                 {/* Outside the scroll box, so a long description can always be folded back. */}
                 <button
                   ref={lessRef}
@@ -239,17 +263,21 @@ export function ReelCard({
               </button>
             )
           ) : null}
+          {link ? <PostLinkChip url={link} onMedia className="[text-shadow:none]" /> : null}
         </div>
       </div>
 
       {/* Send the reel to friends (a chat message with the reel as a card) or copy its link. The card gets the same still the player shows. */}
-      <ShareDialog
-        sharedPost={{ ...sharedPostFromReel(reel), image_url: reel.video.poster_url ?? muxPosterUrl(reel.video.playback_id) }}
-        url={shareDialog.url}
-        open={shareDialog.open}
-        onClose={shareDialog.hide}
-        currentUser={currentUserId ? { id: currentUserId } : null}
-      />
+      {shareable ? (
+        <ShareDialog
+          sharedPost={{ ...sharedPostFromReel(reel), image_url: reel.video.poster_url ?? muxPosterUrl(reel.video.playback_id) }}
+          url={shareDialog.url}
+          open={shareDialog.open}
+          onClose={shareDialog.hide}
+          currentUser={currentUserId ? { id: currentUserId } : null}
+          restricted={audience !== "global"}
+        />
+      ) : null}
     </section>
   );
 }

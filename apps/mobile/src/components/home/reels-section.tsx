@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View, type ListViewToken } from "react-native";
 import { useRouter } from "expo-router";
 import { listReels, REELS_PAGE_SIZE, type Reel } from "@apartment-book/shared";
+import { openCompose } from "@/lib/compose-nav";
 import { errorText } from "@/lib/hooks";
 import { emitPostRemoved } from "@/lib/posts-events";
 import { useHomeScope } from "@/lib/home-scope";
@@ -194,7 +195,7 @@ export function ReelsSection({ active, preload = false, topInset, height }: { ac
     if (first && first.index != null) setVisible(first.index);
   }).current;
 
-  const create = () => router.push(user ? "/create/reel" : "/(auth)/login");
+  const create = () => (user ? openCompose(router, "reel") : router.push("/(auth)/login"));
 
   if (height <= 0) return <View style={styles.fill} />;
 

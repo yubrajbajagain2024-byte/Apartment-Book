@@ -2,6 +2,7 @@ import { DEFAULT_PAGE_SIZE, type ItemSort } from "../constants";
 import type { ItemInput } from "../schemas";
 import type { Client, Item, ItemCondition, ItemStatus, ItemWithSeller, Paginated } from "../types/models";
 import { pageRange, sanitizeSearch, searchOrFilter } from "../utils";
+import { LISTING_PRIVACY_UNAVAILABLE, listingPrivacyColumns, missingPrivacyColumns } from "./listing-privacy";
 
 export const ITEM_SELECT =
   "*, seller:profiles!items_seller_id_fkey(id, full_name, avatar_url, university:universities(email_domain)), university:universities(id, name, latitude, longitude)";
@@ -107,12 +108,14 @@ function toRow(input: ItemInput) {
   };
 }
 
+/** A new item; anonymity and who sees it as for roommate posts (createRoommatePost). */
 export async function createItem(supabase: Client, sellerId: string, input: ItemInput): Promise<Item> {
   const { data, error } = await supabase
     .from("items")
-    .insert({ ...toRow(input), seller_id: sellerId })
+    .insert({ ...toRow(input), seller_id: sellerId, ...listingPrivacyColumns(input) })
     .select("*")
     .single();
+  if (missingPrivacyColumns(error) && !/'videos' column/.test(error?.message ?? "")) throw new Error(LISTING_PRIVACY_UNAVAILABLE);
   if (error) throw error;
   return data;
 }

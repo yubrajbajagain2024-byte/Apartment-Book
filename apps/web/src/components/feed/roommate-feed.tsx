@@ -65,7 +65,7 @@ export function RoommateFeed({ initial, totalPages, filters, savedIds, signedIn,
             href={`/roommates/${p.id}`}
             targetType="roommate"
             targetId={p.id}
-            poster={{ id: p.author.id, name: p.author.full_name, avatarUrl: p.author.avatar_url, verified: isVerifiedPoster(p.author) }}
+            poster={p.author ? { id: p.author.id, name: p.author.full_name, avatarUrl: p.author.avatar_url, verified: isVerifiedPoster(p.author) } : { id: "", name: "Anonymous", avatarUrl: null, verified: false, anonymous: true }}
             subtitle={[p.university?.name ?? null, p.distance_km !== null ? `${formatDistance(p.distance_km)} from campus` : null].filter(Boolean).join(" · ")}
             media={listingMedia(p.images, p.image_meta, p.videos)}
             title={p.title}
@@ -78,7 +78,7 @@ export function RoommateFeed({ initial, totalPages, filters, savedIds, signedIn,
             currentUserId={currentUserId}
             currentUser={currentUser}
             engagement={engagement[p.id]}
-            messagePrefill={`Hi ${p.author.full_name.split(" ")[0]}! I saw your roommate post "${p.title}" and I'd like to chat.`}
+            messagePrefill={`Hi ${p.author?.full_name.split(" ")[0] ?? "there"}! I saw your roommate post "${p.title}" and I'd like to chat.`}
             priority={i < 2}
           />
         );

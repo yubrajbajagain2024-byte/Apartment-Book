@@ -75,7 +75,7 @@ export function ProfileMenuSheet({ visible, onClose }: { visible: boolean; onClo
           </Pressable>
         ) : null}
         <View style={styles.card}>
-          <MenuRow icon="add-circle-outline" title="Upload" subtitle="A post, a reel, a Buzz thread or a Snap" onPress={() => closeThen(create)} />
+          <MenuRow icon="add-circle-outline" title="Upload" subtitle="Photos and videos from your library, or the camera" onPress={() => closeThen(() => create({ upload: true }))} />
           <MenuRow icon="bookmark-outline" title="Saved" divider onPress={() => closeThen(() => router.push("/saved"))} />
           <MenuRow icon="settings-outline" title="Settings" divider onPress={() => closeThen(() => router.push("/settings"))} />
           <MenuRow icon="book-outline" title="Community Guidelines" divider onPress={() => closeThen(() => void WebBrowser.openBrowserAsync(`${SITE_URL}/guidelines`, { dismissButtonStyle: "close" }).catch(() => {}))} />

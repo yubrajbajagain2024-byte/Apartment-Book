@@ -96,17 +96,36 @@ export function compactCount(n: number): string {
   return `${(n / 1000000).toFixed(1).replace(/\.0$/, "")}m`;
 }
 
-/** Splits a caption into plain text and #hashtags, so the tags can be coloured like Instagram. */
-export function captionParts(text: string): { text: string; tag: boolean }[] {
-  const parts: { text: string; tag: boolean }[] = [];
-  const pattern = /(^|[^\p{L}\p{M}\p{N}_#])(#[\p{L}\p{M}\p{N}_]{1,60})/gu;
+/** One run of a caption: plain words, a #hashtag (`tag`), or an @mention (`mention`: the username, lowercased). */
+export type CaptionPart = { text: string; tag: boolean; mention?: string };
+
+/**
+ * Splits a caption into plain text, #hashtags and @mentions, so tags can be coloured like Instagram and mentions opened.
+ * A mention is a username as profiles allow it (letters, digits, "." and "_", 3 to 30 long, not ending in "." or "_");
+ * one preceded by a letter or digit (an email address) is plain text.
+ */
+export function captionParts(text: string): CaptionPart[] {
+  const parts: CaptionPart[] = [];
+  // A mention ends where the username does: one running on into more username letters (too long, or "bob_") is no mention.
+  const pattern = /(^|[^\p{L}\p{M}\p{N}_#])(#[\p{L}\p{M}\p{N}_]{1,60}|@[A-Za-z0-9][A-Za-z0-9._]{1,28}[A-Za-z0-9](?![A-Za-z0-9_]|\.[A-Za-z0-9]))/gu;
   let last = 0;
   for (const m of text.matchAll(pattern)) {
     const start = (m.index ?? 0) + m[1].length;
     if (start > last) parts.push({ text: text.slice(last, start), tag: false });
-    parts.push({ text: m[2], tag: true });
-    last = start + m[2].length;
+    const token = m[2];
+    parts.push(token.startsWith("@") ? { text: token, tag: false, mention: token.slice(1).toLowerCase() } : { text: token, tag: true });
+    last = start + token.length;
   }
   if (last < text.length) parts.push({ text: text.slice(last), tag: false });
   return parts;
+}
+
+/**
+ * A university as the audience picker names it: "Texas State" for "Texas State University", "Rice" for "Rice
+ * University". Names that don't end in "University" ("University of Houston") are kept whole.
+ */
+export function campusLabel(name: string | null | undefined): string {
+  const full = (name ?? "").trim();
+  const short = full.replace(/\s+University$/i, "").trim();
+  return short || full || "Campus";
 }

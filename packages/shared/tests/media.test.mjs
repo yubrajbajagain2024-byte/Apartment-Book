@@ -36,6 +36,10 @@ test("a reel row becomes the viewer's reel, with the row's counts and the viewer
     comments: 0,
     likedByMe: true,
     savedByMe: false,
+    // A row without migration 44's columns reads as a reel with no link, comments on, Global.
+    link: null,
+    commentsOff: false,
+    audience: "global",
   });
 });
 

@@ -39,7 +39,7 @@ export function PostsSection({ active, topInset, onScroll }: { active: boolean; 
   const [commenting, setCommenting] = useState<FeedPostWithAuthor | null>(null);
   const commentsOf = (id: string) => Math.max(0, (engagement[id]?.comments ?? 0) + (commentDelta[id] ?? 0));
   const commentingCount = commenting ? commentsOf(commenting.id) : 0;
-  const target = useMemo<CommentsTarget | null>(() => (commenting ? { targetType: "post", targetId: commenting.id, ownerId: commenting.author.id, comments: commentingCount } : null), [commenting, commentingCount]);
+  const target = useMemo<CommentsTarget | null>(() => (commenting ? { targetType: "post", targetId: commenting.id, ownerId: commenting.author.id, comments: commentingCount, commentsOff: commenting.comments_off ?? false } : null), [commenting, commentingCount]);
   // One video plays at a time, the first row on screen (at least 60% of it) that has one: sound is one switch for every
   // video, so two playing at once would both be heard.
   const [playingId, setPlayingId] = useState<string | null>(null);

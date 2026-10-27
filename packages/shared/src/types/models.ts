@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostAudience } from "../constants";
 import type { Database, Json } from "./database";
 import type { MessageAttachment } from "../message-media";
 
@@ -98,8 +99,14 @@ export type Reel = {
   sourceType: "post" | "apartment" | "roommate";
   sourceId: string;
   author: { id: string; name: string; avatarUrl: string | null; verified: boolean };
-  /** Listing title for video tours; null for posted reels. */
+  /** The listing's title for a video tour; a posted reel's own title (migration 44), or null when it has none. */
   title: string | null;
+  /** A posted reel's link (migration 44); null for video tours and reels without one. */
+  link: string | null;
+  /** A posted reel nobody may comment on (migration 44). Missing means comments are on. */
+  commentsOff?: boolean;
+  /** Who can see a posted reel (migration 44). Missing means Global, as for every video tour. */
+  audience?: PostAudience;
   caption: string;
   video: ListingVideo;
   createdAt: string;
@@ -156,12 +163,14 @@ export type ApartmentWithOwner = Apartment & {
 };
 
 export type RoommatePostWithAuthor = RoommatePost & {
-  author: PosterSummary;
+  /** Null on an anonymous post (is_anonymous): nobody but its poster can tell who wrote it. */
+  author: PosterSummary | null;
   university: UniversitySummary | null;
 };
 
 export type ItemWithSeller = Item & {
-  seller: PosterSummary;
+  /** Null on an anonymous item (is_anonymous), as for roommate posts. */
+  seller: PosterSummary | null;
   university: UniversitySummary | null;
 };
 
@@ -213,6 +222,7 @@ export type SharedPost = {
   title: string | null;
   caption: string | null;
   image_url: string | null;
+  /** Who posted it; for an anonymous listing just { id: "", name: "Anonymous" } (the database drops its sender's copy). */
   author: { id: string; name: string; avatar_url: string | null };
 };
 
@@ -253,8 +263,22 @@ export type ConversationSummary = {
   courseGroup: Pick<CourseGroup, "id" | "term" | "code" | "section"> | null;
   /** An inquiry chat (migration 39): the business the student is talking to, whose team makes up the other side. Null for any other chat. */
   business: BusinessSummary | null;
-  /** Group name, the business's name for an inquiry, or the other person's name for direct chats. */
+  /** A chat with an anonymous listing's poster (20261105000000_anonymous_listings.sql). Null for any other chat. */
+  anonymous: ChatAnonymity | null;
+  /** Group name, the business's name for an inquiry, "Anonymous poster" while one is hidden, or the other person's name for direct chats. */
   title: string;
+};
+
+/**
+ * The anonymous side of a chat started from an anonymous listing: `role` is which side you are on (the poster, or the
+ * person who wrote to them); `hidden`, whether the poster is still hidden from that person (the poster's choice, for
+ * this one chat: revealListingIdentity()). `target` is the listing, its title when you can still see it.
+ */
+export type ChatAnonymity = {
+  role: "poster" | "asker";
+  hidden: boolean;
+  revealedAt: string | null;
+  target: { type: "roommate" | "item"; id: string; title: string | null } | null;
 };
 
 export type Paginated<T> = {

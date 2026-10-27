@@ -1,4 +1,4 @@
-import { MUX_IMAGE_BASE, MUX_STREAM_BASE } from "./constants";
+import { MUX_IMAGE_BASE, MUX_STREAM_BASE, type PostAudience } from "./constants";
 import type { FeedMedia, FeedPostWithAuthor, ListingVideo, PostEngagement, PosterSummary, Reel } from "./types/models";
 import { photosFor } from "./utils";
 
@@ -58,7 +58,7 @@ export function reelFromFeedPost(post: FeedPostWithAuthor, engagement: PostEngag
     sourceType: "post",
     sourceId: post.id,
     author: { id: post.author.id, name: post.author.full_name, avatarUrl: post.author.avatar_url, verified: isVerifiedPoster(post.author) },
-    title: null,
+    title: post.title ?? null,
     caption: post.body,
     video,
     createdAt: post.created_at,
@@ -66,5 +66,8 @@ export function reelFromFeedPost(post: FeedPostWithAuthor, engagement: PostEngag
     comments: engagement.comments,
     likedByMe: engagement.likedByMe,
     savedByMe,
+    link: post.link_url ?? null,
+    commentsOff: post.comments_off ?? false,
+    audience: (post.audience ?? "global") as PostAudience,
   };
 }

@@ -2,8 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { BadgeCheck, Bookmark, Video } from "lucide-react";
-import { hasPublicComments, hasVideo, sharedPostFromListing, timeAgo, type FeedMedia, type PostCommentWithAuthor, type PostEngagement, type PostTargetType, type SharedPost } from "@apartment-book/shared";
+import { BadgeCheck, Bookmark, Video, EyeOff } from "lucide-react";
+import { ANONYMOUS_POSTER, hasPublicComments, hasVideo, sharedPostFromListing, timeAgo, type FeedMedia, type PostCommentWithAuthor, type PostEngagement, type PostTargetType, type SharedPost } from "@apartment-book/shared";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { MessageButton } from "@/components/common/message-button";
@@ -20,7 +20,8 @@ export type PostCardProps = {
   targetType: PostTargetType;
   targetId: string;
   /** `badge` marks a business listing ("Sponsored" / "Verified Partner"): the business is the poster, and it has no profile to open. */
-  poster: { id: string; name: string; avatarUrl: string | null; verified: boolean; badge?: string | null };
+  /** `anonymous`: an anonymous roommate post or item (its row names nobody): no profile, and Message opens the anonymous inquiry chat. */
+  poster: { id: string; name: string; avatarUrl: string | null; verified: boolean; badge?: string | null; anonymous?: boolean };
   /** The business behind a portal listing: its "Message" opens the inquiry chat with the whole team. */
   businessId?: string | null;
   /** e.g. "0.4 mi from campus · San Marcos" */
@@ -69,7 +70,7 @@ function firstFrame(media: FeedMedia[]): string | null {
 
 /** What the share sheet sends: everything the card already has, so no extra query is needed. */
 function sharedPostOfCard({ targetType, targetId, href, poster, media, title, caption }: PostCardProps): SharedPost {
-  const author = { id: poster.id, name: poster.name, avatar_url: poster.avatarUrl };
+  const author = poster.anonymous ? ANONYMOUS_POSTER : { id: poster.id, name: poster.name, avatar_url: poster.avatarUrl };
   if (targetType === "post") {
     return { target_type: "post", target_id: targetId, kind: "post", path: href, title: title ?? null, caption: caption?.trim() ? caption.trim() : null, image_url: firstFrame(media), author };
   }
@@ -91,7 +92,11 @@ export function PostCard(props: PostCardProps) {
 
   const header = (
     <div className={cn("flex items-center gap-2.5", compact ? "px-2 py-1.5" : "px-3 py-2.5")}>
-      {poster.badge ? (
+      {poster.anonymous ? (
+        <span aria-label="Anonymous" className={cn("flex shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500", compact ? "h-6 w-6" : facebook ? "h-10 w-10" : "h-8 w-8")}>
+          <EyeOff className={compact ? "h-3 w-3" : "h-4 w-4"} />
+        </span>
+      ) : poster.badge ? (
         <span className="shrink-0">
           <Avatar name={poster.name} src={poster.avatarUrl} size={compact ? "xs" : facebook ? "md" : "sm"} />
         </span>
@@ -110,6 +115,8 @@ export function PostCard(props: PostCardProps) {
               {props.subtitle && !compact ? <span className="truncate">· {props.subtitle}</span> : null}
             </span>
           </span>
+        ) : poster.anonymous ? (
+          <span className={cn("block truncate font-semibold text-gray-900", compact ? "text-xs" : "text-sm")}>{poster.name}</span>
         ) : (
           <Link href={`/profile/${poster.id}`} className={cn("flex items-center gap-1 font-semibold text-gray-900", compact ? "text-xs" : "text-sm")}>
             <span className="truncate">{poster.name}</span>
@@ -222,7 +229,7 @@ export function PostCard(props: PostCardProps) {
         >
           <Bookmark className={cn("h-5 w-5", save.saved && "fill-current")} /> {save.saved ? "Saved" : "Save"}
         </button>
-        <MessageButton userId={poster.id} currentUserId={props.currentUserId} returnTo={href} prefill={props.messagePrefill} variant="action" target={{ type: props.targetType, id: props.targetId }} businessId={props.businessId} />
+        <MessageButton userId={poster.id} currentUserId={props.currentUserId} returnTo={href} prefill={props.messagePrefill} variant="action" target={{ type: props.targetType, id: props.targetId }} businessId={props.businessId} anonymous={poster.anonymous} />
         <ShareButton path={href} title={label} sharedPost={sharedPostOfCard(props)} currentUserId={props.currentUserId} />
       </div>
       <div className="px-3 pb-3 pt-1 text-sm text-gray-900">

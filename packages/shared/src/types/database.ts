@@ -351,7 +351,8 @@ export type Database = {
       roommate_posts: {
         Row: {
           id: string;
-          author_id: string;
+          /** Null on an anonymous roommate post (20261105000000_anonymous_listings.sql): its poster is in anonymous_listing_owners, readable by them alone. */
+          author_id: string | null;
           university_id: string | null;
           post_type: Database["public"]["Enums"]["roommate_post_type"];
           title: string;
@@ -375,6 +376,10 @@ export type Database = {
           distance_km: number | null;
           geog: unknown | null;
           is_active: boolean;
+          /** Posted without its poster's name; fixed once posted. */
+          is_anonymous: boolean;
+          /** Who can see it: campus, global or friends (ListingAudience). */
+          audience: string;
           created_at: string;
           updated_at: string;
         };
@@ -403,12 +408,14 @@ export type Database = {
           longitude?: number | null;
           distance_km?: number | null;
           is_active?: boolean;
+          is_anonymous?: boolean;
+          audience?: string;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
-          author_id?: string;
+          author_id?: string | null;
           university_id?: string | null;
           post_type?: Database["public"]["Enums"]["roommate_post_type"];
           title?: string;
@@ -431,6 +438,8 @@ export type Database = {
           longitude?: number | null;
           distance_km?: number | null;
           is_active?: boolean;
+          is_anonymous?: boolean;
+          audience?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -454,7 +463,8 @@ export type Database = {
       items: {
         Row: {
           id: string;
-          seller_id: string;
+          /** Null on an anonymous item (20261105000000_anonymous_listings.sql): its poster is in anonymous_listing_owners, readable by them alone. */
+          seller_id: string | null;
           university_id: string | null;
           title: string;
           description: string;
@@ -466,6 +476,10 @@ export type Database = {
           image_meta: Json;
           pickup_location: string | null;
           status: Database["public"]["Enums"]["item_status"];
+          /** Posted without its poster's name; fixed once posted. */
+          is_anonymous: boolean;
+          /** Who can see it: campus, global or friends (ListingAudience). */
+          audience: string;
           created_at: string;
           updated_at: string;
           /** Migration 43 (marketplace video): a video snapshot, at most one (absent on a database without it). */
@@ -488,12 +502,14 @@ export type Database = {
           videos?: Json;
           has_video?: boolean;
           status?: Database["public"]["Enums"]["item_status"];
+          is_anonymous?: boolean;
+          audience?: string;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
-          seller_id?: string;
+          seller_id?: string | null;
           university_id?: string | null;
           title?: string;
           description?: string;
@@ -507,6 +523,8 @@ export type Database = {
           videos?: Json;
           has_video?: boolean;
           status?: Database["public"]["Enums"]["item_status"];
+          is_anonymous?: boolean;
+          audience?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -569,6 +587,13 @@ export type Database = {
           business_id: string | null;
           inquiry_target_type: string | null;
           inquiry_target_id: string | null;
+          /**
+           * 20261105000000_anonymous_listings.sql: a chat with the anonymous poster of the listing in inquiry_target_*, who
+           * stays hidden from the other person until they show who they are (poster_revealed_at). Set only by
+           * start_listing_inquiry() and reveal_listing_identity().
+           */
+          poster_hidden: boolean;
+          poster_revealed_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -582,6 +607,8 @@ export type Database = {
           business_id?: string | null;
           inquiry_target_type?: string | null;
           inquiry_target_id?: string | null;
+          poster_hidden?: boolean;
+          poster_revealed_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -595,6 +622,8 @@ export type Database = {
           business_id?: string | null;
           inquiry_target_type?: string | null;
           inquiry_target_id?: string | null;
+          poster_hidden?: boolean;
+          poster_revealed_at?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -672,6 +701,8 @@ export type Database = {
           reply_to: Json | null;
           /** Migration 35: {id, kind, status, ended_reason, duration, started_by} when the message is a call's row in the chat; read it with callOf(). Written only by the call functions. */
           call: Json | null;
+          /** A hidden anonymous poster's message (20261105000000_anonymous_listings.sql): stored with no sender. Set only by the database. */
+          anonymous: boolean;
           created_at: string;
         };
         Insert: {
@@ -685,6 +716,7 @@ export type Database = {
           snap?: Json | null;
           reply_to?: Json | null;
           call?: Json | null;
+          anonymous?: boolean;
           created_at?: string;
         };
         Update: {
@@ -698,6 +730,7 @@ export type Database = {
           snap?: Json | null;
           reply_to?: Json | null;
           call?: Json | null;
+          anonymous?: boolean;
           created_at?: string;
         };
         Relationships: [
@@ -1097,6 +1130,26 @@ export type Database = {
           },
         ];
       };
+      /** 20261105000000_anonymous_listings.sql: who posted an anonymous listing. Each poster reads only their own rows; nobody writes them. */
+      anonymous_listing_owners: {
+        Row: { id: string; owner_id: string; roommate_post_id: string | null; item_id: string | null; created_at: string };
+        Insert: { id?: string; owner_id: string; roommate_post_id?: string | null; item_id?: string | null; created_at?: string };
+        Update: { id?: string; owner_id?: string; roommate_post_id?: string | null; item_id?: string | null; created_at?: string };
+        Relationships: [];
+      };
+      /** The same migration: the anonymous poster in an inquiry chat. Read by that poster alone. */
+      anonymous_chat_posters: {
+        Row: { conversation_id: string; user_id: string; created_at: string };
+        Insert: { conversation_id: string; user_id: string; created_at?: string };
+        Update: { conversation_id?: string; user_id?: string; created_at?: string };
+        Relationships: [];
+      };
+      feed_post_viewers: {
+        Row: { post_id: string; user_id: string; created_at: string };
+        Insert: { post_id: string; user_id: string; created_at?: string };
+        Update: { post_id?: string; user_id?: string; created_at?: string };
+        Relationships: [];
+      };
       feed_posts: {
         Row: {
           id: string;
@@ -1109,6 +1162,10 @@ export type Database = {
           videos: Json;
           has_video: boolean;
           pinned_at: string | null;
+          title: string | null;
+          link_url: string | null;
+          audience: string;
+          comments_off: boolean;
           /** Migration 44: the #tags of `body`, lowercased (extract_hashtags), kept by Postgres. Missing on a database before it. */
           hashtags?: string[];
           created_at: string;
@@ -1125,6 +1182,10 @@ export type Database = {
           videos?: Json;
           has_video?: boolean;
           pinned_at?: string | null;
+          title?: string | null;
+          link_url?: string | null;
+          audience?: string;
+          comments_off?: boolean;
           hashtags?: never;
           created_at?: string;
           updated_at?: string;
@@ -1140,6 +1201,10 @@ export type Database = {
           videos?: Json;
           has_video?: boolean;
           pinned_at?: string | null;
+          title?: string | null;
+          link_url?: string | null;
+          audience?: string;
+          comments_off?: boolean;
           hashtags?: never;
           created_at?: string;
           updated_at?: string;
@@ -1597,6 +1662,18 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      set_post_viewers: {
+        Args: { p_post_id: string; p_user_ids: string[] };
+        Returns: number;
+      };
+      start_listing_inquiry: {
+        Args: { p_target_type: string; p_target_id: string };
+        Returns: string;
+      };
+      reveal_listing_identity: {
+        Args: { p_conversation_id: string };
+        Returns: string;
+      };
       can_view_profile_section: {
         Args: { p_owner: string; p_section: string };
         Returns: boolean;

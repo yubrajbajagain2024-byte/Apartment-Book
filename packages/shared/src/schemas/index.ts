@@ -5,7 +5,13 @@ import {
   CLEANLINESS_LEVELS,
   CURRENCIES,
   DEAL_STATUS_VALUES,
+  DEFAULT_LISTING_AUDIENCE,
+  DEFAULT_POST_AUDIENCE,
   ITEM_CATEGORY_VALUES,
+  LISTING_AUDIENCE_VALUES,
+  MAX_POST_VIEWERS,
+  POST_AUDIENCE_VALUES,
+  POST_TITLE_MAX,
   SLEEP_SCHEDULES,
 } from "../constants";
 import {
@@ -120,6 +126,18 @@ export type ApartmentInput = z.infer<typeof apartmentSchema>;
 // ---------------------------------------------------------------------------
 // Roommates
 // ---------------------------------------------------------------------------
+/**
+ * Who a roommate post or Marketplace item is for, and whether it carries its poster's name (20261105000000_anonymous_listings.sql).
+ * Left out (the website's forms), a listing is Global and under its poster's name, as every listing before. Both are
+ * set when it is posted: an edit never changes them.
+ */
+const listingPrivacyFields = {
+  isAnonymous: z.boolean().default(false),
+  audience: z.enum(LISTING_AUDIENCE_VALUES).default(DEFAULT_LISTING_AUDIENCE),
+};
+const campusHasUniversity = (v: { audience: string; universityId?: string }) => v.audience !== "campus" || Boolean(v.universityId);
+const campusError = { error: "Campus-only listings need a confirmed university email on your account", path: ["audience"] };
+
 export const roommatePostSchema = z
   .object({
     postType: z.enum(["has_room", "needs_room"], { error: "Choose what you are looking for" }),
@@ -146,31 +164,36 @@ export const roommatePostSchema = z
     imageMeta,
     videos: listingVideos,
     ...coordinateFields,
+    ...listingPrivacyFields,
   })
   .refine(
     (v) => v.budgetMin === undefined || v.budgetMax === undefined || v.budgetMin <= v.budgetMax,
     { error: "Minimum budget cannot be higher than maximum budget", path: ["budgetMax"] },
   )
-  .refine(bothOrNeither, coordinateError);
+  .refine(bothOrNeither, coordinateError)
+  .refine(campusHasUniversity, campusError);
 export type RoommatePostInput = z.infer<typeof roommatePostSchema>;
 
 // ---------------------------------------------------------------------------
 // Marketplace
 // ---------------------------------------------------------------------------
-export const itemSchema = z.object({
-  title: z.string().trim().min(3, "Give the item a short title").max(120),
-  description: z.string().trim().min(10, "Describe the item in at least 10 characters").max(4000),
-  price: z.coerce.number({ error: "Enter a price (0 for free)" }).min(0).max(1_000_000),
-  currency: z.enum(CURRENCIES),
-  category: z.enum(ITEM_CATEGORY_VALUES, { error: "Choose a category" }),
-  condition: z.enum(["new", "like_new", "good", "fair", "poor"]),
-  universityId: optionalUuid,
-  pickupLocation: optionalText(160),
-  images: imageUrls,
-  imageMeta,
-  /** One video at most (migration 43, marketplace video). Empty when the form has none, as the web's form never does. */
-  videos: listingVideos.refine((v) => v.length <= 1, { error: "One video per item" }),
-});
+export const itemSchema = z
+  .object({
+    title: z.string().trim().min(3, "Give the item a short title").max(120),
+    description: z.string().trim().min(10, "Describe the item in at least 10 characters").max(4000),
+    price: z.coerce.number({ error: "Enter a price (0 for free)" }).min(0).max(1_000_000),
+    currency: z.enum(CURRENCIES),
+    category: z.enum(ITEM_CATEGORY_VALUES, { error: "Choose a category" }),
+    condition: z.enum(["new", "like_new", "good", "fair", "poor"]),
+    universityId: optionalUuid,
+    pickupLocation: optionalText(160),
+    images: imageUrls,
+    imageMeta,
+    /** One video at most (migration 43, marketplace video). Empty when the form has none, as the web's form never does. */
+    videos: listingVideos.refine((v) => v.length <= 1, { error: "One video per item" }),
+    ...listingPrivacyFields,
+  })
+  .refine(campusHasUniversity, campusError);
 export type ItemInput = z.infer<typeof itemSchema>;
 
 // ---------------------------------------------------------------------------
@@ -199,6 +222,23 @@ export type CommentInput = z.infer<typeof commentSchema>;
 // ---------------------------------------------------------------------------
 // Home feed: posts, reels and anonymous Buzz
 // ---------------------------------------------------------------------------
+/**
+ * What the composer's publish screen adds to a post or reel (migration 44): a title, one link, who can see it (with the
+ * people picked for "Selected people") and whether others can comment. All optional: left alone, a post is Global with
+ * comments on, as before.
+ */
+const postDetailFields = {
+  title: optionalText(POST_TITLE_MAX),
+  // A link with a space in it passes the URL check but not the database's: it is refused here, in words.
+  linkUrl: optionalUrl.refine((v) => v === undefined || !/\s/.test(v), { error: "A link can't have spaces in it" }),
+  audience: z.enum(POST_AUDIENCE_VALUES).default(DEFAULT_POST_AUDIENCE),
+  viewerIds: z.array(z.uuid()).max(MAX_POST_VIEWERS, { error: `Choose up to ${MAX_POST_VIEWERS} people` }).default([]),
+  commentsOff: z.boolean().default(false),
+};
+/** "Selected people" needs at least one person, and "Campus only" a campus to be limited to. */
+const pickedSomeone = { error: "Choose who can see it", path: ["viewerIds"] };
+const hasCampus = { error: "Campus-only posts need a confirmed university email on your account", path: ["audience"] };
+
 export const feedPostSchema = z
   .object({
     body: z.string().trim().max(4000, "Keep posts under 4,000 characters").default(""),
@@ -206,15 +246,22 @@ export const feedPostSchema = z
     images: imageUrls,
     imageMeta,
     videos: listingVideos,
+    ...postDetailFields,
   })
-  .refine((v) => v.body.length > 0 || v.images.length > 0 || v.videos.length > 0, { error: "Write something or add a photo or video", path: ["body"] });
+  .refine((v) => v.body.length > 0 || Boolean(v.title) || v.images.length > 0 || v.videos.length > 0, { error: "Write something or add a photo or video", path: ["body"] })
+  .refine((v) => v.audience !== "selected" || v.viewerIds.length > 0, pickedSomeone)
+  .refine((v) => v.audience !== "campus" || Boolean(v.universityId), hasCampus);
 export type FeedPostInput = z.infer<typeof feedPostSchema>;
 
-export const reelSchema = z.object({
-  body: z.string().trim().max(2200, "Keep captions under 2,200 characters").default(""),
-  universityId: optionalUuid,
-  videos: listingVideos.refine((v) => v.length === 1, { error: "Add one video for your reel" }),
-});
+export const reelSchema = z
+  .object({
+    body: z.string().trim().max(2200, "Keep captions under 2,200 characters").default(""),
+    universityId: optionalUuid,
+    videos: listingVideos.refine((v) => v.length === 1, { error: "Add one video for your reel" }),
+    ...postDetailFields,
+  })
+  .refine((v) => v.audience !== "selected" || v.viewerIds.length > 0, pickedSomeone)
+  .refine((v) => v.audience !== "campus" || Boolean(v.universityId), hasCampus);
 export type ReelInput = z.infer<typeof reelSchema>;
 
 // ---------------------------------------------------------------------------

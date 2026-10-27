@@ -85,10 +85,14 @@ function ThemedStack() {
         <Stack.Screen name="settings/account-status" options={{ title: "Account status" }} />
         <Stack.Screen name="settings/buzz-anonymity" options={{ title: "How Buzz anonymity works" }} />
         <Stack.Screen name="create/apartment" options={{ title: "List an apartment" }} />
-        <Stack.Screen name="create/roommate" options={{ title: "Roommate post" }} />
-        <Stack.Screen name="create/item" options={{ title: "Sell an item" }} />
-        <Stack.Screen name="create/post" options={{ title: "New post" }} />
-        <Stack.Screen name="create/reel" options={{ title: "New reel" }} />
+        {/* Roommate posts and items are made in the create flow too (app/compose): these hand over to it. */}
+        <Stack.Screen name="create/roommate" options={{ headerShown: false, animation: "none" }} />
+        <Stack.Screen name="create/item" options={{ headerShown: false, animation: "none" }} />
+        {/* Posts and reels are made in the create flow (app/compose): TikTok's camera, editor and publish screen, rising
+            over the app as one full-screen modal with its own stack inside. The old addresses hand over to it. */}
+        <Stack.Screen name="compose" options={{ headerShown: false, presentation: "fullScreenModal", gestureEnabled: false, contentStyle: { backgroundColor: "#000" } }} />
+        <Stack.Screen name="create/post" options={{ headerShown: false, animation: "none" }} />
+        <Stack.Screen name="create/reel" options={{ headerShown: false, animation: "none" }} />
         {/* Kept for links: it hands over at once to the composer sheet on Home's Buzz page (see app/create/buzz.tsx). */}
         <Stack.Screen name="create/buzz" options={{ headerShown: false, animation: "none", contentStyle: buzzContent }} />
       </Stack>

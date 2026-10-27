@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { ScrollView } from "react-native";
 import type { PostTargetType } from "@apartment-book/shared";
 import { makeStyles } from "@/lib/theme-provider";
-import { CommentComposer, CommentList, commentCountLabel, CommentSortButton, useCommentThread } from "./comments";
+import { CommentComposer, CommentList, commentCountLabel, CommentsOff, CommentSortButton, useCommentThread } from "./comments";
 import { Sheet, SheetFooter, SheetHeader } from "./sheet";
 
-/** `focusComposer` opens the sheet straight into typing, once the sheet has slid up. */
-export type CommentsTarget = { targetType: PostTargetType; targetId: string; ownerId: string; comments: number; focusComposer?: boolean };
+/**
+ * `focusComposer` opens the sheet straight into typing, once the sheet has slid up. `commentsOff`: the author turned
+ * comments off (migration 44), so the sheet says so instead of offering a thread to write in.
+ */
+export type CommentsTarget = { targetType: PostTargetType; targetId: string; ownerId: string; comments: number; focusComposer?: boolean; commentsOff?: boolean };
 
 /**
  * Bottom sheet with the comment thread of one post or reel, TikTok style: the count up top (the sort button beside it),
@@ -22,7 +25,14 @@ export function CommentsSheet({ target, onClose, onCountChange }: { target: Comm
 
   return (
     <Sheet visible={target !== null} onClose={onClose} closeLabel="Close comments" height="70%" keyboard>
-      {shown ? <SheetBody key={`${shown.targetType}:${shown.targetId}`} target={shown} onCountChange={onCountChange} /> : null}
+      {shown?.commentsOff ? (
+        <>
+          <SheetHeader title="Comments" />
+          <CommentsOff style={{ paddingVertical: 32 }} />
+        </>
+      ) : shown ? (
+        <SheetBody key={`${shown.targetType}:${shown.targetId}`} target={shown} onCountChange={onCountChange} />
+      ) : null}
     </Sheet>
   );
 }

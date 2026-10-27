@@ -16,6 +16,7 @@ import { alertWithHaptic, hapticSuccess } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { SnapPermissionError, captureSnap, startSnapUpload, type SnapShot, type SnapUpload } from "@/lib/snap-capture";
+import { takeHandedOffSnap } from "@/lib/snap-handoff";
 import { supabase } from "@/lib/supabase";
 import { auroraGradient } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
@@ -27,8 +28,9 @@ const EDGE = 12;
 const SEND_TO = 52;
 
 /**
- * A Snap, from the + menu: the phone's own camera opens over whatever was on screen (this screen is see-through until
- * there is something to show). Close it without taking anything and you are back where you were. Take a photo or a
+ * A Snap. Taken with the create flow's camera in its SNAP mode (app/compose), it arrives ready and shows at once, and
+ * "take another" goes back to that camera. Opened any other way (an old link), the phone's own camera opens over
+ * whatever was on screen (this screen is see-through until there is something to show). Close it without taking anything and you are back where you were. Take a photo or a
  * video and it fills the screen on black (a photo over a blurred copy of itself), with close and "take another" at the
  * top and the Aurora "Send To" at the bottom. Send To rises as a sheet with everyone it can go to; the file starts
  * uploading at that moment, and Send hands it over. Once it lands the sheet goes and so does the Snap.
@@ -67,6 +69,8 @@ export default function SnapScreen() {
   const sheetUp = useRef(false);
   const sheetGoneWaiters = useRef<(() => void)[]>([]);
   const userId = user?.id ?? null;
+  /** The Snap came from the create flow's camera: "Take another" goes back to that camera instead of the system's. */
+  const handedOff = useRef(false);
 
   /** 0 while nothing is shown (the camera is up), 1 once the Snap fills the screen. */
   const shown = useSharedValue(0);
@@ -149,9 +153,16 @@ export default function SnapScreen() {
     else router.replace("/(auth)/login");
   }, [loading, userId, router, leave]);
 
-  // The camera opens once this screen is up (presenting it during the screen's own presentation would be dropped).
+  // The camera opens once this screen is up (presenting it during the screen's own presentation would be dropped),
+  // unless the create flow's camera already took the Snap: that one shows at once.
   useEffect(() => {
     if (!userId) return;
+    const ready = takeHandedOffSnap();
+    if (ready) {
+      handedOff.current = true;
+      setShot(ready);
+      return;
+    }
     let started = false;
     const start = () => {
       if (started) return;
@@ -292,7 +303,7 @@ export default function SnapScreen() {
         <Animated.View style={[StyleSheet.absoluteFill, backdrop]} pointerEvents="box-none">
           <View style={[styles.topRow, { top: insets.top + 8 }]} pointerEvents="box-none">
             <GlassIconButton icon="close" label="Discard Snap" onPress={leave} variant="media" size={BUTTON} iconSize={19} haptic={false} hitSlop={8} />
-            <GlassIconButton icon="camera-outline" sf="arrow.triangle.2.circlepath.camera" label="Take another" onPress={() => void take()} variant="media" size={BUTTON} iconSize={19} haptic="tap" hitSlop={8} />
+            <GlassIconButton icon="camera-outline" sf="arrow.triangle.2.circlepath.camera" label="Take another" onPress={() => (handedOff.current ? leave() : void take())} variant="media" size={BUTTON} iconSize={19} haptic="tap" hitSlop={8} />
           </View>
           <View style={[styles.bottomRow, { bottom: insets.bottom + EDGE }]} pointerEvents="box-none">
             {shot.kind === "video" ? (

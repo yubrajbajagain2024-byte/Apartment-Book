@@ -1,29 +1,21 @@
 import { useRouter } from "expo-router";
-import { useActionSheet } from "@/components/action-sheet";
-import { openBuzzComposerFromAnywhere } from "@/components/buzz/open-composer";
+import { openCompose } from "@/lib/compose-nav";
 import { useSession } from "@/lib/session";
 
 /**
- * What every create button on Home opens: the "What would you like to share?" sheet with Post, Reel, Buzz (anonymous)
- * and Snap (the camera, then Send To: see app/snap). Signed out it goes to the login screen instead. Shared by Orbit's
- * floating "+", Upload in the menu under your photo (ProfileMenuSheet) and the "+" Home's top bar shows over the Reels
- * video (the bottom bar has no "+": Discover is there).
+ * What every create button on Home does: opens the live camera at once (app/compose), TikTok's way, starting a post;
+ * SNAP, REEL and BUZZ (an anonymous thread, written right on the stage) sit beside POST along its bottom, and Upload
+ * opens the library (`upload`: straight onto it). Signed out it goes to the login screen instead. Shared by Orbit's
+ * floating "+" and Upload in the menu under your photo (ProfileMenuSheet); the "+" Home's top bar shows over the Reels
+ * video opens the camera on REEL (the bottom bar has no "+": Discover is there).
  */
-export function useCreateMenu(): () => void {
+export function useCreateMenu(): (opts?: unknown) => void {
   const router = useRouter();
-  const show = useActionSheet();
   const { user } = useSession();
-  return () => {
+  // Often an onPress itself, so `opts` may be a press event: only an explicit { upload: true } opens the library.
+  return (opts) => {
     if (!user) return router.push("/(auth)/login");
-    show(
-      [
-        { label: "Post", icon: "create-outline", onPress: () => router.push("/create/post" as never) },
-        { label: "Reel", icon: "videocam-outline", onPress: () => router.push("/create/reel" as never) },
-        // The Buzz composer is a sheet on Home's Buzz page: Home moves there and it opens (after the guidelines gate).
-        { label: "Buzz (anonymous)", icon: "chatbubbles-outline", onPress: () => openBuzzComposerFromAnywhere(router) },
-        { label: "Snap", icon: "camera-outline", onPress: () => router.push("/snap" as never) },
-      ],
-      "What would you like to share?",
-    );
+    const upload = typeof opts === "object" && opts !== null && (opts as { upload?: unknown }).upload === true;
+    openCompose(router, "post", { upload });
   };
 }

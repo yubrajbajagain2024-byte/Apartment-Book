@@ -62,9 +62,9 @@ function ProfileTabIcon({ focused, color, size }: { focused: boolean; color: Col
 /**
  * Home | Discover | Messages | Explore (Housing | Roommate | Marketplace) | Profile, Instagram's order with Discover
  * (search, and what is popular on every campus) second. Creating starts from Home: Orbit's floating "+", Upload in the
- * menu under your photo, and the "+" over Reels open the create sheet (Post / Reel / Buzz / Snap). The bar is FloatingTabBar: a
- * rounded glass pill floating over the tabs' content (see lib/tab-bar.ts for its size and the room each tab keeps clear
- * under it) with a capsule that slides to the tab on screen.
+ * menu under your photo, and the "+" over Reels open the live camera (SNAP | POST | REEL | BUZZ, see app/compose). The
+ * bar is FloatingTabBar: a rounded glass pill floating over the tabs' content (see lib/tab-bar.ts for its size and the
+ * room each tab keeps clear under it) with a capsule that slides to the tab on screen.
  */
 export default function TabsLayout() {
   const { user, profile } = useSession();

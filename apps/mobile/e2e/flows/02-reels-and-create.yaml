@@ -38,15 +38,22 @@ appId: host.exp.Exponent
 - takeScreenshot: e2e/screenshots/13-reels
 - tapOn: "Orbit"
 - waitForAnimationToEnd
-# Create menu
+# Create: the + opens the live camera straight away (POST | REEL | BUZZ | SNAP, Upload for the library).
 - tapOn: "Create"
-- assertVisible: "Post"
-- assertVisible: "Reel"
-- assertVisible: "Buzz \\(anonymous\\)"
-- assertVisible: "Snap"
-- takeScreenshot: e2e/screenshots/14-create-menu
-# Buzz's composer is a sheet on Home's Buzz page: Home moves there and it rises (after the guidelines gate, if needed).
-- tapOn: "Buzz \\(anonymous\\)"
+- extendedWaitUntil:
+    visible: "POST"
+    timeout: 15000
+- assertVisible: "REEL"
+- assertVisible: "BUZZ"
+- assertVisible: "SNAP"
+- assertVisible: "Upload"
+- takeScreenshot: e2e/screenshots/14-create-camera
+- tapOn: "Close the camera"
+- waitForAnimationToEnd
+# Buzz's composer is a sheet on Home's Buzz page, opened from that page's own button (after the guidelines gate, if needed).
+- tapOn: "Buzz"
+- waitForAnimationToEnd
+- tapOn: "New buzz"
 - extendedWaitUntil:
     visible: "I understand|You're anonymous.*"
     timeout: 30000
