@@ -14,7 +14,9 @@
 
 ## Pending
 
-- [ ] Delete the branch once the owner agrees.
+- [ ] Close PR #46 without merging: its only change is the old `CLAUDE.md` copy (checked
+      2026-10-27; every note in it is in these docs).
+- [ ] Then delete the branch once the owner agrees.
 
 ## Tests
 
