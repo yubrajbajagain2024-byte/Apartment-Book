@@ -109,6 +109,16 @@ runTable('threat_violence', [
   { text: 'i will attack this problem with you tomorrow', expect: 'allow' },
 ]);
 
+// Everyday emoji are two UTF-16 units each: the normalizer once lost count of them and failed closed (held) on any.
+runTable('everyday_emoji', [
+  { text: 'I feel lonely today 😢😢😢', expect: 'allow' },
+  { text: '😢', expect: 'allow' },
+  { text: 'finals week 😂🔥 lets go 👍', expect: 'allow' },
+  { text: 'happy birthday ❤️🎉', expect: 'allow' },
+  { text: '😡😡 i will k i l l you tomorrow', expect: 'block', category: 'threat_violence' },
+  { text: 'i will k i l l you 😡 tomorrow', expect: 'block', category: 'threat_violence' },
+]);
+
 runTable('harassment_bullying', [
   { text: 'kys loser', expect: 'block', category: 'harassment_bullying', subcode: 'kys', messageId: 'M-KYS' },
   { text: 'k y s', expect: 'block', category: 'harassment_bullying', subcode: 'kys' },

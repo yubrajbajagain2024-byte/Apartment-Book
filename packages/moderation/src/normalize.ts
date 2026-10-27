@@ -268,18 +268,29 @@ export function normalize(original: string): Normalized {
   {
     const text = folded.text;
     const re = new RegExp(`(?<=^|\\s)([\\p{L}\\p{N}])(?:${SEPARATOR_CLASS}([\\p{L}\\p{N}])){2,}(?=\\s|$)`, 'gu');
+    // Match offsets count UTF-16 units of the text, but an emoji cell is two of them: `cellAt` turns an offset into the
+    // index of its cell (and the text's length into the cell count).
+    const cellAt = new Int32Array(text.length + 1);
+    {
+      let u = 0;
+      foldedCells.forEach((c, i) => {
+        for (let k = 0; k < c.ch.length; k += 1) cellAt[u++] = i;
+      });
+      cellAt[u] = foldedCells.length;
+    }
     let last = 0;
     for (const m of text.matchAll(re)) {
-      const start = m.index ?? 0;
+      const start = cellAt[m.index ?? 0]!;
+      const stop = cellAt[(m.index ?? 0) + m[0].length]!;
       for (let i = last; i < start; i += 1) spacedCells.push(foldedCells[i]!);
-      for (let i = start; i < start + m[0].length; i += 1) {
+      for (let i = start; i < stop; i += 1) {
         const c = foldedCells[i]!;
         if (RE_ALNUM.test(c.ch)) spacedCells.push(c);
       }
-      last = start + m[0].length;
+      last = stop;
       spacedJoins += 1;
     }
-    for (let i = last; i < text.length; i += 1) spacedCells.push(foldedCells[i]!);
+    for (let i = last; i < foldedCells.length; i += 1) spacedCells.push(foldedCells[i]!);
   }
   const spaced = toView('spaced', spacedCells);
 
