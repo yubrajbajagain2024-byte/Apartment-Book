@@ -4,29 +4,19 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  BUZZ_COMPOSER_COPY,
-  BUZZ_LIMITS,
-  BUZZ_POLL_DURATIONS,
-  buzzErrorMessage,
-  createBuzzPost,
-  deleteImageByUrl,
-  type Buzz,
-  type BuzzScope,
-  type CreateBuzzRequest,
-} from "@apartment-book/shared";
+import { BUZZ_COMPOSER_COPY, BUZZ_LIMITS, buzzErrorMessage, deleteImageByUrl, type Buzz, type BuzzScope } from "@apartment-book/shared";
 import { Icon } from "@/components/icon";
-import { buzzWriteTarget, ensureBuzzMeta } from "@/lib/buzz-actions";
+import { ensureBuzzMeta } from "@/lib/buzz-actions";
 import { pickBuzzPhotos, takeBuzzPhoto, uploadBuzzPhoto, type BuzzPickedPhoto } from "@/lib/buzz-photos";
-import { buzzState, emitBuzzEvent, getBuzzState, putBuzzItems, useBuzzState, type BuzzUiState, type DraftVideo } from "@/lib/buzz-store";
+import { buzzState, getBuzzState, useBuzzState, type BuzzUiState, type DraftVideo } from "@/lib/buzz-store";
 import { BuzzVideoTooLong, pickBuzzVideo, uploadBuzzVideo } from "@/lib/buzz-video";
-import { hapticSuccess } from "@/lib/haptics";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { ComposerGuard, ComposerModeBanner, useBuzzPostingStatus } from "./guard";
-import { useBuzzModeration } from "./moderation";
+import { BuzzPollEditor } from "./poll-editor";
 import { BuzzSheet } from "./sheet";
 import { BuzzToastHost } from "./toast";
+import { buzzDraftCheck, useBuzzSubmit } from "./use-buzz-submit";
 import { Chip, P, PButton, PIconButton, R, Segmented, T } from "./ui";
 
 /*
@@ -55,12 +45,11 @@ export function BuzzComposer({ visible, onClose, onPosted }: { visible: boolean;
   const meta = useBuzzState(selectMeta);
   const campus = useBuzzState(selectCampus);
   const posting = useBuzzPostingStatus(visible);
-  const moderation = useBuzzModeration();
   const titleRef = useRef<TextInputInstance>(null);
   const textRef = useRef<TextInputInstance>(null);
+  const { submit, sending, moderation } = useBuzzSubmit({ onPosted, onDone: onClose, onEdit: () => textRef.current?.focus() });
   const [photoUploads, setPhotoUploads] = useState(0);
   const [video, setVideo] = useState<{ phase: "uploading" | "processing"; progress: number } | null>(null);
-  const [sending, setSending] = useState(false);
   const [mediaSheet, setMediaSheet] = useState<"photo" | "video" | null>(null);
   const [mediaSheetOpen, setMediaSheetOpen] = useState(false);
   /** What the media sheet's choice runs once the sheet is fully gone (iOS presents the camera only then). */
@@ -102,17 +91,11 @@ export function BuzzComposer({ visible, onClose, onPosted }: { visible: boolean;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  const now = Date.now();
-  const pollsLocked = posting?.pollsUnlockAt != null && posting.pollsUnlockAt > now;
+  const { ready, pollsLocked } = buzzDraftCheck(draft, posting);
   const campusMeta = meta.campus?.value ?? null;
   const prompt = draft.promptId ? (Object.values(meta).find((m) => m?.value.prompt?.id === draft.promptId)?.value.prompt ?? null) : null;
-  const text = draft.text.trim();
-  const title = draft.title.trim();
-  const options = draft.options.map((o) => o.trim());
-  const filled = options.filter(Boolean);
-  const pollValid = !draft.pollOn || (filled.length >= BUZZ_LIMITS.pollMinOptions && filled.length === options.length && new Set(options.map((o) => o.toLowerCase())).size === options.length);
   const uploading = photoUploads > 0 || video !== null;
-  const canSubmit = (text.length > 0 || title.length > 0) && text.length <= BUZZ_LIMITS.text && title.length <= BUZZ_LIMITS.title && pollValid && !uploading && !sending && (!draft.pollOn || !pollsLocked);
+  const canSubmit = ready && !uploading && !sending;
   const roomForPhotos = BUZZ_LIMITS.images - draft.images.length - photoUploads;
 
   /* ---------- photos ---------- */
@@ -183,50 +166,6 @@ export function BuzzComposer({ visible, onClose, onPosted }: { visible: boolean;
     chooseSource("video");
   };
 
-  /* ---------- poll ---------- */
-
-  const setOption = (i: number, v: string) => buzzState.setDraft({ options: draft.options.map((o, k) => (k === i ? v : o)) });
-  const addOption = () => {
-    if (draft.options.length < BUZZ_LIMITS.pollMaxOptions) buzzState.setDraft({ options: [...draft.options, ""] });
-  };
-  const removeOption = (i: number) => {
-    if (draft.options.length > BUZZ_LIMITS.pollMinOptions) buzzState.setDraft({ options: draft.options.filter((_, k) => k !== i) });
-  };
-
-  /* ---------- post ---------- */
-
-  const submit = async () => {
-    if (!canSubmit) return;
-    setSending(true);
-    const d = currentDraft();
-    const body: CreateBuzzRequest = {
-      text,
-      scope: d.scope,
-      ...(title ? { title } : {}),
-      ...(d.video ? { video: d.video } : d.images.length > 0 ? { images: d.images.map((p) => p.url), imageMeta: d.images } : {}),
-      ...(d.pollOn ? { poll: { options, durationDays: d.durationDays } } : {}),
-      ...(d.promptId ? { promptId: d.promptId } : {}),
-    };
-    try {
-      const res = await createBuzzPost(await buzzWriteTarget(), body);
-      const { moderation: notice, ...buzz } = res;
-      putBuzzItems([buzz]);
-      hapticSuccess();
-      buzzState.clearDraft();
-      // Show the feed the buzz went to, so it is right there.
-      buzzState.setScope(buzz.scope);
-      buzzState.dropFeeds();
-      emitBuzzEvent({ type: "refresh", scope: buzz.scope });
-      onPosted?.(buzz);
-      if (notice.status !== "held") buzzState.toast(BUZZ_COMPOSER_COPY.posted(buzz.scope, buzz.alias.label), { tone: "success", duration: 4500 });
-      moderation.showNotice(notice, { onSupportClosed: onClose });
-    } catch (e) {
-      if (!moderation.handleWriteError(e, { onEdit: () => textRef.current?.focus() })) buzzState.toast(buzzErrorMessage(e), { tone: "error" });
-    } finally {
-      setSending(false);
-    }
-  };
-
   const close = () => {
     if (sending) return;
     onClose();
@@ -268,7 +207,7 @@ export function BuzzComposer({ visible, onClose, onPosted }: { visible: boolean;
             ) : null}
             <View style={{ gap: 8 }}>
               <Segmented<BuzzScope> label="Post to" value={draft.scope} options={SCOPES} onChange={(scope) => buzzState.setDraft({ scope })} />
-              <Text style={[T.caption, { color: P.ink3 }]}>{draft.scope === "campus" ? BUZZ_COMPOSER_COPY.campusScopeNote(campus?.shortName ?? "your") : BUZZ_COMPOSER_COPY.globalScopeNote}</Text>
+              <Text style={[T.caption, { color: P.ink3 }]}>{draft.scope === "campus" ? (campus?.shortName ? BUZZ_COMPOSER_COPY.campusScopeNote(campus.shortName) : "Only shows in your campus feed.") : BUZZ_COMPOSER_COPY.globalScopeNote}</Text>
             </View>
             <TextInput
               ref={titleRef}
@@ -347,35 +286,7 @@ export function BuzzComposer({ visible, onClose, onPosted }: { visible: boolean;
               </View>
             )}
 
-            {draft.pollOn ? (
-              <View style={styles.pollCard}>
-                <View style={styles.pollHead}>
-                  <Text style={[T.labelSm, { color: P.ink }]}>Poll</Text>
-                  <Text style={[T.caption, { color: P.ink3 }]}>{BUZZ_COMPOSER_COPY.pollHint}</Text>
-                </View>
-                {draft.options.map((o, i) => (
-                  <View key={i} style={styles.optionRow}>
-                    <TextInput
-                      value={o}
-                      onChangeText={(v) => setOption(i, v)}
-                      placeholder={`Option ${i + 1}`}
-                      placeholderTextColor={P.ink4}
-                      keyboardAppearance="dark"
-                      maxLength={BUZZ_LIMITS.pollOptionText}
-                      style={[T.body, styles.option]}
-                      accessibilityLabel={`Option ${i + 1}`}
-                    />
-                    {draft.options.length > BUZZ_LIMITS.pollMinOptions ? <PIconButton icon="close" label={`Remove option ${i + 1}`} onPress={() => removeOption(i)} size={36} iconSize={16} /> : null}
-                  </View>
-                ))}
-                {draft.options.length < BUZZ_LIMITS.pollMaxOptions ? <PButton title="Add option" icon="add" variant="ghost" size="sm" onPress={addOption} style={styles.addOption} /> : null}
-                <View style={styles.durations} accessibilityLabel="Poll duration">
-                  {BUZZ_POLL_DURATIONS.map((n) => (
-                    <Chip key={n} label={n === 1 ? "1 day" : `${n} days`} selected={draft.durationDays === n} onPress={() => buzzState.setDraft({ durationDays: n })} />
-                  ))}
-                </View>
-              </View>
-            ) : null}
+            {draft.pollOn ? <BuzzPollEditor /> : null}
           </ScrollView>
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
             <ComposerGuard status={posting} onDetails={onClose}>
@@ -393,7 +304,7 @@ export function BuzzComposer({ visible, onClose, onPosted }: { visible: boolean;
                 <Text style={[T.caption, styles.flex, { color: P.ink3 }]} numberOfLines={2}>
                   {uploading ? "Uploading…" : pollsLocked ? BUZZ_COMPOSER_COPY.pollsLocked : ""}
                 </Text>
-                <PButton title={BUZZ_COMPOSER_COPY.submit} variant="hero" disabled={!canSubmit} loading={sending} onPress={() => void submit()} />
+                <PButton title={BUZZ_COMPOSER_COPY.submit} variant="hero" disabled={!canSubmit} loading={sending} onPress={() => void (canSubmit && submit())} />
               </View>
             </ComposerGuard>
           </View>
@@ -472,12 +383,6 @@ const styles = StyleSheet.create({
   progressCard: { gap: 10, padding: 14, borderRadius: R.lg, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, borderColor: P.line, backgroundColor: P.surface1 },
   track: { height: 6, borderRadius: 3, overflow: "hidden", backgroundColor: P.surface4 },
   fill: { height: 6, borderRadius: 3, backgroundColor: P.accent },
-  pollCard: { gap: 12, padding: 14, borderRadius: R.lg, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, borderColor: P.line, backgroundColor: P.canvas },
-  pollHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  optionRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  option: { flex: 1, height: 48, color: P.ink, paddingHorizontal: 14, borderRadius: R.md, borderCurve: "continuous", borderWidth: 1, borderColor: P.line, backgroundColor: P.surface2 },
-  addOption: { alignSelf: "flex-start" },
-  durations: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: P.line, backgroundColor: P.surface2 },
   footerRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   sourceList: { gap: 10, paddingTop: 16 },

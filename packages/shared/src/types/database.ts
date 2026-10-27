@@ -1097,6 +1097,12 @@ export type Database = {
           },
         ];
       };
+      feed_post_viewers: {
+        Row: { post_id: string; user_id: string; created_at: string };
+        Insert: { post_id: string; user_id: string; created_at?: string };
+        Update: { post_id?: string; user_id?: string; created_at?: string };
+        Relationships: [];
+      };
       feed_posts: {
         Row: {
           id: string;
@@ -1109,6 +1115,10 @@ export type Database = {
           videos: Json;
           has_video: boolean;
           pinned_at: string | null;
+          title: string | null;
+          link_url: string | null;
+          audience: string;
+          comments_off: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -1123,6 +1133,10 @@ export type Database = {
           videos?: Json;
           has_video?: boolean;
           pinned_at?: string | null;
+          title?: string | null;
+          link_url?: string | null;
+          audience?: string;
+          comments_off?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -1137,6 +1151,10 @@ export type Database = {
           videos?: Json;
           has_video?: boolean;
           pinned_at?: string | null;
+          title?: string | null;
+          link_url?: string | null;
+          audience?: string;
+          comments_off?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -1593,6 +1611,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      set_post_viewers: {
+        Args: { p_post_id: string; p_user_ids: string[] };
+        Returns: number;
+      };
       can_view_profile_section: {
         Args: { p_owner: string; p_section: string };
         Returns: boolean;

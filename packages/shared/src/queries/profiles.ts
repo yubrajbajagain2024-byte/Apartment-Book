@@ -1,7 +1,31 @@
+import { isBusinessRole } from "../business";
 import { isMissingInDatabase, isMissingRelation, LISTINGS_VISIBILITY_NOT_READY } from "./profile-page";
 import type { Client, PosterSummary, Profile, ProfileSummary, ProfileVisibility, ProfileWithUniversity } from "../types/models";
 
 export const PROFILE_SUMMARY_COLUMNS = "id, full_name, avatar_url";
+
+/**
+ * The campus an account belongs to for "Campus only" posts: the university whose email domain its confirmed sign-in
+ * address uses, as the database decides it (verified_university, migration 44). Not the profile's university, which
+ * people can change themselves. Null for an unconfirmed address, a business account, or an address that isn't a
+ * university's.
+ */
+export async function verifiedCampus(supabase: Client, account: { email?: string | null; email_confirmed_at?: string | null }, role?: string | null): Promise<{ id: string; name: string } | null> {
+  const domain = account.email?.split("@")[1]?.trim().toLowerCase();
+  if (!domain || !account.email_confirmed_at || isBusinessRole(role)) return null;
+  const { data, error } = await supabase.from("universities").select("id, name").ilike("email_domain", domain.replace(/[%_\\]/g, "")).limit(1).maybeSingle();
+  if (error) return null;
+  return (data as { id: string; name: string } | null) ?? null;
+}
+
+/** The profile an @mention points at: its id, or null when nobody has that username (it may have changed). */
+export async function profileIdByUsername(supabase: Client, username: string): Promise<string | null> {
+  const handle = username.replace(/^@/, "").trim().toLowerCase();
+  if (!handle) return null;
+  const { data, error } = await supabase.from("profiles").select("id").eq("username", handle).maybeSingle();
+  if (error) throw error;
+  return (data as { id: string } | null)?.id ?? null;
+}
 
 export async function getProfile(supabase: Client, id: string): Promise<ProfileWithUniversity | null> {
   const { data, error } = await supabase

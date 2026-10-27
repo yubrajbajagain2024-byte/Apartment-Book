@@ -6,6 +6,7 @@ import { APP_NAME, captionParts, compactCount, deleteFeedPost, getOrCreateDirect
 import { hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned, onPostSlide } from "@/lib/posts-events";
+import { canShareAudience, postAudience, postLink, useOpenMention } from "@/lib/post-details";
 import { entryOf, measureOrigin, openViewer as openFullScreen, viewerItemFromPost, type ViewerOrigin } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { shortDate } from "@/lib/short-date";
@@ -17,7 +18,7 @@ import { Avatar } from "../avatar";
 import { useLike, useSave } from "../engagement";
 import { ExpandableText } from "../expandable-text";
 import { PhotoCarousel } from "../photo-carousel";
-import { POST_FRAME_RADIUS, POST_GUTTER, POST_TEXT, PostActions, PostFrame, PostHeader } from "../post-bits";
+import { POST_FRAME_RADIUS, POST_GUTTER, POST_TEXT, PostActions, PostFrame, PostHeader, PostLink } from "../post-bits";
 import { useShareSheet } from "../share-sheet";
 import { Icon } from "@/components/icon";
 
@@ -35,6 +36,7 @@ export type InstaPostProps = {
   active?: boolean;
   /** The post's own screen: the whole caption with no fold, no comment preview (the thread is right below). */
   detail?: boolean;
+  /** Not called when the author turned comments off: the post then has no comment button and no comment preview. */
   onComments: () => void;
   onDeleted?: () => void;
   /**
@@ -58,15 +60,18 @@ export function frameAspect(media: FeedMedia[], reel: boolean): number {
 }
 
 /**
- * A post in the Home feed, laid out like every other post in the app (see post-bits): header → the caption folded to
- * three lines ("more…" / "less") → the photo or video in a rounded frame (a carousel's slide dots on their own row under
- * it) → heart, comment and share with their counts, the bookmark on the right → "Liked by …" → the newest comments.
+ * A post in the Home feed, laid out like every other post in the app (see post-bits): header → its title in bold, the
+ * caption folded to three lines ("more…" / "less") and its link → the photo or video in a rounded frame (a carousel's
+ * slide dots on their own row under it) → heart, comment and share with their counts, the bookmark on the right →
+ * "Liked by …" → the newest comments. A friends-only or selected-people post has no Share (the database refuses to send
+ * it into a chat), and the author of a post that is not Global sees who can on the line under their name; one with
+ * comments off has no comment button.
  */
 export function InstaPost({ post, saved, engagement, preview, subtitle, active, detail, onComments, onDeleted, ...props }: InstaPostProps) {
   const router = useRouter();
   const show = useActionSheet();
   const shareSheet = useShareSheet();
-  const { user } = useSession();
+  const { user, profile } = useSession();
   const colors = useColors();
   const styles = useStyles();
   const needLogin = () => router.push("/(auth)/login");
@@ -98,8 +103,16 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   const path = `/posts/${post.id}`;
   const media = listingMedia(post.images, post.image_meta, post.videos);
   const text = post.body?.trim() ?? "";
+  // Migration 44's fields: a database without it hands back none of them, and the post shows as it always has.
+  const title = post.title?.trim() || null;
+  const link = postLink(post.link_url);
+  const audience = postAudience(post);
+  const commentsOff = post.comments_off ?? false;
+  // Friends-only and selected-people posts cannot go into a chat (see canShareAudience).
+  const shareable = canShareAudience(audience);
   const comments = props.comments ?? engagement?.comments ?? 0;
   const openProfile = (id: string) => router.push({ pathname: "/profile/[id]", params: { id } });
+  const openMention = useOpenMention();
   // "Texas State University · Oct 2", or just the date.
   const meta = [subtitle, shortDate(post.created_at)].filter(Boolean).join(" · ");
 
@@ -143,7 +156,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   }
 
   /** The share sheet: send it to friends as a chat card, or "Share to…" the link with the system sheet. */
-  const share = () => shareSheet.open(sharedPostFromFeedPost(post, media), { url: `${SITE_URL}${path}`, label: `${author.full_name} on ${APP_NAME}` });
+  const share = () => shareSheet.open(sharedPostFromFeedPost(post, media), { url: `${SITE_URL}${path}`, label: `${author.full_name} on ${APP_NAME}`, restricted: audience !== "global" });
 
   async function message() {
     if (!user) return needLogin();
@@ -200,7 +213,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   function menu() {
     show([
       { label: save.saved ? `Unsave ${noun}` : `Save ${noun}`, icon: save.saved ? "bookmark" : "bookmark-outline", onPress: () => void save.toggle() },
-      { label: `Share ${noun}`, icon: "share-outline", onPress: share },
+      ...(shareable ? [{ label: `Share ${noun}`, icon: "share-outline" as const, onPress: share }] : []),
       ...(own
         ? [
             { label: pinned ? "Unpin from profile" : "Pin to profile", icon: pinned ? ("pin" as const) : ("pin-outline" as const), onPress: () => void togglePin() },
@@ -218,8 +231,13 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   const faces = (preview?.likers ?? []).filter((l) => l.id !== user?.id).slice(0, 3);
   const others = like.likes - 1;
 
+  // Hashtags and @mentions in the brand blue; a mention opens the profile it names.
   const caption = captionParts(text).map((part, i) =>
-    part.tag ? (
+    part.mention ? (
+      <Text key={i} style={styles.tag} onPress={() => openMention(part.mention!)} accessibilityRole="link">
+        {part.text}
+      </Text>
+    ) : part.tag ? (
       <Text key={i} style={styles.tag}>
         {part.text}
       </Text>
@@ -229,15 +247,23 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   );
 
   return (
-    <View style={styles.post} accessibilityLabel={`Post: ${text.slice(0, 40) || `by ${author.full_name}`}`}>
-      <PostHeader name={author.full_name} avatarUrl={author.avatar_url} userId={author.id} verified={isVerifiedPoster(author)} meta={meta} onOpen={() => openProfile(author.id)} onMenu={menu} />
+    <View style={styles.post} accessibilityLabel={`Post: ${(title ?? text).slice(0, 40) || `by ${author.full_name}`}`}>
+      <PostHeader name={author.full_name} avatarUrl={author.avatar_url} userId={author.id} verified={isVerifiedPoster(author)} meta={meta} audience={own && audience !== "global" ? audience : undefined} audienceName={post.university?.name ?? profile?.university?.name} onOpen={() => openProfile(author.id)} onMenu={menu} />
 
-      {text ? (
+      {title || text || link ? (
         // The words come before the picture, Facebook style. Words only: the text is the post, and takes the double tap.
         <Pressable onPress={media.length === 0 ? textTap : undefined} style={styles.body}>
-          <ExpandableText style={styles.text} expanded={detail} collapsible={!detail} selectable={detail}>
-            {caption}
-          </ExpandableText>
+          {title ? (
+            <Text style={styles.title} selectable={detail}>
+              {title}
+            </Text>
+          ) : null}
+          {text ? (
+            <ExpandableText style={styles.text} expanded={detail} collapsible={!detail} selectable={detail}>
+              {caption}
+            </ExpandableText>
+          ) : null}
+          {link ? <PostLink url={link} /> : null}
         </Pressable>
       ) : null}
 
@@ -261,9 +287,9 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
         </View>
       ) : null}
 
-      <PostActions liked={like.liked} likes={like.likes} comments={comments} saved={save.saved} onLike={() => void like.toggle()} onComment={onComments} onShare={share} onSave={() => void save.toggle()} tight={media.length > 1} />
+      <PostActions liked={like.liked} likes={like.likes} comments={comments} saved={save.saved} onLike={() => void like.toggle()} onComment={commentsOff ? undefined : onComments} onShare={shareable ? share : undefined} onSave={() => void save.toggle()} tight={media.length > 1} />
 
-      {(face && like.likes > 0) || (!detail && comments > 0) ? (
+      {(face && like.likes > 0) || (!detail && !commentsOff && comments > 0) ? (
         <View style={styles.below}>
           {face && like.likes > 0 ? (
             <View style={styles.likedBy}>
@@ -289,12 +315,12 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
             </View>
           ) : null}
 
-          {!detail && comments > 1 ? (
+          {!detail && !commentsOff && comments > 1 ? (
             <Pressable onPress={onComments} accessibilityRole="button">
               <Text style={styles.viewAll}>View all {compactCount(comments)} comments</Text>
             </Pressable>
           ) : null}
-          {!detail && comments > 0 && preview?.lastComment ? (
+          {!detail && !commentsOff && comments > 0 && preview?.lastComment ? (
             <Pressable onPress={onComments}>
               <Text style={styles.line} numberOfLines={2}>
                 <Text style={styles.bold}>{preview.lastComment.author.full_name}</Text> {preview.lastComment.body}
@@ -309,7 +335,9 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
 
 const useStyles = makeStyles((colors) => ({
   post: { width: "100%", backgroundColor: colors.bg, paddingTop: 4, paddingBottom: 18 },
-  body: { paddingHorizontal: POST_GUTTER, paddingTop: 2, paddingBottom: 12 },
+  body: { paddingHorizontal: POST_GUTTER, paddingTop: 2, paddingBottom: 12, gap: 6 },
+  // A roommate post's title, the same weight over the words (see post-card.tsx).
+  title: { fontSize: 17, fontWeight: "700", lineHeight: 22, color: colors.text },
   text: { ...POST_TEXT, color: colors.text },
   heart: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", shadowColor: colors.shadow, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 2 } },
   slideDots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingTop: 10 },

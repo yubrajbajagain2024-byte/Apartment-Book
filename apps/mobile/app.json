@@ -11,8 +11,8 @@
       "bundleIdentifier": "com.apartmentbook.app",
       "supportsTablet": false,
       "infoPlist": {
-        "NSCameraUsageDescription": "UniBuzz uses your camera for video calls, and to take photos and record videos for Snaps, posts and listings, like video tours of your place.",
-        "NSPhotoLibraryUsageDescription": "UniBuzz needs your photo library to add photos and videos to your listings and profile.",
+        "NSCameraUsageDescription": "UniBuzz uses your camera for video calls, and to take photos and record videos for posts, reels, Snaps and listings, like video tours of your place.",
+        "NSPhotoLibraryUsageDescription": "UniBuzz shows your photos and videos so you can post them, and add them to listings and your profile.",
         "NSMicrophoneUsageDescription": "UniBuzz uses the microphone for audio and video calls, voice messages and video tours.",
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
@@ -54,8 +54,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "UniBuzz needs your photo library to add photos and videos to your listings.",
-          "cameraPermission": "UniBuzz uses your camera for video calls, and to take photos and record videos for Snaps, posts and listings, like video tours of your place."
+          "photosPermission": "UniBuzz shows your photos and videos so you can post them, and add them to listings and your profile.",
+          "cameraPermission": "UniBuzz uses your camera for video calls, and to take photos and record videos for posts, reels, Snaps and listings, like video tours of your place."
         }
       ],
       [
@@ -90,6 +90,22 @@
           "android": {
             "extraProguardRules": "-dontwarn livekit.org.jni_zero.JniZeroJni"
           }
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "UniBuzz uses your camera for video calls, and to take photos and record videos for posts, reels, Snaps and listings, like video tours of your place.",
+          "microphonePermission": "UniBuzz uses the microphone for calls, voice messages, and the sound of the videos you record for posts, reels and video tours.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "UniBuzz shows your photos and videos so you can post them, and add them to listings and your profile.",
+          "savePhotosPermission": "UniBuzz saves a copy of your post's photos and video to your library when you turn on Save to device.",
+          "isAccessMediaLocationEnabled": false
         }
       ]
     ],

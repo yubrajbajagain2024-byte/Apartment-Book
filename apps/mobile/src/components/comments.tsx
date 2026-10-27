@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View, type TextInputInstance } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type TextInputInstance, type ViewStyle } from "react-native";
 import { useRouter } from "expo-router";
 import { addComment, blockUser, COMMENT_SORTS, compactCount, deleteComment, getMyCommentVotes, listComments, reportContent, REPORT_REASONS, shortAge, threadComments, voteComment, type CommentSort, type PostCommentNode, type PostCommentWithAuthor, type PostTargetType, type ReportReason } from "@apartment-book/shared";
 import { useActionSheet, type SheetOption } from "@/components/action-sheet";
@@ -494,6 +494,19 @@ export function CommentComposer({ thread }: { thread: CommentThread }) {
   );
 }
 
+/**
+ * Where the thread would be on a post whose author turned comments off (the database refuses new ones): a quiet line,
+ * no composer and no thread.
+ */
+export function CommentsOff({ style }: { style?: StyleProp<ViewStyle> }) {
+  const styles = useStyles();
+  return (
+    <View style={[styles.off, style]}>
+      <Text style={styles.muted}>Comments are turned off</Text>
+    </View>
+  );
+}
+
 /** The thread itself: comments, their folded replies and the "View N replies" lines. */
 export function CommentList({ thread, emptyText }: { thread: CommentThread; emptyText?: string }) {
   const styles = useStyles();
@@ -657,6 +670,7 @@ const useStyles = makeStyles((colors) => ({
 
   muted: { color: colors.muted, fontSize: 14 },
   empty: { textAlign: "center", paddingVertical: 32 },
+  off: { alignItems: "center", paddingVertical: 12 },
   /** The load error with its Retry link, where the first comment would be. */
   loadError: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 14 },
   retry: { fontSize: 13, fontWeight: "700", color: colors.brand },

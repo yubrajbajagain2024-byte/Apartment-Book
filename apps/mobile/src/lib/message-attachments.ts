@@ -384,7 +384,7 @@ export function appPathForUrl(url: string): string | null {
   return match ? `/${match[1].toLowerCase()}/${match[2].toLowerCase()}` : null;
 }
 
-/** A link tapped in a chat: our own posts and listings open in the app, anything else in the in-app browser. */
+/** A link tapped in a chat or on a post: our own posts and listings open in the app, anything else in the in-app browser. */
 export function openChatLink(url: string, router: { push: (href: Href) => void }, tint?: string): void {
   const inApp = appPathForUrl(url);
   if (inApp) router.push(inApp);

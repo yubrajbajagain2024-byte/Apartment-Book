@@ -23,6 +23,11 @@ export type ShareDialogProps = {
   open: boolean;
   onClose: () => void;
   currentUser: { id: string } | null;
+  /**
+   * The post is not Global (a campus post). The database refuses its card in a chat with anyone who cannot see it, and a
+   * send reports only who missed out, not why, so a failed send names that reason first.
+   */
+  restricted?: boolean;
 };
 
 const NOTE_MAX = 500;
@@ -49,7 +54,7 @@ export function ShareDialog(props: ShareDialogProps) {
   return createPortal(<ShareSheet {...props} />, document.body);
 }
 
-function ShareSheet({ sharedPost, url, onClose, currentUser }: Omit<ShareDialogProps, "open">) {
+function ShareSheet({ sharedPost, url, onClose, currentUser, restricted }: Omit<ShareDialogProps, "open">) {
   const router = useRouter();
   const panelRef = useRef<HTMLDivElement>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -173,7 +178,8 @@ function ShareSheet({ sharedPost, url, onClose, currentUser }: Omit<ShareDialogP
         const failed = picked.filter((p) => result.failed.includes(p.id));
         setPicked(failed);
         setStatus("idle");
-        setNotice(`Could not send to ${failed.map((p) => p.full_name).join(", ")}. Try again.`);
+        const names = failed.map((p) => p.full_name).join(", ");
+        setNotice(restricted ? `Could not send to ${names}. Some people in this chat can't see this post.` : `Could not send to ${names}. Try again.`);
         return;
       }
       setStatus("sent");

@@ -35,7 +35,7 @@ appId: host.exp.Exponent
 # The top bar has two rows like X's: your photo in a gradient ring ("Your profile") opens your profile, the UniBuzz
 # wordmark in the middle, Search and the bell on the right; then the three labels, and under them the Campus | Global
 # toggle for anyone with a university (hidden for now: SCOPE_TOGGLE_SHOWN in src/lib/home-scope.ts). The "+" badge on
-# the photo ("Create") opens the create sheet. Signed out there is no campus to pick, so the toggle is not drawn either way.
+# the photo ("Create") opens the camera (signed out: the login screen). Signed out there is no campus to pick, so the toggle is not drawn either way.
 - assertNotVisible: "Campus"
 - assertNotVisible: "Global"
 - takeScreenshot: e2e/screenshots/01-home-bar

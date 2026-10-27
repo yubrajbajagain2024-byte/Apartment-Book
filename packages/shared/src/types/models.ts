@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostAudience } from "../constants";
 import type { Database, Json } from "./database";
 import type { MessageAttachment } from "../message-media";
 
@@ -98,8 +99,14 @@ export type Reel = {
   sourceType: "post" | "apartment" | "roommate";
   sourceId: string;
   author: { id: string; name: string; avatarUrl: string | null; verified: boolean };
-  /** Listing title for video tours; null for posted reels. */
+  /** The listing's title for a video tour; a posted reel's own title (migration 44), or null when it has none. */
   title: string | null;
+  /** A posted reel's link (migration 44); null for video tours and reels without one. */
+  link: string | null;
+  /** A posted reel nobody may comment on (migration 44). Missing means comments are on. */
+  commentsOff?: boolean;
+  /** Who can see a posted reel (migration 44). Missing means Global, as for every video tour. */
+  audience?: PostAudience;
   caption: string;
   video: ListingVideo;
   createdAt: string;

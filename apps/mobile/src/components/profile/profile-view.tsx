@@ -42,6 +42,7 @@ import {
 import { useActionSheet } from "@/components/action-sheet";
 import { useFollow } from "@/components/follow-button";
 import { Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
+import { openCompose } from "@/lib/compose-nav";
 import { hapticTap, alertWithHaptic, refreshWithHaptic } from "@/lib/haptics";
 import { errorText, useQuery } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned, onPostRemoved } from "@/lib/posts-events";
@@ -1260,9 +1261,9 @@ function TabEmpty({ tab, own }: { tab: GridTab; own: boolean }) {
   const styles = useStyles();
   const colors = useColors();
   const router = useRouter();
-  const copy: Record<GridTab, { icon: keyof typeof Ionicons.glyphMap; title: string; action?: { title: string; href: "/create/post" | "/create/reel" } }> = {
-    posts: own ? { icon: "grid-outline", title: "Share your first post", action: { title: "Create post", href: "/create/post" } } : { icon: "grid-outline", title: "No posts yet" },
-    reels: own ? { icon: "film-outline", title: "No reels yet", action: { title: "Create reel", href: "/create/reel" } } : { icon: "film-outline", title: "No reels yet" },
+  const copy: Record<GridTab, { icon: keyof typeof Ionicons.glyphMap; title: string; action?: { title: string; mode: "post" | "reel" } }> = {
+    posts: own ? { icon: "grid-outline", title: "Share your first post", action: { title: "Create post", mode: "post" } } : { icon: "grid-outline", title: "No posts yet" },
+    reels: own ? { icon: "film-outline", title: "No reels yet", action: { title: "Create reel", mode: "reel" } } : { icon: "film-outline", title: "No reels yet" },
     saved: { icon: "bookmark-outline", title: "Nothing saved yet" },
     liked: { icon: "heart-outline", title: "No liked posts yet" },
     listings: { icon: "storefront-outline", title: "No listings yet" },
@@ -1274,7 +1275,7 @@ function TabEmpty({ tab, own }: { tab: GridTab; own: boolean }) {
         <Icon name={icon} size={26} color={colors.text} />
       </View>
       <Text style={styles.emptyTitle}>{title}</Text>
-      {action ? <Button title={action.title} icon="add" onPress={() => router.push(action.href)} style={styles.emptyAction} /> : null}
+      {action ? <Button title={action.title} icon="add" onPress={() => openCompose(router, action.mode)} style={styles.emptyAction} /> : null}
     </View>
   );
 }

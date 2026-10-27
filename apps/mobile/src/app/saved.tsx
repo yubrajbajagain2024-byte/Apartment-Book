@@ -37,7 +37,8 @@ export default function SavedScreen() {
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
       {data.posts.map((p) => {
-        const text = p.body?.trim().replace(/\s+/g, " ") ?? "";
+        // A post's title names it best (migration 44; older rows have none), then the start of its words.
+        const text = p.title?.trim() || (p.body?.trim().replace(/\s+/g, " ") ?? "");
         return (
           <Card key={p.id} style={{ padding: 12, gap: 2 }}>
             <Text onPress={() => openSavedPost(p)} numberOfLines={2} style={{ fontWeight: "700", color: colors.text }}>{text || (p.kind === "reel" ? "Reel" : p.images.length > 0 ? "Photo post" : "Video post")}</Text>

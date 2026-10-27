@@ -18,11 +18,20 @@ export async function pickVideo(source: "library" | "camera"): Promise<PickedVid
   return result.canceled ? null : result.assets[0];
 }
 
+/** What an upload needs to know about the file: a picked video, or any local one (the create flow's camera and gallery). */
+export type VideoFile = Pick<PickedVideo, "uri"> & { fileSize?: number | null; fileName?: string | null; mimeType?: string | null };
+
 /**
  * Upload a video straight to the video provider (never through our server),
  * then wait until it is processed. Resolves with the snapshot stored on listings.
+ * `cancelled` is asked between steps (and `onTask` hands over the transfer's own cancel), so a screen that is closed
+ * mid-upload stops it instead of finishing a video nobody will post.
  */
-export async function uploadVideo(asset: PickedVideo, onProgress: (fraction: number, phase: "uploading" | "processing") => void): Promise<ListingVideo> {
+export async function uploadVideo(
+  asset: VideoFile,
+  onProgress: (fraction: number, phase: "uploading" | "processing") => void,
+  control: { cancelled?: () => boolean; onTask?: (cancel: () => void) => void } = {},
+): Promise<ListingVideo> {
   const start = await apiFetch<{ mediaId: string; uploadUrl: string }>("/api/video/uploads", {
     method: "POST",
     body: JSON.stringify({ sizeBytes: asset.fileSize ?? undefined, fileName: asset.fileName ?? "tour.mp4" }),
@@ -33,12 +42,15 @@ export async function uploadVideo(asset: PickedVideo, onProgress: (fraction: num
     { httpMethod: "PUT", uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT, headers: { "Content-Type": asset.mimeType ?? "video/mp4" } },
     (p) => onProgress(p.totalBytesExpectedToSend ? p.totalBytesSent / p.totalBytesExpectedToSend : 0, "uploading"),
   );
+  control.onTask?.(() => void task.cancelAsync().catch(() => {}));
   const res = await task.uploadAsync();
+  if (control.cancelled?.()) throw new Error("Upload cancelled");
   if (!res || res.status >= 300) throw new Error(`Upload failed (${res?.status ?? "no response"})`);
   onProgress(1, "processing");
 
   const deadline = Date.now() + 15 * 60 * 1000;
   while (Date.now() < deadline) {
+    if (control.cancelled?.()) throw new Error("Upload cancelled");
     const { media } = await apiFetch<{ media: Media }>(`/api/video/${start.mediaId}`);
     if (media.status === "ready" && media.playback_id) {
       return { media_id: media.id, playback_id: media.playback_id, poster_url: media.poster_url ?? muxPosterUrl(media.playback_id), width: media.width, height: media.height, duration_seconds: media.duration_seconds };

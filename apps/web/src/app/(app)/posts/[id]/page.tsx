@@ -19,11 +19,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const post = UUID.test(id) ? await getFeedPost(await createClient(), id).catch(() => null) : null;
   if (!post) return { title: "Post not found" };
+  // A post's own title names it best (migration 44; older rows have none), then the start of its words.
   const text = post.body.trim();
+  const heading = post.title?.trim() || text;
   const label = post.kind === "reel" ? "Reel" : "Post";
   const cover = photosFor(post.images, post.image_meta)[0]?.url;
   return {
-    title: text ? `${post.author.full_name}: ${text.slice(0, 60)}${text.length > 60 ? "…" : ""}` : `${label} by ${post.author.full_name}`,
+    title: heading ? `${post.author.full_name}: ${heading.slice(0, 60)}${heading.length > 60 ? "…" : ""}` : `${label} by ${post.author.full_name}`,
     description: text ? text.slice(0, 160) : `${label} by ${post.author.full_name}`,
     openGraph: cover ? { images: [cover] } : undefined,
   };

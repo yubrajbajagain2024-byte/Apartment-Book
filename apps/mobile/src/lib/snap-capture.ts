@@ -101,7 +101,11 @@ export async function captureSnap(): Promise<SnapShot | null> {
   return asset ? prepareSnap(asset) : null;
 }
 
-async function prepareSnap(asset: ImagePicker.ImagePickerAsset): Promise<SnapShot> {
+/**
+ * Gets a photo or video ready to send as a Snap: the system camera's, or one taken with the create flow's own camera
+ * (app/compose, in its SNAP mode), described the way the picker would (a video's duration in milliseconds).
+ */
+export async function prepareSnap(asset: Pick<ImagePicker.ImagePickerAsset, "uri" | "width" | "height"> & Partial<ImagePicker.ImagePickerAsset>): Promise<SnapShot> {
   const video = asset.type === "video" || (asset.mimeType ?? "").toLowerCase().startsWith("video/");
   if (video) {
     const mime = snapMimeType(asset.mimeType, asset.fileName ?? asset.uri) ?? snapMimeType(null, asset.uri);

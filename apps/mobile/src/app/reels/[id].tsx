@@ -332,7 +332,7 @@ export default function ReelViewerScreen() {
     setCommentsKey(viewerKey(item));
   }, []);
   const commentsItem = commentsKey ? (entries?.find((e) => e.key === commentsKey)?.item ?? null) : null;
-  const commentsReel = useMemo(() => (commentsItem ? { sourceType: commentsItem.sourceType, sourceId: commentsItem.sourceId, author: commentsItem.author, comments: commentsItem.comments } : null), [commentsItem]);
+  const commentsReel = useMemo(() => (commentsItem ? { sourceType: commentsItem.sourceType, sourceId: commentsItem.sourceId, author: commentsItem.author, comments: commentsItem.comments, commentsOff: commentsItem.commentsOff } : null), [commentsItem]);
   const onCommentCount = useCallback(
     (delta: number) => {
       if (!commentsKey || !commentsItem) return;
@@ -398,7 +398,7 @@ export default function ReelViewerScreen() {
     const reported = shown[entry.key];
     if (reported) return reported.surface;
     const m = item.media[Math.max(0, Math.min(item.media.length - 1, entry.slide ?? 0))];
-    return surfaceOf(m, m ? aspectOf(m) : null, width, height, photoTop(contentTop, item.media.length), photoFloor(height, barHeight));
+    return surfaceOf(m, m ? aspectOf(m) : null, width, height, photoTop(contentTop, item.media.length), photoFloor(height, barHeight, item));
   };
   /**
    * The page under the top row and the status bar: their colours follow it (dark over a video, the theme's over a
@@ -443,7 +443,7 @@ export default function ReelViewerScreen() {
     }
     const aspect = m && m.type === "photo" ? aspectOf(m) : null;
     if (!startItem || aspect === null) return { y: screenH / 2, width: screenW, height: screenH };
-    const { place } = photoLayout(aspect, screenW, screenH, photoTop(contentTop, startItem.media.length), photoFloor(screenH, barHeight));
+    const { place } = photoLayout(aspect, screenW, screenH, photoTop(contentTop, startItem.media.length), photoFloor(screenH, barHeight, startItem));
     return { y: place.top + place.height / 2, width: place.width, height: place.height };
   }, [startItem, startSlide, screenW, screenH, contentTop, barHeight]);
   // The post the viewer was opened from keeps its feed row on the same photo as the page (it is hidden behind it), so a
@@ -838,7 +838,8 @@ export default function ReelViewerScreen() {
                   />
                   {/* "Add comment…" under the name and the rail, like Instagram's: a tap opens the comments with the keyboard up.
                       Dark glass over a video; on a photo's page, the theme's own text field. A roommate tour has no public
-                      comments, so its bar is a private message to the poster instead. */}
+                      comments, so its bar is a private message to the poster instead. A post whose author turned comments
+                      off has no bar: a quiet line says so in its place, which the words above keep their room for. */}
                   <Animated.View key="comment" pointerEvents="box-none" style={[styles.commentBar, { bottom: barBottom }, chromeStyle]}>
                     {!hasPublicComments(entry.item.sourceType) ? (
                       <Pressable
@@ -853,6 +854,10 @@ export default function ReelViewerScreen() {
                           {entry.item.author.id === user?.id ? "Open your Inbox" : `Message ${entry.item.author.name.split(" ")[0]}…`}
                         </Text>
                       </Pressable>
+                    ) : entry.item.commentsOff ? (
+                      <View style={styles.commentsOff}>
+                        <Text style={[styles.commentsOffText, surfaceAt(index) === "page" && styles.commentsOffTextPage]}>Comments are turned off</Text>
+                      </View>
                     ) : (
                       <Pressable onPress={() => openReplies(entry.item!, true)} style={({ pressed }) => [styles.commentInput, surfaceAt(index) === "page" && styles.commentInputPage, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Add comment" accessibilityHint="Opens the comments, ready to type">
                         <Text style={[styles.commentPlaceholder, surfaceAt(index) === "page" && styles.commentPlaceholderPage]}>Add comment…</Text>
@@ -1062,6 +1067,10 @@ const useStyles = makeStyles((colors) => ({
   commentPlaceholderPage: { color: colors.faint },
   // The same pill as a private message: its icon then the words.
   messageInput: { flexDirection: "row", alignItems: "center", justifyContent: "flex-start", gap: 9 },
+  // Comments turned off: no pill, only a quiet line where it would be.
+  commentsOff: { height: COMMENT_BAR, alignItems: "center", justifyContent: "center" },
+  commentsOffText: { color: colors.onMediaMuted, fontSize: 14, textShadowColor: colors.mediaTextShadow, textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } },
+  commentsOffTextPage: { color: colors.muted, textShadowColor: "transparent", textShadowRadius: 0 },
   shadow: { textShadowColor: colors.mediaScrim, textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
   foot: { position: "absolute", left: 0, right: 0, alignItems: "center" },
   retry: { backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },

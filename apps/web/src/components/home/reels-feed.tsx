@@ -9,6 +9,7 @@ import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { CommentsSection } from "@/components/posts/comments-section";
+import { CommentsOff } from "@/components/posts/post-details";
 import { ReelCard, reelKey, toggleReelSound } from "./reel-card";
 
 export type ReelsFeedProps = {
@@ -270,16 +271,20 @@ function CommentsDrawer({
         </div>
         {/* A flex column, so a short thread still stretches and the composer sits at the bottom of the sheet. */}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-          <CommentsSection
-            targetType={reel.sourceType}
-            targetId={reel.sourceId}
-            totalComments={reel.comments}
-            onCountChange={onCountChange}
-            currentUser={currentUser}
-            ownerId={reel.author.id}
-            composer="bottom"
-            className="flex-1 border-t-0"
-          />
+          {reel.commentsOff ? (
+            <CommentsOff className="border-t-0 py-8" />
+          ) : (
+            <CommentsSection
+              targetType={reel.sourceType}
+              targetId={reel.sourceId}
+              totalComments={reel.comments}
+              onCountChange={onCountChange}
+              currentUser={currentUser}
+              ownerId={reel.author.id}
+              composer="bottom"
+              className="flex-1 border-t-0"
+            />
+          )}
         </div>
       </div>
     </div>

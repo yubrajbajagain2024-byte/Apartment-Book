@@ -1,10 +1,14 @@
 import { type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
-import { compactCount } from "@apartment-book/shared";
+import { useRouter } from "expo-router";
+import type { SFSymbol } from "expo-symbols";
+import { compactCount, type PostAudience } from "@apartment-book/shared";
+import { openChatLink } from "@/lib/message-attachments";
+import { audienceLabel, linkLabel } from "@/lib/post-details";
 import { radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Avatar } from "./avatar";
-import { Icon, useBounceOn } from "@/components/icon";
+import { Icon, useBounceOn, type IconName } from "@/components/icon";
 
 /** The side gutter of every post: the header, the text, the photo's rounded frame and the rows under it keep to it. */
 export const POST_GUTTER = 16;
@@ -18,7 +22,7 @@ const AVATAR = 42;
  * row of heart, comment and share with their counts, the bookmark on the right. The words of a post sit between the
  * header and the frame, Facebook style (see ExpandableText).
  */
-export function PostHeader({ name, avatarUrl, userId, verified, meta, onOpen, onMenu, badge }: { name: string; avatarUrl: string | null | undefined; userId: string; verified: boolean; meta: string; onOpen: () => void; onMenu: () => void; /** A business listing's "Sponsored" / "Verified Partner": the business is the poster, with no presence dot. */ badge?: string | null }) {
+export function PostHeader({ name, avatarUrl, userId, verified, meta, onOpen, onMenu, badge, audience, audienceName }: { name: string; avatarUrl: string | null | undefined; userId: string; verified: boolean; meta: string; onOpen: () => void; onMenu: () => void; /** A business listing's "Sponsored" / "Verified Partner": the business is the poster, with no presence dot. */ badge?: string | null; /** Your own post that is not Global: who can see it, after the date ("2h · 🎓 Texas State"). `audienceName`: its university, for a campus post. */ audience?: Exclude<PostAudience, "global">; audienceName?: string | null }) {
   const styles = useStyles();
   const colors = useColors();
   return (
@@ -35,18 +39,76 @@ export function PostHeader({ name, avatarUrl, userId, verified, meta, onOpen, on
           {verified && !badge ? <Icon name="checkmark-circle" sf="checkmark.seal.fill" size={16} color={colors.brand} accessibilityLabel="Verified student" /> : null}
         </View>
         {/* Like Instagram's "Sponsored": the label opens the grey line under the name, so the name keeps its whole row. */}
-        {badge || meta ? (
+        {(badge || meta) && !audience ? (
           <Text style={styles.meta} numberOfLines={1}>
             {badge ? <Text style={badge === "Business" ? styles.badgePlain : styles.badgeText}>{badge}</Text> : null}
             {badge && meta ? " · " : ""}
             {meta}
           </Text>
         ) : null}
+        {/* The audience keeps its place at the end of the line: a long university name gives way to it. */}
+        {audience ? (
+          <View style={styles.metaRow}>
+            {meta ? (
+              <Text style={[styles.meta, styles.metaLead]} numberOfLines={1}>
+                {meta} ·
+              </Text>
+            ) : null}
+            <View style={styles.audience}>
+              <Icon name={AUDIENCE_ICON[audience].name} sf={AUDIENCE_ICON[audience].sf} size={12} color={colors.muted} />
+              <Text style={[styles.meta, styles.metaLead]} numberOfLines={1}>
+                {audienceLabel(audience, audienceName)}
+              </Text>
+            </View>
+          </View>
+        ) : null}
       </Pressable>
       <Pressable onPress={onMenu} hitSlop={10} accessibilityLabel="Post options" accessibilityRole="button" style={styles.dots}>
         <Icon name="ellipsis-horizontal" size={20} color={colors.muted} />
       </Pressable>
     </View>
+  );
+}
+
+/** The height of a post's link pill (see PostLink): the reels viewer keeps room for it under a page's words. */
+export const POST_LINK_HEIGHT = 30;
+
+/**
+ * The small glyph before a post's audience on its author's meta line (Global has none: it is every post's default).
+ * Selected people draws the SF person-with-a-check on iOS; elsewhere the Ionicons person stands in.
+ */
+export const AUDIENCE_ICON: Record<Exclude<PostAudience, "global">, { name: IconName; sf?: SFSymbol }> = {
+  campus: { name: "school-outline" },
+  friends: { name: "people" },
+  selected: { name: "person-circle-outline", sf: "person.crop.circle.badge.checkmark" },
+};
+
+/**
+ * A post's one link, under its words: a compact pill with the link icon and where it goes ("instagram.com/unibuzz…"),
+ * on one line. A link to one of our own posts, listings or profiles opens that screen; anything else opens in the in-app
+ * browser, as a link tapped in a chat does. `media`: drawn over a photo or video (the reels viewer), white on the dark
+ * media pill. `guard` wraps the tap (the viewer's: a tap that ends a swipe opens nothing).
+ */
+export function PostLink({ url, media, guard }: { url: string; media?: boolean; guard?: (act: () => void) => () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
+  const router = useRouter();
+  const label = linkLabel(url);
+  const open = () => openChatLink(url, router, colors.brand);
+  return (
+    <Pressable
+      onPress={guard ? guard(open) : open}
+      hitSlop={6}
+      style={({ pressed }) => [styles.link, media && styles.linkMedia, pressed && { opacity: 0.7 }]}
+      accessibilityRole="link"
+      accessibilityLabel={label}
+      accessibilityHint="Opens the link"
+    >
+      <Icon name="link" size={15} color={media ? colors.onMedia : colors.brand} />
+      <Text style={[styles.linkText, media && styles.linkTextMedia]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -57,10 +119,11 @@ export function PostFrame({ children }: { children: ReactNode }) {
 }
 
 /**
- * Heart, comment (left out when there is no `onComment`) and share with their counts, an optional chat pill (listings:
- * a chat with the owner), either right after share (`messageBeside`) or on the right, and the bookmark at the far right.
+ * Heart, comment (left out when there is no `onComment`: comments turned off) and share (left out when there is no
+ * `onShare`: a post that cannot be sent into a chat) with their counts, an optional chat pill (listings: a chat with the owner),
+ * either right after share (`messageBeside`) or on the right, and the bookmark at the far right.
  */
-export function PostActions({ liked, likes, comments, saved, onLike, onComment, onShare, onSave, message, messageBeside, tight }: { liked: boolean; likes: number; comments: number; saved: boolean; onLike: () => void; onComment?: () => void; onShare: () => void; onSave: () => void; message?: { label: string; onPress: () => void }; messageBeside?: boolean; tight?: boolean }) {
+export function PostActions({ liked, likes, comments, saved, onLike, onComment, onShare, onSave, message, messageBeside, tight }: { liked: boolean; likes: number; comments: number; saved: boolean; onLike: () => void; onComment?: () => void; onShare?: () => void; onSave: () => void; message?: { label: string; onPress: () => void }; messageBeside?: boolean; tight?: boolean }) {
   const styles = useStyles();
   const colors = useColors();
   // The heart and the bookmark answer with the system's bounce as they fill (and only then).
@@ -78,9 +141,11 @@ export function PostActions({ liked, likes, comments, saved, onLike, onComment, 
           {comments > 0 ? <Text style={styles.count}>{compactCount(comments)}</Text> : null}
         </Pressable>
       ) : null}
-      <Pressable onPress={onShare} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel="Share">
-        <Icon name="share-outline" size={24} color={colors.text} />
-      </Pressable>
+      {onShare ? (
+        <Pressable onPress={onShare} hitSlop={6} style={styles.action} accessibilityRole="button" accessibilityLabel="Share">
+          <Icon name="share-outline" size={24} color={colors.text} />
+        </Pressable>
+      ) : null}
       {message && messageBeside ? <MessagePill message={message} beside /> : null}
       <View style={{ flex: 1 }} />
       {message && !messageBeside ? <MessagePill message={message} /> : null}
@@ -109,6 +174,10 @@ const useStyles = makeStyles((colors) => ({
   badgeText: { fontWeight: "600", color: colors.brand },
   badgePlain: { fontWeight: "600", color: colors.muted },
   meta: { fontSize: 13, color: colors.muted, marginTop: 1 },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 1 },
+  // In the row, the row keeps the line's offset; the date and the university shrink first.
+  metaLead: { marginTop: 0, flexShrink: 1 },
+  audience: { flexDirection: "row", alignItems: "center", gap: 3, flexShrink: 0 },
   dots: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   frame: { marginHorizontal: POST_GUTTER, borderRadius: POST_FRAME_RADIUS, borderCurve: "continuous", overflow: "hidden", backgroundColor: colors.mediaBg },
   actions: { flexDirection: "row", alignItems: "center", gap: 22, paddingHorizontal: POST_GUTTER, paddingTop: 12, paddingBottom: 4 },
@@ -119,6 +188,11 @@ const useStyles = makeStyles((colors) => ({
   // Right after share, in the row's own spacing.
   messageBeside: { marginRight: 0 },
   messageText: { fontSize: 13, fontWeight: "700", color: colors.text },
+  // As wide as its words, never wider than the post: a long address ends in "…".
+  link: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", maxWidth: "100%", height: POST_LINK_HEIGHT, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: colors.input },
+  linkMedia: { backgroundColor: colors.mediaPill },
+  linkText: { flexShrink: 1, fontSize: 13, fontWeight: "600", color: colors.text },
+  linkTextMedia: { color: colors.onMedia },
 }));
 
 /** The text of a post, the same size on posts, roommate posts and apartments. */

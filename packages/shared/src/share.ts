@@ -77,7 +77,7 @@ export function sharedPostFromFeedPost(post: FeedPostWithAuthor, media?: FeedMed
     target_id: post.id,
     kind: post.kind === "reel" ? "reel" : "post",
     path: sharedPostPath({ target_type: "post", target_id: post.id }),
-    title: null,
+    title: post.title?.trim() ? post.title.trim() : null,
     caption: post.body?.trim() ? post.body.trim() : null,
     image_url: firstFrame(post, media),
     author: { id: post.author.id, name: post.author.full_name, avatar_url: post.author.avatar_url },

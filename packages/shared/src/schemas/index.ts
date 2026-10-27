@@ -5,7 +5,11 @@ import {
   CLEANLINESS_LEVELS,
   CURRENCIES,
   DEAL_STATUS_VALUES,
+  DEFAULT_POST_AUDIENCE,
   ITEM_CATEGORY_VALUES,
+  MAX_POST_VIEWERS,
+  POST_AUDIENCE_VALUES,
+  POST_TITLE_MAX,
   SLEEP_SCHEDULES,
 } from "../constants";
 import {
@@ -199,6 +203,23 @@ export type CommentInput = z.infer<typeof commentSchema>;
 // ---------------------------------------------------------------------------
 // Home feed: posts, reels and anonymous Buzz
 // ---------------------------------------------------------------------------
+/**
+ * What the composer's publish screen adds to a post or reel (migration 44): a title, one link, who can see it (with the
+ * people picked for "Selected people") and whether others can comment. All optional: left alone, a post is Global with
+ * comments on, as before.
+ */
+const postDetailFields = {
+  title: optionalText(POST_TITLE_MAX),
+  // A link with a space in it passes the URL check but not the database's: it is refused here, in words.
+  linkUrl: optionalUrl.refine((v) => v === undefined || !/\s/.test(v), { error: "A link can't have spaces in it" }),
+  audience: z.enum(POST_AUDIENCE_VALUES).default(DEFAULT_POST_AUDIENCE),
+  viewerIds: z.array(z.uuid()).max(MAX_POST_VIEWERS, { error: `Choose up to ${MAX_POST_VIEWERS} people` }).default([]),
+  commentsOff: z.boolean().default(false),
+};
+/** "Selected people" needs at least one person, and "Campus only" a campus to be limited to. */
+const pickedSomeone = { error: "Choose who can see it", path: ["viewerIds"] };
+const hasCampus = { error: "Campus-only posts need a confirmed university email on your account", path: ["audience"] };
+
 export const feedPostSchema = z
   .object({
     body: z.string().trim().max(4000, "Keep posts under 4,000 characters").default(""),
@@ -206,15 +227,22 @@ export const feedPostSchema = z
     images: imageUrls,
     imageMeta,
     videos: listingVideos,
+    ...postDetailFields,
   })
-  .refine((v) => v.body.length > 0 || v.images.length > 0 || v.videos.length > 0, { error: "Write something or add a photo or video", path: ["body"] });
+  .refine((v) => v.body.length > 0 || Boolean(v.title) || v.images.length > 0 || v.videos.length > 0, { error: "Write something or add a photo or video", path: ["body"] })
+  .refine((v) => v.audience !== "selected" || v.viewerIds.length > 0, pickedSomeone)
+  .refine((v) => v.audience !== "campus" || Boolean(v.universityId), hasCampus);
 export type FeedPostInput = z.infer<typeof feedPostSchema>;
 
-export const reelSchema = z.object({
-  body: z.string().trim().max(2200, "Keep captions under 2,200 characters").default(""),
-  universityId: optionalUuid,
-  videos: listingVideos.refine((v) => v.length === 1, { error: "Add one video for your reel" }),
-});
+export const reelSchema = z
+  .object({
+    body: z.string().trim().max(2200, "Keep captions under 2,200 characters").default(""),
+    universityId: optionalUuid,
+    videos: listingVideos.refine((v) => v.length === 1, { error: "Add one video for your reel" }),
+    ...postDetailFields,
+  })
+  .refine((v) => v.audience !== "selected" || v.viewerIds.length > 0, pickedSomeone)
+  .refine((v) => v.audience !== "campus" || Boolean(v.universityId), hasCampus);
 export type ReelInput = z.infer<typeof reelSchema>;
 
 // ---------------------------------------------------------------------------

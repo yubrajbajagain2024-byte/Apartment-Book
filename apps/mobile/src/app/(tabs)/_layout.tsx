@@ -91,8 +91,8 @@ function createIcon() {
 /**
  * Home | Explore (Housing | Roommate | Marketplace) | + | Messages | Profile. Search is the magnifying glass in Home's
  * top-right corner, before the Notifications bell (see HeaderActions). The "+" in the middle (CreateIcon: a thin Aurora
- * ring round the plain plus, no label; screen readers hear "Create") opens the create sheet
- * (Post / Reel / Buzz), the same one as the "+" on your photo on Home; signed out, the login screen. No haptic, like the
+ * ring round the plain plus, no label; screen readers hear "Create") opens the live camera
+ * (POST | REEL | SNAP, see app/compose), as the "+" on your photo on Home does; signed out, the login screen. No haptic, like the
  * tabs. The bar is FloatingTabBar: a rounded glass pill floating over the tabs' content (see lib/tab-bar.ts for its size
  * and the room each tab keeps clear under it) with a capsule that slides to the tab on screen.
  */
@@ -103,7 +103,7 @@ export default function TabsLayout() {
   const create = useCreateMenu();
   // A business account stays out of the student side: it is pointed to the business portal instead (after every hook).
   if (profile && isBusinessRole(profile.role)) return <BusinessAccountNotice />;
-  const action: TabBarAction = { label: "Create", hint: "A post, a reel, a Buzz thread or a Snap", icon: createIcon, onPress: create };
+  const action: TabBarAction = { label: "Create", hint: "Opens the camera for a post, a reel or a Snap", icon: createIcon, onPress: create };
   // The header's own shadow barely shows on black, so in dark a hairline marks its edge. Light keeps its shadow.
   const headerStyle = isDark ? { backgroundColor: colors.bar, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border } : { backgroundColor: colors.bar };
   return (

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { BadgeCheck, Bookmark, Heart, MessageCircle, Send } from "lucide-react";
-import { captionParts, compactCount, isVerifiedPoster, listingMedia, sharedPostFromFeedPost, timeAgo, type FeedMedia, type FeedPostWithAuthor, type PostCommentWithAuthor, type PostEngagement, type PostPreview } from "@apartment-book/shared";
+import { compactCount, isVerifiedPoster, listingMedia, sharedPostFromFeedPost, timeAgo, type FeedMedia, type FeedPostWithAuthor, type PostCommentWithAuthor, type PostEngagement, type PostPreview } from "@apartment-book/shared";
+import { canShareAudience, postAudience, postLink } from "@/lib/post-details";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { MessageButton } from "@/components/common/message-button";
@@ -13,6 +14,7 @@ import { PhotoCarousel } from "@/components/photos/photo-carousel";
 import { CommentsSection } from "@/components/posts/comments-section";
 import { useLikeToggle } from "@/components/posts/like-button";
 import { PostMenu } from "@/components/posts/post-menu";
+import { AudienceNote, CaptionText, CommentsOff, PostLinkChip } from "@/components/posts/post-details";
 
 export type InstaPostProps = {
   post: FeedPostWithAuthor;
@@ -48,8 +50,10 @@ function frameAspect(media: FeedMedia[], reel: boolean): string {
 const icon = "flex h-9 items-center gap-1.5 rounded-lg text-gray-900 transition-transform hover:text-gray-500 active:scale-90";
 
 /**
- * Instagram-style post: avatar and name → photo or video → heart, comment, share and bookmark → "Liked by …" → caption → comments → age.
- * Edge to edge on phones; a plain white block in the centre column on wider screens.
+ * Instagram-style post: avatar and name → photo or video → heart, comment, share and bookmark → "Liked by …" → title,
+ * caption and link → comments → age. Edge to edge on phones; a plain white block in the centre column on wider screens.
+ * A friends-only or selected-people post has no Share (the database refuses to send it into a chat), the author of a
+ * post that is not Global sees who can see it after its age, and one with comments off has no comment button or thread.
  */
 export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, engagement: given, preview, subtitle, priority, commentsOpen, initialComments }: InstaPostProps) {
   const engagement = given ?? NO_ENGAGEMENT;
@@ -59,6 +63,14 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
   const label = `${reel ? "Reel" : "Post"} by ${author.full_name}`;
   const media = listingMedia(post.images, post.image_meta, post.videos);
   const text = post.body?.trim() ?? "";
+  // Migration 44's fields: a database without it hands back none of them, and the post shows as it always has.
+  const title = post.title?.trim() || null;
+  const link = postLink(post.link_url);
+  const audience = postAudience(post);
+  const commentsOff = post.comments_off ?? false;
+  // Friends-only and selected-people posts cannot go into a chat (see canShareAudience).
+  const shareable = canShareAudience(audience);
+  const own = currentUserId === author.id;
 
   const like = useLikeToggle("post", post.id, { liked: engagement.likedByMe, likes: engagement.likes }, signedIn);
   const save = useSaveToggle("post", post.id, saved, signedIn);
@@ -92,18 +104,12 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
   const others = like.likes - 1;
 
   const long = text.length > CAPTION_LIMIT || text.split("\n").length > 3;
-  const shown = expanded || !long ? text : `${text.slice(0, CAPTION_LIMIT).split("\n").slice(0, 3).join("\n").trimEnd()}… `;
+  // Folded: the start of the words (three lines at most), then "… more".
+  const cut = expanded || !long ? undefined : text.slice(0, CAPTION_LIMIT).split("\n").slice(0, 3).join("\n").trimEnd().length;
   const caption = (
     <>
-      {captionParts(shown).map((part, i) =>
-        part.tag ? (
-          <span key={i} className="text-[#00376b]">
-            {part.text}
-          </span>
-        ) : (
-          part.text
-        ),
-      )}
+      <CaptionText text={text} cut={cut} />
+      {cut !== undefined ? "… " : null}
       {long && !expanded ? (
         <button type="button" onClick={() => setExpanded(true)} className="text-gray-500 hover:text-gray-800">
           more
@@ -130,8 +136,9 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
           path={href}
           title={label}
           className="-mr-1.5"
-          report={currentUserId !== author.id ? { targetType: "post", targetId: post.id } : undefined}
-          pin={currentUserId === author.id ? { postId: post.id, pinned: Boolean(post.pinned_at) } : undefined}
+          report={!own ? { targetType: "post", targetId: post.id } : undefined}
+          pin={own ? { postId: post.id, pinned: Boolean(post.pinned_at) } : undefined}
+          shareable={shareable}
           extra={
             <MessageButton
               userId={author.id}
@@ -154,11 +161,21 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
             </span>
           ) : null}
         </PhotoCarousel>
-      ) : text ? (
-        // Words only: the text is the post.
-        <p className="whitespace-pre-line break-words px-3 pb-1 text-base leading-snug text-gray-900" onDoubleClick={doubleTap} data-testid="insta-text">
-          {caption}
-        </p>
+      ) : title || text || link ? (
+        // Words only: the title and the text are the post.
+        <div className="flex flex-col gap-1.5 px-3 pb-1">
+          {title ? (
+            <h2 className="break-words text-base font-bold leading-snug text-gray-900" data-testid="insta-title">
+              {title}
+            </h2>
+          ) : null}
+          {text ? (
+            <p className="whitespace-pre-line break-words text-base leading-snug text-gray-900" onDoubleClick={doubleTap} data-testid="insta-text">
+              {caption}
+            </p>
+          ) : null}
+          {link ? <PostLinkChip url={link} /> : null}
+        </div>
       ) : null}
 
       {/* Instagram puts the carousel dots on their own line between the photo and the actions. */}
@@ -175,13 +192,17 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
           <Heart className={cn("h-7 w-7", like.liked && "fill-current")} />
           {like.likes > 0 ? <span className="text-sm font-semibold tabular-nums text-gray-900">{compactCount(like.likes)}</span> : null}
         </button>
-        <button type="button" onClick={openComments} aria-label="Comment" className={icon}>
-          <MessageCircle className="h-[26px] w-[26px] -scale-x-100" />
-          {commentCount > 0 ? <span className="text-sm font-semibold tabular-nums">{compactCount(commentCount)}</span> : null}
-        </button>
-        <button type="button" onClick={shareDialog.show} aria-label="Share" className={icon}>
-          <Send className="h-[26px] w-[26px]" />
-        </button>
+        {commentsOff ? null : (
+          <button type="button" onClick={openComments} aria-label="Comment" className={icon}>
+            <MessageCircle className="h-[26px] w-[26px] -scale-x-100" />
+            {commentCount > 0 ? <span className="text-sm font-semibold tabular-nums">{compactCount(commentCount)}</span> : null}
+          </button>
+        )}
+        {shareable ? (
+          <button type="button" onClick={shareDialog.show} aria-label="Share" className={icon}>
+            <Send className="h-[26px] w-[26px]" />
+          </button>
+        ) : null}
         <span className="flex-1" />
         {save.signedIn ? (
           <button type="button" onClick={save.toggle} disabled={save.pending} aria-pressed={save.saved} aria-label={save.saved ? "Unsave" : "Save"} className={icon}>
@@ -219,6 +240,11 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
           </div>
         ) : null}
 
+        {media.length > 0 && title ? (
+          <h2 className="break-words text-base font-bold leading-snug" data-testid="insta-title">
+            {title}
+          </h2>
+        ) : null}
         {media.length > 0 && text ? (
           <p className="whitespace-pre-line break-words" data-testid="insta-caption">
             <Link href={`/profile/${author.id}`} className="font-semibold">
@@ -227,13 +253,14 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
             {caption}
           </p>
         ) : null}
+        {media.length > 0 && link ? <PostLinkChip url={link} className="my-0.5" /> : null}
 
-        {!open && commentCount > 1 ? (
+        {!open && !commentsOff && commentCount > 1 ? (
           <button type="button" onClick={openComments} className="self-start text-gray-500 hover:text-gray-800">
             View all {compactCount(commentCount)} comments
           </button>
         ) : null}
-        {!open && commentCount > 0 && preview?.lastComment ? (
+        {!open && !commentsOff && commentCount > 0 && preview?.lastComment ? (
           <p className="line-clamp-2 break-words">
             <Link href={`/profile/${preview.lastComment.author.id}`} className="font-semibold">
               {preview.lastComment.author.full_name}
@@ -242,12 +269,22 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
           </p>
         ) : null}
 
-        <Link href={href} className="self-start text-xs text-gray-500 hover:underline" suppressHydrationWarning>
-          {timeAgo(post.created_at)}
-        </Link>
+        <p className="flex items-center gap-1 text-xs text-gray-500">
+          <Link href={href} className="hover:underline" suppressHydrationWarning>
+            {timeAgo(post.created_at)}
+          </Link>
+          {own && audience !== "global" ? (
+            <>
+              <span aria-hidden>·</span>
+              <AudienceNote audience={audience} universityName={post.university?.name} />
+            </>
+          ) : null}
+        </p>
       </div>
 
-      {open ? (
+      {open && commentsOff ? (
+        <CommentsOff className="mt-2" />
+      ) : open ? (
         <CommentsSection
           className="mt-2"
           targetType="post"
@@ -262,7 +299,7 @@ export function InstaPost({ post, saved, signedIn, currentUserId, currentUser, e
       ) : null}
 
       {/* Send the post to friends (a chat message with the post as a card) or copy its link. */}
-      <ShareDialog sharedPost={sharedPostFromFeedPost(post, media)} url={shareDialog.url} open={shareDialog.open} onClose={shareDialog.hide} currentUser={currentUser ?? (currentUserId ? { id: currentUserId } : null)} />
+      {shareable ? <ShareDialog sharedPost={sharedPostFromFeedPost(post, media)} url={shareDialog.url} open={shareDialog.open} onClose={shareDialog.hide} currentUser={currentUser ?? (currentUserId ? { id: currentUserId } : null)} restricted={audience !== "global"} /> : null}
     </article>
   );
 }
