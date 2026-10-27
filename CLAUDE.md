@@ -191,10 +191,11 @@ SUPABASE_ACCESS_TOKEN=… npm run db:check                         # live end-to
 SUPABASE_ACCESS_TOKEN=… node supabase/applied-outside-repo/verify.mjs --live   # read-only schema diff
 ```
 
-Deploy the website: push, then `vercel deploy --prod --yes --archive=tgz` from the repo root (the
-Vercel project is not connected to Git). Publish mobile JS to installed builds:
-`cd apps/mobile && npx eas-cli@latest update --channel preview`. **Apply a migration to production
-before deploying code that uses it** (§5).
+**Every push to `main` deploys the website to production**: Vercel has been connected to Git since
+2026-10-26, per the owner's deploy notes (the README still says otherwise). `vercel deploy --prod
+--yes --archive=tgz` from the repo root deploys the local tree by hand. Publish mobile JS to
+installed builds: `cd apps/mobile && npx eas-cli@latest update --channel preview --environment
+preview`. **Apply a migration to production before merging code that uses it into `main`** (§5).
 
 ---
 
@@ -224,7 +225,8 @@ before deploying code that uses it** (§5).
 
 ## 5. Migrations and production rollout
 
-> **A migration must reach the live project *before* the code that uses it is deployed.**
+> **A migration must reach the live project *before* the code that uses it is deployed** (and
+> merging into `main` deploys).
 
 **Never run `supabase db push`.** The Supabase CLI's own migration history is **empty** on the live
 project, so a push would re-run every migration over production. The repo's setup script tracks
@@ -247,8 +249,10 @@ and `select *` on that table fails. Never grant SELECT on the whole table again.
 
 ### Rollout status (as of 2026-10-27)
 
-Assembled from commit messages and `supabase/applied-outside-repo/README.md`, **not read from
-the live catalog**. Confirm with `verify.mjs --live` before acting on it.
+Assembled from commit messages, `supabase/applied-outside-repo/README.md` and the owner's deploy
+notes (read-only checks of production's `public._migrations`, latest 2026-10-27 00:32 UTC). **This
+table was not read from the live catalog**; confirm with `verify.mjs --live` before acting on it. The
+README's statement that 41 and 42 are not live is out of date.
 
 | # | File | Live? |
 | --- | --- | --- |
@@ -257,22 +261,23 @@ the live catalog**. Confirm with `verify.mjs --live` before acting on it.
 | 38 | `20261031000000_reels_feed_like_counts.sql`: restores `post_like_count()` in `reels_feed()` | ✅ applied |
 | 39 | `20261101000000_business_portal.sql`: roles, standings, listings, deals, inquiries, analytics, team | ✅ applied 2026-10-25 |
 | 40 | `20261102000000_presence_channel_join.sql`: private-channel join check | ✅ applied |
-| 41 | `20261103000000_trust_safety.sql`: reports, queue, sanctions, appeals, audit log | ❌ **not applied** |
-| 42 | `20261103000100_buzz_v2.sql`: Buzz tables, aliases, serializer, reads and interactions | ❌ **not applied** |
+| 41 | `20261103000000_trust_safety.sql`: reports, queue, sanctions, appeals, audit log | ✅ applied 2026-10-26 04:02 UTC (Ankur) |
+| 42 | `20261103000100_buzz_v2.sql`: Buzz tables, aliases, serializer, reads and interactions | ✅ applied 2026-10-26 04:02 UTC (Ankur) |
 | 43 | `20261103000200_marketplace_video.sql`: one video per Marketplace item | ✅ applied 2026-10-25 |
 | 44 | `20261103000300_discover.sql`: Discover rankings (hot posts, trending topics, accounts) | ❌ **not applied** |
 | 45 | `20261104000000_post_details.sql`: post title, link, audience, comments switch | ✅ applied 2026-10-27 00:32 UTC |
 | 46 | `20261104000100_discover_audience.sql`: `discover_refresh()` ranks Global posts only | ❌ **not applied** |
 | 47 | `20261105000000_anonymous_listings.sql`: anonymous roommate/marketplace posts, listing audiences, anonymous inquiry chats | ❌ **not applied** |
-| (18) | `20261103100200_staff_invite_email.sql`: **only on `step-admin`** | ❌ not applied |
+| (18) | `20261103100200_staff_invite_email.sql`: **file only on `step-admin`** (in neither `supabase/migrations/` nor `supabase/applied-outside-repo/` here) | ✅ applied |
 
-**What the gaps cost today:** without 41 + 42, Buzz says it is unavailable and posting is refused;
-without 44, Discover falls back to newest posts and people; without 47, anonymous listings,
-listing audiences and anonymous inquiry chats do not work.
+**What the gaps cost today:** without 44, Discover falls back to newest posts and people; without
+47, anonymous listings, listing audiences and anonymous inquiry chats do not work. `main` already
+carries the code for 44, 46 and 47, so production's website most likely does too (it deploys from
+`main`; not verified).
 
 **Order constraints:** apply in file order. **46 must go live with or before 44**:
 `discover_refresh()` runs with definer rights and fills world-readable ranking tables, so without
-46 a friends-only or campus-only post's `#tag` would trend for everyone. 41 must precede 42.
+46 a friends-only or campus-only post's `#tag` would trend for everyone.
 
 **Numbering quirk:** both `20261103000300_discover.sql` and `20261104000000_post_details.sql` call
 themselves "migration 44" in their header comments. File order (timestamps) is authoritative;
@@ -312,7 +317,7 @@ lands through pull requests (#24 – #40 so far). Facts as of 2026-10-27.
 
 | Branch | What it is | State against `main` |
 | --- | --- | --- |
-| `main` | integration branch; what gets deployed | tip `9227e04` (PR #40) |
+| `main` | integration branch; **every push deploys production** | tip `9227e04` (PR #40) |
 | `listing-flow-redesign` | anonymous listings, new Roommate/Marketplace create flow | merged (PR #40); same tree as `main` |
 | `create-flow-redesign` | TikTok-style create flow, post titles/links/audiences | merged via `listing-flow-redesign` |
 | `ankur/dev` (remote) | Discover tab, Orbit "+", profile menu | merged (PR #38) |
@@ -340,7 +345,8 @@ lands through pull requests (#24 – #40 so far). Facts as of 2026-10-27.
   switch; roommate posts and Marketplace items made in the same flow, optionally anonymous.
 - **Discover tab:** search plus popular posts, topics and accounts per campus (falls back until 44
   is live).
-- **Buzz v2:** anonymous threads, moderation engine, staff console at `/admin` (needs 41 + 42).
+- **Buzz v2:** anonymous threads, moderation engine, staff console at `/admin` (41 + 42 live since
+  2026-10-26).
 - **Messages:** realtime chats, groups, semester course chats, voice messages, replies,
   attachments, requests, mute; **Snaps** (view-once); **Calls** (built, paused).
 - **Explore:** apartments with PostGIS distance and maps, roommates, Marketplace (one video per
@@ -351,8 +357,9 @@ lands through pull requests (#24 – #40 so far). Facts as of 2026-10-27.
 
 ### Open work, in priority order
 
-1. **Apply migrations 41, 42, 44, 46, 47 to production** in file order, with database-URL mode
-   (§5), then deploy the matching code. Needs the owner and a credential.
+1. **Apply migrations 44, 46, 47 to production** in file order, with database-URL mode (§5).
+   Their code is already on `main`, which deploys production, so this is overdue. Needs the owner
+   and a credential.
 2. **Security: tighten who counts as an admin for the business portal's staff actions**
    (`require_admin()` / `is_admin()`, migration 39, live). A fix is being prepared on its own
    branch (started 2026-10-27) and is **not applied to production**. Its details stay out of this
@@ -371,7 +378,7 @@ lands through pull requests (#24 – #40 so far). Facts as of 2026-10-27.
 
 | Item | Where it is written up |
 | --- | --- |
-| Five migrations not on production (41, 42, 44, 46, 47) | §5 |
+| Three migrations not on production (44, 46, 47), while `main`, which deploys production, already uses them | §5 |
 | `db:setup` token mode resets the production auth Site URL to localhost by default | §5 |
 | Admin authority for the business portal's staff actions needs tightening (security; live) | §8 item 2 |
 | Supabase CLI history empty on production; `supabase db push` would re-run everything | `supabase/applied-outside-repo/README.md` |
@@ -413,8 +420,9 @@ the website is deployed from it by hand (§3).
 
 ### Blockers
 
-- §8 Blockers. The two that block shipping what is already merged: migrations 41, 42, 44, 46 and
-  47 are not on production (§5), and the `require_admin()` gap (§8 item 2).
+- §8 Blockers. The two that matter most: migrations 44, 46 and 47 are not on production although
+  `main`, which deploys production, already uses them (§5); and the `require_admin()` fix
+  (§8 item 2).
 
 ### Tests on this branch
 
@@ -423,8 +431,8 @@ the website is deployed from it by hand (§3).
 
 ### Next steps
 
-1. Owner: apply 41 → 42 → 44 → 46 → 47 to production in database-URL mode (§5), confirm with
-   `verify.mjs --live`, then deploy the website and publish the app update.
+1. Owner: apply 44 → 46 → 47 to production in database-URL mode (§5) and confirm with
+   `verify.mjs --live`; the website code is already live from `main`. Then publish the app update.
 2. Owner: review the `require_admin()` fix (its own branch, 2026-10-27) and approve its rollout
    plan before anything touches production.
 3. Get the owner's answers on `step-admin` (§8 item 3) before anyone merges it.
