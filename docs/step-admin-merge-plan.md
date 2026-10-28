@@ -48,11 +48,9 @@ Migration 38's moderation branch keeps working either way (it checks for the mod
 
 Not conflicting but to check: `supabase/tests/harness.mjs` merges cleanly; main's suites that add their own auth stand-ins (`reels-feed-like-counts.test.mjs`, `applied-outside-repo/verify.mjs`) must make them idempotent (`create table if not exists auth.mfa_factors`, `create or replace function auth.jwt()`, a guarded `create role service_role`), exactly as `supabase/tests/live-order-check.mjs` does. Regenerate `package-lock.json` with `npm install`.
 
-## A security gap to fix on main (business portal, migration 39, live since 22:09 UTC)
+## Business portal admin checks
 
-`require_admin()` checks only `profiles.role = 'admin'`. Approving businesses, recording paid promotions ("Sponsored") and granting "Verified Partner" therefore work with a password alone, from `/business/admin` on the website; suspended staff keep the power; and removing someone from `staff` does not remove the role (39 copied staff owners and admins into it once). Every staff function from 14 to 17 instead requires the staff row, no suspension, and an aal2 session with a verified factor.
-
-Suggested follow-up migration (after `20261103100100`): where `public.staff` exists, make `require_admin()` call `staff_require('admin')` (or `'owner'` for money-related actions), and stop treating `profiles.role = 'admin'` as authority on its own. Longer term, move the business review screens into CampConnect Admin so the student website carries no admin controls at all.
+A follow-up is handled separately (details with the owner).
 
 ## After the merge, before deploying anything
 
@@ -69,6 +67,6 @@ Then deploy the website as usual. Redeploy the admin app only if `apps/admin` or
 1. Are you happy with the names `20261029100000_admin.sql` / `20261029100100_moderation_support.sql` for 14 and 15, and `20261103100000` / `20261103100100` for 16 and 17 (already in production under those names)? Is anything of yours planned for `20261103…`?
 2. Who renames the two production tracking rows, and when (with the merge, or before)?
 3. Should `supabase/applied-outside-repo/` stay as provenance or go?
-4. Do you agree with the `require_admin()` change above, and should the business review screens move into the admin app?
+4. Should the business review screens move into the admin app?
 5. `ankur/dev` has `trust_safety` and `buzz_v2` migrations covering the same ground as 15; is that branch still alive?
 6. Who resolves the merge: you on `main`'s side, or a merge of `main` into `step-admin` here first?
