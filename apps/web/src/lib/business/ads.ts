@@ -24,7 +24,7 @@ export async function adEditorData(supabase: Client, business: Business): Promis
   const promotable: PromotableItem[] = [
     ...posts
       .filter((p) => p.status === "active" && (!p.ends_at || new Date(p.ends_at).getTime() > now))
-      .map((p) => ({ value: `deal:${p.id}`, label: p.title, image: mediaCover(mediaItems(p.media)) ?? p.image_url, price: p.price_cents !== null ? formatPrice(p.price_cents / 100, p.currency) : null })),
+      .map((p) => ({ value: `deal:${p.id}`, label: p.title, image: mediaCover(mediaItems(p.media)) ?? p.image_url, price: p.price_cents != null ? formatPrice(p.price_cents / 100, p.currency) : null })),
     ...listings
       .filter((a) => a.status === "active")
       .map((a) => ({ value: `apartment:${a.id}`, label: `Listing: ${a.title}`, image: photosFor(a.images, a.image_meta)[0]?.url ?? null, price: `${formatPrice(a.price_per_month, a.currency)}/mo` })),

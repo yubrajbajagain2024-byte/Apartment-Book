@@ -29,6 +29,7 @@ import { Avatar } from "@/components/avatar";
 import { Icon } from "@/components/icon";
 import { Badge, Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { errorText, useQuery } from "@/lib/hooks";
+import { openBusinessLink, safeBusinessImage } from "@/lib/safe-media";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { radius, space } from "@/lib/theme";
@@ -118,7 +119,7 @@ export default function BusinessProfileScreen() {
     <ScrollView contentContainerStyle={{ paddingBottom: 48 }} style={{ backgroundColor: colors.bg }}>
       <Stack.Screen options={{ title: business.name }} />
       <View style={styles.header} testID="business-profile">
-        <Avatar name={business.name} url={business.logo_url} size={88} />
+        <Avatar name={business.name} url={safeBusinessImage(business.logo_url)} size={88} />
         <View style={{ alignItems: "center", gap: 6 }}>
           <Text style={styles.name}>{business.name}</Text>
           <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
@@ -132,14 +133,14 @@ export default function BusinessProfileScreen() {
         </View>
         {business.description ? <Text style={styles.bio}>{business.description}</Text> : null}
         <View style={{ flexDirection: "row", gap: space.lg, flexWrap: "wrap", justifyContent: "center" }}>
-          {business.website ? (
-            <Pressable onPress={() => void Linking.openURL(business.website!)} style={styles.link} accessibilityRole="link">
+          {business.website && /^https?:\/\//i.test(business.website) ? (
+            <Pressable onPress={() => openBusinessLink(business.website)} style={styles.link} accessibilityRole="link">
               <Icon name="globe-outline" size={16} color={colors.brand} />
               <Text style={styles.linkText}>{business.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}</Text>
             </Pressable>
           ) : null}
           {business.phone ? (
-            <Pressable onPress={() => void Linking.openURL(`tel:${business.phone}`)} style={styles.link} accessibilityRole="link">
+            <Pressable onPress={() => void Linking.openURL(`tel:${business.phone!.replace(/[^\d+]/g, "")}`).catch(() => {})} style={styles.link} accessibilityRole="link">
               <Icon name="call-outline" size={16} color={colors.brand} />
               <Text style={styles.linkText}>{business.phone}</Text>
             </Pressable>
@@ -167,8 +168,8 @@ export default function BusinessProfileScreen() {
             <View style={styles.opened}>
               <Text style={styles.kind}>{postKindLabel(opened.kind)}</Text>
               <Text style={styles.openedTitle}>{opened.title}</Text>
-              {[opened.price_cents !== null ? formatCents(opened.price_cents, opened.currency) : null, opened.discount_label].filter(Boolean).length ? (
-                <Text style={styles.meta}>{[opened.price_cents !== null ? formatCents(opened.price_cents, opened.currency) : null, opened.discount_label].filter(Boolean).join(" · ")}</Text>
+              {[opened.price_cents != null ? formatCents(opened.price_cents, opened.currency) : null, opened.discount_label].filter(Boolean).length ? (
+                <Text style={styles.meta}>{[opened.price_cents != null ? formatCents(opened.price_cents, opened.currency) : null, opened.discount_label].filter(Boolean).join(" · ")}</Text>
               ) : null}
               {opened.description ? <Text style={styles.bio}>{opened.description}</Text> : null}
               {opened.code ? <Text style={styles.code}>Code: {opened.code}</Text> : null}
@@ -176,7 +177,7 @@ export default function BusinessProfileScreen() {
                 <View style={{ flex: 1 }}>
                   <Button title={`Message about this`} onPress={() => void message({ type: "deal", id: opened.id, title: opened.title })} loading={busy} />
                 </View>
-                {opened.link_url ? <Button title="Open" variant="secondary" onPress={() => void Linking.openURL(opened.link_url!)} /> : null}
+                {opened.link_url && /^https?:\/\//i.test(opened.link_url) ? <Button title="Open" variant="secondary" onPress={() => openBusinessLink(opened.link_url)} /> : null}
               </View>
             </View>
           ) : null}
@@ -187,7 +188,7 @@ export default function BusinessProfileScreen() {
           ) : (
             <View style={styles.grid}>
               {posts.map((p) => {
-                const cover = mediaCover(mediaItems(p.media)) ?? p.image_url;
+                const cover = safeBusinessImage(mediaCover(mediaItems(p.media)) ?? p.image_url);
                 return (
                   <Pressable key={p.id} onPress={() => setOpened(p)} style={{ width: tile, height: tile, backgroundColor: colors.panel }} accessibilityRole="button" accessibilityLabel={p.title} testID="business-post">
                     {cover ? <Image source={{ uri: cover }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={150} /> : null}
@@ -208,7 +209,7 @@ export default function BusinessProfileScreen() {
               <Text style={styles.section}>LISTINGS</Text>
               <View style={styles.grid}>
                 {listings.map((l) => {
-                  const photo = photosFor(l.images, l.image_meta)[0]?.url ?? null;
+                  const photo = safeBusinessImage(photosFor(l.images, l.image_meta)[0]?.url);
                   return (
                     <Pressable key={l.id} onPress={() => router.push({ pathname: "/apartments/[id]", params: { id: l.id } })} style={{ width: tile, gap: 4 }} accessibilityRole="link" accessibilityLabel={l.title}>
                       <View style={{ width: tile, height: tile, backgroundColor: colors.panel }}>{photo ? <Image source={{ uri: photo }} style={{ width: "100%", height: "100%" }} contentFit="cover" /> : null}</View>

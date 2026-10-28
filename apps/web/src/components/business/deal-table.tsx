@@ -66,7 +66,7 @@ export function DealTable({ deals, stats, universityNames, canPublish = true }: 
                   <Pill tone={STATUS_TONE[label] ?? "neutral"}>{label}</Pill>
                 </div>
                 <p className="text-[13px] text-biz-ink-3">
-                  {[deal.price_cents !== null ? formatCents(deal.price_cents, deal.currency) : null, deal.discount_label, deal.code ? `Code ${deal.code}` : null].filter(Boolean).join(" · ") || where}
+                  {[deal.price_cents != null ? formatCents(deal.price_cents, deal.currency) : null, deal.discount_label, deal.code ? `Code ${deal.code}` : null].filter(Boolean).join(" · ") || where}
                 </p>
                 {deal.kind === "event" && deal.event_at ? (
                   <p className="flex items-center gap-1.5 text-[13px] text-biz-ink-2">
