@@ -480,22 +480,46 @@ Buzz, so nothing on the Buzz page shows who is looking) and the Buzz label carri
   it with Back.
 - **Feed.** Under Home's bar a filter bar (the search pill, Hot | New | Top, Campus | Global) slides up as the feed
   scrolls down and back as it scrolls up; Top adds Today | This week | All time; Hot shows today's prompt with "Answer
-  anonymously"; small campuses get a note; an empty campus Hot feed moves to Global with a banner (cold start). Cards show
+  anonymously" and, once anyone has answered on that feed, "See all N answers" (its thread, which Hot then leaves out of
+  the list below; "No answers yet. Be the first." before that); small campuses get a note; an empty campus Hot feed moves to Global with a banner (cold start). Cards show
   the alias (an emoji in a dashed ring of its colour, never a photo), "You · Anon X" on your own, the campus on Global,
   your own items' review status, the title and words (six lines, Show more), 1–4 photos (a tap opens them full screen) or
-  one video (plays in place with the system controls), a poll (results once you vote), the support link, and the vote pill
-  (optimistic, tap again to undo, coral down), replies and share. Community-collapsed cards fold to "Hidden by the
-  community · Tap to view". The FAB (a pen with the mask) and the "+" create sheet's Buzz open the composer.
-- **Composer.** A full-height sheet (the system's page sheet on iPhone): "You're anonymous", today's prompt when answering
-  it, Campus | Global with what each means, an optional title, the words (500), up to 4 photos (re-encoded on the phone,
+  one video (plays in place with the system controls), a poll (results once you vote), the support link, "Top reply" (the
+  thread's most upvoted reply, two lines, a tap opening the thread at it: it unfolds to it, scrolls there and lights it
+  up a moment), and the vote pill (optimistic, tap again to undo, coral down), replies and share. A top reply needs 3
+  upvotes (`BUZZ_TOP_REPLY_MIN_UPVOTES`) and more up than down; it is never a reply that touched on self-harm, a hidden
+  one, one you reported or one from an anon you hid; it keeps its thread alias. The database picks it
+  (`supabase/migrations/20261108000100_buzz_top_reply.sql`); without that migration cards show none. Community-collapsed
+  cards fold to "Hidden by the community · Tap to view". Under the alias line, the category its author picked ("📚
+  Classes"; nothing when none). A day's prompt thread shows "✦ Daily prompt" where the alias
+  would be and counts answers; an answer posted as its own buzz has the prompt as its title and "Daily prompt · See all
+  answers" linking to that thread. The FAB (a pen with the mask) and the "+" create sheet's Buzz open the composer.
+- **Composer.** A full-height sheet (the system's page sheet on iPhone): "You're anonymous", Campus | Global with what
+  each means, a category (one row of chips, `BUZZ_CATEGORIES`; optional, tap the chosen one again for none; the line
+  under it says what belongs there; a database without `supabase/migrations/20261108000300_buzz_categories.sql` does
+  not keep it), an optional title, the words (500), up to 4 photos (re-encoded on the phone,
   no metadata, stored in the anonymous folder: `src/lib/buzz-photos.ts`) or one video of at most a minute (refused before
-  upload: `src/lib/buzz-video.ts`), a poll (2–4 options, 1/3/7 days, unlocked 24 hours after joining) and "Buzz it". While
+  upload: `src/lib/buzz-video.ts`), a poll (2–4 options, 1/3/7 days, unlocked 24 hours after joining) and "Buzz it".
+  Answering today's prompt ("Answer the prompt"), the prompt is the title, always (the database sets it), and "Where your
+  answer goes" picks Prompt's thread (the default: a reply in that day's prompt thread on the feed, words only, then the
+  thread opens at it) or Its own buzz (a thread of its own, photos and polls allowed). Each day's prompt has one thread
+  per campus and one on Global, owned by no one and made by its first answer
+  (`supabase/migrations/20261108000200_buzz_prompt_threads.sql`); on a database without it an answer is its own buzz. While
   the account cannot post, "Muted until … · Details" stands in for the actions. A blocked text gets the engine's sheet
   (Edit, the guidelines, and support resources where they apply); a held one says it is with the safety team.
-- **Thread.** The root large, replies two levels deep (deeper ones flattened with "replying to"), folds, placeholders, the
-  reply bar ("You're anonymous", the "replying to" chip, 500 characters, send) or the locked line. Posts publish after a
-  random delay, so nothing is pushed live: a thread loads again when it comes back on screen, on pull to refresh, after
-  your own reply and every 30 seconds while it is open.
+- **Thread.** The root large, then the conversation as a tree, like Reddit's: every reply under the one it answers, at
+  any depth, joined to it by a thread line in the colour of that anon, so a back-and-forth reads top to bottom like a
+  story. Best (the default; the choice holds for the session), New or Old orders each level. A tap on a reply's header
+  folds it and everything under it ("+N"); past three replies under a top-level one (two deeper) the rest wait behind
+  "N more replies", and past six levels "Continue this thread" shows that branch on its own ("All replies" goes back).
+  Replies that arrived since you last opened the thread carry a lime dot and "N new" goes to the first (when you last
+  looked is kept on the phone only, `src/lib/buzz-seen.ts`). Folds, placeholders, the reply bar ("You're anonymous",
+  the "replying to" chip, 500 characters, send) or the locked line. The nesting comes from `treeParentId`
+  (`supabase/migrations/20261108000000_buzz_reply_tree.sql`); on a database without it, replies show on two levels,
+  deeper ones with "replying to". The tree and its rows are `buildBuzzReplyForest` and `buzzThreadRows` in
+  `packages/shared`; the website still shows two levels. Posts publish after a random delay, so nothing is pushed live:
+  a thread loads again when it comes back on screen, on pull to refresh, after your own reply and every 30 seconds while
+  it is open, keeping the order on screen (a pull to refresh orders it afresh).
 - **Menus.** Hide this thread · Hide this anon in this thread · Share (the link through the system sheet) · Report (the
   reasons, a note for "Something else"; the item then leaves your lists) · Delete (your own). Never Block, never a
   profile, never a handle.

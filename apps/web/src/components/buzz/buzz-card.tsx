@@ -1,14 +1,14 @@
 "use client";
 
 /**
- * BuzzCard — the feed card (UniVerse design §7.2): a Phosphor surface-1 card, the alias header, title + text
+ * BuzzCard — the feed card (UniVerse design §7.2): a Phosphor surface-1 card, the alias header, its category, title + text
  * (6-line clamp), media, poll, support link, then the vote pill, the reply count and share. Community-collapsed
  * cards fold to one line. Own held / hidden / removed cards carry their status chip. Never an avatar, never a handle.
  */
 import type { Buzz } from "@apartment-book/shared";
 import { cn } from "@/lib/utils";
 import { BuzzContent, BuzzMediaView } from "./body";
-import { AliasLine, CollapsedFold, ContentStatusChip, ItemMenu, PollView, ReplyCountLink, ShareButton, SupportLink, VoteCluster } from "./parts";
+import { AliasLine, CategoryTag, CollapsedFold, ContentStatusChip, ItemMenu, PollView, ReplyCountLink, ShareButton, SupportLink, VoteCluster } from "./parts";
 import { removeBuzzItem } from "./query";
 import { Badge, Skeleton, SkeletonText } from "./ui";
 
@@ -27,6 +27,7 @@ export function BuzzCard({ buzz, linkToThread = true, className }: { buzz: Buzz;
           </div>
         }
       />
+      <CategoryTag category={buzz.category} />
       <BuzzContent buzz={buzz} clamp={linkToThread} href={linkToThread ? `/buzz/${buzz.threadId}` : undefined} />
       <BuzzMediaView media={buzz.media} />
       {buzz.poll ? <PollView threadId={buzz.threadId} poll={buzz.poll} isMine={buzz.isMine} disabled={buzz.status !== "active"} /> : null}

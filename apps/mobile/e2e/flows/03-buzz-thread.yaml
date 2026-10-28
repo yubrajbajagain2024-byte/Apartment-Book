@@ -1,5 +1,6 @@
-# Buzz thread (UniVerse's layout): from Home's Buzz page open the seeded thread, vote on a reply, reply to a reply (it
-# lands under its parent behind the rail, with the "replying to" chip in the reply bar first), then back to the feed.
+# Buzz thread (threaded like Reddit's): from Home's Buzz page open the seeded thread, vote on a reply, reply to a reply
+# (it lands under its parent, joined by a thread line, with the "replying to" chip in the reply bar first), order the
+# replies New then Best again, then back to the feed.
 # Needs: node e2e/sim-seed.mjs && node e2e/sim-seed-thread.mjs, and a stored session (run 01-signed-in.yaml first).
 appId: host.exp.Exponent
 ---
@@ -70,6 +71,10 @@ appId: host.exp.Exponent
     visible: ".*Nested reply from the simulator.*"
     timeout: 30000
 - takeScreenshot: e2e/screenshots/32-nested-reply
+# The order of each level: New puts the newest first; Best (the default) brings the highest score back to the top.
+- tapOn: "New"
+- takeScreenshot: e2e/screenshots/34-thread-new
+- tapOn: "Best"
 # Pull to refresh brings the server's order (and anything new), then Back to the feed.
 - swipe:
     start: "50%,30%"

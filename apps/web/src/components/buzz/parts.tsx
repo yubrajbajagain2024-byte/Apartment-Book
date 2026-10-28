@@ -10,9 +10,11 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowBigDown, ArrowBigUp, Ellipsis, EyeOff, Flag, HeartHandshake, Link2, Share, Trash2, UserX } from "lucide-react";
 import {
+  BUZZ_CATEGORY_COPY,
   BUZZ_FEED_COPY,
   BUZZ_MENU_COPY,
   BUZZ_STATUS_CHIPS,
+  buzzCategory,
   buzzPlaceholder,
   buzzPollCaption,
   buzzReplyCountLabel,
@@ -82,6 +84,21 @@ export function AliasLine({ alias, isMine, isOp, createdAt, trailing, size = "sm
       </div>
       {trailing}
     </div>
+  );
+}
+
+/** "📚 Classes" under the alias line: the category its author picked; nothing when none. Not a link yet: there is no page per category. */
+export function CategoryTag({ category, className }: { category: string | null | undefined; className?: string }) {
+  const c = buzzCategory(category);
+  if (!c) return null;
+  return (
+    <span className={cn("inline-flex h-7 max-w-full items-center gap-1.5 self-start rounded-full bg-incog-surface-3 px-2.5 text-incog-ink-2", T.labelSm, className)} data-testid="buzz-category">
+      <span aria-hidden="true">{c.emoji}</span>
+      <span className="truncate">
+        <span className="sr-only">{BUZZ_CATEGORY_COPY.label}: </span>
+        {c.label}
+      </span>
+    </span>
   );
 }
 

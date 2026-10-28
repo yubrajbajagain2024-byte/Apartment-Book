@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BUZZ_COMPOSER_COPY, BUZZ_LIMITS, buzzErrorMessage, deleteImageByUrl, type Buzz, type BuzzScope } from "@apartment-book/shared";
+import { BUZZ_CATEGORIES, BUZZ_CATEGORY_COPY, BUZZ_COMPOSER_COPY, BUZZ_FEED_COPY, BUZZ_LIMITS, BUZZ_PROMPT_COPY, buzzCategory, buzzErrorMessage, deleteImageByUrl, type Buzz, type BuzzScope } from "@apartment-book/shared";
 import { Icon } from "@/components/icon";
 import { ensureBuzzMeta } from "@/lib/buzz-actions";
 import { pickBuzzPhotos, takeBuzzPhoto, uploadBuzzPhoto, type BuzzPickedPhoto } from "@/lib/buzz-photos";
@@ -21,11 +21,13 @@ import { Chip, P, PButton, PIconButton, R, Segmented, T } from "./ui";
 
 /*
  * The Buzz composer (UniVerse's features/buzz/Composer.tsx, design §7.2): a full-height sheet (the system's page sheet on
- * iPhone, swipe down to close) with the "You're anonymous" banner, today's prompt when answering it, Campus | Global
- * with what each means, an optional title (100; Return goes on to the words), the words (500), up to four photos OR one
- * video (a minute at most, refused before upload), a poll (2–4 options, 1 / 3 / 7 days; locked for the first 24 hours of
- * an account) and the hero "Buzz it". No avatar, no handle. The draft lives in memory for the session (lib/buzz-store),
- * never on the phone's storage, and is wiped on sign-out. Posting goes through the website's moderated write API.
+ * iPhone, swipe down to close) with the "You're anonymous" banner, Campus | Global with what each means, a category
+ * (optional: one of BUZZ_CATEGORIES, tap it again for none), an optional title (100; Return goes on to the words), the words (500), up to four photos OR one video (a minute at most, refused
+ * before upload), a poll (2–4 options, 1 / 3 / 7 days; locked for the first 24 hours of an account) and the hero "Buzz
+ * it". Answering today's prompt, the prompt is the title (always: the database sets it) and the answer goes, by default,
+ * into the prompt's thread on that feed as a reply (words only); "Its own buzz" posts it as a thread of its own
+ * instead. No avatar, no handle. The draft lives in memory for the session (lib/buzz-store), never on the phone's
+ * storage, and is wiped on sign-out. Posting goes through the website's moderated write API.
  */
 
 const selectDraft = (s: BuzzUiState) => s.draft;
@@ -36,9 +38,14 @@ const SCOPES = [
   { value: "campus" as const, label: "Campus", icon: "school-outline" as const },
   { value: "global" as const, label: "Global", icon: "globe-outline" as const },
 ];
+const PROMPT_MODES = [
+  { value: "thread" as const, label: BUZZ_PROMPT_COPY.inThread, icon: "chatbubbles-outline" as const },
+  { value: "own" as const, label: BUZZ_PROMPT_COPY.ownBuzz, icon: "create-outline" as const },
+];
 const TILE = 96;
 
-export function BuzzComposer({ visible, onClose, onPosted }: { visible: boolean; onClose: () => void; onPosted?: (buzz: Buzz) => void }) {
+/** `onAnswered`: an answer went into the prompt's thread (the page opens the thread at it). */
+export function BuzzComposer({ visible, onClose, onPosted, onAnswered }: { visible: boolean; onClose: () => void; onPosted?: (buzz: Buzz) => void; onAnswered?: (threadId: string, replyId: string) => void }) {
   const insets = useSafeAreaInsets();
   const { user } = useSession();
   const draft = useBuzzState(selectDraft);
@@ -47,7 +54,7 @@ export function BuzzComposer({ visible, onClose, onPosted }: { visible: boolean;
   const posting = useBuzzPostingStatus(visible);
   const titleRef = useRef<TextInputInstance>(null);
   const textRef = useRef<TextInputInstance>(null);
-  const { submit, sending, moderation } = useBuzzSubmit({ onPosted, onDone: onClose, onEdit: () => textRef.current?.focus() });
+  const { submit, answerInPromptThread, sending, moderation } = useBuzzSubmit({ onPosted, onDone: onClose, onEdit: () => textRef.current?.focus() });
   const [photoUploads, setPhotoUploads] = useState(0);
   const [video, setVideo] = useState<{ phase: "uploading" | "processing"; progress: number } | null>(null);
   const [mediaSheet, setMediaSheet] = useState<"photo" | "video" | null>(null);
@@ -85,15 +92,19 @@ export function BuzzComposer({ visible, onClose, onPosted }: { visible: boolean;
   // Focus the title as the sheet settles (UniVerse focuses it 60ms after opening).
   useEffect(() => {
     if (!visible) return;
-    const t = setTimeout(() => (draft.title || draft.text ? textRef : titleRef).current?.focus(), 450);
+    const t = setTimeout(() => (draft.promptId || draft.title || draft.text ? textRef : titleRef).current?.focus(), 450);
     return () => clearTimeout(t);
     // Once per opening.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  const { ready, pollsLocked } = buzzDraftCheck(draft, posting);
   const campusMeta = meta.campus?.value ?? null;
   const prompt = draft.promptId ? (Object.values(meta).find((m) => m?.value.prompt?.id === draft.promptId)?.value.prompt ?? null) : null;
+  // The database makes prompt threads (its meta says threadId, null or not): only then is there a thread to answer in.
+  const threadOffered = prompt !== null && prompt.threadId !== undefined;
+  const inThread = threadOffered && draft.promptMode === "thread";
+  const category = buzzCategory(draft.category);
+  const { ready, pollsLocked } = buzzDraftCheck(draft, posting, { inPromptThread: inThread });
   const uploading = photoUploads > 0 || video !== null;
   const canSubmit = ready && !uploading && !sending;
   const roomForPhotos = BUZZ_LIMITS.images - draft.images.length - photoUploads;
@@ -189,7 +200,7 @@ export function BuzzComposer({ visible, onClose, onPosted }: { visible: boolean;
             {ios ? <View style={styles.grabber} /> : null}
             <View style={styles.headerRow}>
               <Text style={[T.title2, styles.flex, { color: P.ink }]} accessibilityRole="header">
-                {BUZZ_COMPOSER_COPY.title}
+                {prompt ? BUZZ_PROMPT_COPY.composerTitle : BUZZ_COMPOSER_COPY.title}
               </Text>
               <PIconButton icon="close" label="Close" onPress={close} variant="filled" size={36} iconSize={18} color={P.ink2} disabled={sending} />
             </View>
@@ -198,52 +209,82 @@ export function BuzzComposer({ visible, onClose, onPosted }: { visible: boolean;
             <ComposerModeBanner note={campusMeta?.smallCampusNote ? BUZZ_COMPOSER_COPY.smallCampusNote : BUZZ_COMPOSER_COPY.defaultNote} />
             {prompt ? (
               <View style={styles.prompt}>
-                <Icon name="sparkles" size={16} color={P.accentInk} />
-                <Text style={[T.footnote, styles.flex, { color: P.ink2 }]} numberOfLines={2}>
-                  {BUZZ_COMPOSER_COPY.promptAttached(prompt.text)}
+                <View style={styles.promptHead}>
+                  <Icon name="sparkles" size={14} color={P.accentInk} />
+                  <Text style={[T.overline, styles.flex, { color: P.accentInk }]}>{BUZZ_FEED_COPY.promptOverline}</Text>
+                  <PIconButton icon="close" label="Not the prompt: write a buzz of your own" onPress={() => buzzState.setDraft({ promptId: null, promptMode: "thread" })} size={28} iconSize={14} />
+                </View>
+                <Text style={[T.title3, { color: P.ink }]} accessibilityRole="header">
+                  {prompt.text}
                 </Text>
-                <PIconButton icon="close" label="Detach the prompt" onPress={() => buzzState.setDraft({ promptId: null })} size={32} iconSize={16} />
+              </View>
+            ) : null}
+            {threadOffered ? (
+              <View style={{ gap: 8 }}>
+                <Segmented<"thread" | "own"> label={BUZZ_PROMPT_COPY.where} value={draft.promptMode} options={PROMPT_MODES} onChange={(promptMode) => buzzState.setDraft({ promptMode })} />
+                <Text style={[T.caption, { color: P.ink3 }]}>{inThread ? BUZZ_PROMPT_COPY.inThreadNote : BUZZ_PROMPT_COPY.ownBuzzNote}</Text>
               </View>
             ) : null}
             <View style={{ gap: 8 }}>
               <Segmented<BuzzScope> label="Post to" value={draft.scope} options={SCOPES} onChange={(scope) => buzzState.setDraft({ scope })} />
               <Text style={[T.caption, { color: P.ink3 }]}>{draft.scope === "campus" ? (campus?.shortName ? BUZZ_COMPOSER_COPY.campusScopeNote(campus.shortName) : "Only shows in your campus feed.") : BUZZ_COMPOSER_COPY.globalScopeNote}</Text>
             </View>
-            <TextInput
-              ref={titleRef}
-              value={draft.title}
-              onChangeText={(v) => buzzState.setDraft({ title: v.replace(/\n/g, " ") })}
-              placeholder={BUZZ_COMPOSER_COPY.titlePlaceholder}
-              placeholderTextColor={P.ink4}
-              keyboardAppearance="dark"
-              maxLength={BUZZ_LIMITS.title}
-              multiline
-              submitBehavior="submit"
-              returnKeyType="next"
-              onSubmitEditing={() => textRef.current?.focus()}
-              style={[T.title3, styles.bare, styles.title]}
-              accessibilityLabel="Title"
-              accessibilityHint="Optional"
-            />
+            {inThread ? null : (
+              <View style={{ gap: 8 }}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bleed} contentContainerStyle={styles.categories} keyboardShouldPersistTaps="handled" accessibilityLabel={BUZZ_CATEGORY_COPY.label}>
+                  {BUZZ_CATEGORIES.map((c) => (
+                    <Chip
+                      key={c.value}
+                      label={c.label}
+                      selected={draft.category === c.value}
+                      onPress={() => buzzState.setDraft({ category: currentDraft().category === c.value ? null : c.value })}
+                      iconNode={<Text style={styles.chipEmoji} allowFontScaling={false}>{c.emoji}</Text>}
+                      accessibilityHint={c.hint}
+                    />
+                  ))}
+                </ScrollView>
+                <Text style={[T.caption, { color: P.ink3 }]}>{category ? `${category.label}: ${category.hint}` : BUZZ_CATEGORY_COPY.none}</Text>
+              </View>
+            )}
+            {prompt ? null : (
+              <TextInput
+                ref={titleRef}
+                value={draft.title}
+                onChangeText={(v) => buzzState.setDraft({ title: v.replace(/\n/g, " ") })}
+                placeholder={BUZZ_COMPOSER_COPY.titlePlaceholder}
+                placeholderTextColor={P.ink4}
+                keyboardAppearance="dark"
+                maxLength={BUZZ_LIMITS.title}
+                multiline
+                submitBehavior="submit"
+                returnKeyType="next"
+                onSubmitEditing={() => textRef.current?.focus()}
+                style={[T.title3, styles.bare, styles.title]}
+                accessibilityLabel="Title"
+                accessibilityHint="Optional"
+              />
+            )}
             <View>
               <TextInput
                 ref={textRef}
                 value={draft.text}
                 onChangeText={(v) => buzzState.setDraft({ text: v })}
-                placeholder={BUZZ_COMPOSER_COPY.bodyPlaceholder}
+                placeholder={prompt ? BUZZ_PROMPT_COPY.answerPlaceholder : BUZZ_COMPOSER_COPY.bodyPlaceholder}
                 placeholderTextColor={P.ink4}
                 keyboardAppearance="dark"
-                maxLength={BUZZ_LIMITS.text}
+                maxLength={inThread ? BUZZ_LIMITS.replyText : BUZZ_LIMITS.text}
                 multiline
                 style={[T.bodyLg, styles.bare, styles.text]}
-                accessibilityLabel="Your buzz"
+                accessibilityLabel={prompt ? "Your answer" : "Your buzz"}
               />
               <Text style={[T.caption, styles.count, { color: draft.text.length > BUZZ_LIMITS.text - 40 ? P.warning : P.ink3 }]} accessibilityLabel={`${draft.text.length} of ${BUZZ_LIMITS.text} characters`}>
                 {draft.text.length}/{BUZZ_LIMITS.text}
               </Text>
             </View>
 
-            {video ? (
+            {inThread ? (
+              <Text style={[T.caption, { color: P.ink3 }]}>{BUZZ_PROMPT_COPY.mediaInThread}</Text>
+            ) : video ? (
               <View style={styles.progressCard} accessibilityLiveRegion="polite">
                 <Text style={[T.labelSm, { color: P.ink }]}>{video.phase === "uploading" ? `Uploading video… ${Math.round(video.progress * 100)}%` : "Processing your video…"}</Text>
                 <View style={styles.track}>
@@ -286,25 +327,35 @@ export function BuzzComposer({ visible, onClose, onPosted }: { visible: boolean;
               </View>
             )}
 
-            {draft.pollOn ? <BuzzPollEditor /> : null}
+            {draft.pollOn && !inThread ? <BuzzPollEditor /> : null}
           </ScrollView>
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
             <ComposerGuard status={posting} onDetails={onClose}>
               <View style={styles.footerRow}>
-                <Chip
-                  label="Poll"
-                  size="md"
-                  selected={draft.pollOn}
-                  disabled={pollsLocked && !draft.pollOn}
-                  onPress={() => buzzState.setDraft({ pollOn: !draft.pollOn })}
-                  iconNode={<Icon name="bar-chart-outline" size={17} color={draft.pollOn ? P.accentInk : P.ink2} />}
-                  accessibilityHint={pollsLocked ? BUZZ_COMPOSER_COPY.pollsLocked : undefined}
-                />
-                <Chip label="Video" size="md" selected={draft.video !== null} disabled={video !== null || sending} onPress={toggleVideo} iconNode={<Icon name="videocam-outline" size={17} color={draft.video ? P.accentInk : P.ink2} />} />
+                {inThread ? null : (
+                  <>
+                    <Chip
+                      label="Poll"
+                      size="md"
+                      selected={draft.pollOn}
+                      disabled={pollsLocked && !draft.pollOn}
+                      onPress={() => buzzState.setDraft({ pollOn: !draft.pollOn })}
+                      iconNode={<Icon name="bar-chart-outline" size={17} color={draft.pollOn ? P.accentInk : P.ink2} />}
+                      accessibilityHint={pollsLocked ? BUZZ_COMPOSER_COPY.pollsLocked : undefined}
+                    />
+                    <Chip label="Video" size="md" selected={draft.video !== null} disabled={video !== null || sending} onPress={toggleVideo} iconNode={<Icon name="videocam-outline" size={17} color={draft.video ? P.accentInk : P.ink2} />} />
+                  </>
+                )}
                 <Text style={[T.caption, styles.flex, { color: P.ink3 }]} numberOfLines={2}>
                   {uploading ? "Uploading…" : pollsLocked ? BUZZ_COMPOSER_COPY.pollsLocked : ""}
                 </Text>
-                <PButton title={BUZZ_COMPOSER_COPY.submit} variant="hero" disabled={!canSubmit} loading={sending} onPress={() => void (canSubmit && submit())} />
+                <PButton
+                  title={inThread ? BUZZ_PROMPT_COPY.submit : BUZZ_COMPOSER_COPY.submit}
+                  variant="hero"
+                  disabled={!canSubmit}
+                  loading={sending}
+                  onPress={() => void (canSubmit && (inThread ? answerInPromptThread(onAnswered) : submit()))}
+                />
               </View>
             </ComposerGuard>
           </View>
@@ -367,12 +418,16 @@ const styles = StyleSheet.create({
   grabber: { alignSelf: "center", width: 36, height: 5, borderRadius: 2.5, backgroundColor: P.surface4 },
   headerRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
   body: { gap: 18, paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24 },
-  prompt: { flexDirection: "row", alignItems: "center", gap: 10, paddingLeft: 12, paddingVertical: 4, paddingRight: 4, borderRadius: R.md, borderCurve: "continuous", backgroundColor: P.surface3 },
+  prompt: { gap: 8, paddingLeft: 14, paddingRight: 6, paddingTop: 6, paddingBottom: 14, borderRadius: R.md, borderCurve: "continuous", borderWidth: 1, borderColor: P.accentLine, backgroundColor: P.surface3 },
+  promptHead: { flexDirection: "row", alignItems: "center", gap: 6 },
   bare: { color: P.ink, padding: 0, margin: 0, textAlignVertical: "top" },
   title: { minHeight: 28 },
   text: { minHeight: 104, maxHeight: 300 },
   count: { alignSelf: "flex-end", marginTop: 6, fontVariant: ["tabular-nums"] },
   tray: { gap: 10 },
+  bleed: { marginHorizontal: -20 },
+  categories: { gap: 8, paddingHorizontal: 20 },
+  chipEmoji: { fontSize: 15, lineHeight: 19 },
   addTile: { width: TILE, height: TILE, borderRadius: R.md, borderCurve: "continuous", borderWidth: 1.5, borderStyle: "dashed", borderColor: P.lineStrong, backgroundColor: P.canvas, alignItems: "center", justifyContent: "center", gap: 4 },
   thumb: { width: TILE, height: TILE, borderRadius: R.md, borderCurve: "continuous", overflow: "hidden", backgroundColor: P.surface3 },
   uploadingTile: { alignItems: "center", justifyContent: "center" },

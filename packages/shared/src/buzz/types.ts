@@ -16,7 +16,11 @@ export interface BuzzAlias {
 }
 
 export type BuzzScope = "campus" | "global";
+/** What a buzz is about, picked by its author (or none). BUZZ_CATEGORIES names them; the database has the same list. */
+export type BuzzCategory = "confession" | "question" | "hot_take" | "rant" | "dating" | "classes" | "funny" | "events" | "housing" | "career";
 export type BuzzFeedSort = "hot" | "new" | "top";
+/** How a thread's replies are ordered among their siblings: the best first (Reddit's default), the newest or the oldest. */
+export type BuzzReplySort = "best" | "new" | "old";
 export type BuzzTopWindow = "day" | "week" | "all";
 export type BuzzPollDuration = 1 | 3 | 7;
 /** Canonical status of a Buzz item (same values as the moderation queue uses). */
@@ -78,12 +82,43 @@ export interface Buzz extends BuzzBase {
   media: BuzzMedia[];
   /** The feed this buzz was posted to. Campus and Global are separate: a buzz shows in exactly one. */
   scope: BuzzScope;
+  /**
+   * The category its author picked; null when none (or when the item is a placeholder). Sent by databases with
+   * 20261108000300_buzz_categories.sql; absent before it. Show it with buzzCategory(), which ignores a value this
+   * build does not know.
+   */
+  category?: BuzzCategory | null;
   poll: BuzzPoll | null;
   replyCount: number;
   locked: boolean;
   /** Global buzzes only, and only for campuses large enough to be named; null otherwise. */
   campusShortName: string | null;
   promptId: string | null;
+  /**
+   * The reply its feed card shows under it, or null when none has earned it. Sent by the feed and Buzz search on
+   * databases with 20261108000100_buzz_top_reply.sql; absent before it and everywhere else (a thread, My buzzes).
+   */
+  topReply?: BuzzTopReply | null;
+  /** The thread of a day's prompt (owned by no one, titled with the prompt; its replies are the answers). */
+  isPromptThread?: boolean;
+  /** An answer posted as its own buzz: that day's prompt thread on its feed, once anyone answered there; else null. */
+  promptThreadId?: string | null;
+}
+
+/**
+ * "Top reply" under a buzz in the feed: its most upvoted reply that anyone may read, with at least
+ * BUZZ_TOP_REPLY_MIN_UPVOTES upvotes and more up than down (never one that touched on self-harm). Its alias is the one
+ * it has in the thread.
+ */
+export interface BuzzTopReply {
+  id: string;
+  alias: BuzzAlias;
+  isOp: boolean;
+  isMine: boolean;
+  text: string;
+  score: number;
+  /** Floored to the minute, like every Buzz time. */
+  createdAt: number;
 }
 
 export interface BuzzReply extends BuzzBase {
@@ -93,6 +128,11 @@ export interface BuzzReply extends BuzzBase {
   depth: 1 | 2;
   /** Set when the reply was deeper than 2 and got flattened: the alias it was replying to. */
   replyingTo: BuzzAlias | null;
+  /**
+   * The reply this one answers, at any depth (the thread for a direct reply): the nearest one the viewer can see.
+   * Sent by databases with 20261108000000_buzz_reply_tree.sql; without it, `parentId` and `depth` give two levels.
+   */
+  treeParentId?: string;
 }
 
 /** A page of a list. `nextOffset` is null at the end. */
@@ -114,8 +154,11 @@ export interface BuzzThread {
 }
 
 export interface BuzzFeedMeta {
-  /** Today's Daily Campus Prompt. */
-  prompt: { id: string; text: string } | null;
+  /**
+   * Today's Daily Campus Prompt. With 20261108000200_buzz_prompt_threads.sql it also says which thread is today's on
+   * this feed (`threadId`, null until someone answers there) and how many answers it has; both are absent before it.
+   */
+  prompt: { id: string; text: string; threadId?: string | null; answers?: number } | null;
   /** The viewer's campus is small (fewer than 50 students): details can identify people. */
   smallCampusNote: boolean;
   /** The viewer's campus, for "Search Texas State buzz" and the cold-start banner; null without a university. */
@@ -148,6 +191,8 @@ export interface CreateBuzzRequest {
   title?: string;
   /** Default 'campus'. */
   scope?: BuzzScope;
+  /** One of BUZZ_CATEGORIES, or left out for none. */
+  category?: BuzzCategory;
   /** Up to 4 anonymous photo URLs (uploaded with kind "buzz"). Not together with `video`. */
   images?: string[];
   imageMeta?: { url: string; width: number | null; height: number | null; blur: string | null }[];
@@ -228,4 +273,4 @@ export type BuzzErrorCode =
   | "buzz_gate_required" | "not_found" | "unauthenticated" | "forbidden" | "locked"
   | "muted" | "suspended" | "banned" | "warning_unacknowledged"
   | "rate_limited" | "content_blocked" | "validation_failed" | "too_new"
-  | "poll_closed" | "already_voted" | "own_item" | "unavailable" | "unknown";
+  | "poll_closed" | "already_voted" | "own_item" | "prompt_ended" | "unavailable" | "unknown";

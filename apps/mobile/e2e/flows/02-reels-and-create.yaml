@@ -66,5 +66,8 @@ appId: host.exp.Exponent
     visible: "You're anonymous.*"
     timeout: 30000
 - assertVisible: "Buzz it"
+# A category: one row of chips under Campus | Global; picking one says what belongs there.
+- tapOn: "Confessions"
+- assertVisible: "Confessions: Things you'd never say out loud"
 - takeScreenshot: e2e/screenshots/15-create-buzz
 - tapOn: "Close"
