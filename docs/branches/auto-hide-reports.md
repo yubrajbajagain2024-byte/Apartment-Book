@@ -1,6 +1,6 @@
 # auto-hide-reports
 
-- **Owner:** Yubraj. **As of 2026-10-28:** branched from `main` at `188c918`, local, **not pushed**.
+- **Owner:** Yubraj. **As of 2026-10-28:** branched from `main` at `188c918`; `main` at `0d8e459` merged in. Pushed; PR into `main`, not merged.
   Written by an AI session.
 - **Purpose:** content that 10 different legitimate people report is hidden at once on the website
   and the app, flagged for review in CampConnect Admin, its owner told and the action audited. Admins
@@ -14,7 +14,7 @@
 
 ## Done
 
-- Migration 55, `20261109000000_report_auto_hide.sql`, with its rollback (README §"Buzz (anonymous)",
+- Migration 57, `20261110000000_report_auto_hide.sql` (first written as `20261109000000_…`, renamed when `main` took that timestamp), with its rollback (README §"Buzz (anonymous)",
   "Hidden at 10 reports"; docs/migrations.md).
 - PGlite suite `supabase/tests/report-auto-hide.test.mjs`, added to `db:test`. It runs:
   - production's schema in full;
@@ -25,7 +25,8 @@
 
 ## Tests (2026-10-28)
 
-- `npm run db:test`: 39 suites, 1502 checks, 0 failures. That includes Trust & Safety, Buzz v2 and
+- `npm run db:test`: 42 suites, 1583 checks, 0 failures, after merging `main` at `0d8e459`.
+  The production rollout rehearsal now applies, rolls back and re-applies 57 with the other pending migrations. That includes Trust & Safety, Buzz v2 and
   CampConnect Admin + Buzz, unchanged.
 - `report-auto-hide`: 83 checks.
 - `npm run check`: 6/6.
@@ -55,4 +56,4 @@
     credentials on the owner's Mac).
 - [ ] Before production: read production's `admin_content_*` bodies, and run
       `verify.mjs --live` (needs a token).
-- [ ] Owner's approval, then: apply 55 alone, merge this branch's PR, deploy the admin app.
+- [ ] Owner's approval, then: apply 57 alone, merge this branch's PR, deploy the admin app.

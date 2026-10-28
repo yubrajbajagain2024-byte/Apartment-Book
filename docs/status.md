@@ -1,6 +1,6 @@
 # Project status
 
-As of **2026-10-27**. Sources: the code, commit messages, and the owner's deploy notes (read-only
+As of **2026-10-28**. Sources: the code, commit messages, and the owner's deploy notes (read-only
 checks of production). Migration-by-migration status is in [migrations.md](migrations.md); branch
 details in [branches/](branches/README.md). Refer to an item below by its title.
 
@@ -35,11 +35,25 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 
 ## Open work, in priority order
 
-- **Apply the pending migrations.** Apply 44 and 46 together, then 47, then 49 and 50, then 51 to 54
-  (Buzz), to production in database-URL mode ([supabase/CLAUDE.md](../supabase/CLAUDE.md)), confirm with
-  `verify.mjs --live`, then publish the app update. Their code is already on `main`, which deploys
-  production, so this is overdue. Needs the owner and a credential.
-- **UniBuzz Business v2** (merged in PR #49 on 2026-10-27). It upgrades the v1 portal to the business spec:
+- **Apply the pending migrations.** One run of `db:setup` from `main` in database-URL mode
+  ([supabase/CLAUDE.md](../supabase/CLAUDE.md)), after a backup, applies them in file order: 44 and
+  46 together, 47, 49 and 50 (Business v2), 51 to 54 (Buzz), and 55 and 56 once the `business-v2`
+  follow-up PR is merged (the order of release below). Confirm with `verify.mjs --live`, then
+  publish the app update. Their code is already on `main`, which deploys production, so this is
+  overdue. Needs the owner and a credential.
+- **UniBuzz Business v2 is on `main` without its migrations.** PR #49 was merged on 2026-10-28 at
+  04:07 UTC, so production's website runs Business v2 code while, by [migrations.md](migrations.md)
+  (not checked on production), neither migration 49 nor 50 is applied. Until they are, the code
+  says these are broken on production:
+  - creating and editing posts in the portal;
+  - team invites;
+  - the Ads screens;
+  - "Message" on a business profile.
+
+  Student feeds carry on without ads. The owner chooses (both write to production):
+  - the order of release below, now;
+  - or revert PR #49 on `main` first, until the migrations can be applied.
+- **UniBuzz Business v2** (merged in PR #49 on 2026-10-28 at 04:07 UTC). It upgrades the v1 portal to the business spec:
   - team roles;
   - business posts;
   - the Ads Manager with admin review and recorded payment;
@@ -48,11 +62,10 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   - analytics from real events;
   - an Apple-style portal with light and dark modes.
 
-  Order of release (step 2 happened first: PR #49 merged while its docs said 49 and 50 were not on
-  production; not checked since):
-  1. Apply migrations 49 and 50 to production, after the pending ones above
-     ([migrations.md](migrations.md)).
-  2. Merge.
+  Order of release ([migrations.md](migrations.md)):
+  1. Merge the follow-up PR from `business-v2`: migrations 55 and 56, the video routes, and the
+     fixes from an independent review. `SUPABASE_SERVICE_ROLE_KEY` must be set on Vercel.
+  2. Run `db:setup` once from `main`, after a backup: 44, 46, 47 and 49 to 56.
   3. Publish the app update.
 
   Follow-up work is listed in [branches/business-v2.md](branches/business-v2.md).
@@ -62,11 +75,11 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 - **Security fix pending.** A security fix for a live part of the database is ready on a local,
   unpushed branch (2026-10-27) and is **not applied to production**. Its details stay out of this
   repository until production is patched, because the repository is public.
-- **Report auto-hide (migration 55, branch `auto-hide-reports`, 2026-10-28).** Content 10 different
+- **Report auto-hide (migration 57, branch `auto-hide-reports`, 2026-10-28).** Content 10 different
   legitimate people report is hidden, flagged for review in CampConnect Admin, its owner told and the
-  hide audited. Built and tested offline; not pushed and not on production. Its review screens go on `step-admin`.
+  hide audited. Built and tested offline; PR open, not merged, not on production. Its review screens go on `step-admin`.
   Release order, each step with the owner's approval:
-  1. Apply 55 alone.
+  1. Apply 57 alone.
   2. Merge.
   3. Deploy the admin app.
 
@@ -95,7 +108,7 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 | Item | Where it is written up |
 | --- | --- |
 | Three migrations not on production (44, 46, 47), while `main`, which deploys production, already uses them | [migrations.md](migrations.md) |
-| Business v2's code needs migrations 49 and 50, and PR #49 merged it on 2026-10-27: if they are still not live, the portal and the business parts of the student site are broken on production (not checked) | [migrations.md](migrations.md), [branches/business-v2.md](branches/business-v2.md) |
+| Business v2's code is on `main` (PR #49) while, by [migrations.md](migrations.md), migrations 49 and 50 are not on production (not checked): posts, invites and the Ads screens in the portal fail until they are applied | "UniBuzz Business v2 is on `main` without its migrations" above |
 | `db:setup` token mode resets the production auth Site URL to localhost by default | [supabase/CLAUDE.md](../supabase/CLAUDE.md) |
 | A security fix for a live part of the database is pending | "Security fix pending" above |
 | Supabase CLI history empty on production; `supabase db push` would re-run everything | `supabase/applied-outside-repo/README.md` |

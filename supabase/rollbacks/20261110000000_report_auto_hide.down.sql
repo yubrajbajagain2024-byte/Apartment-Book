@@ -1,4 +1,4 @@
--- Rollback of 20261109000000_report_auto_hide.sql: no more automatic hides at 10 reports and no flags. Restores, verbatim,
+-- Rollback of 20261110000000_report_auto_hide.sql: no more automatic hides at 10 reports and no flags. Restores, verbatim,
 -- migration 41's ts_snapshot() and ts_set_content_status() and, where CampConnect Admin's schema exists, migration 15's
 -- admin_content_hide/restore/delete and admin_reports_list (supabase/applied-outside-repo/20261024000000_moderation_support.sql).
 -- Content hidden automatically stays hidden (restore it in CampConnect Admin first if it should come back); reports

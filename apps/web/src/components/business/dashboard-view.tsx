@@ -1,7 +1,8 @@
-import { ArrowUpRight, BadgeCheck, Building2, Eye, Inbox, Megaphone, MousePointerClick, Plus, Store, UserPlus, Users } from "lucide-react";
+import { BadgeCheck, Building2, Eye, Inbox, Megaphone, MousePointerClick, Plus, Store, UserPlus, Users } from "lucide-react";
 import { businessCategoryLabel, clickRate, teamRoleAllows, type Ad, type Business, type BusinessAnalyticsOverview, type BusinessTeamRole, type ConversationSummary } from "@apartment-book/shared";
 import { timeAgo } from "@/lib/utils";
 import { ConversationAvatar } from "@/components/messages/conversation-list";
+import { CopyLink } from "./copy-link";
 import { PortalLink } from "./portal-base";
 import { AdStatusPill, BizLink, Panel, PanelHeader, Pill, StatTile } from "./ui";
 
@@ -183,13 +184,14 @@ export function DashboardView({
       </div>
 
       {publicProfileUrl ? (
-        <a href={publicProfileUrl} target="_blank" rel="noopener noreferrer" className="group flex items-center justify-between gap-4 rounded-[22px] bg-biz-surface p-6 shadow-biz ring-1 ring-biz-line transition-shadow hover:shadow-biz-lift">
-          <span>
+        <Panel className="flex flex-wrap items-center justify-between gap-4 p-6">
+          <span className="min-w-0">
             <span className="block text-[17px] font-semibold text-biz-ink">Your public profile</span>
-            <span className="mt-0.5 block text-[15px] text-biz-ink-3">See your business the way students do on UniBuzz.</span>
+            <span className="mt-0.5 block break-all text-[15px] text-biz-ink-3">{publicProfileUrl}</span>
+            <span className="mt-0.5 block text-[13px] text-biz-ink-4">Share it with students. Signed in as a business you are sent to the portal; open it signed out to look.</span>
           </span>
-          <ArrowUpRight className="h-5 w-5 text-biz-ink-3 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-        </a>
+          <CopyLink url={publicProfileUrl} />
+        </Panel>
       ) : null}
     </div>
   );

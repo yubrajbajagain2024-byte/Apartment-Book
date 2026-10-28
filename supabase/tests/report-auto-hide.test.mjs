@@ -1,4 +1,4 @@
-// The report auto-hide backstop (20261109000000_report_auto_hide.sql) on production's schema: content 10 different
+// The report auto-hide backstop (20261110000000_report_auto_hide.sql) on production's schema: content 10 different
 // legitimate people report is hidden for everyone but its owner, flagged for CampConnect Admin, its owner told and the
 // hide audited; duplicates and people who do not count are left out, and the author cannot cancel reports by blocking;
 // Buzz stays anonymous and Trust & Safety's own thresholds still work; a restore needs 10 new people to hide it again;
@@ -9,7 +9,7 @@
 import { boot, read, expectOk, expectError, done } from "./harness.mjs";
 import { BUZZ_GUIDELINES_VERSION } from "../../packages/shared/src/buzz/constants.ts";
 
-const MIGRATION = "migrations/20261109000000_report_auto_hide.sql";
+const MIGRATION = "migrations/20261110000000_report_auto_hide.sql";
 const MFA = { aal: "aal2" };
 const THRESHOLD = 10;
 const check = (cond, message) => { if (!cond) throw new Error(message); };
@@ -18,6 +18,7 @@ const NOT_LIVE = [
   "20261103000300_discover.sql", "20261104000100_discover_audience.sql", "20261105000000_anonymous_listings.sql",
   "20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261108000000_buzz_reply_tree.sql",
   "20261108000100_buzz_top_reply.sql", "20261108000200_buzz_prompt_threads.sql", "20261108000300_buzz_categories.sql",
+  "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql",
 ];
 
 /** One database and the helpers every section uses. */

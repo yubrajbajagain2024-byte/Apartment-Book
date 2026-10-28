@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Linking, Pressable, Text, View } from "react-native";
+import { Alert, Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
@@ -22,17 +22,18 @@ import { useActionSheet } from "@/components/action-sheet";
 import { Avatar } from "@/components/avatar";
 import { Icon } from "@/components/icon";
 import { errorText } from "@/lib/hooks";
+import { openBusinessLink, safeBusinessImage } from "@/lib/safe-media";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { radius, space } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 
-/** The pictures an ad shows: its own, or those of the listing or post it promotes. */
+/** The picture an ad shows: its own, or the listing's or post's it promotes; only from UniBuzz's storage or Mux. */
 function picture(ad: FeedAd): string | null {
   const own = mediaCover(ad.media);
-  if (own) return own;
-  if (ad.promoted?.type === "apartment") return ad.promoted.images[0] ?? null;
-  if (ad.promoted?.type === "deal") return mediaCover(ad.promoted.media);
+  if (own) return safeBusinessImage(own);
+  if (ad.promoted?.type === "apartment") return safeBusinessImage(ad.promoted.images[0]);
+  if (ad.promoted?.type === "deal") return safeBusinessImage(mediaCover(ad.promoted.media));
   return null;
 }
 
@@ -56,7 +57,7 @@ export function SponsoredCard({ ad, placement }: { ad: FeedAd; placement: AdPlac
   async function act() {
     void recordBusinessEvent(supabase, "click", { adId: ad.id, placement });
     const dest = adDestination(ad);
-    if (dest.kind === "url") return void Linking.openURL(dest.url);
+    if (dest.kind === "url") return openBusinessLink(dest.url);
     if (dest.kind === "listing") return router.push({ pathname: "/apartments/[id]", params: { id: dest.id } });
     if (dest.kind === "message") {
       if (!user) return router.push("/(auth)/login" as never);
@@ -105,7 +106,7 @@ export function SponsoredCard({ ad, placement }: { ad: FeedAd; placement: AdPlac
     <View style={styles.card} testID="sponsored-card" accessibilityLabel={`Sponsored by ${ad.business_name}`}>
       <View style={styles.header}>
         <Pressable onPress={openProfile} accessibilityRole="link" accessibilityLabel={`${ad.business_name}'s profile`}>
-          <Avatar name={ad.business_name} url={ad.business_logo_url} size={36} />
+          <Avatar name={ad.business_name} url={safeBusinessImage(ad.business_logo_url)} size={36} />
         </Pressable>
         <Pressable onPress={openProfile} style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>

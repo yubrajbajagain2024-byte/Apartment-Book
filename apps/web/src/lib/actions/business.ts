@@ -61,6 +61,7 @@ import {
 } from "@apartment-book/shared";
 import { portalCallbackUrl, portalPath, requireAdmin, requireBusiness, requireCapability } from "@/lib/business/portal";
 import { getAsset } from "@/lib/mux";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getBusinessSiteUrl, getSiteUrl } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { errorMessage, formToObject, safeNextPath } from "@/lib/utils";
@@ -519,7 +520,10 @@ export type AdCommand = "submit" | "withdraw" | "pause" | "resume" | "end" | "du
  * Moves an ad along (the database decides who may: anyone who publishes drafts, withdraws and pauses; the owner and
  * admins submit, resume and end). A copy opens in the editor; a deleted draft goes back to the list.
  */
+const AD_COMMANDS: readonly AdCommand[] = ["submit", "withdraw", "pause", "resume", "end", "duplicate", "delete"];
+
 export async function adCommandAction(id: string, command: AdCommand): Promise<{ error?: string }> {
+  if (!AD_COMMANDS.includes(command)) return { error: "Unknown action." };
   const { membership } = await requireCapability("publish", `/ads/${id}`);
   const supabase = await createClient();
   let next: string | null = null;
@@ -532,7 +536,7 @@ export async function adCommandAction(id: string, command: AdCommand): Promise<{
     else if (command === "resume") await resumeAd(supabase, id);
     else if (command === "end") await endAd(supabase, id);
     else if (command === "duplicate") next = `/ads/${await duplicateAd(supabase, id)}/edit`;
-    else {
+    else if (command === "delete") {
       await deleteAd(supabase, id);
       next = "/ads";
     }
@@ -563,7 +567,10 @@ async function reelsVideoProblem(adId: string): Promise<string | null> {
   if (!ad || !ad.placements.includes("reels")) return null;
   const video = mediaItems(ad.media).find((m) => m.type === "video");
   if (!video || video.type !== "video") return "Reels needs one vertical video.";
-  const { data: media } = await supabase.from("media").select("provider_asset_id").eq("id", video.media_id).maybeSingle();
+  // The media row is its uploader's alone to read (migration 11): the server's key reads it, after requireAdmin.
+  const admin = createAdminClient();
+  if (!admin) return null;
+  const { data: media } = await admin.from("media").select("provider_asset_id").eq("id", video.media_id).maybeSingle();
   if (!media?.provider_asset_id) return null;
   try {
     const asset = await getAsset(media.provider_asset_id);

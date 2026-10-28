@@ -1,6 +1,6 @@
 -- Report auto-hide backstop: content that 10 different legitimate people report is hidden at once, flagged for
--- review in CampConnect Admin, its owner told, and the hide audited. Follows 20261108000300_buzz_categories.sql;
--- rollback: supabase/rollbacks/20261109000000_report_auto_hide.down.sql.
+-- review in CampConnect Admin, its owner told, and the hide audited. Follows 20261109000100_business_hardening.sql;
+-- rollback: supabase/rollbacks/20261110000000_report_auto_hide.down.sql.
 --
 -- What it builds on, and does not change:
 --   - Trust & Safety (migration 41) already keeps one report per person and thing (reports_one_per_reporter), decides

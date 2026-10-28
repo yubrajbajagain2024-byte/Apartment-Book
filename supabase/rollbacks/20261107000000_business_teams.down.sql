@@ -1,9 +1,9 @@
 -- =============================================================================
 -- Rollback of 20261107000000_business_teams.sql (UniBuzz Business v2, part 1: team roles and the business audit log).
 -- Run as one transaction, after 20261107000100_business_ads.down.sql (this refuses while public.ads exists).
---  * Every admin, editor and analyst becomes staff again, v1's one role besides the owner (staff could do what an
---    editor does: an analyst regains the inbox and publishing, an admin loses the team and the profile), and joins
---    every inquiry chat of the business again. Pending invites lose their role.
+--  * Every admin and editor becomes staff again, v1's one role besides the owner (staff could do what an editor does;
+--    an admin loses the team and the profile), and joins every inquiry chat again. Analysts leave their teams: as staff
+--    they would read students' messages, which they never did. Pending invites lose their role.
 --  * The business audit log is dropped, with what it recorded: export it first if it is needed.
 --  * The 'business' notifications go.
 --  * Migration 39's functions and policies come back exactly as they were.
@@ -361,7 +361,9 @@ drop function if exists public.business_role(uuid);
 -- Roles: owner and staff
 drop index if exists public.business_members_one_owner;
 alter table public.business_members drop constraint if exists business_members_role_check;
-update public.business_members set role = 'staff' where role in ('admin', 'editor', 'analyst');
+-- An analyst never read students' messages; as v1's staff they would be in every chat. They leave the team instead.
+delete from public.business_members where role = 'analyst';
+update public.business_members set role = 'staff' where role in ('admin', 'editor');
 alter table public.business_members alter column role set default 'staff';
 alter table public.business_members add constraint business_members_role_check check (role in ('owner', 'staff'));
 alter table public.business_invites drop constraint if exists business_invites_role_check;

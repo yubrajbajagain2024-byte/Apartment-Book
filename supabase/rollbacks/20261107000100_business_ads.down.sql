@@ -7,7 +7,8 @@
 --  * Puts back exactly as they were: migration 39's Sponsored fields, promotion functions and sign-up trigger, and
 --    migration 49's start_business_inquiry; conversations.inquiry_target_type goes back to migration 47's list (a chat
 --    a student opened from a profile or an ad keeps going, without saying what it was about).
---  * Payments stay in listing_promotions: one for an ad that promoted a listing or a deal is v1's promotion of it again.
+--  * Payments stay in listing_promotions: one for a running ad that promoted a listing or a deal is v1's promotion of it
+--    again; those of ads that were not running are cancelled first.
 --  * Refuses while a payment exists for an ad that promoted no listing or deal (v1 cannot hold it): end or refund those
 --    ads and delete their payments on purpose first.
 -- =============================================================================
@@ -27,6 +28,12 @@ begin
     perform cron.unschedule(jobid) from cron.job where jobname = 'ads-sweep';
   end if;
 end $$;
+
+-- A payment whose ad is not running (ended early, paused by the UniBuzz team, rejected) would make its listing or post
+-- Sponsored again under v1's rule, which reads only the payment's dates: it is cancelled first.
+update public.listing_promotions p set status = 'cancelled', cancelled_at = coalesce(p.cancelled_at, now())
+from public.ads a
+where p.ad_id = a.id and p.status = 'active' and a.status not in ('scheduled', 'active');
 
 -- Inquiries from a profile or an ad
 update public.conversations set inquiry_target_type = null, inquiry_target_id = null where inquiry_target_type in ('business', 'ad');

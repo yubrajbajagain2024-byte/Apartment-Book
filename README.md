@@ -195,7 +195,7 @@ Moderation and Trust & Safety:
 - **The write API.** Every new buzz and reply goes through the website's write API (`POST /api/buzz`, `POST /api/buzz/<thread>/replies`), which runs the moderation engine before anything is stored. The database accepts Buzz writes only from that server (service-role functions), so neither the app nor a script can skip moderation. Blocked text gets an explanation linking the Community Guidelines (`/guidelines`). Self-harm gets support resources as well.
 - **Optional AI second pass.** With `MODERATION_AI_API_KEY` set, the server asks Claude (`claude-opus-5-5`) to re-check what the rules allowed, after the response has gone out. It can only escalate (flag for review). It never allows something the rules blocked.
 - **Reports and sanctions.** Reports (12 reasons) go to the staff queue. Sanctions (warning, mute, suspension, ban) show on Settings → Account status, where the person can appeal once, within 14 days. A different staff member from the one who acted reviews the appeal.
-- **Hidden at 10 reports** (migration `20261109000000_report_auto_hide.sql`, needs CampConnect Admin's schema, so production only). A post, reel, comment, apartment, roommate post, Marketplace item, buzz or Buzz reply that 10 different people report is hidden at once for everyone but its owner. This is a backstop on top of Trust & Safety's own thresholds, which still hide Buzz sooner. Profiles and messages are never hidden.
+- **Hidden at 10 reports** (migration `20261110000000_report_auto_hide.sql`, needs CampConnect Admin's schema, so production only). A post, reel, comment, apartment, roommate post, Marketplace item, buzz or Buzz reply that 10 different people report is hidden at once for everyone but its owner. This is a backstop on top of Trust & Safety's own thresholds, which still hide Buzz sooner. Profiles and messages are never hidden.
   - **Who counts:** one report per person and thing. A report counts only if Trust & Safety marked it eligible when it was filed (account 24 h+, trust not low, no sanction, not blocked, not the author) and is not about self-harm. The reporter must still be legitimate now: confirmed email, not banned, suspended or muted, trust not low. Blocking reporters afterwards does not cancel their reports.
   - **What happens:** the item is flagged in `report_auto_hides` for CampConnect Admin and raised to P1 in the console's queue. The owner gets the usual "hidden while our team reviews it" notice. Both audit logs record it with no actor, and a Buzz flag never names its author.
   - **Review** (CampConnect Admin, or the console's Approve/Restore): restore, keep hidden, or delete (admins).
@@ -322,6 +322,14 @@ Built on the v1 rules above, which all still hold (`business-portal.test.mjs` ru
 - **Analytics.** `business_events` is closed to the API and written by `record_business_event()`. It keeps impressions and clicks once per student per hour; saves, profile visits and inquiries once per day. The team's own views never count.
   - `business_ad_stats()`, `business_daily_stats()` and `business_analytics_overview()` return counts and reach (distinct students) only, never who.
   - The portal shows them per ad and overall, as a chart and as a table.
+- **What students see is what was reviewed** (migration 56).
+  - An approved ad shows the copy of its post or listing taken at approval (`promoted_snapshot`).
+  - Changing that post or listing, or the business's category, pauses the ad until the UniBuzz team resumes it.
+  - Every ad's words are screened for Fair Housing; a flagged ad needs the reviewer's check and a note.
+  - Ad photos must be uploads to this project's storage by someone on the team, and the apps load business images only from there.
+  - A business sees an inquiry chat, and the student in it, once the student has written.
+  - A block between the student and the business stops the chat both ways.
+- **Videos** (migration 55). A video's processing details are written by the website's server with the service role. Each person has 30 new videos a day, and a ready video is 10 minutes at most. The Mux webhook accepts only recently signed requests.
 - **Notifications.** Types `business` (reviews, the Verified Partner mark, role changes) and `ad` (approved, rejected, live, paused by the UniBuzz team, ended, needs new dates). They go to the team; the portal has a bell and a list.
 - **The portal's design.** Its own colour world under `[data-surface="business"]` (`globals.css`), like Buzz's:
   - light and dark, or the system's, with a switch remembered in the `biz-theme` cookie;
@@ -331,7 +339,7 @@ Built on the v1 rules above, which all still hold (`business-portal.test.mjs` ru
   Inside a dark portal the shared components are remapped rather than rewritten. Every page has loading, error and not-found states.
 - **Inquiries.** 15 new business chats an hour per student. Inquiry targets are now `apartment`, `deal`, `roommate`, `item`, `business` and `ad`.
 
-Checks for v2: `supabase/tests/business-teams.test.mjs` and `supabase/tests/business-ads.test.mjs` (PGlite, both rollbacks included), and `packages/shared/tests/business-ads.test.mjs`.
+Checks for v2: `supabase/tests/business-teams.test.mjs`, `business-ads.test.mjs`, `media-server-fields.test.mjs`, `business-hardening.test.mjs` and `production-rollout.test.mjs` (PGlite, rollbacks included), and `packages/shared/tests/business-ads.test.mjs` and `video-security.test.mjs`.
 
 Checks: `supabase/tests/business-portal.test.mjs` runs every rule above in PGlite (95 checks), and `packages/shared/tests/business.test.mjs` the labels, deal timing and targeting, standings and the team inbox's titles. `supabase/tests/staging/business-portal.mjs` runs the same rules on a real Supabase project through Supabase Auth (real sign-ups and email confirmation, with generated links so no email is sent), the REST API, Realtime (the presence channel, live message events across a suspension) and Storage, then deletes what it made; it refuses the production project:
 

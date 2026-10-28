@@ -433,10 +433,17 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
     if (messageBusy) return;
     setMessageBusy(true);
     try {
-      if (business) {
-        const inquiry = await startBusinessInquiry(supabase, "apartment", reel.sourceId);
-        router.push({ pathname: "/messages/[id]", params: { id: inquiry, prefill: inquiryPrefill(business.name, reel.title ?? "your listing") } });
-        return;
+      // A tour of a business's listing opens the inquiry chat; when the business has not loaded yet, the inquiry is
+      // tried first anyway (a student's own listing answers "not from a business", and the direct chat follows).
+      if (business || reel.sourceType === "apartment") {
+        const inquiry = await startBusinessInquiry(supabase, "apartment", reel.sourceId).catch((e: unknown) => {
+          if (!business && e instanceof Error && e.message.includes("not from a business")) return null;
+          throw e;
+        });
+        if (inquiry) {
+          router.push({ pathname: "/messages/[id]", params: { id: inquiry, prefill: inquiryPrefill(business?.name ?? "there", reel.title ?? "your listing") } });
+          return;
+        }
       }
       const conv = await getOrCreateDirectConversation(supabase, reel.author.id);
       // A roommate tour opens the chat with a first message about the post, as the listing's own Inbox button does.
