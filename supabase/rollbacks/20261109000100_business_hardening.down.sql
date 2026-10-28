@@ -119,7 +119,9 @@ security definer
 set search_path = public
 as $$
 declare
-  v_transition boolean := current_setting('app.ad_transition', true) = 'on';
+  -- A setting this connection never set reads as null, and "not null" is not true: coalesce, so the checks below run
+  -- unless a transition is under way.
+  v_transition boolean := coalesce(current_setting('app.ad_transition', true), '') = 'on';
   v_category text;
   v_problem text;
   v_text text;

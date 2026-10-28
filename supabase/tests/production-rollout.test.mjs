@@ -1,9 +1,13 @@
 // The production rollout, rehearsed offline: a database in production's state as of 2026-10-28 (production's migration
 // order, the migrations applied outside this repo, and neither 44, 46 nor 47), with v1 business data in it; then what
-// `npm run db:setup` would apply, in file order (44, 46, 47, 49, 50, Buzz's 51 to 54, 55, 56), with checks after; then every one of their
-// rollbacks in reverse order; then all of them again. A real staging project is still the place to try it for real
-// (docs/migrations.md); this shows the files themselves apply, undo and re-apply cleanly in that order.
+// `npm run db:setup` would apply, in file order (44, 46, 47, 49, 50, Buzz's 51 to 54, 55, 56), with checks after.
+// Then the release's own rollback, the business migrations only (56, 55, 50, 49): every Buzz object and Buzz row stays
+// exactly as it was, Buzz still works, and the schema matches a database that never had the business migrations. Then
+// the business migrations again; then every rollback in reverse order; then all of them again. The staging rehearsal
+// (supabase/tests/staging/release-rehearsal.mjs) does the same on a real project.
 import { boot, read, expectOk, done } from "./harness.mjs";
+import { BUZZ_GUIDELINES_VERSION, BUZZ_CATEGORIES } from "../../packages/shared/src/buzz/constants.ts";
+import { catalog, diffCatalogs, isBuzz, BUZZ_DATA_SQL, DATA_HELPER_SQL, DROP_DATA_HELPER_SQL } from "./catalog.mjs";
 
 const PENDING = [
   "20261103000300_discover.sql",
@@ -18,7 +22,10 @@ const PENDING = [
   "20261109000000_media_server_fields.sql",
   "20261109000100_business_hardening.sql",
 ];
-const { db, mk, as } = await boot({ live: true, skip: PENDING });
+// The release's rollback: the business migrations, newest first. Buzz's 51 to 54 stay.
+const BUSINESS = ["20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql"];
+const BUSINESS_ROLLBACKS = [...BUSINESS].reverse().map((f) => `rollbacks/${f.replace(/\.sql$/, ".down.sql")}`);
+const { db, mk, as, asService } = await boot({ live: true, skip: PENDING });
 const one = async (p) => (await p).rows[0];
 const signUp = async (email, meta) => (await db.query("insert into auth.users (email, raw_user_meta_data) values ($1, $2) returning id", [email, JSON.stringify(meta)])).rows[0].id;
 const confirm = (id) => db.query("update auth.users set email_confirmed_at = now() where id = $1", [id]);
@@ -50,8 +57,8 @@ await expectOk("before: production's state, v1 rules in force (staff on the team
   if (await has("select to_regclass('public.ads') is not null as ok")) throw new Error("ads already there");
 });
 
-async function applyAll(round) {
-  for (const f of PENDING) await expectOk(`${round}: ${f} applies`, () => db.exec(read(`migrations/${f}`)));
+async function applyAll(round, files = PENDING) {
+  for (const f of files) await expectOk(`${round}: ${f} applies`, () => db.exec(read(`migrations/${f}`)));
   await expectOk(`${round}: afterwards, Discover ranks (44 + 46), anonymous listings exist (47), the staffer is an editor (49), the promotion is a running paid ad and the listing is still Sponsored (50), buzzes take a category (54), media are guarded (55)`, async () => {
     await db.query("select public.discover_refresh()");
     if (!(await has("select exists (select 1 from information_schema.columns where table_name = 'roommate_posts' and column_name = 'is_anonymous') as ok"))) throw new Error("47 missing");
@@ -70,6 +77,73 @@ async function applyAll(round) {
 }
 
 await applyAll("first rollout");
+
+// --- The release's rollback (business migrations only) leaves Buzz alone ------------------------------------------------
+const val = async (p) => { const row = (await p).rows[0]; return row ? row[Object.keys(row)[0]] : undefined; };
+await db.exec("update public.buzz_secrets set thread_jitter_seconds = 0, reply_jitter_seconds = 0, min_campus_size = 1");
+const cam = await mk("cam@txstate.edu", "Cam Cruz");
+for (const uid of [ben, cam]) {
+  await db.query("update public.profiles set university_id = $2, created_at = now() - interval '30 days' where id = $1", [uid, txstate]);
+  await as(uid, () => db.query("select public.buzz_v2_accept_gate($1)", [BUZZ_GUIDELINES_VERSION]));
+}
+const buzzCall = (uid, fn, args) => as(uid, () => val(db.query(`select public.${fn}(${args.map((_, i) => `$${i + 1}`).join(", ")}) as r`, args)));
+const buzzWrite = async (uid, sql, args) => { await db.query("delete from public.buzz_rate_log where user_id = $1", [uid]); return asService(() => val(db.query(sql, args))); };
+const category = BUZZ_CATEGORIES[0].value;
+const thread = await buzzWrite(ben, "select public.buzz_v2_create($1, $2::jsonb, 'active', false, null) as r", [ben, JSON.stringify({ text: "Best study spot on campus?", category })]);
+const reply = await buzzWrite(cam, "select public.buzz_v2_reply($1, $2, $3::jsonb, 'active', false, null) as r", [cam, thread.id, JSON.stringify({ text: "Third floor of the library" })]);
+await buzzWrite(ben, "select public.buzz_v2_reply($1, $2, $3::jsonb, 'active', false, null) as r", [ben, thread.id, JSON.stringify({ text: "Which side?", parentId: reply.id })]);
+const prompt = (await db.query("select * from public.buzz_v2_today_prompt()")).rows[0];
+const promptThread = await buzzCall(cam, "buzz_v2_prompt_thread", [prompt.prompt_id, "campus"]);
+
+const buzzState = async () => {
+  await db.exec(DATA_HELPER_SQL);
+  const data = await val(db.query(BUZZ_DATA_SQL));
+  await db.exec(DROP_DATA_HELPER_SQL);
+  return { catalog: await catalog(async (q) => (await db.query(q)).rows), data };
+};
+const buzzWorks = async () => {
+  const feed = await buzzCall(cam, "buzz_v2_feed", ["campus", "new", "day", null, 50, 0, null]);
+  const item = feed.items.find((b) => b.id === thread.id);
+  if (!item || item.category !== category || !("topReply" in item)) throw new Error(`feed: ${JSON.stringify(item)}`);
+  const replies = await buzzCall(cam, "buzz_v2_replies", [thread.id, 0, 50]);
+  if (!JSON.stringify(replies).includes(`"treeParentId":"${reply.id}"`)) throw new Error("the nested reply lost its parent");
+  const meta = await buzzCall(cam, "buzz_v2_meta", ["campus"]);
+  if (meta.prompt.threadId !== promptThread) throw new Error(`prompt thread: ${JSON.stringify(meta.prompt)}`);
+};
+const before = await buzzState();
+await expectOk("with every pending migration applied, Buzz works: categories, the reply tree, top replies, today's prompt thread", buzzWorks);
+
+for (const r of BUSINESS_ROLLBACKS) await expectOk(`release rollback: ${r} runs (Buzz's 51 to 54 stay)`, () => db.exec(read(r)));
+await expectOk("after the release rollback: every Buzz table, column, constraint, index, trigger, policy, grant and function is as it was, and so is every Buzz row", async () => {
+  const after = await buzzState();
+  const changed = diffCatalogs(before.catalog, after.catalog, isBuzz);
+  if (changed.length) throw new Error(changed.join("; "));
+  const rows = Object.keys({ ...before.data, ...after.data }).filter((t) => before.data[t] !== after.data[t]);
+  if (rows.length) throw new Error(`rows changed in ${rows.join(", ")}`);
+});
+await expectOk("after the release rollback: Buzz still works", buzzWorks);
+await expectOk("after the release rollback: v1 business rules again (staff, the listing Sponsored through its v1 promotion, no ads, the business still cannot write first)", async () => {
+  if ((await staffRole()) !== "staff" || !(await sponsored())) throw new Error("v1 not restored");
+  if (await has("select to_regclass('public.ads') is not null or to_regprocedure('public.business_can(uuid, text)') is not null or exists (select 1 from pg_trigger where tgname = 'media_server_fields') as ok")) throw new Error("v2 left behind");
+  let refused = false;
+  try { await as(owner, () => db.query("select public.get_or_create_direct_conversation($1)", [ben])); } catch (e) { refused = e.message.includes("only reply"); }
+  if (!refused) throw new Error("a business opened a chat");
+});
+await expectOk("after the release rollback: the schema is exactly that of a database that never had 49, 50, 55 or 56 (44, 46, 47 and 51 to 54 only)", async () => {
+  const reference = await boot({ live: true, skip: BUSINESS });
+  const changed = diffCatalogs(await catalog(async (q) => (await reference.db.query(q)).rows), await catalog(async (q) => (await db.query(q)).rows));
+  await reference.db.close();
+  if (changed.length) throw new Error(changed.join("; "));
+});
+
+await applyAll("release re-applied", BUSINESS);
+await expectOk("after re-applying the release: Buzz is still exactly as it was, and works", async () => {
+  const after = await buzzState();
+  const changed = diffCatalogs(before.catalog, after.catalog, isBuzz);
+  if (changed.length) throw new Error(changed.join("; "));
+  if (JSON.stringify(after.data) !== JSON.stringify(before.data)) throw new Error("Buzz rows changed");
+  await buzzWorks();
+});
 
 const ROLLBACKS = [...PENDING].reverse().map((f) => `rollbacks/${f.replace(/\.sql$/, ".down.sql")}`);
 for (const r of ROLLBACKS) await expectOk(`rollback: ${r} runs`, () => db.exec(read(r)));

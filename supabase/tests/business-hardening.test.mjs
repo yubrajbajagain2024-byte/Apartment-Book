@@ -11,7 +11,7 @@ const MIGRATION = "migrations/20261109000100_business_hardening.sql";
 const ROLLBACK = "rollbacks/20261109000100_business_hardening.down.sql";
 const hours = (h) => new Date(Date.now() + h * 3600_000).toISOString();
 
-const { db, mk, as } = await boot();
+const { db, mk, as, reopen } = await boot();
 const one = async (p) => (await p).rows[0];
 const rows = async (p) => (await p).rows;
 const signUp = async (email, meta) => (await db.query("insert into auth.users (email, raw_user_meta_data) values ($1, $2) returning id", [email, JSON.stringify(meta)])).rows[0].id;
@@ -44,6 +44,22 @@ const submit = (owner, id) => as(owner, () => db.query("select public.ad_submit(
 const approve = (id, o = {}) => as(admin, () => one(db.query("select (public.admin_approve_ad($1, 5000, 'USD', 'INV-1', $2, $3)).status", [id, o.note ?? null, o.fh ?? false])));
 const feed = (who, placement) => as(who, () => rows(db.query("select * from public.ads_for_feed($1, 10, 0)", [placement])));
 const ad = (id) => one(db.query("select * from public.ads where id = $1", [id]));
+
+// --- A new connection: the ad trigger's checks run there too ---------------------------------------------------------------
+// Every API request may come on a connection that has never seen an ad change status (staging, 2026-10-28). Migration 50's
+// own data step leaves the transition setting defined in this test session, so the check runs on a reopened one.
+await expectOk("on a new connection, a business's ad still starts as a draft, unreviewed and unpaid, and its photos are checked", async () => {
+  const c = await reopen();
+  const row = await c.as(cafeOwner, async () => (await c.db.query(`insert into public.ads (business_id, created_by, name, placements, university_ids, caption, media, cta, budget_cents, status, reviewed_by, reviewed_at, promoted_snapshot)
+    values ($1, $2, 'Self-approved', '{for_you}', $3, 'Come by.', $4, 'visit_profile', 0, 'active', $5, now(), '{}') returning status, reviewed_by, reviewed_at, promoted_snapshot`, [cafe, cafeOwner, [txstate], JSON.stringify([LATTE]), admin])).rows[0]);
+  if (row.status !== "draft" || row.reviewed_by || row.reviewed_at || row.promoted_snapshot) throw new Error(JSON.stringify(row));
+  let refused = false;
+  try {
+    await c.as(cafeOwner, () => c.db.query("insert into public.ads (business_id, created_by, name, placements, university_ids, caption, media, cta, budget_cents) values ($1, $2, 'Linked', '{for_you}', $3, 'x', $4, 'visit_profile', 0)", [cafe, cafeOwner, [txstate], JSON.stringify([{ type: "image", url: "https://tracker.example/storage/v1/object/public/uploads/x.jpg" }])]));
+  } catch (e) { refused = /Upload photos/.test(e.message); }
+  await c.db.close();
+  if (!refused) throw new Error("a linked photo was accepted");
+});
 
 // --- What students see is what was reviewed ---------------------------------------------------------------------------
 let postAd, post;

@@ -211,7 +211,9 @@ security definer
 set search_path = public
 as $$
 declare
-  v_transition boolean := current_setting('app.ad_transition', true) = 'on';
+  -- A setting this connection never set reads as null, and "not null" is not true: coalesce, so the checks below run
+  -- unless a transition is under way.
+  v_transition boolean := coalesce(current_setting('app.ad_transition', true), '') = 'on';
   v_category text;
   v_problem text;
   v_text text;
@@ -958,7 +960,7 @@ security definer
 set search_path = public
 as $$
 declare
-  v_admin boolean := public.is_admin();
+  v_admin boolean := coalesce(public.is_admin(), false);
 begin
   if not v_admin and (p_business is null or not public.business_can(p_business, 'manage_team')) then
     raise exception 'Only the business''s owner and admins, or the UniBuzz team, can read this log' using errcode = '42501';
