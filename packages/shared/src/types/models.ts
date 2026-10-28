@@ -409,7 +409,7 @@ export type AdminUserRow = {
 };
 export type AutoHideStatus = (typeof AUTO_HIDE_STATUSES)[number]["value"];
 /**
- * Content hidden automatically by reports (admin_auto_hidden_list, migration 20261109000000_report_auto_hide.sql on main).
+ * Content hidden automatically by reports (admin_auto_hidden_list, migration 20261110000000_report_auto_hide.sql on main).
  * source "report_threshold": 10 different eligible people reported it; "trust_safety": Trust & Safety's own Buzz threshold.
  * Buzz rows never carry an author.
  */

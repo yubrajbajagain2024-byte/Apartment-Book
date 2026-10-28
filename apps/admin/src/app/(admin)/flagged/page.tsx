@@ -47,7 +47,7 @@ export default async function FlaggedPage({ searchParams }: { searchParams: Prom
       />
       {firstParam(params.deleted) ? <FormMessage success="The content was deleted permanently. Its files and videos are being removed." /> : null}
       {needsMigration ? (
-        <SetupNotice migration="20261109000000_report_auto_hide (on main)" what="Hiding content automatically after reports" />
+        <SetupNotice migration="20261110000000_report_auto_hide (on main)" what="Hiding content automatically after reports" />
       ) : (
         <>
           <nav aria-label="Review status" className="flex gap-1 overflow-x-auto rounded-lg bg-gray-200/60 p-1">

@@ -183,7 +183,7 @@ export async function getContentSnapshot(supabase: Client, targetType: Moderatio
 }
 
 // ---------------------------------------------------------------------------
-// Content hidden automatically by reports (main's migration 20261109000000_report_auto_hide.sql)
+// Content hidden automatically by reports (main's migration 20261110000000_report_auto_hide.sql)
 // ---------------------------------------------------------------------------
 
 /**
