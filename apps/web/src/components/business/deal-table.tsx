@@ -1,20 +1,27 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Archive, Eye, Inbox, Pause, Pencil, Play, Tag, Trash2 } from "lucide-react";
-import { dealStatusLabel, type BusinessDealStats, type Deal } from "@apartment-book/shared";
+import { Archive, CalendarDays, Eye, Inbox, Pause, Pencil, Play, Store, Trash2 } from "lucide-react";
+import { dealStatusLabel, formatCents, mediaCover, mediaItems, postKindLabel, type BusinessDealStats, type Deal } from "@apartment-book/shared";
 import { deleteDealAction, setDealStatusAction } from "@/lib/actions/business";
 import { cn, formatDate } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { PortalLink } from "./portal-base";
+import { Notice, Pill, type Tone } from "./ui";
 
-export function DealTable({ deals, stats, universityNames }: { deals: Deal[]; stats: BusinessDealStats[]; universityNames: Map<string, string> }) {
+const STATUS_TONE: Record<string, Tone> = { Live: "success", Scheduled: "accent", Ended: "neutral", Paused: "neutral", Archived: "neutral" };
+
+/**
+ * The business's posts as a grid: the picture, what kind of post it is, where and until when it runs, its views and
+ * inquiries, and pausing, archiving, editing and deleting (for the roles that publish; the database checks the same).
+ * Kept under v1's name, DealTable: every post lives in the deals table.
+ */
+export function DealTable({ deals, stats, universityNames, canPublish = true }: { deals: Deal[]; stats: BusinessDealStats[]; universityNames: Map<string, string>; canPublish?: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const statsById = new Map(stats.map((s) => [s.deal_id, s]));
 
   const run = (id: string, work: () => Promise<{ error?: string }>) => {
@@ -27,81 +34,95 @@ export function DealTable({ deals, stats, universityNames }: { deals: Deal[]; st
       router.refresh();
     });
   };
+  const action = "inline-flex h-8 items-center gap-1 rounded-full px-3 text-[13px] font-medium text-biz-ink-2 transition-colors hover:bg-biz-line hover:text-biz-ink";
 
   return (
-    <div className="flex flex-col gap-3" data-testid="deal-table">
-      {error ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</p> : null}
-      {deals.map((deal) => {
-        const busy = pending && busyId === deal.id;
-        const s = statsById.get(deal.id);
-        const label = dealStatusLabel(deal);
-        const where = deal.university_ids.length === 0 ? "Every campus" : deal.university_ids.map((id) => universityNames.get(id) ?? "Campus").join(", ");
-        return (
-          <article key={deal.id} className={cn("flex flex-col gap-3 rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-200 sm:flex-row sm:items-center", busy && "opacity-60")}>
-            <PortalLink href={`/deals/${deal.id}/edit`} className="relative h-24 w-full shrink-0 overflow-hidden rounded-lg bg-gray-100 sm:h-20 sm:w-28">
-              {deal.image_url ? (
-                <Image src={deal.image_url} alt="" fill sizes="112px" className="object-cover" />
-              ) : (
-                <span className="flex h-full items-center justify-center text-gray-400">
-                  <Tag className="h-6 w-6" />
+    <div className="flex flex-col gap-4" data-testid="deal-table">
+      {error ? <Notice tone="danger" title={error} /> : null}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {deals.map((deal) => {
+          const busy = pending && busyId === deal.id;
+          const s = statsById.get(deal.id);
+          const label = dealStatusLabel(deal);
+          const cover = mediaCover(mediaItems(deal.media)) ?? deal.image_url;
+          const where = deal.university_ids.length === 0 ? "Every campus" : deal.university_ids.map((id) => universityNames.get(id) ?? "Campus").join(", ");
+          return (
+            <article key={deal.id} className={cn("flex flex-col overflow-hidden rounded-[22px] bg-biz-surface shadow-biz ring-1 ring-biz-line transition-[opacity,box-shadow] duration-300 hover:shadow-biz-lift", busy && "opacity-60")}>
+              <PortalLink href={canPublish ? `/deals/${deal.id}/edit` : "/deals"} className="relative block aspect-[4/3] bg-biz-surface-3">
+                {cover ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- the business's own upload, any host v1 allowed
+                  <img src={cover} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <Store className="absolute inset-0 m-auto h-8 w-8 text-biz-ink-4" />
+                )}
+                <span className="absolute left-3 top-3 flex gap-1.5">
+                  <Pill tone="neutral" className="bg-biz-glass backdrop-blur">{postKindLabel(deal.kind)}</Pill>
+                  {s?.sponsored_until ? <Pill tone="accent" className="backdrop-blur">Sponsored</Pill> : null}
                 </span>
-              )}
-            </PortalLink>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <PortalLink href={`/deals/${deal.id}/edit`} className="truncate font-semibold text-gray-900 hover:underline">
-                  {deal.title}
-                </PortalLink>
-                {deal.discount_label ? <Badge tone="blue">{deal.discount_label}</Badge> : null}
-                <Badge tone={label === "Live" ? "green" : label === "Archived" || label === "Ended" ? "gray" : "amber"}>{label}</Badge>
-                {s?.sponsored_until ? <Badge tone="blue">Sponsored until {formatDate(s.sponsored_until)}</Badge> : null}
-              </div>
-              <p className="truncate text-sm text-gray-600">
-                {where}
-                {deal.ends_at ? ` · ends ${formatDate(deal.ends_at)}` : ""}
-              </p>
-              <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
-                <div className="flex items-center gap-1">
-                  <Eye className="h-3.5 w-3.5" /> <dd className="font-semibold text-gray-900">{s?.views ?? 0}</dd> views <span className="text-gray-400">({s?.views_7d ?? 0} this week)</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Inbox className="h-3.5 w-3.5" /> <dd className="font-semibold text-gray-900">{s?.inquiries ?? 0}</dd> inquiries
-                </div>
-              </dl>
-            </div>
-            <div className="flex flex-wrap items-center gap-1 sm:justify-end">
-              <PortalLink href={`/deals/${deal.id}/edit`} className="inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100">
-                <Pencil className="h-4 w-4" /> Edit
               </PortalLink>
-              {deal.status === "active" ? (
-                <button type="button" disabled={busy} onClick={() => run(deal.id, () => setDealStatusAction(deal.id, "paused"))} className="inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100">
-                  <Pause className="h-4 w-4" /> Pause
-                </button>
-              ) : (
-                <button type="button" disabled={busy} onClick={() => run(deal.id, () => setDealStatusAction(deal.id, "active"))} className="inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100">
-                  <Play className="h-4 w-4" /> Resume
-                </button>
-              )}
-              {deal.status !== "archived" ? (
-                <button type="button" disabled={busy} onClick={() => run(deal.id, () => setDealStatusAction(deal.id, "archived"))} className="inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100">
-                  <Archive className="h-4 w-4" /> Archive
-                </button>
-              ) : null}
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  if (!window.confirm(`Delete "${deal.title}"? This cannot be undone.`)) return;
-                  run(deal.id, () => deleteDealAction(deal.id));
-                }}
-                className="inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
-              >
-                <Trash2 className="h-4 w-4" /> Delete
-              </button>
-            </div>
-          </article>
-        );
-      })}
+              <div className="flex flex-1 flex-col gap-2 p-5">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="text-[15px] font-semibold leading-snug text-biz-ink">{deal.title}</h3>
+                  <Pill tone={STATUS_TONE[label] ?? "neutral"}>{label}</Pill>
+                </div>
+                <p className="text-[13px] text-biz-ink-3">
+                  {[deal.price_cents !== null ? formatCents(deal.price_cents, deal.currency) : null, deal.discount_label, deal.code ? `Code ${deal.code}` : null].filter(Boolean).join(" · ") || where}
+                </p>
+                {deal.kind === "event" && deal.event_at ? (
+                  <p className="flex items-center gap-1.5 text-[13px] text-biz-ink-2">
+                    <CalendarDays className="h-4 w-4" /> {new Date(deal.event_at).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                  </p>
+                ) : null}
+                <p className="text-xs text-biz-ink-4">
+                  {where}
+                  {deal.ends_at ? ` · until ${formatDate(deal.ends_at)}` : ""}
+                </p>
+                <div className="mt-auto flex items-center gap-4 pt-2 text-[13px] text-biz-ink-3">
+                  <span className="flex items-center gap-1 tabular-nums" title="Views (one per student per day)">
+                    <Eye className="h-4 w-4" /> {s?.views ?? 0}
+                  </span>
+                  <span className="flex items-center gap-1 tabular-nums" title="Inquiries">
+                    <Inbox className="h-4 w-4" /> {s?.inquiries ?? 0}
+                  </span>
+                </div>
+                {canPublish ? (
+                  <div className="-mx-2 flex flex-wrap gap-0.5 border-t border-biz-line pt-2">
+                    <PortalLink href={`/deals/${deal.id}/edit`} className={action}>
+                      <Pencil className="h-3.5 w-3.5" /> Edit
+                    </PortalLink>
+                    {deal.status === "active" ? (
+                      <button type="button" disabled={busy} onClick={() => run(deal.id, () => setDealStatusAction(deal.id, "paused"))} className={action}>
+                        <Pause className="h-3.5 w-3.5" /> Pause
+                      </button>
+                    ) : (
+                      <button type="button" disabled={busy} onClick={() => run(deal.id, () => setDealStatusAction(deal.id, "active"))} className={action}>
+                        <Play className="h-3.5 w-3.5" /> {deal.status === "archived" ? "Restore" : "Resume"}
+                      </button>
+                    )}
+                    {deal.status !== "archived" ? (
+                      <button type="button" disabled={busy} onClick={() => run(deal.id, () => setDealStatusAction(deal.id, "archived"))} className={action}>
+                        <Archive className="h-3.5 w-3.5" /> Archive
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        if (confirmDelete !== deal.id) return setConfirmDelete(deal.id);
+                        setConfirmDelete(null);
+                        run(deal.id, () => deleteDealAction(deal.id));
+                      }}
+                      className={cn(action, confirmDelete === deal.id && "bg-biz-danger-soft text-biz-danger")}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> {confirmDelete === deal.id ? "Delete for good?" : "Delete"}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </article>
+          );
+        })}
+      </div>
     </div>
   );
 }

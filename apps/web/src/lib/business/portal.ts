@@ -2,7 +2,7 @@ import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
-import { canUsePortal, getMyBusiness, isBusinessRole, roleOf, standingOf, type BusinessStanding, type MyBusiness, type ProfileWithUniversity, type UserRole } from "@apartment-book/shared";
+import { canUsePortal, getMyBusiness, isBusinessRole, roleOf, standingOf, teamRoleAllows, type BusinessCapability, type BusinessStanding, type MyBusiness, type ProfileWithUniversity, type UserRole } from "@apartment-book/shared";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { getBusinessHost, getBusinessSiteUrl, getSiteUrl } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
@@ -64,6 +64,24 @@ export async function requireBusiness(nextPath = "/", allowed: BusinessStanding[
   if (!session.membership || !canUsePortal(session.role)) redirect(await portalPath("/"));
   if (!allowed.includes(standingOf(session.membership.business))) redirect(await portalPath("/"));
   return session as PortalSession & { membership: MyBusiness };
+}
+
+/** The standings in which a capability works (as business_can() in migration 49 has them). */
+function standingsFor(capability: BusinessCapability): BusinessStanding[] {
+  if (capability === "reply" || capability === "manage_ads") return ["approved"];
+  if (capability === "edit_profile") return ["pending", "approved", "rejected"];
+  return ["pending", "approved"];
+}
+
+/**
+ * A member whose role and the business's standing allow this (migration 49's table: an analyst only views and reads
+ * the numbers, an editor publishes and replies, the owner and admins also run the team, the profile and ad spend).
+ * Anyone else goes to the portal's front page. The database decides every request on its own; this keeps pages honest.
+ */
+export async function requireCapability(capability: BusinessCapability, nextPath = "/"): Promise<PortalSession & { membership: MyBusiness }> {
+  const session = await requireBusiness(nextPath, standingsFor(capability));
+  if (!teamRoleAllows(session.membership.role, capability)) redirect(await portalPath("/"));
+  return session;
 }
 
 /** The business's owner: the profile and the team are theirs to manage. */

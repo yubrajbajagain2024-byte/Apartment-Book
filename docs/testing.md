@@ -7,10 +7,10 @@ write a database suite: [supabase/CLAUDE.md](../supabase/CLAUDE.md); app checks:
 
 | Suite | Command | Needs | Last result |
 | --- | --- | --- | --- |
-| `packages/shared` units (17 files) | `npm run test:shared` | Node ≥ 22.18 | ✅ 157/157, 2026-10-27 at `d9fb4b1` |
-| `packages/moderation` units (6 files) | `npm run test:moderation` | nothing | ✅ 428/428, 2026-10-27 at `d9fb4b1` (422 before PR #41) |
-| Database: migrations, RLS, functions (32 suites) | `npm run db:test` | nothing (PGlite, ~5 min) | ✅ 1267 checks, 0 failures, 2026-10-27 at `9227e04` (PR #41 changed no SQL) |
-| Typecheck + lint + build | `npm run check` | nothing | not recorded on `main`; run before finishing work |
+| `packages/shared` units (18 files) | `npm run test:shared` | Node ≥ 22.18 | ✅ 172/172, 2026-10-27 on `business-v2` at `bb36a24` (157 on `main`) |
+| `packages/moderation` units (6 files) | `npm run test:moderation` | nothing | ✅ 428/428, 2026-10-27 at `d9fb4b1` (422 before PR #41); again on `business-v2` at `bb36a24` |
+| Database: migrations, RLS, functions (34 suites) | `npm run db:test` | nothing (PGlite, ~5 min) | ✅ 1379 checks, 0 failures, 2026-10-27 on `business-v2` at `bb36a24` (32 suites, 1267 checks on `main` at `9227e04`) |
+| Typecheck + lint + build | `npm run check` | nothing | ✅ 6/6 tasks, 2026-10-27 on `business-v2` at `bb36a24`; not recorded on `main` |
 | Live end-to-end (writes temporary users and data, then deletes them) | `npm run db:check` | `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, the owner's approval | not run 2026-10-27 |
 | Schema diff against production | `node supabase/applied-outside-repo/verify.mjs --live` | `SUPABASE_ACCESS_TOKEN` | not run 2026-10-27 |
 | Website, desktop + phone | seed `node apps/mobile/e2e/sim-seed.mjs`, `npm run dev -w web -- -p 3060`, `BASE=http://localhost:3060 node apps/web/e2e/home-feed.mjs` | token + Playwright | not run 2026-10-27 |

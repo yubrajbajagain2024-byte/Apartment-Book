@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { businessCategoryLabel, listUniversities } from "@apartment-book/shared";
+import { ArrowUpRight, BadgeCheck } from "lucide-react";
+import { businessCategoryLabel, listUniversities, teamRoleAllows } from "@apartment-book/shared";
 import { requireBusiness } from "@/lib/business/portal";
+import { getSiteUrl } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardBody } from "@/components/ui/card";
 import { BusinessProfileForm } from "@/components/business/profile-form";
+import { bizButton, PageHeader, Panel, Pill } from "@/components/business/ui";
 
 export const metadata: Metadata = { title: "Business profile" };
 
@@ -13,45 +14,59 @@ export default async function BusinessProfilePage() {
   const { user, membership } = await requireBusiness("/profile", ["pending", "approved", "rejected"]);
   const business = membership.business;
   const universities = await listUniversities(await createClient());
+  const publicUrl = business.status === "approved" ? `${getSiteUrl()}/businesses/${business.id}` : null;
+  const viewPublic = publicUrl ? (
+    <a href={publicUrl} target="_blank" rel="noopener noreferrer" className={bizButton({ variant: "secondary" })}>
+      View as students see it <ArrowUpRight className="h-4 w-4" />
+    </a>
+  ) : null;
 
-  if (membership.role !== "owner") {
+  if (!teamRoleAllows(membership.role, "edit_profile")) {
     const campuses = universities.filter((u) => business.university_ids.includes(u.id)).map((u) => u.name);
     return (
-      <div className="mx-auto flex max-w-3xl flex-col gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Business profile</h1>
-        <Card>
-          <CardBody className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <Avatar name={business.name} src={business.logo_url} size="xl" />
-              <div>
-                <p className="text-lg font-bold text-gray-900">{business.name}</p>
-                <p className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
-                  {businessCategoryLabel(business.category)}
-                  {business.status === "approved" && business.verified_partner ? <Badge tone="green">Verified Partner</Badge> : null}
-                </p>
-              </div>
+      <div className="mx-auto flex max-w-3xl flex-col gap-8">
+        <PageHeader title="Business profile" subtitle="Only the owner and admins edit it." actions={viewPublic} />
+        <Panel className="flex flex-col gap-5 p-6">
+          <div className="flex items-center gap-4">
+            <Avatar name={business.name} src={business.logo_url} size="xl" />
+            <div>
+              <p className="text-[19px] font-semibold text-biz-ink">{business.name}</p>
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-biz-ink-3">
+                {businessCategoryLabel(business.category)}
+                <Pill>Business</Pill>
+                {business.status === "approved" && business.verified_partner ? (
+                  <Pill tone="accent">
+                    <BadgeCheck className="h-3.5 w-3.5" /> Verified Partner
+                  </Pill>
+                ) : null}
+              </p>
             </div>
-            {business.description ? <p className="whitespace-pre-line text-sm text-gray-800">{business.description}</p> : null}
-            <dl className="grid gap-2 text-sm sm:grid-cols-2">
-              {business.website ? <div><dt className="text-xs text-gray-500">Website</dt><dd>{business.website}</dd></div> : null}
-              {business.phone ? <div><dt className="text-xs text-gray-500">Phone</dt><dd>{business.phone}</dd></div> : null}
-              {business.contact_email ? <div><dt className="text-xs text-gray-500">Email</dt><dd>{business.contact_email}</dd></div> : null}
-              {business.address || business.city ? <div><dt className="text-xs text-gray-500">Address</dt><dd>{[business.address, business.city].filter(Boolean).join(", ")}</dd></div> : null}
-              <div className="sm:col-span-2"><dt className="text-xs text-gray-500">Campuses</dt><dd>{campuses.length ? campuses.join(", ") : "Every campus"}</dd></div>
-            </dl>
-            <p className="text-xs text-gray-500">Only the owner can edit the profile.</p>
-          </CardBody>
-        </Card>
+          </div>
+          {business.description ? <p className="whitespace-pre-line text-[15px] leading-relaxed text-biz-ink-2">{business.description}</p> : null}
+          <dl className="grid gap-4 text-[15px] sm:grid-cols-2">
+            {[
+              ["Website", business.website],
+              ["Phone", business.phone],
+              ["Email", business.contact_email],
+              ["Address", [business.address, business.city].filter(Boolean).join(", ") || null],
+              ["Campuses", campuses.length ? campuses.join(", ") : "Every campus"],
+            ].map(([label, value]) =>
+              value ? (
+                <div key={label}>
+                  <dt className="text-[13px] text-biz-ink-3">{label}</dt>
+                  <dd className="mt-0.5 break-words text-biz-ink">{value}</dd>
+                </div>
+              ) : null,
+            )}
+          </dl>
+        </Panel>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Business profile</h1>
-        <p className="text-sm text-gray-600">What students see next to your listings and deals, and what the UniBuzz team reviews.</p>
-      </div>
+    <div className="mx-auto flex max-w-3xl flex-col gap-8">
+      <PageHeader title="Business profile" subtitle="Your public page on UniBuzz, with the Business badge: students see it once the UniBuzz team approves your business." actions={viewPublic} />
       <BusinessProfileForm business={business} universities={universities} userId={user.id} />
     </div>
   );

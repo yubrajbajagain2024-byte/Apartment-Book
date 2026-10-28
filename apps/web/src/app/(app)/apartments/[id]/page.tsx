@@ -151,7 +151,9 @@ export default async function ApartmentPage({ params, searchParams }: Props) {
                 <div className="flex items-center gap-3" data-testid="sponsor">
                   <Avatar name={business.name} src={business.logo_url} size="lg" />
                   <div className="min-w-0">
-                    <p className="truncate font-semibold text-gray-900">{business.name}</p>
+                    <Link href={`/businesses/${business.id}`} className="block truncate font-semibold text-gray-900 hover:underline">
+                      {business.name}
+                    </Link>
                     <p className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
                       <Badge tone={isPlainBusinessLabel(businessLabel(business, apartment.sponsored)) ? "gray" : business.verified_partner && !apartment.sponsored ? "green" : "blue"}>{businessLabel(business, apartment.sponsored)}</Badge>
                       <span>Posted {timeAgo(apartment.created_at)}</span>

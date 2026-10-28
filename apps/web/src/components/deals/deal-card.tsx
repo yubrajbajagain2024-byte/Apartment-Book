@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { ExternalLink, MessageCircle, Ticket } from "lucide-react";
 import { businessLabel, inquiryPrefill, isPlainBusinessLabel, type DealWithBusiness } from "@apartment-book/shared";
 import { isOptimizableImage } from "@/lib/images";
@@ -22,7 +23,9 @@ export function DealCard({ deal, signedIn }: { deal: DealWithBusiness; signedIn:
       <ViewTracker targetType="deal" targetId={deal.id} />
       <div className="flex items-center gap-2.5 px-3 py-2.5">
         <Avatar name={business.name} src={business.logo_url} size="sm" />
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900">{business.name}</span>
+        <Link href={`/businesses/${business.id}`} className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900 hover:underline">
+          {business.name}
+        </Link>
         <Badge tone={isPlainBusinessLabel(businessLabel(business, deal.sponsored)) ? "gray" : business.verified_partner && !deal.sponsored ? "green" : "blue"}>{businessLabel(business, deal.sponsored)}</Badge>
       </div>
       {deal.image_url && isOptimizableImage(deal.image_url) ? (

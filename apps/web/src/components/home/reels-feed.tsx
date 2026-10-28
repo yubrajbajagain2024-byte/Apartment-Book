@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, Clapperboard, Plus, X } from "lucide-react";
-import { homeSectionHref, listReels, reelPath, REELS_PAGE_SIZE, type Reel } from "@apartment-book/shared";
+import { ADS_EVERY, adSlotCount, getApartmentsByIds, homeSectionHref, interleaveAds, listFeedAds, listReels, reelPath, REELS_PAGE_SIZE, type BusinessSummary, type FeedAd, type Reel } from "@apartment-book/shared";
 import { createClient } from "@/lib/supabase/client";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { CommentsSection } from "@/components/posts/comments-section";
 import { CommentsOff } from "@/components/posts/post-details";
+import { SponsoredReel } from "@/components/ads/sponsored";
 import { ReelCard, reelKey, toggleReelSound } from "./reel-card";
 
 export type ReelsFeedProps = {
@@ -46,6 +47,13 @@ export function ReelsFeed({ initial, universityId, hasHomeUniversity, signedIn, 
   const containerRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const busy = useRef(false);
+  // Sponsored reels (vertical video ads): at most one after every ADS_EVERY reels, for the student's campus.
+  const [ads, setAds] = useState<FeedAd[]>([]);
+  const adsDone = useRef(false);
+  const adsBusy = useRef(false);
+  // A business's video tours show the business, not the person on its team who posted the listing.
+  const [businesses, setBusinesses] = useState<Record<string, BusinessSummary>>({});
+  const asked = useRef(new Set<string>());
   /** How many rows we have asked the server for so far (rows without a playable video are dropped, so this is not items.length). */
   const offset = useRef(REELS_PAGE_SIZE);
 
@@ -69,6 +77,35 @@ export function ReelsFeed({ initial, universityId, hasHomeUniversity, signedIn, 
       setLoading(false);
     }
   }, [universityId]);
+
+  useEffect(() => {
+    if (!signedIn || adsDone.current || adsBusy.current) return;
+    const need = adSlotCount(items.length, ADS_EVERY) - ads.length;
+    if (need <= 0) return;
+    adsBusy.current = true;
+    listFeedAds(createClient(), "reels", need, ads.length)
+      .then((more) => {
+        if (more.length < need) adsDone.current = true;
+        setAds((prev) => [...prev, ...more.filter((a) => !prev.some((p) => p.id === a.id))]);
+      })
+      .finally(() => {
+        adsBusy.current = false;
+      });
+  }, [items.length, ads.length, signedIn]);
+
+  useEffect(() => {
+    const ids = items.filter((r) => r.sourceType === "apartment" && !asked.current.has(r.sourceId)).map((r) => r.sourceId);
+    if (ids.length === 0) return;
+    ids.forEach((id) => asked.current.add(id));
+    getApartmentsByIds(createClient(), ids)
+      .then((rows) => {
+        const found = Object.fromEntries(rows.flatMap((a) => (a.business ? [[a.id, a.business]] : [])));
+        if (Object.keys(found).length) setBusinesses((prev) => ({ ...prev, ...found }));
+      })
+      .catch(() => {});
+  }, [items]);
+
+  const rows = interleaveAds(items.map((reel) => ({ id: reel.sourceId, reel })), ads, ADS_EVERY);
 
   // Measure where the feed starts so it ends exactly at the bottom of the screen.
   useEffect(() => {
@@ -94,7 +131,7 @@ export function ReelsFeed({ initial, universityId, hasHomeUniversity, signedIn, 
     );
     root.querySelectorAll("[data-reel]").forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [items.length]);
+  }, [items.length, ads.length]);
 
   // Fetch the next page while there are still a few reels left to watch.
   useEffect(() => {
@@ -174,20 +211,25 @@ export function ReelsFeed({ initial, universityId, hasHomeUniversity, signedIn, 
         {FEED_CSS}
       </style>
       <div ref={containerRef} className="ab-reels relative snap-y snap-mandatory overflow-y-auto bg-black sm:bg-transparent" data-testid="reels-feed">
-        {items.map((reel, i) => (
-          <ReelCard
-            key={reelKey(reel)}
-            reel={reel}
-            index={i}
-            active={i === active}
-            near={Math.abs(i - active) <= 1}
-            signedIn={signedIn}
-            currentUserId={currentUserId}
-            commentCount={reel.comments}
-            scopeLink={scopeLink}
-            onOpenComments={() => setCommentsFor(reelKey(reel))}
-          />
-        ))}
+        {rows.map((row, i) =>
+          row.kind === "ad" ? (
+            <SponsoredReel key={`ad-${row.ad.id}`} ad={row.ad} index={i} active={i === active} near={Math.abs(i - active) <= 1} />
+          ) : (
+            <ReelCard
+              key={reelKey(row.item.reel)}
+              reel={row.item.reel}
+              business={row.item.reel.sourceType === "apartment" ? (businesses[row.item.reel.sourceId] ?? null) : null}
+              index={i}
+              active={i === active}
+              near={Math.abs(i - active) <= 1}
+              signedIn={signedIn}
+              currentUserId={currentUserId}
+              commentCount={row.item.reel.comments}
+              scopeLink={scopeLink}
+              onOpenComments={() => setCommentsFor(reelKey(row.item.reel))}
+            />
+          ),
+        )}
         <div ref={sentinelRef} className="h-px w-full" aria-hidden />
       </div>
 
@@ -210,7 +252,7 @@ export function ReelsFeed({ initial, universityId, hasHomeUniversity, signedIn, 
         <button type="button" onClick={() => goTo(active - 1)} disabled={active === 0} aria-label="Previous reel" className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-800 shadow ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-40">
           <ChevronUp className="h-5 w-5" />
         </button>
-        <button type="button" onClick={() => goTo(active + 1)} disabled={active >= items.length - 1} aria-label="Next reel" className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-800 shadow ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-40">
+        <button type="button" onClick={() => goTo(active + 1)} disabled={active >= rows.length - 1} aria-label="Next reel" className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-800 shadow ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-40">
           <ChevronDown className="h-5 w-5" />
         </button>
       </div>

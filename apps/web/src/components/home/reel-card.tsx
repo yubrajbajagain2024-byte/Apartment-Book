@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } fr
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, Bookmark, Heart, MessageCircle, Play, Plus, Share2, Volume2, VolumeX } from "lucide-react";
-import { muxPlaybackUrl, muxPosterUrl, reelPath, sharedPostFromReel, timeAgo, type Reel } from "@apartment-book/shared";
+import { muxPlaybackUrl, muxPosterUrl, reelPath, sharedPostFromReel, timeAgo, type BusinessSummary, type Reel } from "@apartment-book/shared";
 import { canShareAudience, postLink } from "@/lib/post-details";
 import { cn } from "@/lib/utils";
 import { useSaveToggle } from "@/components/common/save-button";
@@ -62,8 +62,11 @@ export function ReelCard({
   commentCount,
   onOpenComments,
   scopeLink,
+  business = null,
 }: {
   reel: Reel;
+  /** A business's video tour: the business, shown and linked instead of the person on its team who posted the listing. */
+  business?: BusinessSummary | null;
   index: number;
   active: boolean;
   near: boolean;
@@ -194,10 +197,22 @@ export function ReelCard({
         {/* Author and caption */}
         <div className="absolute bottom-4 left-3 right-16 z-20 flex flex-col gap-1.5 text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
           <div className="flex min-w-0 items-center gap-1.5 text-[15px] font-semibold">
-            <Link href={`/profile/${reel.author.id}`} className="truncate hover:underline">
-              {reel.author.name}
-            </Link>
-            {reel.author.verified ? <BadgeCheck className="h-4 w-4 shrink-0 text-brand-200" aria-label="Verified student" /> : null}
+            {business ? (
+              <>
+                <Link href={`/businesses/${business.id}`} className="truncate hover:underline">
+                  {business.name}
+                </Link>
+                {business.verified_partner ? <BadgeCheck className="h-4 w-4 shrink-0 text-brand-200" aria-label="Verified Partner" /> : null}
+                <span className="shrink-0 rounded-full bg-white/20 px-1.5 py-0.5 text-[11px] font-semibold">Business</span>
+              </>
+            ) : (
+              <>
+                <Link href={`/profile/${reel.author.id}`} className="truncate hover:underline">
+                  {reel.author.name}
+                </Link>
+                {reel.author.verified ? <BadgeCheck className="h-4 w-4 shrink-0 text-brand-200" aria-label="Verified student" /> : null}
+              </>
+            )}
             {isMine ? <span className="shrink-0 rounded-full bg-white/20 px-1.5 py-0.5 text-[11px] font-semibold">You</span> : null}
             <span className="shrink-0 text-xs font-normal text-white/80" suppressHydrationWarning>
               · {timeAgo(reel.createdAt)}
@@ -312,7 +327,7 @@ function ActionButton({
  * Extensions exist, the native HLS player only when they do not (iPhone Safari),
  * and the stream is torn down on unmount or when the reel is far from view.
  */
-function ReelVideo({ src, poster, active, near, eager, onDoubleTap }: { src: string; poster: string; active: boolean; near: boolean; eager: boolean; onDoubleTap?: () => void }) {
+export function ReelVideo({ src, poster, active, near, eager, onDoubleTap }: { src: string; poster: string; active: boolean; near: boolean; eager: boolean; onDoubleTap?: () => void }) {
   const ref = useRef<HTMLVideoElement>(null);
   const pendingTap = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => void (pendingTap.current && clearTimeout(pendingTap.current)), []);

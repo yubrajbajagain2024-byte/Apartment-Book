@@ -35,6 +35,22 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   database-URL mode ([supabase/CLAUDE.md](../supabase/CLAUDE.md)), confirm with
   `verify.mjs --live`, then publish the app update. Their code is already on `main`, which deploys
   production, so this is overdue. Needs the owner and a credential.
+- **UniBuzz Business v2** (branch `business-v2`, its PR). It upgrades the v1 portal to the business spec:
+  - team roles;
+  - business posts;
+  - the Ads Manager with admin review and recorded payment;
+  - Sponsored ads in For You, Reels and Housing;
+  - public business profiles;
+  - analytics from real events;
+  - an Apple-style portal with light and dark modes.
+
+  Order of release:
+  1. Apply migrations 49 and 50 to production, after the pending ones above
+     ([migrations.md](migrations.md)).
+  2. Merge.
+  3. Publish the app update.
+
+  Follow-up work is listed in [branches/business-v2.md](branches/business-v2.md).
 - **Security fix pending.** A security fix for a live part of the database is ready on a local,
   unpushed branch (2026-10-27) and is **not applied to production**. Its details stay out of this
   repository until production is patched, because the repository is public.
@@ -62,6 +78,7 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 | Item | Where it is written up |
 | --- | --- |
 | Three migrations not on production (44, 46, 47), while `main`, which deploys production, already uses them | [migrations.md](migrations.md) |
+| Business v2's code needs migrations 49 and 50: merging `business-v2` before they are live would break the portal and the business parts of the student site | [migrations.md](migrations.md), [branches/business-v2.md](branches/business-v2.md) |
 | `db:setup` token mode resets the production auth Site URL to localhost by default | [supabase/CLAUDE.md](../supabase/CLAUDE.md) |
 | A security fix for a live part of the database is pending | "Security fix pending" above |
 | Supabase CLI history empty on production; `supabase db push` would re-run everything | `supabase/applied-outside-repo/README.md` |

@@ -48,7 +48,7 @@ export function ListingDetail({
   lead?: string;
   media: FeedMedia[];
   /**
-   * `badge` and `businessId`: a listing posted from the business portal. The business is the poster (no profile to open) and Message opens its inquiry chat.
+   * `badge` and `businessId`: a listing posted from the business portal. The business is the poster (its row opens the business's profile) and Message opens its inquiry chat.
    * `anonymous`: an anonymous roommate post or item (lib/listing-poster.ts): nobody to show, and Message opens the anonymous inquiry chat.
    */
   poster: { id: string; name: string; avatarUrl: string | null; badge?: string | null; businessId?: string | null; anonymous?: boolean };
@@ -173,7 +173,12 @@ export function ListingDetail({
       {media.length === 0 ? actionBar : null}
 
       <View style={[styles.section, { paddingVertical: 12 }]}>
-        <Pressable disabled={Boolean(poster.badge) || anonymous} onPress={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <Pressable
+          disabled={(Boolean(poster.badge) && !poster.businessId) || anonymous}
+          // A business's listing opens the business's public profile (migration 50), never the person who posted it.
+          onPress={() => (poster.businessId ? router.push({ pathname: "/businesses/[id]", params: { id: poster.businessId } }) : router.push({ pathname: "/profile/[id]", params: { id: poster.id } }))}
+          style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+        >
           <Avatar name={poster.name} url={poster.avatarUrl} size="md" userId={poster.badge ? undefined : poster.id} online={poster.badge ? false : undefined} ringColor={aurora ? colors.bg : colors.card} anonymous={anonymous} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: "700", color: colors.text }}>{anonymous && own ? "You, anonymously" : poster.name}</Text>

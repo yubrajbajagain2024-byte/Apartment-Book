@@ -7,7 +7,7 @@ import { useVideoPlayer, VideoView, type VideoPlayer } from "expo-video";
 import { GestureDetector } from "react-native-gesture-handler";
 import Reanimated, { cancelAnimation, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from "react-native-reanimated";
 import type { SFSymbol } from "expo-symbols";
-import { APP_NAME, captionParts, deleteFeedPost, getFeedPost, getOrCreateDirectConversation, hasPublicComments, likePost, listingChatPrefill, reelPath, REPORT_REASONS, reportContent, setPostPinned, sharedPostPath, toggleSaved, unlikePost, type FeedMedia, type Reel, type ReportReason } from "@apartment-book/shared";
+import { APP_NAME, captionParts, deleteFeedPost, getApartmentsByIds, getFeedPost, getOrCreateDirectConversation, hasPublicComments, inquiryPrefill, likePost, listingChatPrefill, reelPath, REPORT_REASONS, reportContent, setPostPinned, sharedPostPath, startBusinessInquiry, toggleSaved, unlikePost, type BusinessSummary, type FeedMedia, type Reel, type ReportReason } from "@apartment-book/shared";
 import { hapticLike, hapticSelect, hapticTap, alertWithHaptic } from "@/lib/haptics";
 import { errorText } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned } from "@/lib/posts-events";
@@ -153,6 +153,21 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   const [expanded, setExpanded] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
   const [messageBusy, setMessageBusy] = useState(false);
+  // A business's video tour (reels_feed knows only the person who posted the listing): the business, shown and linked,
+  // and "Message" opens the inquiry chat, where the business can only reply.
+  const [business, setBusiness] = useState<BusinessSummary | null>(null);
+  useEffect(() => {
+    if (source.sourceType !== "apartment") return;
+    let live = true;
+    getApartmentsByIds(supabase, [source.sourceId])
+      .then(([a]) => {
+        if (live && a?.business) setBusiness(a.business);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [source.sourceType, source.sourceId]);
   /** The rail heart's pop (scale) and the big heart a double tap flashes over the video, like Instagram. */
   const pop = useRef(new Animated.Value(1)).current;
   const bigHeart = useRef(new Animated.Value(0)).current;
@@ -418,6 +433,11 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
     if (messageBusy) return;
     setMessageBusy(true);
     try {
+      if (business) {
+        const inquiry = await startBusinessInquiry(supabase, "apartment", reel.sourceId);
+        router.push({ pathname: "/messages/[id]", params: { id: inquiry, prefill: inquiryPrefill(business.name, reel.title ?? "your listing") } });
+        return;
+      }
       const conv = await getOrCreateDirectConversation(supabase, reel.author.id);
       // A roommate tour opens the chat with a first message about the post, as the listing's own Inbox button does.
       const listing = reel.sourceType === "roommate";
@@ -500,7 +520,7 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
     }
     show([
       ...(isTour ? [{ label: "View listing", icon: "open-outline" as const, onPress: openListing }] : []),
-      ...(own ? [] : [{ label: `Message ${reel.author.name.split(" ")[0]}`, icon: "chatbubble-ellipses-outline" as const, onPress: () => void message() }]),
+      ...(own ? [] : [{ label: `Message ${business ? business.name : reel.author.name.split(" ")[0]}`, icon: "chatbubble-ellipses-outline" as const, onPress: () => void message() }]),
       ...(pinNow !== null ? [{ label: pinNow ? "Unpin from profile" : "Pin to profile", icon: pinNow ? ("pin" as const) : ("pin-outline" as const), onPress: () => void togglePin(!pinNow) }] : []),
       ...(own && !isTour ? [{ label: `Delete ${noun}`, icon: "trash-outline" as const, destructive: true, onPress: confirmDelete }] : []),
       ...(own ? [] : [{ label: "Report", icon: "flag-outline" as const, destructive: true, onPress: report }]),
@@ -557,12 +577,22 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
 
       <View style={[styles.overlay, { paddingBottom: OVERLAY_PAD + bottomInset }]} pointerEvents="box-none" onLayout={(e) => setOverlayTop(e.nativeEvent.layout.y)}>
         <View style={styles.info} pointerEvents="box-none" onLayout={(e) => setInfoTop(e.nativeEvent.layout.y)}>
-          <Pressable onPress={unlessSwiped(() => router.push({ pathname: "/profile/[id]", params: { id: reel.author.id } }))} style={{ flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start" }} accessibilityRole="link" accessibilityLabel={`${reel.author.name}'s profile`}>
-            <Text style={[styles.author, onPage && styles.authorPage]} numberOfLines={1}>
-              {reel.author.name}
-            </Text>
-            {reel.author.verified ? <Icon name="checkmark-circle" sf="checkmark.seal.fill" size={16} color={onPage ? colors.brand : colors.verifiedOnMedia} accessibilityLabel="Verified student" /> : null}
-          </Pressable>
+          {business ? (
+            <Pressable onPress={unlessSwiped(() => router.push({ pathname: "/businesses/[id]", params: { id: business.id } }))} style={{ flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start" }} accessibilityRole="link" accessibilityLabel={`${business.name}'s profile`}>
+              <Text style={[styles.author, onPage && styles.authorPage]} numberOfLines={1}>
+                {business.name}
+              </Text>
+              {business.verified_partner ? <Icon name="checkmark-circle" sf="checkmark.seal.fill" size={16} color={onPage ? colors.brand : colors.verifiedOnMedia} accessibilityLabel="Verified Partner" /> : null}
+              <Text style={[styles.author, onPage && styles.authorPage, { fontSize: 12, fontWeight: "600", opacity: 0.85 }]}>· Business</Text>
+            </Pressable>
+          ) : (
+            <Pressable onPress={unlessSwiped(() => router.push({ pathname: "/profile/[id]", params: { id: reel.author.id } }))} style={{ flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start" }} accessibilityRole="link" accessibilityLabel={`${reel.author.name}'s profile`}>
+              <Text style={[styles.author, onPage && styles.authorPage]} numberOfLines={1}>
+                {reel.author.name}
+              </Text>
+              {reel.author.verified ? <Icon name="checkmark-circle" sf="checkmark.seal.fill" size={16} color={onPage ? colors.brand : colors.verifiedOnMedia} accessibilityLabel="Verified student" /> : null}
+            </Pressable>
+          )}
           {/* Short by default, like TikTok: one line of title and one of caption, "… more" opens the rest. */}
           {oneLine ? (
             expanded ? (

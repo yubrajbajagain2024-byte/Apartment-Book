@@ -20,6 +20,7 @@ current", rules 2 and 3).
 | `docs/claude-md` | Sunil | the first root `CLAUDE.md` | merged (PR #42); nothing left on it | [../history.md](../history.md) |
 | `docs/claude-structure` | Sunil | one shared `CLAUDE.md` plus `docs/` | merged (PR #45); nothing left on it | [../history.md](../history.md) |
 | (one local branch) | Sunil | the pending security fix ([../status.md](../status.md), "Security fix pending") | local only, **not pushed** while production is unpatched | on the branch itself |
+| `business-v2` | Sunil | UniBuzz Business v2: roles, posts, Ads Manager, Sponsored ads, business profiles, analytics (migrations 49 and 50) | **PR open, not merged**; migrations not on production | [business-v2.md](business-v2.md) |
 | `claude/claude-md-documentation-0b8750` | — | leftover worktree branch of a 2026-10-26 AI session | no commits of its own; left untouched until the owner says otherwise | — |
 
 **Safe to delete once their owner agrees**, because `main` has all their work (what is left on them
