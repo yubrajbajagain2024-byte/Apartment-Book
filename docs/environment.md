@@ -12,6 +12,11 @@ Function secrets or Supabase Vault; which `.env` files may be committed is in th
 | Scripts and tests | `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_URL`, `STAGING_SUPABASE_REF` (also points the e2e seed, cleanup and `scripts/e2e-home-feed.mjs` at staging), `SITE_URL`, `BUSINESS_SITE_URL`, `SKIP_SEED`, `SKIP_MIGRATION`, `SKIP_ENV`, `BACKUP_DIR` (`scripts/backup.mjs`), `BASE` and `PLAYWRIGHT_CHANNEL` (website e2e) |
 | `step-admin` only | `CRON_SECRET`, `MEDIA_WORKER_ENABLED` |
 
+**Server secrets are for Production only.** In Vercel, `SUPABASE_SERVICE_ROLE_KEY`, `MODERATION_AI_API_KEY`,
+`MUX_TOKEN_SECRET` and `MUX_WEBHOOK_SECRET` are set for the Production environment alone. Preview and Development
+builds run any branch's code, so they get none of them, or a staging project's values instead. Changing them is the
+owner's decision.
+
 **Supabase Vault** holds the project URL and the service key, which `purge_snaps()` uses and
 `npm run db:setup` in token mode keeps there, and the Expo push access token (`expo_push_token`)
 for `send_push()`, which is added by hand (`20261029000000_push.sql`).
