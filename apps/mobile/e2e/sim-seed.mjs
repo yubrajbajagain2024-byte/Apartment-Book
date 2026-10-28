@@ -1,8 +1,10 @@
 // Creates test users, sample posts, follows and Maya's classes for simulator runs (SUPABASE_ACCESS_TOKEN env). The test account ("me") and Leo follow each other, so they are friends.
-// Writes .sim-state.json (git-ignored); run sim-cleanup.mjs afterwards.
+// Writes .sim-state.json (git-ignored); run sim-cleanup.mjs afterwards. STAGING_SUPABASE_REF seeds the staging project instead
+// (scripts/e2e-target.mjs); the state file remembers which project, so the cleanup goes to the same one.
 import fs from "node:fs";
 import { createClient } from "@supabase/supabase-js";
-const ref = "dskbzoqreandwwpxiplh";
+import { e2eRef } from "../../../scripts/e2e-target.mjs";
+const ref = await e2eRef(process.env.SUPABASE_ACCESS_TOKEN);
 const keys = await (await fetch(`https://api.supabase.com/v1/projects/${ref}/api-keys?reveal=true`, { headers: { Authorization: `Bearer ${process.env.SUPABASE_ACCESS_TOKEN}` } })).json();
 const admin = createClient(`https://${ref}.supabase.co`, keys.find((k) => k.name === "service_role").api_key, { auth: { persistSession: false, autoRefreshToken: false } });
 const stamp = Date.now(); const password = `Sim-${stamp}-pass!`;
@@ -71,5 +73,5 @@ const buzz = await admin.rpc("buzz_v2_create", {
 });
 if (buzz.error) throw buzz.error;
 const buzzId = buzz.data.id;
-fs.writeFileSync(new URL(".sim-state.json", import.meta.url), JSON.stringify({ me, other, extra: [leo], password, apartmentId: apt.id, roommateId: room.id, itemId: item.id, postId: post.id, carouselId: carousel.id, buzzId }, null, 2));
+fs.writeFileSync(new URL(".sim-state.json", import.meta.url), JSON.stringify({ ref, me, other, extra: [leo], password, apartmentId: apt.id, roommateId: room.id, itemId: item.id, postId: post.id, carouselId: carousel.id, buzzId }, null, 2));
 console.log(JSON.stringify({ me: me.email, password, post: post.id, buzz: buzzId }));

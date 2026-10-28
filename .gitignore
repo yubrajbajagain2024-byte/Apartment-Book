@@ -28,3 +28,6 @@ supabase/.env
 
 # turborepo
 .turbo/
+
+# The staging release rehearsal's state: test accounts and their passwords (supabase/tests/staging/release-rehearsal.mjs)
+supabase/tests/staging/.rehearsal.json
