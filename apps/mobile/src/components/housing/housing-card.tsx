@@ -95,11 +95,11 @@ export const HousingCard = memo(function HousingCard({ apartment: a, saved, enga
       </Pressable>
 
       <Pressable
-        disabled={Boolean(a.business)}
-        onPress={() => router.push({ pathname: "/profile/[id]", params: { id: poster.id } })}
+        // A business's listing opens the business's public profile (migration 50), never the person who posted it.
+        onPress={() => (a.business ? router.push({ pathname: "/businesses/[id]", params: { id: a.business.id } }) : router.push({ pathname: "/profile/[id]", params: { id: poster.id } }))}
         style={styles.channel}
-        accessibilityRole={a.business ? undefined : "button"}
-        accessibilityLabel={a.business ? poster.name : `${poster.name}'s profile`}
+        accessibilityRole="button"
+        accessibilityLabel={`${poster.name}'s profile`}
       >
         <Avatar name={poster.name} url={poster.avatarUrl} size={36} userId={a.business ? undefined : poster.id} online={a.business ? false : undefined} />
         <View style={{ flex: 1, minWidth: 0 }}>
