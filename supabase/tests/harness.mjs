@@ -20,7 +20,10 @@ export const OUTSIDE_MIGRATIONS = [
   { after: "20261102000000_presence_channel_join.sql", files: ["20261103100000_admin_dashboard.sql", "20261103100100_hardening.sql"] }, // 22:31 UTC
 ];
 
-/** boot({ live: true }) applies them in production's order; boot({ upTo: "20261024000000_x.sql" }) stops after that migration. */
+/**
+ * boot({ live: true }) applies them in production's order; boot({ upTo: "20261024000000_x.sql" }) stops after that migration;
+ * boot({ skip: ["20261105000000_x.sql"] }) leaves those out (a migration applied to production ahead of others).
+ */
 export async function boot(opts = {}) {
   const db = new PGlite({ extensions: { pgcrypto, postgis } });
   await db.exec(`create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls; create schema auth; create schema storage; create schema extensions;
@@ -38,7 +41,7 @@ export async function boot(opts = {}) {
     grant all on all tables in schema auth to service_role;`);
   for (const f of fs.readdirSync(path.join(SUPABASE_DIR, "migrations")).sort()) {
     if (opts.upTo && f > opts.upTo) break;
-    await db.exec(read(`migrations/${f}`));
+    if (!opts.skip?.includes(f)) await db.exec(read(`migrations/${f}`));
     if (opts.live) for (const o of OUTSIDE_MIGRATIONS) if (o.after === f) for (const x of o.files) await db.exec(read(`applied-outside-repo/${x}`));
   }
   await db.exec(`grant execute on all functions in schema extensions to anon, authenticated;`);

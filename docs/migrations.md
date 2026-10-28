@@ -32,6 +32,7 @@ The README's statement that 41 and 42 are not live is out of date.
 | 52 | `20261108000100_buzz_top_reply.sql` (branch `ankur/dev`): a feed card's "Top reply" (`topReply` in `buzz_v2_feed`), with a partial index | ❌ **not applied** |
 | 53 | `20261108000200_buzz_prompt_threads.sql` (branch `ankur/dev`): one thread per day's prompt per campus and one on Global (`buzz_prompt_threads`, `buzz_v2_prompt_thread()`); a prompt's answer always titled with the prompt, existing ones included | ❌ **not applied** |
 | 54 | `20261108000300_buzz_categories.sql` (branch `ankur/dev`): an optional category on a buzz (`buzz_posts.category`, a fixed list), read by `buzz_v2_create` and shown by `buzz_root_json` | ❌ **not applied** |
+| 55 | `20261109000000_report_auto_hide.sql` (branch `auto-hide-reports`): content 10 different eligible people report is hidden, flagged for CampConnect Admin (`report_auto_hides`), its owner told and the hide audited; restores need 10 new reporters; the console's approve/restore un-hides public content. Needs CampConnect Admin's schema (no-op without it) | ❌ **not applied** |
 | (18) | `20261103100200_staff_invite_email.sql`: **file only on `step-admin`** (in neither `supabase/migrations/` nor `supabase/applied-outside-repo/` here) | ✅ applied |
 
 **What the gaps cost today:** without 44, Discover falls back to newest posts and people; without
@@ -56,6 +57,13 @@ without them the app shows two levels of replies, no top reply and prompt answer
 their own, and a picked category is simply not kept, so the `ankur/dev` PR can merge first. Each
 rollback restores the functions it replaced verbatim; 53's keeps the prompt threads as ordinary
 buzzes and 54's keeps the categories (nothing reads them).
+
+**Report auto-hide (55):** does not need 44, 46, 47 or 49 to 54. Its suite also runs it on production as it is today
+(those left out), so it may be applied alone, ahead of them: one transaction with its `public._migrations` row
+(supabase/CLAUDE.md), then `notify pgrst`. It replaces CampConnect Admin's `admin_content_hide/restore/delete` and
+`admin_reports_list` with bodies taken from `applied-outside-repo/`; check them against production's first. Its rollback
+restores those and Trust & Safety's `ts_snapshot()` and `ts_set_content_status()` verbatim. Content it hid stays hidden
+after a rollback.
 
 **Numbering quirk:** both `20261103000300_discover.sql` and `20261104000000_post_details.sql` call
 themselves "migration 44" in their header comments. File order (timestamps) is authoritative;
