@@ -3,9 +3,9 @@
 Which migration is on the live project. How to write and apply one is in
 [supabase/CLAUDE.md](../supabase/CLAUDE.md). A migration's row (❌ not applied) goes in with its PR;
 when it reaches production, update the row with a docs-only PR (root CLAUDE.md, documentation
-rule 2). On `main` as of 2026-10-27: 47 files in `supabase/migrations/` and 8 rollbacks, for the
-newer migrations, in `supabase/rollbacks/`; the `business-v2` branch adds 49 to 52, with their
-rollbacks (49 and 50 are on `main` since PR #49).
+rule 2). On `main` as of 2026-10-28: 53 files in `supabase/migrations/` and 14 rollbacks, for the
+newer migrations, in `supabase/rollbacks/` (49 and 50 came with PR #49, 51 to 54 with PR #50); the
+`business-v2` branch adds 55 and 56, with their rollbacks.
 
 **As of 2026-10-27.** Assembled from commit messages, `supabase/applied-outside-repo/README.md` and
 the owner's deploy notes (read-only checks of production's `public._migrations`, latest 2026-10-27
@@ -26,10 +26,14 @@ The README's statement that 41 and 42 are not live is out of date.
 | 45 | `20261104000000_post_details.sql`: post title, link, audience, comments switch | ✅ applied 2026-10-27 00:32 UTC |
 | 46 | `20261104000100_discover_audience.sql`: `discover_refresh()` ranks Global posts only | ❌ **not applied** |
 | 47 | `20261105000000_anonymous_listings.sql`: anonymous roommate/marketplace posts, listing audiences, anonymous inquiry chats | ❌ **not applied** |
-| 49 | `20261107000000_business_teams.sql` (branch `business-v2`): business team roles (owner, admin, editor, analyst), the business audit log, `business` notifications | ❌ **not applied** |
-| 50 | `20261107000100_business_ads.sql` (branch `business-v2`): business posts, ads and their review, serving, students' hide/report/block, events and analytics, Fair Housing screen, v1 promotions migrated to ads, the `ads-sweep` pg_cron job | ❌ **not applied** |
-| 51 | `20261107000200_media_server_fields.sql` (branch `business-v2`): a video's processing details are written by the server only; 30 new videos a day per person; ready videos 10 minutes at most | ❌ **not applied** |
-| 52 | `20261107000300_business_hardening.sql` (branch `business-v2`): Business v2 hardening after an independent review: ads show the reviewed copy of what they promote and pause when it changes, every ad screened for Fair Housing, ad photos from this project's storage, chats visible to a business once the student writes, blocks stop chats, server-set dates, payments kept, stricter event counting | ❌ **not applied** |
+| 49 | `20261107000000_business_teams.sql` (merged in PR #49): business team roles (owner, admin, editor, analyst), the business audit log, `business` notifications | ❌ **not applied** |
+| 50 | `20261107000100_business_ads.sql` (merged in PR #49): business posts, ads and their review, serving, students' hide/report/block, events and analytics, Fair Housing screen, v1 promotions migrated to ads, the `ads-sweep` pg_cron job | ❌ **not applied** |
+| 51 | `20261108000000_buzz_reply_tree.sql` (merged in PR #50): each Buzz reply says which reply it answers at any depth (`treeParentId`), for the app's Reddit-style thread | ❌ **not applied** |
+| 52 | `20261108000100_buzz_top_reply.sql` (merged in PR #50): a feed card's "Top reply" (`topReply` in `buzz_v2_feed`), with a partial index | ❌ **not applied** |
+| 53 | `20261108000200_buzz_prompt_threads.sql` (merged in PR #50): one thread per day's prompt per campus and one on Global (`buzz_prompt_threads`, `buzz_v2_prompt_thread()`); a prompt's answer always titled with the prompt, existing ones included | ❌ **not applied** |
+| 54 | `20261108000300_buzz_categories.sql` (merged in PR #50): an optional category on a buzz (`buzz_posts.category`, a fixed list), read by `buzz_v2_create` and shown by `buzz_root_json` | ❌ **not applied** |
+| 55 | `20261109000000_media_server_fields.sql` (branch `business-v2`): a video's processing details are written by the server only; 30 new videos a day per person; ready videos 10 minutes at most | ❌ **not applied** |
+| 56 | `20261109000100_business_hardening.sql` (branch `business-v2`): Business v2 hardening after an independent review: ads show the reviewed copy of what they promote and pause when it changes, every ad screened for Fair Housing, ad photos from this project's storage, chats visible to a business once the student writes, blocks stop chats, server-set dates, payments kept, stricter event counting | ❌ **not applied** |
 | (18) | `20261103100200_staff_invite_email.sql`: **file only on `step-admin`** (in neither `supabase/migrations/` nor `supabase/applied-outside-repo/` here) | ✅ applied |
 
 **What the gaps cost today:** without 44, Discover falls back to newest posts and people; without
@@ -41,20 +45,33 @@ carries the code for 44, 46 and 47, so production's website most likely does too
 `discover_refresh()` runs with definer rights and fills world-readable ranking tables, so without
 46 a friends-only or campus-only post's `#tag` would trend for everyone.
 
-**Business v2 (49 to 52):** apply all four in the same run, in file order, after every
-earlier migration (`db:setup` applies whatever is pending, in order, so 44, 46 and 47 go first). Order with
-the code (one exception to "migrations first"):
+**Business v2 (49 and 50, then 55 and 56):** `db:setup` applies whatever is pending, in file order,
+so one run from `main` applies 44, 46, 47, 49, 50, Buzz's 51 to 54, 55 and 56. PR #49 merged 49
+and 50's code on 2026-10-28 at 04:07 UTC, when its own docs said they were not on production (not
+checked since). 55 and 56 come with the `business-v2` follow-up PR. Order with the code (one
+exception to "migrations first"):
 1. Merge the follow-up PR from `business-v2`. Its video routes write a video's processing details
-   with the service role, which works with or without 51.
-2. Then apply 44, 46, 47, 49, 50, 51 and 52 in one run of `db:setup` from `main`.
+   with the service role, which works with or without 55.
+2. Then run `db:setup` once from `main`, after a backup: 44, 46, 47 and 49 to 56.
 
-Applying 51 under the older video routes would leave new uploads "processing". Applying 49 and 50
-without 51 and 52 would let ads rely on unchecked video details: run them together. 51 also needs
-`SUPABASE_SERVICE_ROLE_KEY` on the website (Buzz already does). `supabase/tests/production-rollout.test.mjs` rehearses the
-whole run offline on production's state: 44, 46, 47, 49, 50, 51 and 52 applied in order, rolled
-back in reverse, and applied again. Both rollbacks restore the functions they replaced verbatim; 50's refuses while an ad
+Applying 55 under the older video routes would leave new uploads "processing". Applying 49 and 50
+without 55 and 56 would let ads rely on unchecked video details: run them together. 55 also needs
+`SUPABASE_SERVICE_ROLE_KEY` on the website (Buzz already does). `supabase/tests/production-rollout.test.mjs`
+rehearses the whole run offline on production's state: 44, 46, 47 and 49 to 56 applied in order,
+rolled back in reverse, and applied again. 56's rollback restores the versions of 39's, 49's and
+50's functions it replaced. 49's and 50's restore the functions they replaced verbatim; 50's refuses while an ad
 that promoted no listing or post has a recorded payment.
+
+**Buzz (51 to 54):** apply in file order, after every earlier migration; 54 needs 53 (both
+replace `buzz_root_json`, 54 with 53's version plus the category). The code does not need them:
+without them the app shows two levels of replies, no top reply and prompt answers as buzzes of
+their own, and a picked category is simply not kept, so the `ankur/dev` PR can merge first. Each
+rollback restores the functions it replaced verbatim; 53's keeps the prompt threads as ordinary
+buzzes and 54's keeps the categories (nothing reads them).
 
 **Numbering quirk:** both `20261103000300_discover.sql` and `20261104000000_post_details.sql` call
 themselves "migration 44" in their header comments. File order (timestamps) is authoritative;
 this table numbers them 44 and 45. Fix the headers when either file is next touched.
+55 and 56 were 51 and 52 on `business-v2` (`20261107000200` and `20261107000300`, never pushed
+or applied) until 2026-10-28, when PR #50's Buzz migrations reached `main` first; they were renamed to
+sort after them, and the branch's earlier commit messages still say 51 and 52.

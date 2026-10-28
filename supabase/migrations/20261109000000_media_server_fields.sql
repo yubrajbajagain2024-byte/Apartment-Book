@@ -1,7 +1,8 @@
 -- =============================================================================
--- UniBuzz - migration 51: a video's processing details come from the server only
--- Follows 20261107000100_business_ads.sql (migration 50), whose ads read a video's size and length from public.media.
--- Rollback: supabase/rollbacks/20261107000200_media_server_fields.down.sql. Safe to run more than once.
+-- UniBuzz - migration 55: a video's processing details come from the server only
+-- Follows 20261108000300_buzz_categories.sql (migration 54). Migration 50's ads read a video's size and length from
+-- public.media.
+-- Rollback: supabase/rollbacks/20261109000000_media_server_fields.down.sql. Safe to run more than once.
 --  * public.media's processing state and the video provider's details (status, the upload and asset ids, playback id,
 --    duration, width, height, aspect ratio, poster, error, size) are written by the website's server, which talks to
 --    the provider with the service role: the provider's webhook and the status check behind /api/video/<id>. A signed-in

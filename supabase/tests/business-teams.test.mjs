@@ -8,8 +8,8 @@ const MIGRATION = "migrations/20261107000000_business_teams.sql";
 const ADS = "migrations/20261107000100_business_ads.sql";
 const ROLLBACK = "rollbacks/20261107000000_business_teams.down.sql";
 const ADS_ROLLBACK = "rollbacks/20261107000100_business_ads.down.sql";
-const HARDENING = "migrations/20261107000300_business_hardening.sql";
-const HARDENING_ROLLBACK = "rollbacks/20261107000300_business_hardening.down.sql";
+const HARDENING = "migrations/20261109000100_business_hardening.sql";
+const HARDENING_ROLLBACK = "rollbacks/20261109000100_business_hardening.down.sql";
 
 /** Helpers bound to one database. */
 function helpers(db, as) {
@@ -244,7 +244,7 @@ await expectOk("suspending the business closes every role out of everything but 
 });
 
 // --- Rollback -----------------------------------------------------------------------------------------------------
-await expectOk("the rollback (after 52's and part 2's) puts v1 back: editors and admins are staff again, v1's invite function, no log", async () => {
+await expectOk("the rollback (after 56's and part 2's) puts v1 back: editors and admins are staff again, v1's invite function, no log", async () => {
   await db.exec(read(HARDENING_ROLLBACK));
   await db.exec(read(ADS_ROLLBACK));
   await db.exec(read(ROLLBACK));

@@ -1,6 +1,6 @@
 // The production rollout, rehearsed offline: a database in production's state as of 2026-10-28 (production's migration
 // order, the migrations applied outside this repo, and neither 44, 46 nor 47), with v1 business data in it; then what
-// `npm run db:setup` would apply, in file order (44, 46, 47, 49, 50, 51, 52), with checks after; then every one of their
+// `npm run db:setup` would apply, in file order (44, 46, 47, 49, 50, Buzz's 51 to 54, 55, 56), with checks after; then every one of their
 // rollbacks in reverse order; then all of them again. A real staging project is still the place to try it for real
 // (docs/migrations.md); this shows the files themselves apply, undo and re-apply cleanly in that order.
 import { boot, read, expectOk, done } from "./harness.mjs";
@@ -11,8 +11,12 @@ const PENDING = [
   "20261105000000_anonymous_listings.sql",
   "20261107000000_business_teams.sql",
   "20261107000100_business_ads.sql",
-  "20261107000200_media_server_fields.sql",
-  "20261107000300_business_hardening.sql",
+  "20261108000000_buzz_reply_tree.sql",
+  "20261108000100_buzz_top_reply.sql",
+  "20261108000200_buzz_prompt_threads.sql",
+  "20261108000300_buzz_categories.sql",
+  "20261109000000_media_server_fields.sql",
+  "20261109000100_business_hardening.sql",
 ];
 const { db, mk, as } = await boot({ live: true, skip: PENDING });
 const one = async (p) => (await p).rows[0];
@@ -48,13 +52,14 @@ await expectOk("before: production's state, v1 rules in force (staff on the team
 
 async function applyAll(round) {
   for (const f of PENDING) await expectOk(`${round}: ${f} applies`, () => db.exec(read(`migrations/${f}`)));
-  await expectOk(`${round}: afterwards, Discover ranks (44 + 46), anonymous listings exist (47), the staffer is an editor (49), the promotion is a running paid ad and the listing is still Sponsored (50), media are guarded (51)`, async () => {
+  await expectOk(`${round}: afterwards, Discover ranks (44 + 46), anonymous listings exist (47), the staffer is an editor (49), the promotion is a running paid ad and the listing is still Sponsored (50), buzzes take a category (54), media are guarded (55)`, async () => {
     await db.query("select public.discover_refresh()");
     if (!(await has("select exists (select 1 from information_schema.columns where table_name = 'roommate_posts' and column_name = 'is_anonymous') as ok"))) throw new Error("47 missing");
     if ((await staffRole()) !== "editor") throw new Error(`staff is ${await staffRole()}`);
     const ad = await one(db.query("select status, vertical, placements from public.ads where promoted_apartment_id = $1", [apt]));
     if (ad?.status !== "active" || ad.vertical !== "housing" || !(await sponsored())) throw new Error(JSON.stringify(ad));
-    if (!(await has("select exists (select 1 from pg_trigger where tgname = 'media_server_fields') as ok"))) throw new Error("51 missing");
+    if (!(await has("select exists (select 1 from information_schema.columns where table_name = 'buzz_posts' and column_name = 'category') as ok"))) throw new Error("54 missing");
+    if (!(await has("select exists (select 1 from pg_trigger where tgname = 'media_server_fields') as ok"))) throw new Error("55 missing");
   });
   await expectOk(`${round}: messaging rules hold: the student and the editor talk; the business still cannot start a chat or write first`, async () => {
     await as(staff, () => db.query("insert into public.messages (conversation_id, sender_id, content) values ($1, $2, 'Yes!')", [chat, staff]));
@@ -77,4 +82,4 @@ await expectOk("after every rollback: v1 again (staff, the listing Sponsored thr
 
 await applyAll("second rollout");
 
-done("PRODUCTION ROLLOUT (44, 46, 47, 49, 50, 51, 52)");
+done("PRODUCTION ROLLOUT (44, 46, 47, 49 TO 56)");

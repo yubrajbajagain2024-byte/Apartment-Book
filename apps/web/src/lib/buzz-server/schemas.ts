@@ -1,7 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
-import { BUZZ_COMPOSER_COPY, BUZZ_LIMITS, BUZZ_POLL_DURATIONS, type BuzzPollDuration, type CreateBuzzReplyRequest, type CreateBuzzRequest } from "@apartment-book/shared";
+import { BUZZ_CATEGORIES, BUZZ_CATEGORY_COPY, BUZZ_COMPOSER_COPY, BUZZ_LIMITS, BUZZ_POLL_DURATIONS, type BuzzCategory, type BuzzPollDuration, type CreateBuzzReplyRequest, type CreateBuzzRequest } from "@apartment-book/shared";
 
 /**
  * Request bodies of the Buzz write API (`CreateBuzzRequest` / `CreateBuzzReplyRequest` in packages/shared), ported from
@@ -19,6 +19,7 @@ const uuid = z.string().regex(UUID_RE, "That buzz isn't available.");
 const dimension = (max: number) => z.number().positive().max(max).nullable().optional().transform((v) => v ?? null);
 
 const photoUrl = z.string().max(1000).regex(BUZZ_PHOTO_URL, "Buzz photos must be uploaded anonymously.");
+const category = z.enum(BUZZ_CATEGORIES.map((c) => c.value) as [BuzzCategory, ...BuzzCategory[]], { error: BUZZ_CATEGORY_COPY.invalid });
 
 const imageMeta = z.object({
   url: z.string().max(1000),
@@ -52,6 +53,7 @@ export const createBuzzSchema = z
     text: z.string().trim().max(BUZZ_LIMITS.text).default(""),
     title: z.string().trim().max(BUZZ_LIMITS.title).optional(),
     scope: z.enum(["campus", "global"]).default("campus"),
+    category: category.nullable().optional(),
     images: z.array(photoUrl).max(BUZZ_LIMITS.images, `You can attach up to ${BUZZ_LIMITS.images} photos.`).optional(),
     imageMeta: z.array(imageMeta).max(BUZZ_LIMITS.images).optional(),
     video: video.optional(),
@@ -73,6 +75,7 @@ export type ParsedCreateReply = z.output<typeof createReplySchema>;
 export function toCreateInput(b: ParsedCreateBuzz): CreateBuzzRequest {
   const out: CreateBuzzRequest = { text: b.text, scope: b.scope };
   if (b.title) out.title = b.title;
+  if (b.category) out.category = b.category;
   if (b.images?.length) out.images = b.images;
   if (b.imageMeta?.length) out.imageMeta = b.imageMeta;
   if (b.video) out.video = b.video;

@@ -13,7 +13,7 @@
  * pristine initial state, so one visitor's state can never reach another's render.
  */
 import { useSyncExternalStore } from "react";
-import type { BuzzFeedSort, BuzzPollDuration, BuzzScope, BuzzTopWindow, HomeSection } from "@apartment-book/shared";
+import type { BuzzCategory, BuzzFeedSort, BuzzPollDuration, BuzzScope, BuzzTopWindow, HomeSection } from "@apartment-book/shared";
 
 /* ───────────────────────────── a tiny store ───────────────────────────── */
 
@@ -82,6 +82,8 @@ export interface ComposerDraft {
   text: string;
   /** Which feed the buzz goes to. A fresh draft takes the feed it was opened on. */
   scope: BuzzScope;
+  /** What it is about (BUZZ_CATEGORIES), or none. */
+  category: BuzzCategory | null;
   images: DraftPhoto[];
   video: DraftVideo | null;
   pollOn: boolean;
@@ -94,6 +96,7 @@ export const EMPTY_DRAFT: ComposerDraft = {
   title: "",
   text: "",
   scope: "campus",
+  category: null,
   images: [],
   video: null,
   pollOn: false,

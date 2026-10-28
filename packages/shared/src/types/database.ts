@@ -1733,7 +1733,7 @@ export type Database = {
           started_at: string | null;
           completed_at: string | null;
           legacy_promotion_id: string | null;
-          /** Migration 52: the promoted post or listing as it was reviewed, which students see (set by the database). */
+          /** Migration 56: the promoted post or listing as it was reviewed, which students see (set by the database). */
           promoted_snapshot: Json | null;
           created_at: string;
           updated_at: string;

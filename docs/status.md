@@ -1,6 +1,6 @@
 # Project status
 
-As of **2026-10-27**. Sources: the code, commit messages, and the owner's deploy notes (read-only
+As of **2026-10-28**. Sources: the code, commit messages, and the owner's deploy notes (read-only
 checks of production). Migration-by-migration status is in [migrations.md](migrations.md); branch
 details in [branches/](branches/README.md). Refer to an item below by its title.
 
@@ -18,7 +18,11 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 - **Discover tab:** search plus popular posts, topics and accounts per campus (falls back until 44
   is live).
 - **Buzz v2:** anonymous threads, moderation engine, staff console at `/admin` (41 + 42 live since
-  2026-10-26). Since PR #41 (2026-10-27) an emoji no longer holds a Buzz for review.
+  2026-10-26). Since PR #41 (2026-10-27) an emoji no longer holds a Buzz for review. In the app,
+  replies form a Reddit-style tree, feed cards show a top reply, and each day's prompt has one
+  thread per feed; in the app and on the website a buzz may have a category. These need 51 to 54,
+  not live as of 2026-10-28; until then both fall back (two levels, no top reply, prompt answers
+  as their own buzz, no category kept).
 - **Messages:** realtime chats, groups, semester course chats, voice messages, replies,
   attachments, requests, mute; **Snaps** (view-once); **Calls** (built, paused).
 - **Explore:** apartments with PostGIS distance and maps, roommates, Marketplace (one video per
@@ -31,31 +35,25 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 
 ## Open work, in priority order
 
-- **Apply the pending migrations.** Apply 44 and 46 together, then 47, to production in
-  database-URL mode ([supabase/CLAUDE.md](../supabase/CLAUDE.md)), confirm with
-  `verify.mjs --live`, then publish the app update. Their code is already on `main`, which deploys
-  production, so this is overdue. Needs the owner and a credential.
+- **Apply the pending migrations.** One run of `db:setup` from `main` in database-URL mode
+  ([supabase/CLAUDE.md](../supabase/CLAUDE.md)), after a backup, applies them in file order: 44 and
+  46 together, 47, 49 and 50 (Business v2), 51 to 54 (Buzz), and 55 and 56 once the `business-v2`
+  follow-up PR is merged (the order of release below). Confirm with `verify.mjs --live`, then
+  publish the app update. Their code is already on `main`, which deploys production, so this is
+  overdue. Needs the owner and a credential.
 - **UniBuzz Business v2 is on `main` without its migrations.** PR #49 was merged on 2026-10-28 at
-  04:07 UTC, so production's website runs Business v2 code while production has neither migration
-  49 nor 50. As of 2026-10-28, until they are applied, the code says these are broken on production:
+  04:07 UTC, so production's website runs Business v2 code while, by [migrations.md](migrations.md)
+  (not checked on production), neither migration 49 nor 50 is applied. Until they are, the code
+  says these are broken on production:
   - creating and editing posts in the portal;
   - team invites;
   - the Ads screens;
   - "Message" on a business profile.
 
-  Student feeds carry on without ads. The owner chooses one of two ways out (both write to
-  production):
-  - apply 44, 46, 47, 49 and 50 (in that order, after a backup; rehearsed in
-    `supabase/tests/production-rollout.test.mjs`);
-  - or revert PR #49 on `main` until they can be applied.
-
-  Follow-up work for a new PR is on `business-v2`:
-  - migrations 51 and 52, the video routes, and the fixes from an independent review.
-
-  Recommended order ([migrations.md](migrations.md)):
-  1. Merge that PR.
-  2. Run `db:setup` once from `main` (44, 46, 47, 49, 50, 51 and 52 together, after a backup).
-- **UniBuzz Business v2** (branch `business-v2`). It upgrades the v1 portal to the business spec:
+  Student feeds carry on without ads. The owner chooses (both write to production):
+  - the order of release below, now;
+  - or revert PR #49 on `main` first, until the migrations can be applied.
+- **UniBuzz Business v2** (merged in PR #49 on 2026-10-28 at 04:07 UTC). It upgrades the v1 portal to the business spec:
   - team roles;
   - business posts;
   - the Ads Manager with admin review and recorded payment;
@@ -64,13 +62,16 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   - analytics from real events;
   - an Apple-style portal with light and dark modes.
 
-  Order of release:
-  1. Apply migrations 49 and 50 to production, after the pending ones above
-     ([migrations.md](migrations.md)).
-  2. Merge the follow-up PR, then apply 51.
+  Order of release ([migrations.md](migrations.md)):
+  1. Merge the follow-up PR from `business-v2`: migrations 55 and 56, the video routes, and the
+     fixes from an independent review. `SUPABASE_SERVICE_ROLE_KEY` must be set on Vercel.
+  2. Run `db:setup` once from `main`, after a backup: 44, 46, 47 and 49 to 56.
   3. Publish the app update.
 
   Follow-up work is listed in [branches/business-v2.md](branches/business-v2.md).
+- **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
+  website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
+  (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).
 - **Security fix pending.** A security fix for a live part of the database is ready on a local,
   unpushed branch (2026-10-27) and is **not applied to production**. Its details stay out of this
   repository until production is patched, because the repository is public.
@@ -98,7 +99,7 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 | Item | Where it is written up |
 | --- | --- |
 | Three migrations not on production (44, 46, 47), while `main`, which deploys production, already uses them | [migrations.md](migrations.md) |
-| Business v2's code is on `main` (PR #49) without migrations 49 and 50 on production: posts, invites and the Ads screens in the portal fail until they are applied | "UniBuzz Business v2 is on `main` without its migrations" above |
+| Business v2's code is on `main` (PR #49) while, by [migrations.md](migrations.md), migrations 49 and 50 are not on production (not checked): posts, invites and the Ads screens in the portal fail until they are applied | "UniBuzz Business v2 is on `main` without its migrations" above |
 | `db:setup` token mode resets the production auth Site URL to localhost by default | [supabase/CLAUDE.md](../supabase/CLAUDE.md) |
 | A security fix for a live part of the database is pending | "Security fix pending" above |
 | Supabase CLI history empty on production; `supabase db push` would re-run everything | `supabase/applied-outside-repo/README.md` |
@@ -116,6 +117,8 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 - **Core, next up:** clubs and organizations (pages to follow and join), campus events, campus
   news (none started); calls switched on (blocked, above); more campuses (a `universities` row
   with its `email_domain` and campus coordinates).
+- **Buzz category sections:** buzzes can carry a category (54); how sections show them is not
+  decided yet (filter chips on the feed, a page per category, following or muting categories).
 - **Explore tools, later:** saved searches with alerts; seller ratings.
 - **Long term:** the main digital community for university students worldwide (README
   §"Long-term vision").

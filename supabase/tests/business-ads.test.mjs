@@ -81,7 +81,7 @@ const invite = async (by, email, role) => {
   return id;
 };
 const cafeEditor = await invite(cafeOwner, "ed@beanthere.example", "editor");
-/** A photo the person really uploaded to this project's storage (migration 52 holds ad photos to those). */
+/** A photo the person really uploaded to this project's storage (migration 56 holds ad photos to those). */
 const upload = async (owner, name) => {
   await db.query("insert into storage.objects (bucket_id, name, owner, owner_id) values ('uploads', $1, $2, $3)", [`posts/${owner}/${name}.jpg`, owner, owner]);
   return { type: "image", url: `https://proj.supabase.co/storage/v1/object/public/uploads/posts/${owner}/${name}.jpg` };
@@ -167,7 +167,7 @@ await expectOk("a housing business's ad is a housing ad, in Housing only, screen
   const flags = housingAd.fair_housing_flags.join(" | ");
   if (!flags.includes('Familial status: "no kids"') || !flags.includes('Familial status: "adults only"') || !flags.includes('Familial status: "perfect for singles"')) throw new Error(flags);
 });
-await expectOk("the same words in a café's ad are screened too (migration 52: every ad, whatever the business's category)", async () => {
+await expectOk("the same words in a café's ad are screened too (migration 56: every ad, whatever the business's category)", async () => {
   const a = await draft(cafeOwner, ready({ caption: "Adults only open mic. No kids." }));
   if (a.fair_housing_flags.length === 0) throw new Error("not screened");
 });

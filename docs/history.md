@@ -58,8 +58,14 @@ open work is in [status.md](status.md).
 - 2026-10-28 04:07 UTC: PR #49 (UniBuzz Business v2) merged into `main`, 16 seconds after it was
   opened. Its description and this repository's docs said to apply migrations 49 and 50 first.
   Production's website therefore runs Business v2 code against a database without them (see
-  status.md). The follow-up work (migration 51, video routes, review fixes) stays on
+  status.md). The follow-up work (migration 51, now 55; video routes; review fixes) stays on
   `business-v2` for a new PR.
+
+- 2026-10-28 06:18 UTC: PR #50 (`ankur/dev`: Buzz threaded replies, top reply, prompt threads,
+  categories) merged into `main` with migrations numbered 51 to 54. The two unmerged migrations on
+  `business-v2`, 51 and 52 in its commit messages, were renamed to sort after them
+  (`20261109000000_media_server_fields.sql`, `20261109000100_business_hardening.sql`): now 55 and
+  56.
 
 ## Retired branches
 

@@ -69,6 +69,14 @@ export function getBuzzMeta(supabase: Client, scope: BuzzScope): Promise<BuzzFee
   return call<BuzzFeedMeta>(supabase, "buzz_v2_meta", { p_scope: scope });
 }
 
+/**
+ * The thread of today's prompt on a feed, made by the first answer (20261108000200_buzz_prompt_threads.sql): answer in
+ * it with createBuzzReply. Fails with `prompt_ended` once the day has moved on to the next prompt.
+ */
+export function getBuzzPromptThread(supabase: Client, promptId: string, scope: BuzzScope): Promise<string> {
+  return call<string>(supabase, "buzz_v2_prompt_thread", { p_prompt: promptId, p_scope: scope });
+}
+
 export function getBuzzThread(supabase: Client, threadId: string, limit: number = BUZZ_PAGE.replies): Promise<BuzzThread> {
   return call<BuzzThread>(supabase, "buzz_v2_thread", { p_thread: threadId, p_limit: limit });
 }

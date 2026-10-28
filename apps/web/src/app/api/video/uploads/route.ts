@@ -12,7 +12,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * real one under the cap (older app builds send none when the picker does not
  * know it). What bounds an upload on the server is the database: uploads per
  * person a day, and the video's length once the provider has measured it
- * (migration 51; the provider's webhook and the status check enforce it too).
+ * (migration 55; the provider's webhook and the status check enforce it too).
  */
 export async function POST(request: Request) {
   const auth = await getRequestUser(request);
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     size = Math.floor(body.sizeBytes);
     if (size > MAX_VIDEO_SIZE_BYTES) return NextResponse.json({ error: "Videos must be 2 GB or smaller" }, { status: 413 });
   }
-  // The provider's ids are the server's to write (migration 51): without the service key, uploads cannot start.
+  // The provider's ids are the server's to write (migration 55): without the service key, uploads cannot start.
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: "Video uploads are not available right now" }, { status: 503 });
   try {

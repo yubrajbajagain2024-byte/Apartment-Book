@@ -1,14 +1,14 @@
-// Migration 52 (UniBuzz Business v2 hardening) against PGlite, one check per finding of the independent review of
+// Migration 56 (UniBuzz Business v2 hardening) against PGlite, one check per finding of the independent review of
 // migrations 49 and 50: an approved ad shows what was reviewed, and pauses when what it promotes (or the business's
-// category) changes; every ad's words are screened; video ads wait for migration 51; ad photos are this project's
+// category) changes; every ad's words are screened; video ads wait for migration 55; ad photos are this project's
 // uploads; a business sees a chat and the student in it only once the student wrote, and a block stops the chat both
 // ways; dates are the database's; the foreign-key exception and the payment ledger hold; events count once and only
 // for the targeted campus; saved ads respect takedowns; the reviewer stays unnamed; repeated edits fold in the log;
 // non-http links are dropped; and the rollback.
 import { boot, read, expectOk, expectError, done } from "./harness.mjs";
 
-const MIGRATION = "migrations/20261107000300_business_hardening.sql";
-const ROLLBACK = "rollbacks/20261107000300_business_hardening.down.sql";
+const MIGRATION = "migrations/20261109000100_business_hardening.sql";
+const ROLLBACK = "rollbacks/20261109000100_business_hardening.down.sql";
 const hours = (h) => new Date(Date.now() + h * 3600_000).toISOString();
 
 const { db, mk, as } = await boot();
@@ -102,15 +102,15 @@ await expectOk("switching category while ads run pauses them for the UniBuzz tea
   await as(cafeOwner, () => db.query("update public.businesses set category = 'food' where id = $1", [cafe]));
 });
 
-// --- Video ads wait for migration 51 ---------------------------------------------------------------------------------------
-await expectOk("without migration 51's guard, a video ad cannot be approved; with it, it can", async () => {
+// --- Video ads wait for migration 55 ---------------------------------------------------------------------------------------
+await expectOk("without migration 55's guard, a video ad cannot be approved; with it, it can", async () => {
   const v = (await one(db.query("insert into public.media (owner_id, status, width, height, duration_seconds, playback_id) values ($1, 'ready', 1080, 1920, 20, 'pb-own') returning id", [cafeOwner]))).id;
   const a = await draft(cafeOwner, cafe, { name: "Reel", placements: ["reels"], media: [{ type: "video", media_id: v }], cta: "visit_profile" });
   await submit(cafeOwner, a.id);
   await db.exec("alter table public.media disable trigger media_server_fields; drop trigger media_server_fields on public.media");
   const refused = await approve(a.id).then(() => "approved", (e) => e.message);
-  await db.exec(read("migrations/20261107000200_media_server_fields.sql"));
-  if (!refused.includes("migration 51")) throw new Error(refused);
+  await db.exec(read("migrations/20261109000000_media_server_fields.sql"));
+  if (!refused.includes("migration 55")) throw new Error(refused);
   if ((await approve(a.id)).status !== "active") throw new Error("not approved with the guard");
 });
 
@@ -205,4 +205,4 @@ await expectOk("the migration re-runs cleanly; the rollback puts 50's serving ba
   await db.exec(read(MIGRATION));
 });
 
-done("MIGRATION-52 BUSINESS HARDENING");
+done("MIGRATION-56 BUSINESS HARDENING");

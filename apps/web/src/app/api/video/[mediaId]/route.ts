@@ -12,7 +12,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ medi
   const media = await getMedia(auth.supabase, mediaId).catch(() => null);
   if (!media) return NextResponse.json({ error: "Not found" }, { status: 404 });
   try {
-    // The owner's poll asks the provider; the answer is written with the service role (migration 51).
+    // The owner's poll asks the provider; the answer is written with the service role (migration 55).
     const admin = media.owner_id === auth.user.id ? createAdminClient() : null;
     const synced = admin ? await syncMediaStatus(admin, media) : media;
     return NextResponse.json({ media: synced });

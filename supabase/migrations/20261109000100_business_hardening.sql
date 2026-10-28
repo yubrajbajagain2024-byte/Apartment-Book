@@ -1,13 +1,13 @@
 -- =============================================================================
--- UniBuzz - migration 52: UniBuzz Business v2 hardening (after an independent review of migrations 49 and 50)
--- Follows 20261107000200_media_server_fields.sql (migration 51). Rollback:
--- supabase/rollbacks/20261107000300_business_hardening.down.sql. Safe to run more than once.
+-- UniBuzz - migration 56: UniBuzz Business v2 hardening (after an independent review of migrations 49 and 50)
+-- Follows 20261109000000_media_server_fields.sql (migration 55). Rollback:
+-- supabase/rollbacks/20261109000100_business_hardening.down.sql. Safe to run more than once.
 --  * What students see is what was reviewed: an ad keeps a copy of the post or listing it promotes from the moment it
 --    is approved (promoted_snapshot), and ads_for_feed() shows that copy. When the post or listing changes, or the
 --    business changes its category, its scheduled and running ads pause for the UniBuzz team to look again.
 --  * Fair Housing: every ad's words are screened (not only housing ads'), again at submission and at approval; an ad
 --    with flags needs the reviewer's check and a note, a housing ad the check. A video ad is approved only where
---    migration 51 guards the media table.
+--    migration 55 guards the media table.
 --  * Ad photos are uploads to this project's storage by someone on the team (storage.objects), and a promoted post's
 --    copy keeps only those.
 --  * Chats: a business sees an inquiry chat, and the student in it, once the student has written; a block between the
@@ -439,7 +439,7 @@ $$;
 
 -- Migration 50's approval, which also: works out the screen again from what the ad says now; asks the reviewer's Fair
 -- Housing check of a housing ad and of any flagged ad (and a note for a flagged one); approves a video ad only where
--- migration 51 guards the media table; and keeps a copy of what the ad promotes, which is what students will see.
+-- migration 55 guards the media table; and keeps a copy of what the ad promotes, which is what students will see.
 create or replace function public.admin_approve_ad(
   p_ad uuid, p_amount_cents integer, p_currency text, p_payment_reference text, p_note text default null,
   p_fair_housing_checked boolean default false
@@ -477,7 +477,7 @@ begin
   end if;
   if exists (select 1 from jsonb_array_elements(a.media) e where e ->> 'type' = 'video')
      and not exists (select 1 from pg_trigger t where t.tgname = 'media_server_fields' and t.tgrelid = 'public.media'::regclass) then
-    raise exception 'Video ads can be approved once the media table is guarded (migration 51).';
+    raise exception 'Video ads can be approved once the media table is guarded (migration 55).';
   end if;
   if p_amount_cents is null or p_amount_cents <= 0 then
     raise exception 'An ad is paid: enter the amount received';

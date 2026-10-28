@@ -131,9 +131,9 @@ export const PUSH_PLATFORMS = ["ios", "android", "web"] as const;
 /** Video */
 export const MAX_VIDEOS_PER_LISTING = 3;
 export const MAX_VIDEO_SIZE_BYTES = 2 * 1024 * 1024 * 1024;
-/** The longest video anyone uploads (10 minutes): the server refuses a longer one and deletes it at the provider (migration 51). */
+/** The longest video anyone uploads (10 minutes): the server refuses a longer one and deletes it at the provider (migration 55). */
 export const MAX_VIDEO_DURATION_SECONDS = 600;
-/** New videos a day per person, as the database counts them (migration 51). */
+/** New videos a day per person, as the database counts them (migration 55). */
 export const MAX_VIDEO_UPLOADS_PER_DAY = 30;
 /** How old a signed webhook from the video provider may be, in seconds, before it is refused as a replay. */
 export const MUX_WEBHOOK_TOLERANCE_SECONDS = 300;

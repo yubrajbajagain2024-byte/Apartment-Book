@@ -4,7 +4,7 @@ import type { Client, Database } from "@apartment-book/shared";
 import { getSupabaseEnv } from "@/lib/env";
 
 /**
- * The service-role client, for the few writes only the server may make (a video's processing details, migration 51), or
+ * The service-role client, for the few writes only the server may make (a video's processing details, migration 55), or
  * null when SUPABASE_SERVICE_ROLE_KEY is not set. Never carries a user's session; never reaches a browser.
  */
 export function createAdminClient(): Client | null {

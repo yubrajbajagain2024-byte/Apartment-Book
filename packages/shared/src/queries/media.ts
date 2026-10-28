@@ -15,7 +15,7 @@ export async function listMyMedia(supabase: Client, ownerId: string): Promise<Me
 /** Create the media row that a provider upload will fill in. */
 export async function createMediaRecord(
   supabase: Client,
-  /** `providerUploadId` is the server's to set since migration 51: a signed-in session's insert stores none. */
+  /** `providerUploadId` is the server's to set since migration 55: a signed-in session's insert stores none. */
   input: { ownerId: string; provider: string; providerUploadId?: string | null; sizeBytes?: number | null },
 ): Promise<Media> {
   const { data, error } = await supabase

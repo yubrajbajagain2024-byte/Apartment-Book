@@ -1,11 +1,11 @@
-// Migration 51 (a video's processing details come from the server only) against PGlite: a signed-in session's insert
+// Migration 55 (a video's processing details come from the server only) against PGlite: a signed-in session's insert
 // starts as 'uploading' with no provider details, its updates leave them as they are; the server (the service role)
 // writes them; 30 new videos a day per person; a ready video longer than 10 minutes is stored as failed; deleting one's
 // own video still works; and the rollback. Also on production's migration order (boot({ live: true })).
 import { boot, read, expectOk, expectError, done } from "./harness.mjs";
 
-const MIGRATION = "migrations/20261107000200_media_server_fields.sql";
-const ROLLBACK = "rollbacks/20261107000200_media_server_fields.down.sql";
+const MIGRATION = "migrations/20261109000000_media_server_fields.sql";
+const ROLLBACK = "rollbacks/20261109000000_media_server_fields.down.sql";
 
 for (const live of [false, true]) {
   const label = live ? "production order: " : "";
@@ -65,4 +65,4 @@ for (const live of [false, true]) {
   await db.close();
 }
 
-done("MIGRATION-51 MEDIA SERVER FIELDS");
+done("MIGRATION-55 MEDIA SERVER FIELDS");

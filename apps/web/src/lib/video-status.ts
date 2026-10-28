@@ -30,7 +30,7 @@ async function assetPatch(asset: MuxAsset) {
 
 /**
  * Ask the provider how the video is doing and store the answer. `supabase` must be the service-role client: a video's
- * processing details are the server's to write (migration 51), and a session's client changes none of them.
+ * processing details are the server's to write (migration 55), and a session's client changes none of them.
  */
 export async function syncMediaStatus(supabase: Client, media: Media): Promise<Media> {
   if (media.status === "ready" || media.status === "failed") return media;

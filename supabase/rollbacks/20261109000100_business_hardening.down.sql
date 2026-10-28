@@ -1,6 +1,6 @@
 -- =============================================================================
--- Rollback of 20261107000300_business_hardening.sql (UniBuzz Business v2 hardening).
--- Run as one transaction, before rolling back 51, 50 or 49.
+-- Rollback of 20261109000100_business_hardening.sql (UniBuzz Business v2 hardening).
+-- Run as one transaction, before rolling back 55, 50 or 49.
 --  * Puts back, exactly as they were, the functions this migration replaced: migration 50's business_media_problem, deals_before_write, ads_before_write, ad_submit, admin_approve_ad, admin_resume_ad, admin_record_promotion, ads_for_feed, my_saved_ads, record_business_event;
 --    migration 49's business_audit, business_audit_write, business_notify_team; migration 39's business_chat_readable, business_can_see_profile, chat_write_problem, and 39's
 --    conversations_business_scope policy.

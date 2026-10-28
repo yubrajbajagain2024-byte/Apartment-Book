@@ -14,6 +14,8 @@ its row and say why and when.
 | Photos stored untouched; renditions at read time | Photos are the product: originals up to 25 MB, 12 per listing, Next.js images at quality 85–90 with blurred placeholders |
 | No payments in the Marketplace | Meet on campus, like Facebook Marketplace |
 | Buzz tables unreadable through the API | Only the `buzz_v2_*` functions decide what leaves the database, so a policy mistake cannot leak anonymity |
+| Each day's Buzz prompt has one thread per campus and one on Global, owned by no one; answers are its replies by default, or a buzz of their own titled with the prompt (2026-10-28) | Answers read together under the prompt instead of as stray untitled buzzes; no anon owns the prompt; the first answer makes the thread, so a day nobody answers leaves nothing |
+| A buzz's category is optional, one per buzz, from a fixed list (`BUZZ_CATEGORIES`) that the database also enforces (2026-10-28) | Stored now so category sections can come later; a fixed list keeps sections meaningful; optional keeps posting quick |
 | Moderation engine is server-only | Its rules must never be bundled into the app |
 | Businesses can never start a conversation | Students are never cold-messaged |
 | "Sponsored" only for a recorded paid promotion; "Verified Partner" only with evidence | The database refuses either label otherwise |
@@ -29,7 +31,7 @@ its row and say why and when.
 | Housing ads (a housing business's, or one promoting a listing) run in Housing only; every one needs an admin's Fair Housing check, with a note when the screen flags its words | The Fair Housing Act (42 U.S.C. 3604(c)); the screen flags, a person decides |
 | Ads go to signed-in students only, chosen by campus in a daily rotation that is the same for everyone on that campus, at most one per 9 organic rows | Campus is the only targeting: never demographics or activity; "about one per 8 to 10 posts" |
 | Students' reports about businesses and ads go to the business portal's admin queue, not the staff console's | Business admins act on ads; joining the two queues is later work |
-| An approved ad shows the copy of its post or listing taken at approval; a change to that post or listing, or to the business's category, pauses the ad until the UniBuzz team looks again (migration 52) | Students see what was reviewed, and nothing reaches them that the UniBuzz team did not see |
-| Every ad's words are screened for Fair Housing, not only housing ads' (migration 52) | A business's category is its own to change, so it cannot decide whether its words are checked |
-| A business sees an inquiry chat, and the student in it, only once the student has written (migration 52) | Tapping "Message" is not consent to be known to the business |
-| A video's processing details are written by the website's server with the service role, never by a signed-in session (migration 51) | Ads and Reels rely on a video's size and length; only the provider knows them |
+| An approved ad shows the copy of its post or listing taken at approval; a change to that post or listing, or to the business's category, pauses the ad until the UniBuzz team looks again (migration 56) | Students see what was reviewed, and nothing reaches them that the UniBuzz team did not see |
+| Every ad's words are screened for Fair Housing, not only housing ads' (migration 56) | A business's category is its own to change, so it cannot decide whether its words are checked |
+| A business sees an inquiry chat, and the student in it, only once the student has written (migration 56) | Tapping "Message" is not consent to be known to the business |
+| A video's processing details are written by the website's server with the service role, never by a signed-in session (migration 55) | Ads and Reels rely on a video's size and length; only the provider knows them |

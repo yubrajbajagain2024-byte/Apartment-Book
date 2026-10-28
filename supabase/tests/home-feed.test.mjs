@@ -118,7 +118,7 @@ for (const [name, sql, args] of [
   ["reply walk", "select * from public.buzz_v2_visible_replies($1, $2, true)", () => [buzz, B]],
 ]) await expectError(`buzz: ${name} is not reachable through the API`, () => as(B, () => db.query(sql, args())), "permission denied");
 await expectOk("buzz: video ownership is private, and the stored video carries no media id", async () => {
-  // The owner's session starts the upload; the server finishes it (migration 51: only the server writes a video's processing details).
+  // The owner's session starts the upload; the server finishes it (migration 55: only the server writes a video's processing details).
   const mediaA = (await as(A, () => db.query("insert into public.media (owner_id, provider) values ($1,'mux') returning id", [A]))).rows[0].id;
   await db.query("update public.media set provider_upload_id='up1', status='ready', playback_id='pbbuzz123' where id=$1", [mediaA]);
   if ((await as(B, () => db.query("select * from public.media where playback_id='pbbuzz123'"))).rows.length !== 0) throw new Error("media owner readable");

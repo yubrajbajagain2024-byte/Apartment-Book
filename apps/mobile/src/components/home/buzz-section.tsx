@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import {
   BUZZ_FEED_COPY,
   BUZZ_PAGE,
+  BUZZ_PROMPT_COPY,
   BUZZ_SORT_OPTIONS,
   BUZZ_TOP_WINDOWS,
   getBuzzFeed,
@@ -14,7 +15,7 @@ import {
   type BuzzTopWindow,
 } from "@apartment-book/shared";
 import { Icon } from "@/components/icon";
-import { BuzzCardById, BuzzCardSkeleton, CARD_GAP } from "@/components/buzz/card";
+import { BuzzCardById, BuzzCardSkeleton, CARD_GAP, openThread } from "@/components/buzz/card";
 import { BuzzComposer } from "@/components/buzz/composer";
 import { BuzzFab } from "@/components/buzz/fab";
 import { BuzzGatePanel, BuzzSignedOutPanel, useBuzzGate } from "@/components/buzz/gate";
@@ -39,7 +40,8 @@ import { useTabReselect } from "@/lib/tab-reselect";
  *    the page is the one on screen; otherwise an empty canvas, nothing loaded), "Not now" back to the section before.
  *  - Accepted: under Home's bar a filter bar (search pill, Hot | New | Top, Campus | Global) that slides up under the bar
  *    as the feed scrolls down and comes back as it scrolls up; Top adds Today | This week | All time; today's prompt (Hot
- *    only); the small-campus note; the cold start (an empty campus Hot feed moves to Global with a banner); the cards;
+ *    only: "Answer anonymously" and, once anyone has, its thread with the answers, which Hot then leaves out of the
+ *    list below); the small-campus note; the cold start (an empty campus Hot feed moves to Global with a banner); the cards;
  *    skeletons, empty states, the error state, more as you scroll ("That's everything for now"); the FAB (pen + mask)
  *    and the composer. Home's own bar stays put on this page, as on UniVerse: Buzz never feeds its collapse.
  *
@@ -246,6 +248,10 @@ function Feed({ active, topInset }: { active: boolean; topInset: number }) {
   /* ---------- the list ---------- */
 
   const where = scope === "campus" ? (campus?.shortName ?? meta?.campus?.shortName ?? "campus") : "Global";
+  // Today's prompt thread is the prompt card in Hot (with its answers): not a second time in the list below it.
+  const promptThread = meta?.prompt?.threadId ?? null;
+  const promptAnswers = meta?.prompt?.answers ?? 0;
+  const rows = useMemo(() => (sort === "hot" && promptThread ? list.rows.filter((r) => r.id !== promptThread) : list.rows), [sort, promptThread, list.rows]);
   const university = campus?.name ?? meta?.campus?.name ?? "your campus";
   const header = (
     <View style={styles.header}>
@@ -275,7 +281,17 @@ function Feed({ active, topInset }: { active: boolean; topInset: number }) {
             <Text style={[T.overline, { color: P.accentInk }]}>{BUZZ_FEED_COPY.promptOverline}</Text>
           </View>
           <Text style={[T.headline, { color: P.ink, fontSize: 17, lineHeight: 23 }]}>{meta.prompt.text}</Text>
-          <PButton title={BUZZ_FEED_COPY.promptAction} variant="secondary" size="sm" onPress={() => openComposer({ promptId: meta.prompt!.id })} style={styles.selfStart} />
+          <View style={styles.promptActions}>
+            <PButton title={BUZZ_FEED_COPY.promptAction} variant="secondary" size="sm" onPress={() => openComposer({ promptId: meta.prompt!.id, promptMode: "thread" })} />
+            {promptThread && promptAnswers > 0 ? (
+              <Pressable onPress={() => openThread(router, promptThread)} hitSlop={8} accessibilityRole="link" accessibilityHint="Opens the prompt's thread" style={({ pressed }) => [styles.promptLink, pressed && { opacity: 0.75 }]}>
+                <Text style={[T.labelSm, { color: P.accentInk }]}>{BUZZ_PROMPT_COPY.seeAnswers(promptAnswers)}</Text>
+                <Icon name="chevron-forward" size={14} color={P.accentInk} />
+              </Pressable>
+            ) : meta.prompt.threadId !== undefined ? (
+              <Text style={[T.caption, styles.flex, { color: P.ink3 }]}>{BUZZ_PROMPT_COPY.first}</Text>
+            ) : null}
+          </View>
         </View>
       ) : null}
     </View>
@@ -314,7 +330,7 @@ function Feed({ active, topInset }: { active: boolean; topInset: number }) {
         <View style={styles.flex}>
           <AnimatedFlatList
             ref={listRef}
-            data={list.status === "ready" ? list.rows : []}
+            data={list.status === "ready" ? rows : []}
             keyExtractor={(r) => r.id}
             renderItem={({ item }) => <CardRow id={item.id} />}
             ItemSeparatorComponent={Separator}
@@ -365,7 +381,7 @@ function Feed({ active, topInset }: { active: boolean; topInset: number }) {
           <BuzzFab onPress={() => openComposer()} bottom={tabBar + 12} translateY={fabY} />
           <BuzzToastHost bottom={tabBar + 84} enabled={active && focused} />
         </View>
-        <BuzzComposer visible={composerOpen} onClose={() => setComposerOpen(false)} />
+        <BuzzComposer visible={composerOpen} onClose={() => setComposerOpen(false)} onAnswered={(threadId, replyId) => openThread(router, threadId, replyId)} />
       </BuzzActionsHost>
     </BuzzMediaActive.Provider>
   );
@@ -385,7 +401,6 @@ function FeedEmpty({ sort, window, scope, university, onSeeGlobal, onCheckNew, o
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   page: { flex: 1, backgroundColor: P.canvas },
-  selfStart: { alignSelf: "flex-start" },
   header: { gap: 12, paddingBottom: CARD_GAP },
   cards: { paddingHorizontal: GUTTER, gap: CARD_GAP },
   cardRow: { paddingHorizontal: GUTTER },
@@ -394,6 +409,8 @@ const styles = StyleSheet.create({
   smallCampus: { marginHorizontal: GUTTER, paddingHorizontal: 12, paddingVertical: 8, borderRadius: R.md, borderCurve: "continuous", backgroundColor: P.surface2 },
   prompt: { marginHorizontal: GUTTER, gap: 12, padding: 16, borderRadius: R.lg, borderCurve: "continuous", borderWidth: 1, borderColor: P.accentLine, backgroundColor: P.surface1, experimental_backgroundImage: HERO_SOFT_GRADIENT },
   promptHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+  promptActions: { flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap" },
+  promptLink: { flexDirection: "row", alignItems: "center", gap: 2, minHeight: 36 },
   end: { alignItems: "center", paddingVertical: 20 },
   filterBar: { position: "absolute", left: 0, right: 0, gap: 8, paddingHorizontal: GUTTER, paddingTop: 8, paddingBottom: 10, backgroundColor: P.canvas },
   searchPill: { height: 42, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, borderRadius: R.pill, backgroundColor: P.surface2 },

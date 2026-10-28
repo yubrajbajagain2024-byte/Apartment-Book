@@ -2,18 +2,22 @@
 
 /**
  * The Buzz composer (UniVerse's `features/buzz/Composer.tsx`): a full-height sheet with the "You're anonymous"
- * banner, today's prompt when answering it, Campus / Global, an optional title (100, Enter jumps to the body), the
- * body (500), up to 4 photos OR one video (≤ 60 s, refused before upload), a poll (2–4 options, 1 / 3 / 7 days,
- * unlocked 24 h after joining) and the hero "Buzz it". No avatar, no handle. Photos are re-encoded on the device
+ * banner, today's prompt when answering it, Campus / Global, a category (optional: one of BUZZ_CATEGORIES, click it
+ * again for none), an optional title (100, Enter jumps to the body), the body (500), up to 4 photos OR one video
+ * (≤ 60 s, refused before upload), a poll (2–4 options, 1 / 3 / 7 days, unlocked 24 h after joining) and the hero
+ * "Buzz it". No avatar, no handle. Photos are re-encoded on the device
  * (no camera metadata) and go to the anonymous folder. The draft lives in memory only, for the session.
  */
 import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { BarChart3, Clapperboard, ImagePlus, Plus, RotateCw, Sparkles, VenetianMask, X } from "lucide-react";
 import {
+  BUZZ_CATEGORIES,
+  BUZZ_CATEGORY_COPY,
   BUZZ_COMPOSER_COPY,
   BUZZ_LIMITS,
   BUZZ_POLL_DURATIONS,
+  buzzCategory,
   buzzErrorMessage,
   type BuzzPollDuration,
   type CreateBuzzRequest,
@@ -198,6 +202,7 @@ function ComposerSheet() {
   const uploading = photosBusy || video !== null;
   const canSubmit = (text.length > 0 || title.length > 0) && text.length <= BUZZ_LIMITS.text && title.length <= BUZZ_LIMITS.title && pollValid && !uploading && !submitting && (!draft.pollOn || !pollsLocked);
   const prompt = draft.promptId && meta?.prompt?.id === draft.promptId ? meta.prompt : null;
+  const category = buzzCategory(draft.category);
 
   /* photos */
   const upload = (p: PendingPhoto) => {
@@ -273,6 +278,7 @@ function ComposerSheet() {
     const body: CreateBuzzRequest = {
       text,
       scope: draft.scope,
+      ...(draft.category ? { category: draft.category } : {}),
       ...(title ? { title } : {}),
       ...(draft.video
         ? { video: { playbackId: draft.video.playbackId, posterUrl: draft.video.posterUrl, width: draft.video.width, height: draft.video.height, durationSeconds: draft.video.durationSeconds } }
@@ -337,6 +343,16 @@ function ComposerSheet() {
         <div className="flex flex-col gap-1.5">
           <Segmented aria-label="Post to" value={draft.scope} onChange={(scope) => buzzActions.setDraft({ scope })} options={SCOPE_OPTIONS} className="self-start" />
           <span className={cn("text-incog-ink-3", T.caption)}>{draft.scope === "campus" ? BUZZ_COMPOSER_COPY.campusScopeNote(campus) : BUZZ_COMPOSER_COPY.globalScopeNote}</span>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <div role="group" aria-label={BUZZ_CATEGORY_COPY.label} data-no-swipe="" className="-mx-4 flex flex-nowrap gap-2 overflow-x-auto px-4 py-1 [scrollbar-width:none]">
+            {BUZZ_CATEGORIES.map((c) => (
+              <Chip key={c.value} size="sm" selected={draft.category === c.value} onClick={() => buzzActions.setDraft({ category: buzzUi.get().draft.category === c.value ? null : c.value })}>
+                <span aria-hidden="true">{c.emoji}</span> {c.label}
+              </Chip>
+            ))}
+          </div>
+          <span className={cn("text-incog-ink-3", T.caption)}>{category ? `${category.label}: ${category.hint}` : BUZZ_CATEGORY_COPY.none}</span>
         </div>
         <AutoTextarea
           ref={titleRef}

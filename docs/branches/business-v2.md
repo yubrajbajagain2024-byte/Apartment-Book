@@ -4,8 +4,10 @@
   - The first round (four commits of work plus docs, up to `575587a`) was **merged into `main` as
     PR #49 on 2026-10-28 at 04:07 UTC**, before migrations 49 and 50 reached production. See
     docs/status.md for what that means and the two ways out.
-  - The second round is on this branch for a new PR: migration 51, the video routes, and fixes from
-    an independent review.
+  - The second round is on this branch for a new PR: migrations 55 and 56, the video routes, and
+    fixes from an independent review. `main` (PR #50, Buzz) is merged in. 55 and 56 were 51 and 52
+    until 2026-10-28, and this branch's earlier commit messages still call them that
+    (docs/migrations.md, "Numbering quirk").
   - Written by an AI session.
 - **Purpose:** UniBuzz Business v2: upgrade the v1 portal (migration 39) to the business spec without
   rebuilding it.
@@ -24,8 +26,8 @@
 | --- | --- | --- |
 | 49 | `20261107000000_business_teams.sql` (+ rollback) | Team roles, the business audit log, notifications of type `business`. Details below. |
 | 50 | `20261107000100_business_ads.sql` (+ rollback) | Posts, ads, serving, events, Fair Housing, the v1 data migration. Details below. |
-| 51 | `20261107000200_media_server_fields.sql` (+ rollback) | A video's processing details (status, the provider's ids, size, length, poster) are written by the server only; 30 new videos a day per person; a ready video is 10 minutes at most. |
-| 52 | `20261107000300_business_hardening.sql` (+ rollback) | The independent review's fixes (above). |
+| 55 | `20261109000000_media_server_fields.sql` (+ rollback) | A video's processing details (status, the provider's ids, size, length, poster) are written by the server only; 30 new videos a day per person; a ready video is 10 minutes at most. |
+| 56 | `20261109000100_business_hardening.sql` (+ rollback) | The independent review's fixes (above). |
 
 **49, `business_teams`:**
 - **Roles:** owner, admin, editor and analyst replace owner and staff; every staff member becomes an editor.
@@ -54,10 +56,11 @@
 - **v1 data:** every v1 promotion becomes an ad, its payment linked.
 
 **Release order:**
-- The timestamps are later than every migration on `main` and on the other branches.
-- Apply 49 and 50 together, after every earlier migration, with `SUPABASE_DB_URL=… npm run db:setup` (supabase/CLAUDE.md).
-- Then `notify pgrst, 'reload schema'`.
-- The code on this branch needs both migrations. Do not merge before they are live.
+- The timestamps are later than every migration on `main` and on the other branches (55 and 56
+  were renamed on 2026-10-28 to stay so, after PR #50's Buzz migrations 51 to 54).
+- After the follow-up PR is merged, one `SUPABASE_DB_URL=… npm run db:setup` run from `main`, after
+  a backup, applies 44, 46, 47 and 49 to 56 in file order (supabase/CLAUDE.md, docs/migrations.md).
+- Then `notify pgrst, 'reload schema'` and `verify.mjs --live`.
 
 **Compatibility with v1 clients:**
 - **v1 portal calls still work:**
@@ -136,7 +139,7 @@
 
 ## Second round (2026-10-28, for a new PR)
 
-- **Migration 51** and the website's video routes:
+- **Migration 55** and the website's video routes:
   - The upload route checks a declared size and writes Mux's upload id with the service role.
   - The status check writes with the service role and refuses videos over 10 minutes (deleting them
     at Mux).
@@ -145,22 +148,23 @@
     `asset_id`.
   - `lib/supabase/admin.ts` is the server-only service-role client.
 - **App:** measures a video's size when the picker does not report it.
-- **Release order for 51:** the code first, then the migration. With the old code, a session's
+- **Release order for 55:** the code first, then the migration. With the old code, a session's
   writes of an upload's progress would be ignored and new uploads would stay "processing".
 - **Display:** prices no longer show as "$0" on a database without migration 50.
 - **Tests:**
   - `media-server-fields.test.mjs`.
-  - `production-rollout.test.mjs`: on production's state it applies 44, 46, 47, 49, 50 and 51 in
-    order, rolls them back in reverse, and applies them again.
+  - `production-rollout.test.mjs`: on production's state it applies 44, 46, 47 and 49 to 56 in
+    order (Buzz's 51 to 54 too, since `db:setup` applies them in the same run), rolls them back in
+    reverse, and applies them again.
   - The harness's `boot({ skip })`.
   - `packages/shared/tests/video-security.test.mjs`.
   - `home-feed.test.mjs`'s fixture now has the server finish its test videos.
 - **Independent review** of migrations 49 and 50 and the Business v2 code (database, website and
-  app), 2026-10-28. Its findings are fixed in migration 52 (`20261107000300_business_hardening.sql`)
+  app), 2026-10-28. Its findings are fixed in migration 56 (`20261109000100_business_hardening.sql`)
   and in the code.
   - An approved ad shows the reviewed copy of what it promotes. It pauses for the UniBuzz team when
     that changes, or when the business's category changes.
-  - Every ad's words are screened for Fair Housing. Video ads are approved only with 51's guard in
+  - Every ad's words are screened for Fair Housing. Video ads are approved only with 55's guard in
     place.
   - Ad photos must be uploads to this project's storage. Both apps load business images only from
     there (the website through next/image).
@@ -181,11 +185,21 @@
     profile is not readable by a business session). Impressions are reported by the student's
     client: at most one an hour per ad per student.
   - Tests:
-    - `business-hardening.test.mjs`: one check per finding, plus 52's rollback.
+    - `business-hardening.test.mjs`: one check per finding, plus 56's rollback.
     - The v1 suite expects an ad paused for review after its promoted listing was edited.
     - `business-ads.test.mjs` uses real storage uploads.
 
-## Tests run on this tree, 2026-10-27
+## Tests run on this tree, 2026-10-28 (second round, `main` with PR #50 merged in)
+
+| Suite | Result |
+| --- | --- |
+| `npm run db:test` | ✅ 41 suites, 1497 checks, 0 failures (new: `media-server-fields`, `business-hardening`, `production-rollout`) |
+| `npm run test:shared` | ✅ 184/184 |
+| `npm run check` (typecheck, lint, build; 6 tasks) | ✅ 6/6 |
+| `npm run test:moderation` | ✅ 429/429 |
+| Website e2e, app Maestro flows, staging business script, a real staging rollout | not run (they need seeded data, a live project or the owner's credential) |
+
+## Tests run on this tree, 2026-10-27 (first round)
 
 | Suite | Result |
 | --- | --- |
@@ -214,7 +228,7 @@
    - or revert #49 on `main` first.
 2. **A new PR for the second round.** Recommended:
    - merge it first;
-   - then run `db:setup` once from `main` with 44, 46, 47, 49, 50, 51 and 52 together (docs/migrations.md);
+   - then run `db:setup` once from `main` with 44, 46, 47 and 49 to 56 together (docs/migrations.md);
    - then publish the app update (`eas update`).
 3. When everything is live, update the rows in migrations.md, move a short summary of this file to
    docs/history.md, and delete the file.
@@ -228,7 +242,10 @@
 ## Risks
 
 - **Ad videos:** for Reels, the database checks the video's size from its media record, the admin's approval asks Mux
-  for it again, and the reviewer sees the video.
+  for it again, and the reviewer sees the video. The record's details come from the server once 55 is applied, and 56
+  approves no video ad without 55.
+- **Staging:** the rollout of 44, 46, 47 and 49 to 56 is rehearsed offline only (`production-rollout.test.mjs`); no
+  staging project was available to this branch's sessions.
 - **Event counts:**
   - Impressions are counted from the client (once per student per hour per ad).
   - A determined student could inflate their own impressions by at most one an hour per ad.
