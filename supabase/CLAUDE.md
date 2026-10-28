@@ -70,9 +70,13 @@ Supabase's `auth` and `storage` schemas.
   `notify pgrst, 'reload schema'` when it adds functions. To roll one back, the same with its
   `rollbacks/` file and `delete from public._migrations where name = '<file name>'`, newest first
   (the SQL editor runs a pasted script as one transaction).
-- Before a production migration, take a read-only backup
+- Before a production migration, have a backup you can restore: Supabase's daily backup (Pro plan;
+  production was on the Free plan, with none, on 2026-10-28) or a dump with the Supabase CLI
+  (`supabase db dump --db-url … -f roles.sql --role-only`, then `-f schema.sql`, then
+  `-f data.sql --use-copy --data-only`; it needs Docker). Also take the JSON snapshot for row counts
   (`~/CampConnect-backups/<date>-before-migration-<n>/` on the owner's Mac):
   `SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=… node scripts/backup.mjs before-migration-<n>`.
+  The JSON alone is not a restore path.
   After it, check the objects it created and record it in docs/migrations.md with a docs-only PR.
 - `applied-outside-repo/` holds the four migrations production received from `step-admin` on
   2026-10-25. **Read its README before touching the live database.**

@@ -317,12 +317,14 @@ Built on the v1 rules above, which all still hold (`business-portal.test.mjs` ru
   - The portal shows them per ad and overall, as a chart and as a table.
 - **What students see is what was reviewed** (migration 56).
   - An approved ad shows the copy of its post or listing taken at approval (`promoted_snapshot`).
-  - Changing that post or listing, or the business's category, pauses the ad until the UniBuzz team resumes it.
-  - Every ad's words are screened for Fair Housing; a flagged ad needs the reviewer's check and a note.
-  - Ad photos must be uploads to this project's storage by someone on the team, and the apps load business images only from there.
+  - Changing anything students see of that post or listing, or the business's category, name or logo, pauses the ad until the UniBuzz team resumes it, even if the business had paused it; an ad waiting for review goes back to draft.
+  - The team's resume runs an ad only as the kind of ad (housing or not), and with the Fair Housing flags, it approved (`reviewed_screen`); otherwise the business copies it into a new draft.
+  - Every ad's words (and a promoted listing's amenities) are screened for Fair Housing; a flagged ad needs the reviewer's check and a note.
+  - Ad photos must be uploads to this project's storage by someone on the team, and the apps load business images only from there. While an ad is live, its uploader cannot replace or delete those files, and its videos are not re-read from the media rows.
+  - An ad whose promoted post or listing is removed stops. Payments stay on record when a business is deleted.
   - A business sees an inquiry chat, and the student in it, once the student has written.
   - A block between the student and the business stops the chat both ways.
-- **Videos** (migration 55). A video's processing details are written by the website's server with the service role. Each person has 30 new videos a day, and a ready video is 10 minutes at most. The Mux webhook accepts only recently signed requests.
+- **Videos** (migration 55). A video's processing details, and its id, are written by the database and the website's server, never by a signed-in session. Each person has 30 new videos a day, and a ready video is 10 minutes at most. The Mux webhook accepts only recently signed requests.
 - **Notifications.** Types `business` (reviews, the Verified Partner mark, role changes) and `ad` (approved, rejected, live, paused by the UniBuzz team, ended, needs new dates). They go to the team; the portal has a bell and a list.
 - **The portal's design.** Its own colour world under `[data-surface="business"]` (`globals.css`), like Buzz's:
   - light and dark, or the system's, with a switch remembered in the `biz-theme` cookie;
