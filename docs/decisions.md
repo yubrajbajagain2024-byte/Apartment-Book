@@ -35,3 +35,5 @@ its row and say why and when.
 | Every ad's words are screened for Fair Housing, not only housing ads' (migration 56) | A business's category is its own to change, so it cannot decide whether its words are checked |
 | A business sees an inquiry chat, and the student in it, only once the student has written (migration 56) | Tapping "Message" is not consent to be known to the business |
 | A video's processing details are written by the website's server with the service role, never by a signed-in session (migration 55) | Ads and Reels rely on a video's size and length; only the provider knows them |
+| The Business v2 release's own rollback is 56, 55, 50 and 49 only; Buzz's 51 to 54, applied in the same run, stay (2026-10-28) | The two share no object (the rehearsals compare every Buzz object and row before and after), and undoing someone else's feature is their call |
+| Production is backed up before the release's first change, the merge included (2026-10-28) | Merging deploys: the backup has to show production as it was before any part of the release reached it |

@@ -48,19 +48,25 @@ carries the code for 44, 46 and 47, so production's website most likely does too
 **Business v2 (49 and 50, then 55 and 56):** `db:setup` applies whatever is pending, in file order,
 so one run from `main` applies 44, 46, 47, 49, 50, Buzz's 51 to 54, 55 and 56. PR #49 merged 49
 and 50's code on 2026-10-28 at 04:07 UTC, when its own docs said they were not on production (not
-checked since). 55 and 56 come with the `business-v2` follow-up PR. Order with the code (one
-exception to "migrations first"):
-1. Merge the follow-up PR from `business-v2`. Its video routes write a video's processing details
-   with the service role, which works with or without 55.
-2. Then run `db:setup` once from `main`, after a backup: 44, 46, 47 and 49 to 56.
+checked since). 55 and 56 come with the `business-v2` follow-up PR. The full runbook, with the
+rollbacks, is "Production release plan" in [branches/business-v2.md](branches/business-v2.md). In short:
+1. Back up production first (`scripts/backup.mjs`, read-only), and check with `verify.mjs --live
+   --except …` that production is still in the state that was rehearsed.
+2. Merge the follow-up PR from `business-v2` (one exception to "migrations first"). Its video routes
+   write a video's processing details with the service role, which works with or without 55.
+3. Run `db:setup` once from `main`: 44, 46, 47 and 49 to 56.
 
 Applying 55 under the older video routes would leave new uploads "processing". Applying 49 and 50
 without 55 and 56 would let ads rely on unchecked video details: run them together. 55 also needs
-`SUPABASE_SERVICE_ROLE_KEY` on the website (Buzz already does). `supabase/tests/production-rollout.test.mjs`
-rehearses the whole run offline on production's state: 44, 46, 47 and 49 to 56 applied in order,
-rolled back in reverse, and applied again. 56's rollback restores the versions of 39's, 49's and
-50's functions it replaced. 49's and 50's restore the functions they replaced verbatim; 50's refuses while an ad
-that promoted no listing or post has a recorded payment.
+`SUPABASE_SERVICE_ROLE_KEY` on the website (Buzz already does). The run is rehearsed offline
+(`supabase/tests/production-rollout.test.mjs`) and on staging on 2026-10-28
+(`supabase/tests/staging/release-rehearsal.mjs`): applied in order while students used the API,
+the release's own rollback (56, 55, 50, 49, with Buzz's 51 to 54 left as they are, every Buzz
+object and row compared), applied again, and every rollback in reverse. 56's rollback restores the
+versions of 39's, 49's and 50's functions it replaced. 49's and 50's restore the functions they
+replaced verbatim; 50's refuses while an ad that promoted no listing or post has a recorded payment.
+50's ad trigger was corrected on 2026-10-28 on `business-v2` (50 is on `main` since PR #49; by
+this table it is not on production, so the correction lands before 50 does).
 
 **Buzz (51 to 54):** apply in file order, after every earlier migration; 54 needs 53 (both
 replace `buzz_root_json`, 54 with 53's version plus the category). The code does not need them:

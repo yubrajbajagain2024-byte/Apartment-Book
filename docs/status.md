@@ -28,6 +28,8 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 - **Explore:** apartments with PostGIS distance and maps, roommates, Marketplace (one video per
   item, no comments), anonymous listings with per-chat reveal (needs 47).
 - **Business portal** (`/business`): live with migration 39.
+- **Staging** (`campconnect-staging`) has production's migrations since 2026-10-28 (it got 41, 42,
+  45 and the two admin migrations then; `verify.mjs --live` against it matches production's model).
 - **Video:** Mux uploads and tours. **Mobile:** Expo SDK 58 / RN 0.88; Android release build works
   (R8 rule for LiveKit).
 - **AI documentation:** the root `CLAUDE.md` (PR #42), restructured on 2026-10-27 into one shared
@@ -50,7 +52,9 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   - the Ads screens;
   - "Message" on a business profile.
 
-  Student feeds carry on without ads. The owner chooses (both write to production):
+  On staging in production's state, this code shows an error screen on the portal's Ads and
+  Analytics pages and the Business admin's Ads, Reports and Audit pages (2026-10-28). Student
+  feeds carry on without ads. The owner chooses (both write to production):
   - the order of release below, now;
   - or revert PR #49 on `main` first, until the migrations can be applied.
 - **UniBuzz Business v2** (merged in PR #49 on 2026-10-28 at 04:07 UTC). It upgrades the v1 portal to the business spec:
@@ -62,11 +66,16 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   - analytics from real events;
   - an Apple-style portal with light and dark modes.
 
-  Order of release ([migrations.md](migrations.md)):
-  1. Merge the follow-up PR from `business-v2`: migrations 55 and 56, the video routes, and the
-     fixes from an independent review. `SUPABASE_SERVICE_ROLE_KEY` must be set on Vercel.
-  2. Run `db:setup` once from `main`, after a backup: 44, 46, 47 and 49 to 56.
-  3. Publish the app update.
+  Order of release (the full runbook, rollbacks included, is "Production release plan" in
+  [branches/business-v2.md](branches/business-v2.md); rehearsed on staging on 2026-10-28):
+  1. Back up production (`scripts/backup.mjs`, read-only) and check it is in the rehearsed state
+     (`verify.mjs --live --except …`), before any change.
+  2. Merge the follow-up PR from `business-v2`: migrations 55 and 56, the video routes, and the
+     fixes from an independent review and from the staging rehearsal. `SUPABASE_SERVICE_ROLE_KEY`
+     must be set on Vercel.
+  3. Run `db:setup` once from `main`: 44, 46, 47 and 49 to 56. Then `verify.mjs --live`.
+  4. Publish the app update.
+  If it must be undone, the release's rollback is 56, 55, 50 and 49 only: Buzz's 51 to 54 stay.
 
   Follow-up work is listed in [branches/business-v2.md](branches/business-v2.md).
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the

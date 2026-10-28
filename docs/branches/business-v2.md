@@ -193,11 +193,12 @@
 
 | Suite | Result |
 | --- | --- |
-| `npm run db:test` | ✅ 41 suites, 1497 checks, 0 failures (new: `media-server-fields`, `business-hardening`, `production-rollout`) |
+| `npm run db:test` | ✅ 41 suites, 1514 checks, 0 failures after the staging rehearsal's fixes (1497 before; new: `media-server-fields`, `business-hardening`, `production-rollout`, which also rolls back the release alone and compares Buzz) |
 | `npm run test:shared` | ✅ 184/184 |
 | `npm run check` (typecheck, lint, build; 6 tasks) | ✅ 6/6 |
 | `npm run test:moderation` | ✅ 429/429 |
-| Website e2e, app Maestro flows, staging business script, a real staging rollout | not run (they need seeded data, a live project or the owner's credential) |
+| Staging (release rehearsal, every page of each role, website and API e2e, v1 portal script) | see "Staging rehearsal, 2026-10-28" below |
+| App Maestro flows | not run (the app's flows stay a manual check before `eas update`, by the owner's choice) |
 
 ## Tests run on this tree, 2026-10-27 (first round)
 
@@ -208,6 +209,78 @@
 | `npm run check` (typecheck, lint, build; 6 tasks) | ✅ 6/6, on the final tree |
 | `npm run test:moderation` | ✅ 428/428 (untouched by this branch) |
 | Website e2e, app Maestro flows, staging business script | not run (they need seeded data or a live project) |
+
+## Staging rehearsal, 2026-10-28 (third round)
+
+The release ran on `campconnect-staging` through the real stack (Auth sessions, the REST API, Storage, pg_cron), with
+`supabase/tests/staging/release-rehearsal.mjs` (steps: baseline, seed, check, apply, rollback, restore, cleanup) and
+the website pointed at staging (`apps/web/e2e/release-smoke.mjs`, every page of each role). Nothing ran on production.
+
+- **Staging caught up to production's state first** (owner's approval, kept): 41, 42, 45 and the two admin migrations
+  from `supabase/applied-outside-repo/`, in production's order. `verify.mjs --live` against staging then matched the
+  offline model of production exactly (430 functions, 644 columns, 347 constraints, 120 triggers, 114 policies).
+- **A bug the offline suites could not see, fixed:** the ad trigger read the "status change under way" setting as null
+  on a connection that had never set it, which skipped the checks on what a business writes into an ad (status,
+  review, photos, the daily limit). PGlite runs everything on one session, where migration 50's own data step had
+  set it. Fixed in 50 and 56 (and in 56's rollback, which restores 50's version), with a regression check that runs on
+  a new connection (`reopen()` in the harness). On staging, a business's "active" ad is now stored as an unreviewed
+  draft and a linked photo is refused.
+- **Results, in order:**
+
+  | State | Student and business checks (API) | Website, 46 pages of 5 roles | v1 portal script | Other |
+  | --- | --- | --- | --- | --- |
+  | Production's state, this branch's website | 10/10 | 40/46: Ads, Analytics, the admin's Ads, Reports and Audit, and an event call on a business profile need 49 and 50 (as on production today) | 58/58 | API e2e 10/13, website e2e 15/17: see Risks |
+  | During `apply` (what `db:setup` does), students and the staffer using the API | | | | 1st run: 11 migrations in 19 s, 300 requests, 0 failed (p95 182 ms, max 552 ms). 2nd run (49, 50, 55, 56 again): 180 requests, 1 failed: a staffer's reply refused once as 49 committed |
+  | After the release | 25/25 (roles, posts, ads with real uploads, review and payment, serving, hide, events, saved ads, inquiries, blocks, video rows, audit, re-review, pg_cron, Buzz) | 46/46, no request to production | 58/58 | API e2e 10/13, website e2e 15/17 (the same as before) |
+  | After the release's rollback (56, 55, 50, 49; Buzz kept) | 10/10; every Buzz object and row unchanged | 40/46, as before the release | | |
+  | After the full restore (all 11 rolled back) | | | | schema = production's model again (`verify.mjs --live`), every table's row count = baseline's |
+
+- **Found on the way:** rolling back 50 refuses while a payment for an ad that promoted no listing or post exists (by
+  design: it would lose the record); 54's rollback keeps `buzz_posts.category` (by design, Ankur's); the existing e2e
+  scripts leave chats, storage files and `media_jobs` rows behind on the project they run on (cleaned on staging).
+
+## Production release plan (revised 2026-10-28)
+
+Each production step needs the owner's explicit approval. Nothing is merged or applied before step 1.
+
+**Before release day (no production change):**
+- Review this branch's PR; do not merge it yet.
+- In Vercel, check that `SUPABASE_SERVICE_ROLE_KEY` is set for Production (video uploads need it once this code is
+  live) and note the current production deployment, to roll back to.
+- Pick a quiet hour: business replies sent in the second migration 49 commits can fail once (a retry works).
+
+**Release day, in this order:**
+1. **Back up production, before any change** (read-only):
+   `SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=<production ref> node scripts/backup.mjs before-business-v2`
+   (→ `~/CampConnect-backups/<date>-before-business-v2/`; check `manifest.json`'s counts). Then confirm production is in
+   the state rehearsed (read-only):
+   `SUPABASE_ACCESS_TOKEN=… node supabase/applied-outside-repo/verify.mjs --live --except <the 11 files: 44, 46, 47, 49 to 56>`.
+   If it does not match, stop: the plan was rehearsed on that state only.
+2. **Merge the PR** (deploys the website). Until step 3 the site behaves as production does today (rehearsed: 40 of 46
+   pages; the 6 others need 49 and 50).
+3. **Apply the migrations**: `SUPABASE_DB_URL=… npm run db:setup` from an up-to-date `main` (database-URL mode only,
+   never token mode or `supabase db push`). It applies 44, 46, 47, 49, 50, Buzz's 51 to 54, 55 and 56 in file order,
+   each in its own transaction; it stops at the first failure, leaving the earlier ones applied. On staging, students'
+   and the staffer's requests kept working while each one applied (above).
+4. `notify pgrst, 'reload schema'`, then `verify.mjs --live` with no `--except`: it must match.
+5. Look at the live site: a student's Home, Buzz, Messages, a business profile; the portal's Ads, Analytics and Inbox;
+   the UniBuzz team's Business admin pages.
+6. `eas update` from `apps/mobile` (app builds in students' hands keep working before it: the v1 portal script passes
+   58/58 after the release).
+7. A docs-only PR marks the rows in docs/migrations.md as applied.
+
+**If something goes wrong (each also needs approval):**
+- **The release's rollback leaves Buzz alone:** run only 56, 55, 50 and 49's rollbacks, in that order, each in one
+  transaction together with `delete from public._migrations where name = '<file>.sql';` (the Supabase SQL editor
+  runs a pasted script as one transaction, through the same API the staging rehearsal used: when 50's rollback
+  refused there, its `_migrations` row stayed). Buzz's 51 to 54 stay; rehearsed offline and on staging, with every
+  Buzz object and row compared.
+- Before 50's rollback: export, then end or refund, any ad paid for that promoted no listing or post, and delete those
+  payment rows; the rollback refuses otherwise. 49's rollback removes analysts from teams and makes editors and admins
+  staff again.
+- **Website only:** Vercel's instant rollback to the noted deployment. If 55 is applied, roll it back too (its
+  rollback first): the older video routes cannot finish uploads with 55 in place.
+- **Last resort:** the step-1 backup (JSON: schema, rows, accounts, file records). Restoring from it is manual.
 
 ## Decisions (also in docs/decisions.md)
 
@@ -224,12 +297,10 @@
 ## Pending, in priority order
 
 1. **Production runs #49's code without its migrations.** The owner chooses (production writes):
-   - do step 2 now;
+   - the production release plan below, now;
    - or revert #49 on `main` first.
-2. **A new PR for the second round.** Recommended:
-   - merge it first;
-   - then run `db:setup` once from `main` with 44, 46, 47 and 49 to 56 together (docs/migrations.md);
-   - then publish the app update (`eas update`).
+2. **The production release plan below**, step by step, each production step with the owner's approval. Everything
+   stays on `business-v2` until then.
 3. When everything is live, update the rows in migrations.md, move a short summary of this file to
    docs/history.md, and delete the file.
 4. **Mobile Reels ads.** The app's Reels pager has fixed-height pages and its own viewer, so it does not show ads yet.
@@ -244,8 +315,11 @@
 - **Ad videos:** for Reels, the database checks the video's size from its media record, the admin's approval asks Mux
   for it again, and the reviewer sees the video. The record's details come from the server once 55 is applied, and 56
   approves no video ad without 55.
-- **Staging:** the rollout of 44, 46, 47 and 49 to 56 is rehearsed offline only (`production-rollout.test.mjs`); no
-  staging project was available to this branch's sessions.
+- **Rehearsed on staging, not on production's data:** staging has a handful of accounts; production's row counts are
+  larger, so its migrations may take longer than staging's 19 s (they lock the tables they change while they run).
+- **e2e scripts that were already failing** (the same before and after the release on staging): the three Buzz steps of
+  `scripts/e2e-home-feed.mjs` were written for the old Buzz (non-anonymous photo path, an old `buzz_v2_vote`
+  signature); the website e2e's two Posts-tab steps wait for a "Liked by" row the seed does not produce. Not fixed here.
 - **Event counts:**
   - Impressions are counted from the client (once per student per hour per ad).
   - A determined student could inflate their own impressions by at most one an hour per ad.

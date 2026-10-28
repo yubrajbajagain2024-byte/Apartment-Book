@@ -56,7 +56,8 @@ packages/shared/   everything that is not UI: types/ (incl. database.ts), schema
                    profile.ts, snaps.ts, calls.ts, share.ts, format.ts, …
 packages/moderation/  the Buzz moderation engine (rule packs, PII detector, policy); server-only
 supabase/          migrations/, rollbacks/, tests/, applied-outside-repo/, functions/, seed.sql
-scripts/           supabase-setup.mjs (db:setup), e2e-check.mjs (db:check), e2e-home-feed.mjs
+scripts/           supabase-setup.mjs (db:setup), e2e-check.mjs (db:check), e2e-home-feed.mjs,
+                   backup.mjs (read-only backup of a project), e2e-target.mjs (staging or production)
 docs/              status, migrations, tests, decisions, history, environment, branches
 ```
 
