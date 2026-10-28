@@ -32,9 +32,11 @@ export async function uploadVideo(
   onProgress: (fraction: number, phase: "uploading" | "processing") => void,
   control: { cancelled?: () => boolean; onTask?: (cancel: () => void) => void } = {},
 ): Promise<ListingVideo> {
+  // The server checks a declared size against the cap; the picker does not always know it (a fresh camera recording).
+  const sizeBytes = asset.fileSize ?? (await FileSystem.getInfoAsync(asset.uri).then((info) => (info.exists ? info.size : undefined)).catch(() => undefined));
   const start = await apiFetch<{ mediaId: string; uploadUrl: string }>("/api/video/uploads", {
     method: "POST",
-    body: JSON.stringify({ sizeBytes: asset.fileSize ?? undefined, fileName: asset.fileName ?? "tour.mp4" }),
+    body: JSON.stringify({ sizeBytes, fileName: asset.fileName ?? "tour.mp4" }),
   });
   const task = FileSystem.createUploadTask(
     start.uploadUrl,

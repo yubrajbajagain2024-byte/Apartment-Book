@@ -15,11 +15,12 @@ export async function listMyMedia(supabase: Client, ownerId: string): Promise<Me
 /** Create the media row that a provider upload will fill in. */
 export async function createMediaRecord(
   supabase: Client,
-  input: { ownerId: string; provider: string; providerUploadId: string; sizeBytes?: number | null },
+  /** `providerUploadId` is the server's to set since migration 51: a signed-in session's insert stores none. */
+  input: { ownerId: string; provider: string; providerUploadId?: string | null; sizeBytes?: number | null },
 ): Promise<Media> {
   const { data, error } = await supabase
     .from("media")
-    .insert({ owner_id: input.ownerId, provider: input.provider, provider_upload_id: input.providerUploadId, size_bytes: input.sizeBytes ?? null, status: "uploading" })
+    .insert({ owner_id: input.ownerId, provider: input.provider, provider_upload_id: input.providerUploadId ?? null, size_bytes: input.sizeBytes ?? null, status: "uploading" })
     .select("*")
     .single();
   if (error) throw error;

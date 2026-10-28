@@ -1,4 +1,4 @@
-import { MUX_IMAGE_BASE, MUX_STREAM_BASE, type PostAudience } from "./constants";
+import { MAX_VIDEO_DURATION_SECONDS, MUX_IMAGE_BASE, MUX_STREAM_BASE, MUX_WEBHOOK_TOLERANCE_SECONDS, type PostAudience } from "./constants";
 import type { FeedMedia, FeedPostWithAuthor, ListingVideo, PostEngagement, PosterSummary, Reel } from "./types/models";
 import { photosFor } from "./utils";
 
@@ -70,4 +70,32 @@ export function reelFromFeedPost(post: FeedPostWithAuthor, engagement: PostEngag
     commentsOff: post.comments_off ?? false,
     audience: (post.audience ?? "global") as PostAudience,
   };
+}
+
+/**
+ * The video provider's webhook signature header, "t=<unix seconds>,v1=<hex>[,v1=<hex>…]": when it was signed and its
+ * signatures, or null when the header is not one.
+ */
+export function parseMuxSignature(header: string | null | undefined): { timestamp: number; signatures: string[] } | null {
+  if (!header) return null;
+  let timestamp: number | null = null;
+  const signatures: string[] = [];
+  for (const part of header.split(",")) {
+    const at = part.indexOf("=");
+    const key = part.slice(0, at).trim();
+    const value = part.slice(at + 1).trim();
+    if (key === "t" && /^\d{1,12}$/.test(value)) timestamp = Number(value);
+    else if (key === "v1" && /^[a-f0-9]{64}$/.test(value)) signatures.push(value);
+  }
+  return timestamp !== null && signatures.length > 0 ? { timestamp, signatures } : null;
+}
+
+/** Whether a signed webhook is recent enough to accept: signed within `tolerance` seconds of now (an older one is a replay). */
+export function muxSignatureFresh(timestamp: number, nowSeconds: number, tolerance: number = MUX_WEBHOOK_TOLERANCE_SECONDS): boolean {
+  return Number.isFinite(timestamp) && Math.abs(nowSeconds - timestamp) <= tolerance;
+}
+
+/** Whether a video is longer than anyone may upload (the server refuses it, and so does the database). */
+export function videoTooLong(durationSeconds: number | null | undefined): boolean {
+  return typeof durationSeconds === "number" && durationSeconds > MAX_VIDEO_DURATION_SECONDS;
 }
