@@ -736,14 +736,16 @@ $fn$
 end
 $do$;
 
--- The review list, its counts and "keep hidden". Buzz rows never name an author.
+-- The review list (all of it, or one item's flags), its counts and "keep hidden". Buzz rows never name an author.
 do $do$
 begin
   if to_regclass('public.staff_audit_log') is null then
     return;
   end if;
   execute $ddl$
-create or replace function public.admin_auto_hidden_list(p_status text default 'pending', p_limit int default 50, p_before timestamptz default null)
+create or replace function public.admin_auto_hidden_list(
+  p_status text default 'pending', p_limit int default 50, p_before timestamptz default null, p_target_type text default null, p_target_id uuid default null
+)
 returns table (
   id uuid, target_type text, target_id uuid, source text, reporter_count int, reasons jsonb, hidden_at timestamptz, created_at timestamptz,
   status text, reviewed_by uuid, reviewer_name text, reviewed_at timestamptz, review_note text,
@@ -775,6 +777,8 @@ begin
     left join lateral (select public.admin_content_snapshot(f.target_type, f.target_id) as snap) s on true
     where (v_status = 'all' or f.status = v_status)
       and (p_before is null or f.created_at < p_before)
+      and (p_target_type is null or f.target_type = p_target_type)
+      and (p_target_id is null or f.target_id = p_target_id)
     order by f.created_at desc, f.id desc
     limit least(greatest(coalesce(p_limit, 50), 1), 200);
 end;
@@ -846,8 +850,8 @@ begin
 end;
 $fn$
   $ddl$;
-  execute 'revoke all on function public.admin_auto_hidden_list(text, int, timestamptz), public.admin_auto_hidden_counts(), public.admin_auto_hide_uphold(uuid, text) from public, anon';
-  execute 'grant execute on function public.admin_auto_hidden_list(text, int, timestamptz), public.admin_auto_hidden_counts(), public.admin_auto_hide_uphold(uuid, text) to authenticated';
+  execute 'revoke all on function public.admin_auto_hidden_list(text, int, timestamptz, text, uuid), public.admin_auto_hidden_counts(), public.admin_auto_hide_uphold(uuid, text) from public, anon';
+  execute 'grant execute on function public.admin_auto_hidden_list(text, int, timestamptz, text, uuid), public.admin_auto_hidden_counts(), public.admin_auto_hide_uphold(uuid, text) to authenticated';
 end
 $do$;
 

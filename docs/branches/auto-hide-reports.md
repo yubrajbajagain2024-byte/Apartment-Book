@@ -25,9 +25,9 @@
 
 ## Tests (2026-10-28)
 
-- `npm run db:test`: 39 suites, 1498 checks, 0 failures. That includes Trust & Safety, Buzz v2 and
+- `npm run db:test`: 39 suites, 1502 checks, 0 failures. That includes Trust & Safety, Buzz v2 and
   CampConnect Admin + Buzz, unchanged.
-- `report-auto-hide`: 79 checks.
+- `report-auto-hide`: 83 checks.
 - `npm run check`: 6/6.
 - Not run: anything against a real Supabase project. step-admin's own admin suites do not run on
   `main`'s schema: they predate Trust & Safety, whose report trigger refuses some of their fixtures.
@@ -45,7 +45,14 @@
 
 ## Pending
 
-- [ ] The CampConnect Admin review screens on `step-admin` (flagged list, Keep hidden, counts).
+- [x] The CampConnect Admin review screens: `step-admin` commit `1a0968e`, local, not pushed.
+  - A Flagged page with tabs per review status and counts.
+  - A "Hidden automatically" panel with Keep hidden on the content page.
+  - The overview count, the nav entry, the `actioned` badge and the audit labels.
+  - It reads `admin_auto_hidden_list(status, limit, before, target_type, target_id)` and shows a setup notice
+    until this migration is live.
+  - Checked: tsc, eslint, next build and the signed-out e2e. Signed-in pages are untested (no staff
+    credentials on the owner's Mac).
 - [ ] Before production: read production's `admin_content_*` bodies, and run
       `verify.mjs --live` (needs a token).
 - [ ] Owner's approval, then: apply 55 alone, merge this branch's PR, deploy the admin app.

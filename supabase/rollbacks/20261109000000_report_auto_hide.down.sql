@@ -300,7 +300,7 @@ $fn$
 end
 $do$;
 
-drop function if exists public.admin_auto_hidden_list(text, int, timestamptz);
+drop function if exists public.admin_auto_hidden_list(text, int, timestamptz, text, uuid);
 drop function if exists public.admin_auto_hidden_counts();
 drop function if exists public.admin_auto_hide_uphold(uuid, text);
 drop function if exists public.moderation_content_hide(text, uuid, text);

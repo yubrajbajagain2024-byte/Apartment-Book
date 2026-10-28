@@ -339,6 +339,11 @@ await expectOk("the reports queue lists actioned reports under reviewed", async 
   const reviewed = await rowsAs(MOD, "select * from public.admin_reports_list('reviewed', 200, null)");
   check(reviewed.some((r) => r.status === "actioned" && r.target_id === targets.post), "actioned reports missing");
 });
+await expectOk("one item's flags, newest first (the content page's panel)", async () => {
+  const mine = await rowsAs(MOD, "select * from public.admin_auto_hidden_list('all', 10, null, 'post', $1)", [targets.post]);
+  check(mine.length === 2 && mine.every((f) => f.target_id === targets.post) && mine[0].status === "upheld" && mine[1].status === "restored", JSON.stringify(mine));
+  check((await rowsAs(MOD, "select * from public.admin_auto_hidden_list('pending', 10, null, 'post', $1)", [targets.post])).length === 0, "pending filter");
+});
 await expectOk("counts per status", async () => {
   const c = await call(MOD, "public.admin_auto_hidden_counts()");
   check(c.upheld >= 1 && c.restored >= 2 && c.deleted >= 2 && c.pending >= 4, JSON.stringify(c));
@@ -370,7 +375,7 @@ for (const fn of [
 ]) {
   await expectError(`students cannot call ${fn.split("(")[0]}`, () => call(VIEWER, fn, [], {}), "permission denied");
 }
-for (const fn of ["public.admin_auto_hidden_list()", "public.admin_auto_hidden_counts()", "public.admin_auto_hide_uphold(gen_random_uuid())"]) {
+for (const fn of ["public.admin_auto_hidden_list()", "public.admin_auto_hidden_list('all', 1, null, 'post', gen_random_uuid())", "public.admin_auto_hidden_counts()", "public.admin_auto_hide_uphold(gen_random_uuid())"]) {
   await expectError(`${fn.split("(")[0]} refuses students`, () => call(VIEWER, fn), "Not allowed");
   await expectError(`${fn.split("(")[0]} refuses visitors`, () => asAnon(() => db.query(`select ${fn}`)), "permission denied");
   await expectError(`${fn.split("(")[0]} needs two-factor sign-in`, () => call(MOD, fn, [], {}), "Two-factor authentication required");
