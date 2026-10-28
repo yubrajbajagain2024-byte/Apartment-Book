@@ -156,6 +156,201 @@ body {
   background-image: var(--incog-gradient-soft);
 }
 
+/*
+ * UniBuzz Business, the portal's own colour world (like Buzz's Phosphor above): neutral greys, one accent (UniBuzz
+ * blue: #166fe5 under white text passes AA in both modes, its lighter ink is for words on dark), San Francisco where
+ * the system has it and Inter elsewhere, glass only on the bars that float. The tokens exist only under
+ * [data-surface="business"], so nothing here reaches the student site. Light by default; dark with the system, or
+ * with data-theme="dark" (the portal's theme switch; data-theme="light" keeps it light whatever the system says).
+ * Inside a dark portal the grey ramp, white panels and the brand's text colours of the shared components (messages,
+ * forms, uploaders) are turned around too, so they read as part of the portal without being rewritten.
+ */
+@layer base {
+  [data-surface="business"] {
+    --biz-canvas: #f5f5f7;
+    --biz-surface: #ffffff;
+    --biz-surface-2: #fbfbfd;
+    --biz-surface-3: #f2f2f4;
+    --biz-ink: #1d1d1f;
+    --biz-ink-2: #424245;
+    --biz-ink-3: #6e6e73;
+    --biz-ink-4: #86868b;
+    --biz-line: rgb(0 0 0 / 0.08);
+    --biz-line-strong: rgb(0 0 0 / 0.14);
+    --biz-glass: rgb(255 255 255 / 0.72);
+    --biz-scrim: rgb(0 0 0 / 0.32);
+    --biz-accent: #166fe5;
+    --biz-accent-hover: #0f5fcf;
+    --biz-accent-ink: #166fe5;
+    --biz-accent-soft: rgb(22 111 229 / 0.1);
+    --biz-on-accent: #ffffff;
+    --biz-success: #1d7d45;
+    --biz-success-soft: rgb(36 138 61 / 0.12);
+    --biz-warning: #9a5b00;
+    --biz-warning-soft: rgb(255 159 10 / 0.16);
+    --biz-danger: #c4001a;
+    --biz-danger-soft: rgb(215 0 21 / 0.1);
+    --biz-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.04);
+    --biz-shadow-lift: 0 2px 6px rgb(0 0 0 / 0.06), 0 18px 40px rgb(0 0 0 / 0.08);
+    --biz-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", var(--font-inter), "Helvetica Neue", system-ui, sans-serif;
+    color-scheme: light;
+    background-color: var(--biz-canvas);
+    color: var(--biz-ink);
+    font-family: var(--biz-font);
+    font-feature-settings: "cv11", "ss01";
+    letter-spacing: -0.006em;
+  }
+  [data-surface="business"][data-theme="dark"] {
+    --biz-canvas: #000000;
+    --biz-surface: #1c1c1e;
+    --biz-surface-2: #232325;
+    --biz-surface-3: #2c2c2e;
+    --biz-ink: #f5f5f7;
+    --biz-ink-2: #d1d1d6;
+    --biz-ink-3: #a1a1a6;
+    --biz-ink-4: #8e8e93;
+    --biz-line: rgb(255 255 255 / 0.1);
+    --biz-line-strong: rgb(255 255 255 / 0.18);
+    --biz-glass: rgb(22 22 24 / 0.72);
+    --biz-scrim: rgb(0 0 0 / 0.6);
+    --biz-accent-hover: #2f7ff0;
+    --biz-accent-ink: #5aa2ff;
+    --biz-accent-soft: rgb(90 162 255 / 0.16);
+    --biz-success: #32d74b;
+    --biz-success-soft: rgb(50 215 75 / 0.16);
+    --biz-warning: #ffd60a;
+    --biz-warning-soft: rgb(255 214 10 / 0.14);
+    --biz-danger: #ff6961;
+    --biz-danger-soft: rgb(255 69 58 / 0.16);
+    --biz-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
+    --biz-shadow-lift: 0 8px 30px rgb(0 0 0 / 0.6);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    [data-surface="business"]:not([data-theme="light"]) {
+      --biz-canvas: #000000;
+      --biz-surface: #1c1c1e;
+      --biz-surface-2: #232325;
+      --biz-surface-3: #2c2c2e;
+      --biz-ink: #f5f5f7;
+      --biz-ink-2: #d1d1d6;
+      --biz-ink-3: #a1a1a6;
+      --biz-ink-4: #8e8e93;
+      --biz-line: rgb(255 255 255 / 0.1);
+      --biz-line-strong: rgb(255 255 255 / 0.18);
+      --biz-glass: rgb(22 22 24 / 0.72);
+      --biz-scrim: rgb(0 0 0 / 0.6);
+      --biz-accent-hover: #2f7ff0;
+      --biz-accent-ink: #5aa2ff;
+      --biz-accent-soft: rgb(90 162 255 / 0.16);
+      --biz-success: #32d74b;
+      --biz-success-soft: rgb(50 215 75 / 0.16);
+      --biz-warning: #ffd60a;
+      --biz-warning-soft: rgb(255 214 10 / 0.14);
+      --biz-danger: #ff6961;
+      --biz-danger-soft: rgb(255 69 58 / 0.16);
+      --biz-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
+      --biz-shadow-lift: 0 8px 30px rgb(0 0 0 / 0.6);
+      color-scheme: dark;
+    }
+  }
+  [data-surface="business"] :focus-visible {
+    outline: 2px solid var(--biz-accent-ink);
+    outline-offset: 2px;
+  }
+  [data-surface="business"] ::selection {
+    background: var(--biz-accent-soft);
+  }
+}
+
+/* One accent, no gradients: the shared primary button's aurora is plain accent inside the portal. */
+[data-surface="business"] .bg-aurora {
+  background-image: none;
+}
+
+/* The shared components inside a dark portal: greys turned around, white panels to the portal's surface. */
+[data-surface="business"][data-theme="dark"] {
+  --color-gray-50: #1f1f21;
+  --color-gray-100: #2c2c2e;
+  --color-gray-200: #3a3a3c;
+  --color-gray-300: #48484a;
+  --color-gray-400: #636366;
+  --color-gray-500: #8e8e93;
+  --color-gray-600: #aeaeb2;
+  --color-gray-700: #c7c7cc;
+  --color-gray-800: #e5e5ea;
+  --color-gray-900: #f5f5f7;
+  --color-gray-950: #ffffff;
+  --color-brand-50: rgb(90 162 255 / 0.12);
+  --color-brand-100: rgb(90 162 255 / 0.2);
+  --color-brand-200: rgb(90 162 255 / 0.3);
+}
+[data-surface="business"][data-theme="dark"] :is(.bg-white, .hover\:bg-white:hover) {
+  background-color: var(--biz-surface);
+}
+[data-surface="business"][data-theme="dark"] :is(.text-brand-600, .text-brand-700, .hover\:text-brand-700:hover) {
+  color: var(--biz-accent-ink);
+}
+@media (prefers-color-scheme: dark) {
+  [data-surface="business"]:not([data-theme="light"]) {
+    --color-gray-50: #1f1f21;
+    --color-gray-100: #2c2c2e;
+    --color-gray-200: #3a3a3c;
+    --color-gray-300: #48484a;
+    --color-gray-400: #636366;
+    --color-gray-500: #8e8e93;
+    --color-gray-600: #aeaeb2;
+    --color-gray-700: #c7c7cc;
+    --color-gray-800: #e5e5ea;
+    --color-gray-900: #f5f5f7;
+    --color-gray-950: #ffffff;
+    --color-brand-50: rgb(90 162 255 / 0.12);
+    --color-brand-100: rgb(90 162 255 / 0.2);
+    --color-brand-200: rgb(90 162 255 / 0.3);
+  }
+  [data-surface="business"]:not([data-theme="light"]) :is(.bg-white, .hover\:bg-white:hover) {
+    background-color: var(--biz-surface);
+  }
+  [data-surface="business"]:not([data-theme="light"]) :is(.text-brand-600, .text-brand-700, .hover\:text-brand-700:hover) {
+    color: var(--biz-accent-ink);
+  }
+}
+
+/* bg-biz-surface, text-biz-ink-3, ring-biz-line …: they resolve only inside the portal. */
+@theme inline {
+  --color-biz-canvas: var(--biz-canvas);
+  --color-biz-surface: var(--biz-surface);
+  --color-biz-surface-2: var(--biz-surface-2);
+  --color-biz-surface-3: var(--biz-surface-3);
+  --color-biz-ink: var(--biz-ink);
+  --color-biz-ink-2: var(--biz-ink-2);
+  --color-biz-ink-3: var(--biz-ink-3);
+  --color-biz-ink-4: var(--biz-ink-4);
+  --color-biz-line: var(--biz-line);
+  --color-biz-line-strong: var(--biz-line-strong);
+  --color-biz-glass: var(--biz-glass);
+  --color-biz-scrim: var(--biz-scrim);
+  --color-biz-accent: var(--biz-accent);
+  --color-biz-accent-hover: var(--biz-accent-hover);
+  --color-biz-accent-ink: var(--biz-accent-ink);
+  --color-biz-accent-soft: var(--biz-accent-soft);
+  --color-biz-on-accent: var(--biz-on-accent);
+  --color-biz-success: var(--biz-success);
+  --color-biz-success-soft: var(--biz-success-soft);
+  --color-biz-warning: var(--biz-warning);
+  --color-biz-warning-soft: var(--biz-warning-soft);
+  --color-biz-danger: var(--biz-danger);
+  --color-biz-danger-soft: var(--biz-danger-soft);
+  --shadow-biz: var(--biz-shadow);
+  --shadow-biz-lift: var(--biz-shadow-lift);
+}
+
+/* Skeletons in the portal shimmer in its own greys, light or dark. */
+[data-surface="business"] .ab-skeleton {
+  background: linear-gradient(90deg, var(--biz-surface-3) 25%, var(--biz-surface-2) 50%, var(--biz-surface-3) 75%);
+  background-size: 200% 100%;
+}
+
 /* Thin scrollbars for the chat panes */
 .scrollbar-thin {
   scrollbar-width: thin;

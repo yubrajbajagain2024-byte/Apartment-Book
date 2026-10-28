@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { businessConversations, getBusinessOverview, listConversations, listTeam, standingOf } from "@apartment-book/shared";
+import { businessConversations, getAnalyticsOverview, listAds, listConversations, listTeam, standingOf, teamRoleAllows } from "@apartment-book/shared";
 import { getPortalSession, portalPath } from "@/lib/business/portal";
+import { getSiteUrl } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardView } from "@/components/business/dashboard-view";
-import { PortalLink } from "@/components/business/portal-base";
+import { BizLink, Panel } from "@/components/business/ui";
 
-export const metadata: Metadata = { title: "Dashboard" };
+export const metadata: Metadata = { title: "Home" };
 
 export default async function DashboardPage() {
   const session = await getPortalSession();
@@ -17,26 +18,40 @@ export default async function DashboardPage() {
   const business = membership.business;
   // Rejected: the banner above says why; the profile is the one thing left to do.
   if (standingOf(business) === "rejected") {
+    const canEdit = teamRoleAllows(membership.role, "edit_profile");
     return (
-      <div className="rounded-xl bg-white p-6 text-center shadow-sm ring-1 ring-gray-200">
-        <h1 className="text-xl font-bold text-gray-900">{business.name}</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          {membership.role === "owner" ? "Update the business profile with what the UniBuzz team asked for, then write to them to look again." : "The owner can update the business profile and ask the UniBuzz team to look again."}
+      <Panel className="mx-auto max-w-xl p-10 text-center">
+        <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-biz-ink">{business.name}</h1>
+        <p className="mt-2 text-[15px] leading-relaxed text-biz-ink-3">
+          {canEdit ? "Update the business profile with what the UniBuzz team asked for, then write to them to look again." : "The owner or an admin can update the business profile and ask the UniBuzz team to look again."}
         </p>
-        {membership.role === "owner" ? (
-          <PortalLink href="/profile" className="mt-4 inline-block font-semibold text-brand-600 hover:underline">
+        {canEdit ? (
+          <BizLink href="/profile" className="mt-6">
             Edit the business profile
-          </PortalLink>
+          </BizLink>
         ) : null}
-      </div>
+      </Panel>
     );
   }
   const supabase = await createClient();
-  const [overview, conversations, team] = await Promise.all([
-    getBusinessOverview(supabase, business.id).catch(() => null),
-    listConversations(supabase, user.id).catch(() => []),
+  const canReply = business.status === "approved" && teamRoleAllows(membership.role, "reply");
+  const [overview, ads, conversations, team] = await Promise.all([
+    getAnalyticsOverview(supabase, business.id, 30).catch(() => null),
+    listAds(supabase, business.id).catch(() => []),
+    canReply ? listConversations(supabase, user.id).catch(() => []) : Promise.resolve([]),
     listTeam(supabase, business.id).catch(() => []),
   ]);
-  const inbox = businessConversations(conversations, business.id, new Set(team.map((m) => m.user_id))).slice(0, 5);
-  return <DashboardView firstName={session.profile.full_name.split(" ")[0] || "there"} business={business} role={membership.role} overview={overview} teamSize={team.length} inbox={inbox} />;
+  const inbox = canReply ? businessConversations(conversations, business.id, new Set(team.map((m) => m.user_id))).slice(0, 5) : [];
+  return (
+    <DashboardView
+      firstName={session.profile.full_name.split(" ")[0] || "there"}
+      business={business}
+      role={membership.role}
+      overview={overview}
+      ads={ads.slice(0, 4)}
+      inbox={inbox}
+      canReply={canReply}
+      publicProfileUrl={business.status === "approved" ? `${getSiteUrl()}/businesses/${business.id}` : null}
+    />
+  );
 }
