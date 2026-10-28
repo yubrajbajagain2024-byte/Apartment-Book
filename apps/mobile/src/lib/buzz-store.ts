@@ -1,5 +1,5 @@
 import { useCallback, useSyncExternalStore } from "react";
-import type { Buzz, BuzzFeedMeta, BuzzFeedSort, BuzzGateState, BuzzPollDuration, BuzzPostingStatus, BuzzReply, BuzzScope, BuzzTopWindow, HomeSection } from "@apartment-book/shared";
+import type { Buzz, BuzzCategory, BuzzFeedMeta, BuzzFeedSort, BuzzGateState, BuzzPollDuration, BuzzPostingStatus, BuzzReply, BuzzReplySort, BuzzScope, BuzzTopWindow, HomeSection } from "@apartment-book/shared";
 import { supabase } from "./supabase";
 
 /**
@@ -56,15 +56,19 @@ export type BuzzDraft = {
   text: string;
   /** The feed the buzz goes to: the one the composer was opened on, until the person picks the other. */
   scope: BuzzScope;
+  /** What it is about (BUZZ_CATEGORIES), or none. */
+  category: BuzzCategory | null;
   images: DraftPhoto[];
   video: DraftVideo | null;
   pollOn: boolean;
   options: string[];
   durationDays: BuzzPollDuration;
   promptId: string | null;
+  /** An answer to the prompt: a reply in the prompt's thread (the default), or a buzz of its own titled with the prompt. */
+  promptMode: "thread" | "own";
 };
 
-export const EMPTY_DRAFT: BuzzDraft = { title: "", text: "", scope: "campus", images: [], video: null, pollOn: false, options: ["", ""], durationDays: 3, promptId: null };
+export const EMPTY_DRAFT: BuzzDraft = { title: "", text: "", scope: "campus", category: null, images: [], video: null, pollOn: false, options: ["", ""], durationDays: 3, promptId: null, promptMode: "thread" };
 
 export type ReplyDraft = { text: string; parentId: string | null };
 
@@ -88,6 +92,8 @@ type UiState = {
   previousSection: HomeSection;
   composerRequest: ComposerRequest | null;
   search: { q: string; scope: BuzzScope; sort: "new" | "top" };
+  /** How a thread orders its replies (Best, New, Old): the last choice, for every thread this session. */
+  replySort: BuzzReplySort;
   /** Folded items the viewer opened with "Tap to view" this session. */
   revealed: Readonly<Record<string, true>>;
   draft: BuzzDraft;
@@ -110,6 +116,7 @@ const initialUi = (): UiState => ({
   previousSection: "foryou",
   composerRequest: null,
   search: { q: "", scope: "campus", sort: "new" },
+  replySort: "best",
   revealed: {},
   draft: EMPTY_DRAFT,
   replyDrafts: {},
@@ -149,6 +156,7 @@ export const buzzState = {
     return r;
   },
   setSearch: (patch: Partial<UiState["search"]>) => ui.set((s) => ({ search: { ...s.search, ...patch } })),
+  setReplySort: (replySort: BuzzReplySort) => ui.set({ replySort }),
   reveal: (id: string) => ui.set((s) => (s.revealed[id] ? {} : { revealed: { ...s.revealed, [id]: true } })),
   setDraft: (patch: Partial<BuzzDraft>) => ui.set((s) => ({ draft: { ...s.draft, ...patch } })),
   clearDraft: () => ui.set({ draft: EMPTY_DRAFT }),
@@ -173,6 +181,13 @@ export const buzzState = {
   setPosting: (value: BuzzPostingStatus | null) => ui.set({ posting: { value, at: value ? Date.now() : 0 } }),
   setMeta(scope: BuzzScope, value: BuzzFeedMeta) {
     ui.set((s) => ({ meta: { ...s.meta, [scope]: { value, at: Date.now() } }, campus: value.campus ?? s.campus }));
+  },
+  /** Asks for a feed's meta again (an answer changed the prompt's thread and its count). */
+  dropMeta(scope: BuzzScope) {
+    ui.set((s) => {
+      const held = s.meta[scope];
+      return held ? { meta: { ...s.meta, [scope]: { ...held, at: 0 } } } : {};
+    });
   },
   setFeed(key: string, entry: Omit<FeedCacheEntry, "at">) {
     ui.set((s) => ({ feeds: { ...s.feeds, [key]: { ...entry, at: Date.now() } } }));

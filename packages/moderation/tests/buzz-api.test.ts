@@ -199,6 +199,8 @@ describe('POST /api/buzz — gates before moderation', () => {
       [{ text: 'ok', poll: { options: ['A', 'B'], durationDays: 2 } }, 'Polls run for 1, 3 or 7 days.'],
       [{ text: 'ok', scope: 'everywhere' }, ''],
       [{ text: 'ok', promptId: 'not-a-uuid' }, 'That prompt has expired.'],
+      [{ text: 'ok', category: 'gossip' }, 'Pick a category from the list.'],
+      [{ text: 'ok', category: 7 }, 'Pick a category from the list.'],
       [[1, 2, 3], ''],
     ];
     for (const [body, message] of bad) {
@@ -307,6 +309,17 @@ describe('POST /api/buzz — moderation', () => {
     assert.equal(json.title, 'Best tacos near campus?');
     assert.deepEqual(json.moderation, { status: 'active', userMessage: null, support: null });
     for (const k of ['authorId', 'author_id', 'userId', 'user_id']) assert.ok(!(k in json), k);
+  });
+
+  it('201: a category goes to buzz_v2_create as it was picked; none (or null) sends none', async () => {
+    const picked = harness();
+    assert.equal((await send(picked, { text: 'who else is up', category: 'hot_take' })).status, 201);
+    assert.deepEqual(callOf(picked, 'buzz_v2_create').p_input, { text: 'who else is up', scope: 'campus', category: 'hot_take' });
+    for (const body of [{ text: 'no category' }, { text: 'no category', category: null }]) {
+      const h = harness();
+      assert.equal((await send(h, body)).status, 201);
+      assert.deepEqual(callOf(h, 'buzz_v2_create').p_input, { text: 'no category', scope: 'campus' });
+    }
   });
 
   it('a held field holds the buzz: p_status held + M-HELD notice + queue item', async () => {

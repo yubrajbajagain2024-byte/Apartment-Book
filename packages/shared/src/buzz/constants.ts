@@ -2,7 +2,7 @@
  * Buzz v2 constants and copy, ported from UniVerse. The database enforces the same numbers (migration
  * `20261103000100_buzz_v2.sql`); `supabase/tests/buzz-v2.test.mjs` checks the two agree where it can.
  */
-import type { BuzzFeedSort, BuzzItemStatus, BuzzPollDuration, BuzzReportReason, BuzzTopWindow, ModerationCategory } from "./types";
+import type { BuzzCategory, BuzzFeedSort, BuzzItemStatus, BuzzPollDuration, BuzzReportReason, BuzzTopWindow, ModerationCategory } from "./types";
 
 /**
  * The version of the Buzz guidelines a person must accept before their first Buzz read. Bump it (here AND in
@@ -29,6 +29,29 @@ export const BUZZ_PAGE = { feed: 20, replies: 50, mine: 20 } as const;
 export const BUZZ_COLLAPSE = { score: -5, votes: 8 } as const;
 export const BUZZ_AUTO_HIDE = { score: -10, votes: 12 } as const;
 export const BUZZ_MILESTONES: readonly number[] = [10, 25, 50, 100, 250];
+/** Today's prompt: its card in Hot, its thread, and the composer answering it. */
+export const BUZZ_PROMPT_COPY = {
+  label: "Daily prompt",
+  composerTitle: "Answer the prompt",
+  submit: "Answer",
+  answers: (n: number) => (n === 1 ? "1 answer" : `${n} answers`),
+  seeAnswers: (n: number) => (n === 1 ? "See the answer" : `See all ${n} answers`),
+  first: "No answers yet. Be the first.",
+  where: "Where your answer goes",
+  inThread: "Prompt's thread",
+  inThreadNote: "With everyone's answers, under the prompt.",
+  ownBuzz: "Its own buzz",
+  ownBuzzNote: "A thread of its own, with the prompt as its title.",
+  mediaInThread: "Photos, a video or a poll need a buzz of its own.",
+  answerPlaceholder: "Your answer…",
+  threadPlaceholder: "Answer anonymously…",
+  answered: "Answered in today's prompt",
+  ended: "That prompt has ended. Today's is waiting for you.",
+  seeAll: "See all answers",
+} as const;
+
+/** Upvotes a reply needs before a feed card shows it as "Top reply" (the same 3 is in 20261108000100_buzz_top_reply.sql). */
+export const BUZZ_TOP_REPLY_MIN_UPVOTES = 3;
 /** Below this many students a campus is "small": the composer warns, and it is never named next to a buzz. */
 export const BUZZ_SMALL_CAMPUS = 50;
 /** Polls unlock this long after joining. */
@@ -49,6 +72,35 @@ export const BUZZ_SEARCH_SORTS: readonly { value: Extract<BuzzFeedSort, "new" | 
   { value: "top", label: "Top" },
 ];
 export const BUZZ_POLL_DURATIONS: readonly BuzzPollDuration[] = [1, 3, 7];
+
+/**
+ * The categories a buzz can have, in the order the composer offers them. The database refuses any other value
+ * (20261108000300_buzz_categories.sql has the same list; supabase/tests/buzz-categories.test.mjs checks they agree).
+ * `hint` says what belongs there.
+ */
+export const BUZZ_CATEGORIES: readonly { value: BuzzCategory; label: string; emoji: string; hint: string }[] = [
+  { value: "confession", label: "Confessions", emoji: "🤫", hint: "Things you'd never say out loud" },
+  { value: "question", label: "Questions", emoji: "🙋", hint: "Ask anything, get advice" },
+  { value: "hot_take", label: "Hot takes", emoji: "🌶️", hint: "Unpopular opinions. Start a debate" },
+  { value: "rant", label: "Rants", emoji: "😤", hint: "Get it off your chest" },
+  { value: "dating", label: "Dating", emoji: "💘", hint: "Crushes, situationships and love advice" },
+  { value: "classes", label: "Classes", emoji: "📚", hint: "Courses, professors and exams" },
+  { value: "funny", label: "Funny", emoji: "😂", hint: "Memes, jokes and shower thoughts" },
+  { value: "events", label: "Events", emoji: "🎉", hint: "Parties, games and what's on" },
+  { value: "housing", label: "Housing", emoji: "🏠", hint: "Roommates, sublets and landlords" },
+  { value: "career", label: "Careers", emoji: "💼", hint: "Internships, jobs and money" },
+];
+
+/** A buzz's category as BUZZ_CATEGORIES has it; null when it has none, or one this build does not know (a newer list). */
+export function buzzCategory(value: string | null | undefined): (typeof BUZZ_CATEGORIES)[number] | null {
+  return (value && BUZZ_CATEGORIES.find((c) => c.value === value)) || null;
+}
+
+export const BUZZ_CATEGORY_COPY = {
+  label: "Category",
+  none: "Optional. A category helps the right people find it.",
+  invalid: "Pick a category from the list.",
+} as const;
 export const BUZZ_SEARCH_SUGGESTIONS: readonly string[] = ["dining", "food", "parking", "housing", "roommate", "professor", "library", "gym", "bus", "wifi"];
 
 /* ───────────────────────────── copy ───────────────────────────── */

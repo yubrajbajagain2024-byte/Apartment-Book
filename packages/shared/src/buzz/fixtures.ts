@@ -17,12 +17,14 @@
  *
  * Everything is fake: the aliases, the copy, the photos (drawn SVGs). Photo and video uploads are each app's own.
  */
+import { BUZZ_TOP_REPLY_MIN_UPVOTES } from "./constants";
 import { BuzzError, buzzSearchTerms } from "./helpers";
 import type { BuzzFeedQuery } from "./queries";
 import type {
   AuthorNotice,
   Buzz,
   BuzzAlias,
+  BuzzCategory,
   BuzzFeedMeta,
   BuzzFeedPage,
   BuzzGateState,
@@ -34,6 +36,7 @@ import type {
   BuzzReportReason,
   BuzzScope,
   BuzzThread,
+  BuzzTopReply,
   BuzzVoteState,
   CreateBuzzReplyRequest,
   CreateBuzzRequest,
@@ -62,11 +65,16 @@ export interface BuzzFixtureApi {
   report(id: string, reason: BuzzReportReason, note: string | null): Promise<{ alreadyReported: boolean }>;
   create(body: CreateBuzzRequest): Promise<WithModeration<Buzz>>;
   reply(threadId: string, body: CreateBuzzReplyRequest): Promise<WithModeration<BuzzReply>>;
+  /** buzz_v2_prompt_thread: today's prompt thread on a feed, made by the first answer. */
+  promptThread(promptId: string, scope: BuzzScope): Promise<string>;
 }
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
+
+/** Today's prompt in the samples. */
+const PROMPT = { id: "fbf1e000-0000-4000-8000-0000000000aa", text: "What is a skill you learned purely from being broke?" };
 
 const floorMinute = (t: number) => Math.floor(t / MIN) * MIN;
 const ago = (ms: number) => floorMinute(Date.now() - ms);
@@ -157,6 +165,7 @@ interface RootInput {
   replyCount?: number;
   at: number;
   scope?: BuzzScope;
+  category?: BuzzCategory | null;
   mine?: boolean;
   media?: BuzzMedia[];
   poll?: BuzzPoll | null;
@@ -186,6 +195,7 @@ function root(i: RootInput): Buzz {
     createdAt: i.at,
     media: i.media ?? [],
     scope: i.scope ?? "campus",
+    category: i.category ?? null,
     poll: i.poll ?? null,
     replyCount: i.replyCount ?? 0,
     locked: i.locked ?? false,
@@ -231,6 +241,7 @@ function replies(thread: Buzz, list: ReplyInput[]): BuzzReply[] {
     const parent = r.to === undefined ? null : out[r.to];
     const depth: 1 | 2 = parent ? 2 : 1;
     // Deeper than 2 is flattened by the server: it nests under the depth-1 ancestor and says who it answers.
+    // treeParentId keeps the reply it really answers (20261108000000_buzz_reply_tree.sql).
     const flattened = parent && parent.depth === 2;
     out.push({
       kind: "reply",
@@ -249,6 +260,7 @@ function replies(thread: Buzz, list: ReplyInput[]): BuzzReply[] {
       parentId: parent ? (flattened ? parent.parentId : parent.id) : thread.id,
       depth,
       replyingTo: flattened ? parent.alias : null,
+      treeParentId: parent ? parent.id : thread.id,
     });
   }
   return out;
@@ -283,13 +295,16 @@ interface World {
   threads: Map<string, BuzzReply[]>;
   hidden: Set<string>;
   reported: Set<string>;
+  /** Today's prompt thread per feed, once anyone answered there. */
+  promptThreads: Map<BuzzScope, string>;
 }
 
 function buildWorld(variant: string): World {
-  const ember = root({ alias: ALIASES.ember, text: "The library printers work perfectly for everyone except the person who is running late.", score: 75, myVote: 1, replyCount: 5, at: ago(38 * MIN) });
-  const mushroom = root({ alias: ALIASES.mushroom, text: 'Every group project has one person who "will send it tonight" and it is never tonight.', score: 14, replyCount: 31, at: ago(3 * HOUR) });
+  const ember = root({ alias: ALIASES.ember, category: "funny", text: "The library printers work perfectly for everyone except the person who is running late.", score: 75, myVote: 1, replyCount: 5, at: ago(38 * MIN) });
+  const mushroom = root({ alias: ALIASES.mushroom, category: "classes", text: 'Every group project has one person who "will send it tonight" and it is never tonight.', score: 14, replyCount: 39, at: ago(3 * HOUR) });
   const melon = root({
     alias: ALIASES.melon,
+    category: "rant",
     title: "The Sessom garage at 7:58am",
     text: "Three laps, two near misses and one guy reversing the wrong way up the ramp. I am parking at the river from now on.",
     score: 41,
@@ -299,15 +314,17 @@ function buildWorld(variant: string): World {
   });
   const dining = root({
     alias: ALIASES.cloud,
+    category: "question",
     text: "Which dining hall breakfast is actually the best?",
     score: 5,
     replyCount: 2,
     at: ago(6 * HOUR),
     poll: poll([["Jones", 3], ["Commons", 10], ["Harris", 6], ["Off-campus tacos", 12]], { closesIn: 3 * DAY - 2 * HOUR }),
   });
-  const mineKey = root({ alias: ALIASES.key, mine: true, text: "Is it normal to not have a friend group yet? It's week 5 and everyone seems to have their people.", score: 30, replyCount: 14, at: ago(9 * HOUR) });
+  const mineKey = root({ alias: ALIASES.key, mine: true, category: "question", text: "Is it normal to not have a friend group yet? It's week 5 and everyone seems to have their people.", score: 30, replyCount: 14, at: ago(9 * HOUR) });
   const long = root({
     alias: ALIASES.owl,
+    category: "funny",
     title: "A field guide to the Quad at 12:15",
     text:
       "Tour groups moving at the speed of continental drift. A guy with a speaker who thinks everybody wants to hear his playlist. Three different clubs handing out flyers for the same event. Someone eating an entire rotisserie chicken on the steps of Old Main like it is a picnic. The preacher, obviously. And through all of it, one squirrel who has clearly seen things and is no longer afraid of any of us.\n\nI love this campus. I do not love walking across it at 12:15.",
@@ -326,6 +343,7 @@ function buildWorld(variant: string): World {
   const support = root({ alias: ALIASES.moon, text: "Not sleeping, not eating properly, and midterms are still two weeks out. Does it ever get lighter?", score: 19, replyCount: 6, at: ago(23 * HOUR), supportLink: true });
   const threePhotos = root({
     alias: ALIASES.gecko,
+    category: "housing",
     text: "Rate my dorm setup, be honest (not too honest).",
     score: 9,
     replyCount: 4,
@@ -334,6 +352,7 @@ function buildWorld(variant: string): World {
   });
   const fourPhotos = root({
     alias: ALIASES.bee,
+    category: "funny",
     text: "Things I found in the LBJ lost and found that nobody will ever claim.",
     score: 63,
     replyCount: 17,
@@ -348,8 +367,8 @@ function buildWorld(variant: string): World {
     at: ago(2 * DAY + 6 * HOUR),
     media: [{ type: "video", playbackId: "fixturePlaybackId00000", posterUrl: drawn("San Marcos River", "#0f2f2a", "#2e8f78", 1280, 720), width: 1280, height: 720, durationSeconds: 40 }],
   });
-  const collapsed = root({ alias: ALIASES.frost, text: "Hot take: the tram should not stop for anyone who is walking slower than the tram.", score: -7, replyCount: 11, at: ago(3 * DAY), collapsed: true });
-  const heldMine = root({ alias: ALIASES.pine, mine: true, status: "held", text: "Whoever keeps taking the corner study room on the 6th floor and leaving it full of energy drink cans: we know.", score: 0, replyCount: 0, at: ago(25 * MIN) });
+  const collapsed = root({ alias: ALIASES.frost, category: "hot_take", text: "Hot take: the tram should not stop for anyone who is walking slower than the tram.", score: -7, replyCount: 11, at: ago(3 * DAY), collapsed: true });
+  const heldMine = root({ alias: ALIASES.pine, mine: true, status: "held", category: "rant", text: "Whoever keeps taking the corner study room on the 6th floor and leaving it full of energy drink cans: we know.", score: 0, replyCount: 0, at: ago(25 * MIN) });
 
   const filler = Array.from({ length: 16 }, (_, i) =>
     root({ alias: FILLER_ALIASES[(i + 3) % FILLER_ALIASES.length], text: `${FILLER[(i + 5) % FILLER.length]} (${i + 1})`, score: 30 - i * 2, replyCount: i % 6, at: ago((3 + i) * DAY + i * HOUR) }),
@@ -358,26 +377,28 @@ function buildWorld(variant: string): World {
   const campus = variant === "empty" ? [] : [heldMine, ember, mushroom, melon, dining, mineKey, long, twoPhotos, support, threePhotos, fourPhotos, video, collapsed, ...filler];
 
   const global = [
-    root({ alias: ALIASES.pretzel, scope: "global", campus: null, text: "The library cafe raised prices again. The muffin is now an investment.", score: 247, myVote: 1, replyCount: 4, at: ago(4 * HOUR) }),
-    root({ alias: ALIASES.blossom, scope: "global", campus: "UT Austin", text: "If you drop something on the PCL stairs it becomes public property. Those are the rules.", score: 12, replyCount: 54, at: ago(7 * HOUR) }),
+    root({ alias: ALIASES.pretzel, scope: "global", campus: null, category: "rant", text: "The library cafe raised prices again. The muffin is now an investment.", score: 247, myVote: 1, replyCount: 4, at: ago(4 * HOUR) }),
+    root({ alias: ALIASES.blossom, scope: "global", campus: "UT Austin", category: "funny", text: "If you drop something on the PCL stairs it becomes public property. Those are the rules.", score: 12, replyCount: 54, at: ago(7 * HOUR) }),
     root({
       alias: ALIASES.satellite,
       scope: "global",
       campus: "Texas A&M",
+      category: "career",
       title: "Grad school apps",
       text: "Submitted my last application at 11:58pm. The portal crashed at 11:59. I have never prayed harder.",
       score: 96,
       replyCount: 18,
       at: ago(1 * DAY),
     }),
-    root({ alias: ALIASES.comet, scope: "global", campus: "UTSA", text: "Professors who post the slides before the lecture: you are the backbone of this nation.", score: 301, replyCount: 40, at: ago(2 * DAY) }),
-    root({ alias: ALIASES.dice, scope: "global", campus: "Texas State", text: "Every campus has a goose problem. Ours is just more organised.", score: 77, replyCount: 9, at: ago(3 * DAY) }),
+    root({ alias: ALIASES.comet, scope: "global", campus: "UTSA", category: "classes", text: "Professors who post the slides before the lecture: you are the backbone of this nation.", score: 301, replyCount: 40, at: ago(2 * DAY) }),
+    root({ alias: ALIASES.dice, scope: "global", campus: "Texas State", category: "funny", text: "Every campus has a goose problem. Ours is just more organised.", score: 77, replyCount: 9, at: ago(3 * DAY) }),
   ];
 
   // My buzzes extras: a closed poll and a removed one (only the author still sees its words).
   const minePoll = root({
     alias: ALIASES.pine,
     mine: true,
+    category: "question",
     text: "Best late-night study spot?",
     score: 3,
     replyCount: 0,
@@ -412,7 +433,16 @@ function buildWorld(variant: string): World {
       { alias: ALIASES.meteor, text: "", score: 0, at: ago(90 * MIN), status: "deleted" },
       { alias: ALIASES.oracle, text: "Someone in my group replied to the reminder with a thumbs up and then vanished for 9 days.", score: 7, at: ago(85 * MIN), to: 9 },
       { alias: ALIASES.otter, text: "Hidden by me, folded.", score: 1, at: ago(80 * MIN), collapsed: true },
-      ...fillerReplies(mushroom, 19, ago(78 * MIN)),
+      // A back-and-forth seven replies deep under the poster's update (past six levels: "Continue this thread").
+      { alias: ALIASES.clover, text: "No. What was the excuse this time?", score: 6, at: ago(79 * MIN), to: 5 },
+      { alias: ALIASES.mushroom, op: true, text: "Their wifi died. Their Instagram story went up ten minutes later.", score: 18, at: ago(78 * MIN), to: 12 },
+      { alias: ALIASES.donut, text: "THE STORY 💀", score: 9, at: ago(77 * MIN), to: 13 },
+      { alias: ALIASES.mushroom, op: true, text: "I screenshotted it. For the peer evaluation.", score: 14, at: ago(76 * MIN), to: 14 },
+      { alias: ALIASES.oracle, text: "Peer evaluation is where justice lives.", score: 8, at: ago(75 * MIN), to: 15 },
+      { alias: ALIASES.mushroom, op: true, text: "Final update: they did their part at 4am and it was actually really good??", score: 11, at: ago(74 * MIN), to: 16 },
+      { alias: ALIASES.gem, text: "Character development.", score: 6, at: ago(73 * MIN), to: 17 },
+      { alias: ALIASES.clover, text: "Not the wifi excuse in 2026.", score: 3, at: ago(72 * MIN), to: 13 },
+      ...fillerReplies(mushroom, 19, ago(71 * MIN)),
     ]),
   );
   threads.set(
@@ -443,7 +473,22 @@ function buildWorld(variant: string): World {
   threads.set(heldMine.id, []);
   threads.set(mineRemoved.id, replies(mineRemoved, [{ alias: ALIASES.fox, text: "Yeah this one was not it.", score: 1, at: ago(5 * DAY) }]));
 
-  return { campus, global, mineExtra: [minePoll, mineRemoved], threads, hidden: new Set(), reported: new Set() };
+  // Today's prompt on the campus feed already has its thread (owned by no one) and a few answers.
+  const promptThread = root({ alias: ALIASES.comet, title: PROMPT.text, text: "", score: 11, replyCount: 5, at: ago(5 * HOUR) });
+  promptThread.isPromptThread = true;
+  promptThread.promptId = PROMPT.id;
+  threads.set(
+    promptThread.id,
+    replies(promptThread, [
+      { alias: ALIASES.moon, text: "Cutting my own hair. It is not good but it is free.", score: 9, at: ago(4 * HOUR) },
+      { alias: ALIASES.pretzel, text: "Turning one rotisserie chicken into four meals.", score: 14, at: ago(4 * HOUR - 10 * MIN) },
+      { alias: ALIASES.gem, text: "Teach me your ways.", score: 3, at: ago(3 * HOUR), to: 1 },
+      { alias: ALIASES.pretzel, text: "Day 1 chicken, day 2 tacos, day 3 soup, day 4 regret.", score: 11, at: ago(2 * HOUR), to: 2 },
+      { alias: ALIASES.kite, text: "Knowing exactly which dining hall has free fruit on which day.", score: 6, at: ago(90 * MIN) },
+    ]),
+  );
+  campus.splice(2, 0, promptThread);
+  return { campus, global, mineExtra: [minePoll, mineRemoved], threads, hidden: new Set(), reported: new Set(), promptThreads: new Map([["campus", promptThread.id]]) };
 }
 
 /* ───────────────────────────── the fake API ───────────────────────────── */
@@ -490,6 +535,16 @@ export function createBuzzFixtures(variant: string): BuzzFixtureApi {
     if (!gateAccepted) throw new BuzzError("buzz_gate_required", "Accept the Buzz guidelines to continue.", 403);
   };
   const page = <T,>(items: T[], offset: number, limit: number): BuzzPage<T> => ({ items: items.slice(offset, offset + limit), nextOffset: offset + limit < items.length ? offset + limit : null });
+  // As 20261108000100_buzz_top_reply.sql picks it (the samples keep a score only: it stands in for the upvotes).
+  const topReplyOf = (b: Buzz): BuzzTopReply | null => {
+    if (b.status !== "active" || b.collapsed) return null;
+    let best: BuzzReply | null = null;
+    for (const x of world.threads.get(b.id) ?? []) {
+      if (x.status !== "active" || x.collapsed || x.supportLink || world.reported.has(x.id) || x.score < BUZZ_TOP_REPLY_MIN_UPVOTES) continue;
+      if (!best || x.score > best.score) best = x;
+    }
+    return best ? { id: best.id, alias: best.alias, isOp: best.isOp, isMine: best.isMine, text: best.text, score: best.score, createdAt: best.createdAt } : null;
+  };
   const myAlias = (threadId: string): BuzzAlias => {
     const r = rootOf(threadId);
     if (r?.isMine) return r.alias;
@@ -525,12 +580,13 @@ export function createBuzzFixtures(variant: string): BuzzFixtureApi {
         const span = q.window === "day" ? DAY : q.window === "week" ? 7 * DAY : Infinity;
         list = list.filter((b) => Date.now() - b.createdAt <= span).sort((x, y) => y.score - x.score);
       }
-      return { ...page(list, offset, limit), rankAt: q.rankAt ?? new Date().toISOString() };
+      const shown = page(list, offset, limit);
+      return { ...shown, items: shown.items.map((b) => ({ ...b, topReply: topReplyOf(b) })), rankAt: q.rankAt ?? new Date().toISOString() };
     },
-    async meta(): Promise<BuzzFeedMeta> {
+    async meta(scope): Promise<BuzzFeedMeta> {
       await requireGate(200);
       return {
-        prompt: { id: "fbf1e000-0000-4000-8000-0000000000aa", text: "What is a skill you learned purely from being broke?" },
+        prompt: { ...PROMPT, threadId: world.promptThreads.get(scope) ?? null, answers: (world.threads.get(world.promptThreads.get(scope) ?? "") ?? []).length },
         smallCampusNote: variant === "small",
         campus: { name: "Texas State University", shortName: "Texas State" },
       };
@@ -645,6 +701,7 @@ export function createBuzzFixtures(variant: string): BuzzFixtureApi {
         mine: true,
         scope,
         campus: scope === "global" ? "Texas State" : null,
+        category: body.category ?? null,
         title: body.title,
         text: body.text,
         score: 0,
@@ -655,6 +712,11 @@ export function createBuzzFixtures(variant: string): BuzzFixtureApi {
         poll: body.poll ? poll(optionsIn.map((t) => [t, 0] as [string, number]), { closesIn: body.poll.durationDays * DAY, mine: true }) : null,
       });
       created.promptId = body.promptId ?? null;
+      // As the database does: a prompt's answer is titled with the prompt, and points at that day's prompt thread.
+      if (created.promptId === PROMPT.id) {
+        created.title = PROMPT.text;
+        created.promptThreadId = world.promptThreads.get(scope) ?? null;
+      }
       (scope === "global" ? world.global : world.campus).unshift(created);
       world.threads.set(created.id, []);
       const moderation: AuthorNotice =
@@ -692,10 +754,25 @@ export function createBuzzFixtures(variant: string): BuzzFixtureApi {
         parentId: parent ? (flattened ? parent.parentId : parent.id) : threadId,
         depth,
         replyingTo: flattened && parent ? parent.alias : null,
+        treeParentId: parent ? parent.id : threadId,
       };
       world.threads.set(threadId, [...list, created]);
       replace({ ...r, replyCount: r.replyCount + 1 });
       return { ...created, moderation: variant === "held" ? { status: "held", userMessage: null, support: null } : ACTIVE };
+    },
+    async promptThread(promptId, scope) {
+      await wait(300);
+      if (!posting.allowed) throw new BuzzError("muted", "You're muted for now. You can read and vote, but not post.", 403, { until: posting.mutedUntil });
+      if (promptId !== PROMPT.id) throw new BuzzError("prompt_ended", "That prompt has ended. Today's is waiting for you.", 400);
+      const held = world.promptThreads.get(scope);
+      if (held) return held;
+      const made = root({ alias: ALIASES.comet, title: PROMPT.text, text: "", score: 0, scope, campus: null, at: floorMinute(Date.now()) });
+      made.isPromptThread = true;
+      made.promptId = PROMPT.id;
+      (scope === "global" ? world.global : world.campus).unshift(made);
+      world.threads.set(made.id, []);
+      world.promptThreads.set(scope, made.id);
+      return made.id;
     },
   };
 }

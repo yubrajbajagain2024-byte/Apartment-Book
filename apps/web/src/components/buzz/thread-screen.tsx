@@ -25,7 +25,7 @@ import { loadMoreReplies, refreshThread, useBuzzThread, useMoreRepliesState } fr
 import { BuzzPageFooter, BuzzPageHeader, PAGE_FRAME, TabBarSpacer, useBuzzBack } from "./frame";
 import { BuzzGatePanel, BuzzGateSkeleton, BuzzSignInPanel, useBuzzGate } from "./gate";
 import { handleBuzzWriteError, showModerationNotice } from "./moderation";
-import { AliasLine, BuzzText, CollapsedFold, ContentStatusChip, ItemMenu, PollView, ShareButton, SupportLink, VoteCluster } from "./parts";
+import { AliasLine, BuzzText, CategoryTag, CollapsedFold, ContentStatusChip, ItemMenu, PollView, ShareButton, SupportLink, VoteCluster } from "./parts";
 import { buzzKeys, invalidateQueries, patchBuzzItem, setQueryData, type ThreadData } from "./query";
 import { buzzActions, useBuzzUi } from "./store";
 import { BuzzSurface } from "./surface";
@@ -132,6 +132,7 @@ function ThreadView({ threadId, onBack }: { threadId: string; onBack(): void }) 
                 size="md"
                 trailing={root.isMine ? <ContentStatusChip status={root.status} /> : root.campusShortName ? <Badge>{root.campusShortName}</Badge> : null}
               />
+              <CategoryTag category={root.category} />
               {root.collapsed && !root.isMine ? (
                 <CollapsedFold id={root.id} reason="community">
                   <BuzzContent buzz={root} large />

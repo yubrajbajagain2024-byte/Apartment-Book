@@ -29,6 +29,7 @@ function handlers(api: BuzzFixtureApi): Record<string, (a: Args) => Promise<unkn
         rankAt: (a.p_rank_at as string | null) ?? null,
       }),
     buzz_v2_meta: (a) => api.meta(a.p_scope as "campus" | "global"),
+    buzz_v2_prompt_thread: (a) => api.promptThread(String(a.p_prompt), (a.p_scope as "campus" | "global" | undefined) ?? "campus"),
     buzz_v2_thread: (a) => api.thread(String(a.p_thread), a.p_limit as number),
     buzz_v2_replies: (a) => api.replies(String(a.p_thread), a.p_offset as number, a.p_limit as number),
     buzz_v2_mine: (a) => api.mine(a.p_kind as "threads" | "replies", a.p_offset as number),
