@@ -1,7 +1,8 @@
 // Live check of the Home-feed backend (posts, following, Buzz) and of activity status through the real API (PostgREST + Storage) with throwaway users.
-// Usage: SUPABASE_ACCESS_TOKEN=sbp_... node scripts/e2e-home-feed.mjs
+// Usage: SUPABASE_ACCESS_TOKEN=sbp_... node scripts/e2e-home-feed.mjs   (add STAGING_SUPABASE_REF=<ref> to run it on the staging project)
 import { createClient } from "@supabase/supabase-js";
-const ref = "dskbzoqreandwwpxiplh"; const url = `https://${ref}.supabase.co`;
+import { e2eRef } from "./e2e-target.mjs";
+const ref = await e2eRef(process.env.SUPABASE_ACCESS_TOKEN); const url = `https://${ref}.supabase.co`;
 const keys = await (await fetch(`https://api.supabase.com/v1/projects/${ref}/api-keys?reveal=true`, { headers: { Authorization: `Bearer ${process.env.SUPABASE_ACCESS_TOKEN}` } })).json();
 if (!Array.isArray(keys)) { console.error("Could not read API keys:", keys); process.exit(1); }
 const anonKey = keys.find((k) => k.name === "anon").api_key; const serviceKey = keys.find((k) => k.name === "service_role").api_key;

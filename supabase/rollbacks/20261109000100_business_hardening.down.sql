@@ -4,8 +4,10 @@
 --  * Puts back, exactly as they were, the functions this migration replaced: migration 50's business_media_problem, deals_before_write, ads_before_write, ad_submit, admin_approve_ad, admin_resume_ad, admin_record_promotion, ads_for_feed, my_saved_ads, record_business_event;
 --    migration 49's business_audit, business_audit_write, business_notify_team; migration 39's business_chat_readable, business_can_see_profile, chat_write_problem, and 39's
 --    conversations_business_scope policy.
---  * Removes what it added: the re-review triggers, the website cleaning, the storage check, the ads' promoted copy.
---  * Payments keep the listing and post they name (the references go back to being deleted with them).
+--  * Removes what it added: the re-review triggers, the website cleaning, the storage check and the lock on files live
+--    ads show, the logo check, the ads' promoted copy and reviewed screen.
+--  * Payments go back to being deleted with their listing, post, ad and business. It refuses while payments of deleted
+--    businesses or ads exist (export, then delete them first).
 -- =============================================================================
 
 
@@ -119,7 +121,9 @@ security definer
 set search_path = public
 as $$
 declare
-  v_transition boolean := current_setting('app.ad_transition', true) = 'on';
+  -- A setting this connection never set reads as null, and "not null" is not true: coalesce, so the checks below run
+  -- unless a transition is under way.
+  v_transition boolean := coalesce(current_setting('app.ad_transition', true), '') = 'on';
   v_category text;
   v_problem text;
   v_text text;
@@ -718,8 +722,13 @@ drop function if exists public.businesses_clean_website();
 drop function if exists public.ads_pause_for_review(uuid[], text);
 drop function if exists public.ad_promoted_snapshot(public.ads);
 drop function if exists public.ad_screen_text(public.ads);
+drop policy if exists "uploads_live_ad_update" on storage.objects;
+drop policy if exists "uploads_live_ad_delete" on storage.objects;
+drop function if exists public.upload_in_live_ad(text, text);
+drop function if exists public.business_logo_ok(public.businesses);
 drop function if exists public.storage_upload_url_ok(text, uuid[]);
 alter table public.ads drop column if exists promoted_snapshot;
+alter table public.ads drop column if exists reviewed_screen;
 
 alter table public.listing_promotions drop constraint if exists listing_promotions_apartment_id_fkey;
 alter table public.listing_promotions add constraint listing_promotions_apartment_id_fkey
@@ -727,5 +736,23 @@ alter table public.listing_promotions add constraint listing_promotions_apartmen
 alter table public.listing_promotions drop constraint if exists listing_promotions_deal_id_fkey;
 alter table public.listing_promotions add constraint listing_promotions_deal_id_fkey
   foreign key (deal_id) references public.deals (id) on delete cascade;
+-- Payments whose business or ad was deleted (this migration keeps them) fit none of the older rules: they are exported
+-- and deleted on purpose first.
+do $$
+begin
+  if exists (select 1 from public.listing_promotions where business_id is null or (ad_id is null and apartment_id is null and deal_id is null)) then
+    raise exception 'payments of deleted businesses or ads exist: export them, then delete them, before rolling back';
+  end if;
+end $$;
+alter table public.listing_promotions alter column business_id set not null;
+alter table public.listing_promotions drop constraint if exists listing_promotions_business_id_fkey;
+alter table public.listing_promotions add constraint listing_promotions_business_id_fkey
+  foreign key (business_id) references public.businesses (id) on delete cascade;
+alter table public.listing_promotions drop constraint if exists listing_promotions_ad_id_fkey;
+alter table public.listing_promotions add constraint listing_promotions_ad_id_fkey
+  foreign key (ad_id) references public.ads (id) on delete cascade;
+alter table public.listing_promotions drop constraint if exists listing_promotions_one_target;
+alter table public.listing_promotions add constraint listing_promotions_one_target
+  check ((num_nonnulls(apartment_id, deal_id) <= 1) and (ad_id is not null or num_nonnulls(apartment_id, deal_id) = 1));
 
 notify pgrst, 'reload schema';

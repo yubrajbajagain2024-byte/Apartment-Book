@@ -26,8 +26,10 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 - **Messages:** realtime chats, groups, semester course chats, voice messages, replies,
   attachments, requests, mute; **Snaps** (view-once); **Calls** (built, paused).
 - **Explore:** apartments with PostGIS distance and maps, roommates, Marketplace (one video per
-  item, no comments), anonymous listings with per-chat reveal (needs 47).
+  item, no comments), anonymous listings with per-chat reveal (47, live since 2026-10-27).
 - **Business portal** (`/business`): live with migration 39.
+- **Staging** (`campconnect-staging`) has production's migrations since 2026-10-28 (it got 41, 42,
+  45 and the two admin migrations then; `verify.mjs --live` against it matches production's model).
 - **Video:** Mux uploads and tours. **Mobile:** Expo SDK 58 / RN 0.88; Android release build works
   (R8 rule for LiveKit).
 - **AI documentation:** the root `CLAUDE.md` (PR #42), restructured on 2026-10-27 into one shared
@@ -37,20 +39,22 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 
 - **Apply the pending migrations.** One run of `db:setup` from `main` in database-URL mode
   ([supabase/CLAUDE.md](../supabase/CLAUDE.md)), after a backup, applies them in file order: 44 and
-  46 together, 47, 49 and 50 (Business v2), 51 to 54 (Buzz), and 55 and 56 once the `business-v2`
-  follow-up PR is merged (the order of release below). Confirm with `verify.mjs --live`, then
+  46 together, 49 and 50 (Business v2), 51 to 54 (Buzz), 55 and 56 (Business v2, PR #51), once
+  `business-v2`'s ad trigger fix is merged (the order of release below). Confirm with `verify.mjs --live`, then
   publish the app update. Their code is already on `main`, which deploys production, so this is
   overdue. Needs the owner and a credential.
 - **UniBuzz Business v2 is on `main` without its migrations.** PR #49 was merged on 2026-10-28 at
-  04:07 UTC, so production's website runs Business v2 code while, by [migrations.md](migrations.md)
-  (not checked on production), neither migration 49 nor 50 is applied. Until they are, the code
+  04:07 UTC (and #51 at 07:06 UTC), so production's website runs Business v2 code while neither
+  migration 49 nor 50 is applied (production's `_migrations`, read-only, 2026-10-28). Until they are, the code
   says these are broken on production:
   - creating and editing posts in the portal;
   - team invites;
   - the Ads screens;
   - "Message" on a business profile.
 
-  Student feeds carry on without ads. The owner chooses (both write to production):
+  On staging in production's state, this code shows an error screen on the portal's Ads and
+  Analytics pages and the Business admin's Ads, Reports and Audit pages (2026-10-28). Student
+  feeds carry on without ads. The owner chooses (both write to production):
   - the order of release below, now;
   - or revert PR #49 on `main` first, until the migrations can be applied.
 - **UniBuzz Business v2** (merged in PR #49 on 2026-10-28 at 04:07 UTC). It upgrades the v1 portal to the business spec:
@@ -62,11 +66,19 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   - analytics from real events;
   - an Apple-style portal with light and dark modes.
 
-  Order of release ([migrations.md](migrations.md)):
-  1. Merge the follow-up PR from `business-v2`: migrations 55 and 56, the video routes, and the
-     fixes from an independent review. `SUPABASE_SERVICE_ROLE_KEY` must be set on Vercel.
-  2. Run `db:setup` once from `main`, after a backup: 44, 46, 47 and 49 to 56.
-  3. Publish the app update.
+  Order of release (the full list, rollbacks included, is "Production deployment checklist" in
+  [branches/business-v2.md](branches/business-v2.md); rehearsed on staging on 2026-10-28). PR #51,
+  the website part with 55 and 56, is live since 2026-10-28 07:06 UTC.
+  1. Gates: `business-v2`'s next PR merged (the fixes to 50, 55 and 56 from the staging rehearsal
+     and a second independent review; `main`'s copies lack them: **no `db:setup` from `main`
+     before**), and a restorable backup possible: production is on the Free plan, with no
+     Supabase-managed backup (read-only check, 2026-10-28), so Pro's daily backups or a CLI dump.
+  2. Release day: back up (a CLI dump, and `scripts/backup.mjs`), then check production is in the
+     rehearsed state (`verify.mjs --live --except …`).
+  3. Run `db:setup` once from `main`: 44, 46 and 49 to 56 (47 is applied). Then `verify.mjs --live`
+     and the smoke test.
+  4. Publish the app update.
+  If it must be undone, the release's rollback is 56, 55, 50 and 49 only: Buzz's 51 to 54 stay.
 
   Follow-up work is listed in [branches/business-v2.md](branches/business-v2.md).
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
@@ -107,8 +119,8 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 
 | Item | Where it is written up |
 | --- | --- |
-| Three migrations not on production (44, 46, 47), while `main`, which deploys production, already uses them | [migrations.md](migrations.md) |
-| Business v2's code is on `main` (PR #49) while, by [migrations.md](migrations.md), migrations 49 and 50 are not on production (not checked): posts, invites and the Ads screens in the portal fail until they are applied | "UniBuzz Business v2 is on `main` without its migrations" above |
+| Two migrations not on production (44, 46), while `main`, which deploys production, already uses them (47 was applied on 2026-10-27) | [migrations.md](migrations.md) |
+| Business v2's code is on `main` (PRs #49 and #51) while migrations 49 and 50 are not on production (read-only check, 2026-10-28): posts, invites and the Ads screens in the portal fail until they are applied | "UniBuzz Business v2 is on `main` without its migrations" above |
 | `db:setup` token mode resets the production auth Site URL to localhost by default | [supabase/CLAUDE.md](../supabase/CLAUDE.md) |
 | A security fix for a live part of the database is pending | "Security fix pending" above |
 | Supabase CLI history empty on production; `supabase db push` would re-run everything | `supabase/applied-outside-repo/README.md` |

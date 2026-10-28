@@ -61,6 +61,21 @@ open work is in [status.md](status.md).
   status.md). The follow-up work (migration 51, now 55; video routes; review fixes) stays on
   `business-v2` for a new PR.
 
+- 2026-10-28, afternoon: read-only checks of production (owner's approval) found migration 47 applied
+  on 2026-10-27 at 04:37 UTC although the docs listed it as pending, and no Supabase-managed backup
+  (Free plan). A second independent review of the ad approval and payment rules found eight more
+  problems in 55 and 56; fixed on `business-v2` and attacked again through the real API on staging,
+  which was then brought to production's state (47 applied) and restored.
+
+- 2026-10-28 07:06 UTC: PR #51 (`business-v2`'s second round: migrations 55 and 56, the video
+  routes, the independent review's fixes) merged into `main`; production's website runs it, its
+  migrations are not applied.
+
+- 2026-10-28, from 08:20 UTC: staging (`campconnect-staging`) caught up to production's migrations
+  (41, 42, 45 and the two admin migrations), then the Business v2 release (44, 46, 47, 49 to 56) was
+  rehearsed on it and rolled back again, leaving it in production's state. The rehearsal found and
+  fixed an ad trigger problem in 50 and 56 before either reached production (branches/business-v2.md).
+
 - 2026-10-28 06:18 UTC: PR #50 (`ankur/dev`: Buzz threaded replies, top reply, prompt threads,
   categories) merged into `main` with migrations numbered 51 to 54. The two unmerged migrations on
   `business-v2`, 51 and 52 in its commit messages, were renamed to sort after them

@@ -3,11 +3,12 @@
 // as each person. A reply to a reply to a reply comes back flattened under its depth-1 ancestor, with "replying to".
 import fs from "node:fs";
 import { createClient } from "@supabase/supabase-js";
-const ref = "dskbzoqreandwwpxiplh";
+import { e2eRef } from "../../../scripts/e2e-target.mjs";
+const s = JSON.parse(fs.readFileSync(new URL(".sim-state.json", import.meta.url), "utf8"));
+const ref = s.ref ?? (await e2eRef(process.env.SUPABASE_ACCESS_TOKEN)); // the project sim-seed.mjs used
 const keys = await (await fetch(`https://api.supabase.com/v1/projects/${ref}/api-keys?reveal=true`, { headers: { Authorization: `Bearer ${process.env.SUPABASE_ACCESS_TOKEN}` } })).json();
 const admin = createClient(`https://${ref}.supabase.co`, keys.find((k) => k.name === "service_role").api_key, { auth: { persistSession: false, autoRefreshToken: false } });
 const anonKey = keys.find((k) => k.name === "anon").api_key;
-const s = JSON.parse(fs.readFileSync(new URL(".sim-state.json", import.meta.url), "utf8"));
 const BUZZ_GUIDELINES_VERSION = "2026-10-21"; // packages/shared/src/buzz/constants.ts
 const as = async (u) => {
   const c = createClient(`https://${ref}.supabase.co`, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });

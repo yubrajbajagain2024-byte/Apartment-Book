@@ -1,9 +1,11 @@
 import fs from "node:fs";
 import { createClient } from "@supabase/supabase-js";
-const ref = "dskbzoqreandwwpxiplh";
+import { e2eRef } from "../../../scripts/e2e-target.mjs";
+const s = JSON.parse(fs.readFileSync(new URL(".sim-state.json", import.meta.url), "utf8"));
+// The project the seed used (older state files have none: then production, or STAGING_SUPABASE_REF).
+const ref = s.ref ?? (await e2eRef(process.env.SUPABASE_ACCESS_TOKEN));
 const keys = await (await fetch(`https://api.supabase.com/v1/projects/${ref}/api-keys?reveal=true`, { headers: { Authorization: `Bearer ${process.env.SUPABASE_ACCESS_TOKEN}` } })).json();
 const admin = createClient(`https://${ref}.supabase.co`, keys.find((k) => k.name === "service_role").api_key, { auth: { persistSession: false, autoRefreshToken: false } });
-const s = JSON.parse(fs.readFileSync(new URL(".sim-state.json", import.meta.url), "utf8"));
 const { data: convs } = await admin.from("conversation_members").select("conversation_id").in("user_id", [s.me.id, s.other.id, ...(s.extra ?? []).map((u) => u.id)]);
 for (const c of new Set((convs ?? []).map((c) => c.conversation_id))) await admin.from("conversations").delete().eq("id", c);
 if (s.buzzId) await admin.from("buzz_posts").delete().eq("id", s.buzzId); // threads outlive accounts by design, so remove the test one explicitly

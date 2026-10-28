@@ -1,6 +1,6 @@
 # auto-hide-reports
 
-- **Owner:** Yubraj. **As of 2026-10-28:** branched from `main` at `188c918`; `main` at `0d8e459` merged in. Pushed; PR into `main`, not merged.
+- **Owner:** Yubraj. **As of 2026-10-28:** branched from `main` at `188c918`; `main` at `0d8e459`, then at `f77d796` (PR #52: Business v2 fixes to 55 and 56), merged in. Pushed; PR into `main`, not merged.
   Written by an AI session.
 - **Purpose:** content that 10 different legitimate people report is hidden at once on the website
   and the app, flagged for review in CampConnect Admin, its owner told and the action audited. Admins
@@ -25,11 +25,12 @@
 
 ## Tests (2026-10-28)
 
-- `npm run db:test`: 42 suites, 1583 checks, 0 failures, after merging `main` at `0d8e459`.
+- `npm run db:test`: 42 suites, 1607 checks, 0 failures, after merging `main` at `f77d796` (1583 at `0d8e459`).
   The production rollout rehearsal now applies, rolls back and re-applies 57 with the other pending migrations. That includes Trust & Safety, Buzz v2 and
   CampConnect Admin + Buzz, unchanged.
 - `report-auto-hide`: 83 checks.
-- `npm run check`: 6/6.
+- `npm run check`: 6/6. `test:shared` 184/184, `test:moderation` 429/429 (after merging `f77d796`).
+- 57 shares no function, policy, trigger or view with 49 to 56, so running after Business v2 changes none of it.
 - Not run: anything against a real Supabase project. step-admin's own admin suites do not run on
   `main`'s schema: they predate Trust & Safety, whose report trigger refuses some of their fixtures.
   That is part of the pending step-admin merge.
