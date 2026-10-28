@@ -61,6 +61,10 @@ open work is in [status.md](status.md).
   status.md). The follow-up work (migration 51, now 55; video routes; review fixes) stays on
   `business-v2` for a new PR.
 
+- 2026-10-28 07:06 UTC: PR #51 (`business-v2`'s second round: migrations 55 and 56, the video
+  routes, the independent review's fixes) merged into `main`; production's website runs it, its
+  migrations are not applied.
+
 - 2026-10-28, from 08:20 UTC: staging (`campconnect-staging`) caught up to production's migrations
   (41, 42, 45 and the two admin migrations), then the Business v2 release (44, 46, 47, 49 to 56) was
   rehearsed on it and rolled back again, leaving it in production's state. The rehearsal found and

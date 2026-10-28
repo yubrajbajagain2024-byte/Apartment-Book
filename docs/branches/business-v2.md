@@ -4,10 +4,14 @@
   - The first round (four commits of work plus docs, up to `575587a`) was **merged into `main` as
     PR #49 on 2026-10-28 at 04:07 UTC**, before migrations 49 and 50 reached production. See
     docs/status.md for what that means and the two ways out.
-  - The second round is on this branch for a new PR: migrations 55 and 56, the video routes, and
-    fixes from an independent review. `main` (PR #50, Buzz) is merged in. 55 and 56 were 51 and 52
-    until 2026-10-28, and this branch's earlier commit messages still call them that
+  - The second round (migrations 55 and 56, the video routes, fixes from an independent review, and
+    `main` with PR #50 merged in, up to `b7a6f05`) was **merged into `main` as PR #51 on 2026-10-28
+    at 07:06 UTC**; production's website runs it, its migrations are not applied. 55 and 56 were 51
+    and 52 until 2026-10-28, and this branch's earlier commit messages still call them that
     (docs/migrations.md, "Numbering quirk").
+  - The third round, after #51, is on this branch for a new PR: the fix to 50's and 56's ad trigger
+    found by the staging rehearsal, the rehearsal and backup tooling, and these docs. **`main`'s 50
+    and 56 lack that fix: do not run `db:setup` from `main` before this PR is merged.**
   - Written by an AI session.
 - **Purpose:** UniBuzz Business v2: upgrade the v1 portal (migration 39) to the business spec without
   rebuilding it.
@@ -241,12 +245,13 @@ the website pointed at staging (`apps/web/e2e/release-smoke.mjs`, every page of 
 
 ## Production release plan (revised 2026-10-28)
 
-Each production step needs the owner's explicit approval. Nothing is merged or applied before step 1.
+Each production step needs the owner's explicit approval. No migration is applied before step 1. (The website part
+of the release, PR #51, was merged on 2026-10-28 at 07:06 UTC, before this plan: it changed no database.)
 
 **Before release day (no production change):**
-- Review this branch's PR; do not merge it yet.
-- In Vercel, check that `SUPABASE_SERVICE_ROLE_KEY` is set for Production (video uploads need it once this code is
-  live) and note the current production deployment, to roll back to.
+- Review this branch's third-round PR (the trigger fix, tooling, docs); do not merge it yet.
+- In Vercel, check that `SUPABASE_SERVICE_ROLE_KEY` is set for Production (video uploads need it since #51) and note
+  the current production deployment, to roll back to.
 - Pick a quiet hour: business replies sent in the second migration 49 commits can fail once (a retry works).
 
 **Release day, in this order:**
@@ -256,8 +261,8 @@ Each production step needs the owner's explicit approval. Nothing is merged or a
    the state rehearsed (read-only):
    `SUPABASE_ACCESS_TOKEN=… node supabase/applied-outside-repo/verify.mjs --live --except <the 11 files: 44, 46, 47, 49 to 56>`.
    If it does not match, stop: the plan was rehearsed on that state only.
-2. **Merge the PR** (deploys the website). Until step 3 the site behaves as production does today (rehearsed: 40 of 46
-   pages; the 6 others need 49 and 50).
+2. **Merge the third-round PR** (it changes no website code: migration files, tests, scripts, docs). Until step 3
+   the site behaves as production does today (rehearsed: 40 of 46 pages; the 6 others need 49 and 50).
 3. **Apply the migrations**: `SUPABASE_DB_URL=… npm run db:setup` from an up-to-date `main` (database-URL mode only,
    never token mode or `supabase db push`). It applies 44, 46, 47, 49, 50, Buzz's 51 to 54, 55 and 56 in file order,
    each in its own transaction; it stops at the first failure, leaving the earlier ones applied. On staging, students'

@@ -39,8 +39,8 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 
 - **Apply the pending migrations.** One run of `db:setup` from `main` in database-URL mode
   ([supabase/CLAUDE.md](../supabase/CLAUDE.md)), after a backup, applies them in file order: 44 and
-  46 together, 47, 49 and 50 (Business v2), 51 to 54 (Buzz), and 55 and 56 once the `business-v2`
-  follow-up PR is merged (the order of release below). Confirm with `verify.mjs --live`, then
+  46 together, 47, 49 and 50 (Business v2), 51 to 54 (Buzz), 55 and 56 (Business v2, PR #51), once
+  `business-v2`'s ad trigger fix is merged (the order of release below). Confirm with `verify.mjs --live`, then
   publish the app update. Their code is already on `main`, which deploys production, so this is
   overdue. Needs the owner and a credential.
 - **UniBuzz Business v2 is on `main` without its migrations.** PR #49 was merged on 2026-10-28 at
@@ -69,10 +69,11 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   Order of release (the full runbook, rollbacks included, is "Production release plan" in
   [branches/business-v2.md](branches/business-v2.md); rehearsed on staging on 2026-10-28):
   1. Back up production (`scripts/backup.mjs`, read-only) and check it is in the rehearsed state
-     (`verify.mjs --live --except …`), before any change.
-  2. Merge the follow-up PR from `business-v2`: migrations 55 and 56, the video routes, and the
-     fixes from an independent review and from the staging rehearsal. `SUPABASE_SERVICE_ROLE_KEY`
-     must be set on Vercel.
+     (`verify.mjs --live --except …`), before any database change. (PR #51, the website part with
+     55 and 56, was merged on 2026-10-28 at 07:06 UTC; `SUPABASE_SERVICE_ROLE_KEY` must be set on
+     Vercel for its video uploads.)
+  2. Merge `business-v2`'s next PR: the staging rehearsal's fix to 50's and 56's ad trigger (`main`'s
+     copies lack it: **no `db:setup` from `main` before it is merged**), its tooling and docs.
   3. Run `db:setup` once from `main`: 44, 46, 47 and 49 to 56. Then `verify.mjs --live`.
   4. Publish the app update.
   If it must be undone, the release's rollback is 56, 55, 50 and 49 only: Buzz's 51 to 54 stay.

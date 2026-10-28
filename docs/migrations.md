@@ -3,9 +3,9 @@
 Which migration is on the live project. How to write and apply one is in
 [supabase/CLAUDE.md](../supabase/CLAUDE.md). A migration's row (❌ not applied) goes in with its PR;
 when it reaches production, update the row with a docs-only PR (root CLAUDE.md, documentation
-rule 2). On `main` as of 2026-10-28: 53 files in `supabase/migrations/` and 14 rollbacks, for the
-newer migrations, in `supabase/rollbacks/` (49 and 50 came with PR #49, 51 to 54 with PR #50); the
-`business-v2` branch adds 55 and 56, with their rollbacks.
+rule 2). On `main` as of 2026-10-28: 55 files in `supabase/migrations/` and 16 rollbacks, for the
+newer migrations, in `supabase/rollbacks/` (49 and 50 came with PR #49, 51 to 54 with PR #50, 55
+and 56 with PR #51).
 
 **As of 2026-10-27.** Assembled from commit messages, `supabase/applied-outside-repo/README.md` and
 the owner's deploy notes (read-only checks of production's `public._migrations`, latest 2026-10-27
@@ -32,8 +32,8 @@ The README's statement that 41 and 42 are not live is out of date.
 | 52 | `20261108000100_buzz_top_reply.sql` (merged in PR #50): a feed card's "Top reply" (`topReply` in `buzz_v2_feed`), with a partial index | ❌ **not applied** |
 | 53 | `20261108000200_buzz_prompt_threads.sql` (merged in PR #50): one thread per day's prompt per campus and one on Global (`buzz_prompt_threads`, `buzz_v2_prompt_thread()`); a prompt's answer always titled with the prompt, existing ones included | ❌ **not applied** |
 | 54 | `20261108000300_buzz_categories.sql` (merged in PR #50): an optional category on a buzz (`buzz_posts.category`, a fixed list), read by `buzz_v2_create` and shown by `buzz_root_json` | ❌ **not applied** |
-| 55 | `20261109000000_media_server_fields.sql` (branch `business-v2`): a video's processing details are written by the server only; 30 new videos a day per person; ready videos 10 minutes at most | ❌ **not applied** |
-| 56 | `20261109000100_business_hardening.sql` (branch `business-v2`): Business v2 hardening after an independent review: ads show the reviewed copy of what they promote and pause when it changes, every ad screened for Fair Housing, ad photos from this project's storage, chats visible to a business once the student writes, blocks stop chats, server-set dates, payments kept, stricter event counting | ❌ **not applied** |
+| 55 | `20261109000000_media_server_fields.sql` (merged in PR #51): a video's processing details are written by the server only; 30 new videos a day per person; ready videos 10 minutes at most | ❌ **not applied** |
+| 56 | `20261109000100_business_hardening.sql` (merged in PR #51; its trigger fix on `business-v2`): Business v2 hardening after an independent review: ads show the reviewed copy of what they promote and pause when it changes, every ad screened for Fair Housing, ad photos from this project's storage, chats visible to a business once the student writes, blocks stop chats, server-set dates, payments kept, stricter event counting | ❌ **not applied** |
 | (18) | `20261103100200_staff_invite_email.sql`: **file only on `step-admin`** (in neither `supabase/migrations/` nor `supabase/applied-outside-repo/` here) | ✅ applied |
 
 **What the gaps cost today:** without 44, Discover falls back to newest posts and people; without
@@ -48,12 +48,14 @@ carries the code for 44, 46 and 47, so production's website most likely does too
 **Business v2 (49 and 50, then 55 and 56):** `db:setup` applies whatever is pending, in file order,
 so one run from `main` applies 44, 46, 47, 49, 50, Buzz's 51 to 54, 55 and 56. PR #49 merged 49
 and 50's code on 2026-10-28 at 04:07 UTC, when its own docs said they were not on production (not
-checked since). 55 and 56 come with the `business-v2` follow-up PR. The full runbook, with the
-rollbacks, is "Production release plan" in [branches/business-v2.md](branches/business-v2.md). In short:
+checked since). 55 and 56 reached `main` with PR #51 (2026-10-28, 07:06 UTC), whose video routes
+write a video's processing details with the service role, which works with or without 55. The full
+runbook, with the rollbacks, is "Production release plan" in
+[branches/business-v2.md](branches/business-v2.md). In short:
 1. Back up production first (`scripts/backup.mjs`, read-only), and check with `verify.mjs --live
    --except …` that production is still in the state that was rehearsed.
-2. Merge the follow-up PR from `business-v2` (one exception to "migrations first"). Its video routes
-   write a video's processing details with the service role, which works with or without 55.
+2. Merge `business-v2`'s fix to 50's and 56's ad trigger (found on staging, after #51). **`main`'s
+   50 and 56 lack it: no `db:setup` from `main` before it is merged.**
 3. Run `db:setup` once from `main`: 44, 46, 47 and 49 to 56.
 
 Applying 55 under the older video routes would leave new uploads "processing". Applying 49 and 50
