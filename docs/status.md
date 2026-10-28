@@ -40,7 +40,9 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 - **Apply the pending migrations.** One run of `db:setup` from `main` in database-URL mode
   ([supabase/CLAUDE.md](../supabase/CLAUDE.md)), after a backup, applies them in file order: 44 and
   46 together, 49 and 50 (Business v2), 51 to 54 (Buzz), 55 and 56 (Business v2, PR #51), once
-  `business-v2`'s ad trigger fix is merged (the order of release below). Confirm with `verify.mjs --live`, then
+  `business-v2`'s ad trigger fix is merged (the order of release below) and `buzz-prompt-titles-keep`
+  is merged (53 then keeps a title an author already wrote on a prompt answer; in Ankur's review as of
+  2026-10-28). Confirm with `verify.mjs --live`, then
   publish the app update. Their code is already on `main`, which deploys production, so this is
   overdue. Needs the owner and a credential.
 - **UniBuzz Business v2 is on `main` without its migrations.** PR #49 was merged on 2026-10-28 at

@@ -1,8 +1,8 @@
 // One thread per day's prompt (20261108000200_buzz_prompt_threads.sql) against PGlite, in production's order: the
 // first answer makes today's prompt thread on a feed (one per campus, one on Global), owned by no one, titled with the
 // prompt; the answers are its replies; meta says which thread is today's and how many answers it has. A prompt answered
-// on its own buzz always carries the prompt as its title (the answers posted before this file too) and points at its
-// prompt thread. Only signed-in people who may post can make one; its helpers stay internal. buzz_v2.sql runs again
+// on its own buzz carries the prompt as its title (an answer posted before this file only where it had none: a title
+// its author wrote stays) and points at its prompt thread. Only signed-in people who may post can make one; its helpers stay internal. buzz_v2.sql runs again
 // over the file, the rollback keeps the threads as ordinary buzzes, and the migration applies again.
 import { boot, read, expectOk, done } from "./harness.mjs";
 import { BUZZ_GUIDELINES_VERSION as VERSION } from "../../packages/shared/src/buzz/constants.ts";
@@ -137,12 +137,21 @@ await expectOk("who may make one: signed in, guidelines accepted, today's prompt
   }
 });
 
-await expectOk("answers posted before this file get the prompt as their title", async () => {
+await expectOk("answers posted before this file get the prompt as their title where they have none; a title someone wrote stays", async () => {
   await db.exec(read(ROLLBACK));
   const old = await create(ANA, { text: "an answer from before", promptId: today.prompt_id });
-  check(old.title === "", "before: no title");
+  // buzz_posts.title is never null (20260920000000_home_feed.sql), so "none" is empty or only spaces.
+  const spaces = await create(BO, { text: "an answer whose title is blank", promptId: today.prompt_id });
+  const typed = await create(ANA, { title: "Sunrise at the river", text: "an answer with a title of its own", promptId: today.prompt_id });
+  await db.query("update public.buzz_posts set title = '   ' where id = $1", [spaces.id]);
+  check(old.title === "" && typed.title === "Sunrise at the river", "before: no title, and a title of its own");
   await db.exec(read(MIGRATION));
-  check((await val(db.query("select title from public.buzz_posts where id = $1", [old.id]))) === today.prompt_text.slice(0, 100), "after: the prompt");
+  const title = (id) => val(db.query("select title from public.buzz_posts where id = $1", [id]));
+  for (const b of [old, spaces]) check((await title(b.id)) === today.prompt_text.slice(0, 100), `after: the prompt for ${b.text}`);
+  check((await title(typed.id)) === "Sunrise at the river", "after: the title its author wrote");
+  await db.exec(read(MIGRATION));
+  check((await title(typed.id)) === "Sunrise at the river", "and it stays when the file runs again");
+  check((await feedItem(ANA, typed.id)).promptThreadId === campusThread, "it still points at its prompt thread");
   check((await meta(ANA)).prompt.threadId === campusThread, "the thread is found again after the rollback and back");
 });
 
