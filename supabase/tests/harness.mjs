@@ -47,25 +47,32 @@ export async function boot(opts = {}) {
   }
   await db.exec(`grant execute on all functions in schema extensions to anon, authenticated;`);
   await db.exec(read("seed.sql"));
-  // Users made with mk() are confirmed; pass { confirmed: false } for a sign-up that has not clicked the email link yet.
-  const mk = async (email, name, opts = {}) => (await db.query("insert into auth.users (email, raw_user_meta_data, email_confirmed_at) values ($1,$2,$3) returning id", [email, JSON.stringify({ full_name: name }), opts.confirmed === false ? null : new Date()])).rows[0].id;
-  // as(uid, fn, { aal: "aal2" }) runs fn as a user whose session passed two-factor authentication. Like Supabase,
-  // aal2 implies the account has a verified factor, so one is created in auth.mfa_factors if missing.
-  const as = async (uid, fn, claims = {}) => {
-    if (claims.aal === "aal2") await db.query("insert into auth.mfa_factors (user_id, status, friendly_name) select $1, 'verified', 'Authenticator app' where not exists (select 1 from auth.mfa_factors where user_id = $1 and status = 'verified')", [uid]);
-    await db.exec(`set role authenticated; select set_config('request.jwt.claims', '${JSON.stringify({ sub: uid, ...claims })}', false);`);
-    try { return await fn(); } finally { await db.exec(`reset role; select set_config('request.jwt.claims', '', false);`); }
+  const session = (db) => {
+    // Users made with mk() are confirmed; pass { confirmed: false } for a sign-up that has not clicked the email link yet.
+    const mk = async (email, name, opts = {}) => (await db.query("insert into auth.users (email, raw_user_meta_data, email_confirmed_at) values ($1,$2,$3) returning id", [email, JSON.stringify({ full_name: name }), opts.confirmed === false ? null : new Date()])).rows[0].id;
+    // as(uid, fn, { aal: "aal2" }) runs fn as a user whose session passed two-factor authentication. Like Supabase,
+    // aal2 implies the account has a verified factor, so one is created in auth.mfa_factors if missing.
+    const as = async (uid, fn, claims = {}) => {
+      if (claims.aal === "aal2") await db.query("insert into auth.mfa_factors (user_id, status, friendly_name) select $1, 'verified', 'Authenticator app' where not exists (select 1 from auth.mfa_factors where user_id = $1 and status = 'verified')", [uid]);
+      await db.exec(`set role authenticated; select set_config('request.jwt.claims', '${JSON.stringify({ sub: uid, ...claims })}', false);`);
+      try { return await fn(); } finally { await db.exec(`reset role; select set_config('request.jwt.claims', '', false);`); }
+    };
+    const asAnon = async (fn) => {
+      await db.exec(`set role anon; select set_config('request.jwt.claims', '', false);`);
+      try { return await fn(); } finally { await db.exec(`reset role;`); }
+    };
+    // The website's server (write API, Mux webhook) runs as service_role: it bypasses RLS and has no auth.uid().
+    const asService = async (fn) => {
+      await db.exec(`set role service_role; select set_config('request.jwt.claims', '{"role":"service_role"}', false);`);
+      try { return await fn(); } finally { await db.exec(`reset role; select set_config('request.jwt.claims', '', false);`); }
+    };
+    return { db, mk, as, asAnon, asService };
   };
-  const asAnon = async (fn) => {
-    await db.exec(`set role anon; select set_config('request.jwt.claims', '', false);`);
-    try { return await fn(); } finally { await db.exec(`reset role;`); }
-  };
-  // The website's server (write API, Mux webhook) runs as service_role: it bypasses RLS and has no auth.uid().
-  const asService = async (fn) => {
-    await db.exec(`set role service_role; select set_config('request.jwt.claims', '{"role":"service_role"}', false);`);
-    try { return await fn(); } finally { await db.exec(`reset role; select set_config('request.jwt.claims', '', false);`); }
-  };
-  return { db, mk, as, asAnon, asService };
+  const h = session(db);
+  // reopen(): the same database on a new connection, the way each API request may get a fresh one: whatever this
+  // session set (custom settings a migration or a function set, even locally, stay defined in it) is gone.
+  h.reopen = async () => session(new PGlite({ extensions: { pgcrypto, postgis }, loadDataDir: await db.dumpDataDir("none") }));
+  return h;
 }
 
 let failures = 0;

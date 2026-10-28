@@ -1,8 +1,10 @@
 // Creates test users, sample posts, follows and Maya's classes for simulator runs (SUPABASE_ACCESS_TOKEN env). The test account ("me") and Leo follow each other, so they are friends.
-// Writes .sim-state.json (git-ignored); run sim-cleanup.mjs afterwards.
+// Writes .sim-state.json (git-ignored); run sim-cleanup.mjs afterwards. STAGING_SUPABASE_REF seeds the staging project instead
+// (scripts/e2e-target.mjs); the state file remembers which project, so the cleanup goes to the same one.
 import fs from "node:fs";
 import { createClient } from "@supabase/supabase-js";
-const ref = "dskbzoqreandwwpxiplh";
+import { e2eRef } from "../../../scripts/e2e-target.mjs";
+const ref = await e2eRef(process.env.SUPABASE_ACCESS_TOKEN);
 const keys = await (await fetch(`https://api.supabase.com/v1/projects/${ref}/api-keys?reveal=true`, { headers: { Authorization: `Bearer ${process.env.SUPABASE_ACCESS_TOKEN}` } })).json();
 const admin = createClient(`https://${ref}.supabase.co`, keys.find((k) => k.name === "service_role").api_key, { auth: { persistSession: false, autoRefreshToken: false } });
 const stamp = Date.now(); const password = `Sim-${stamp}-pass!`;
@@ -44,6 +46,12 @@ const { data: carousel } = await admin.from("feed_posts").insert({ author_id: le
 // Distinct times: "Liked by" shows the newest liker first, and the flows expect Maya on Leo's carousel (likes from the
 // same instant would be ordered by user id, a coin flip between seeds).
 const minutesAgo = (m) => new Date(Date.now() - m * 60_000).toISOString();
+// Since migration 37 a person's likes are private by default, and "Liked by" shows only likers whose Liked section the
+// viewer may see: Leo shows his to everyone, so the Posts tab says "Liked by UI Leo" signed out and signed in.
+{
+  const r = await admin.from("profiles").update({ liked_visibility: "public" }).eq("id", leo.id);
+  if (r.error) console.warn(`Leo's likes stay private (liked_visibility needs migration 37): ${r.error.message}`);
+}
 await admin.from("post_likes").insert([
   { target_type: "post", target_id: post.id, user_id: leo.id, created_at: minutesAgo(3) },
   { target_type: "post", target_id: carousel.id, user_id: leo.id, created_at: minutesAgo(2) },
@@ -71,5 +79,5 @@ const buzz = await admin.rpc("buzz_v2_create", {
 });
 if (buzz.error) throw buzz.error;
 const buzzId = buzz.data.id;
-fs.writeFileSync(new URL(".sim-state.json", import.meta.url), JSON.stringify({ me, other, extra: [leo], password, apartmentId: apt.id, roommateId: room.id, itemId: item.id, postId: post.id, carouselId: carousel.id, buzzId }, null, 2));
+fs.writeFileSync(new URL(".sim-state.json", import.meta.url), JSON.stringify({ ref, me, other, extra: [leo], password, apartmentId: apt.id, roommateId: room.id, itemId: item.id, postId: post.id, carouselId: carousel.id, buzzId }, null, 2));
 console.log(JSON.stringify({ me: me.email, password, post: post.id, buzz: buzzId }));

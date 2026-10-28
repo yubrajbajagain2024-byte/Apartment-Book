@@ -1629,7 +1629,8 @@ export type Database = {
       listing_promotions: {
         Row: {
           id: string;
-          business_id: string;
+          /** Null once the business was deleted (migration 56 keeps its payments on record). */
+          business_id: string | null;
           apartment_id: string | null;
           deal_id: string | null;
           starts_at: string;
@@ -1735,6 +1736,8 @@ export type Database = {
           legacy_promotion_id: string | null;
           /** Migration 56: the promoted post or listing as it was reviewed, which students see (set by the database). */
           promoted_snapshot: Json | null;
+          /** Migration 56: what the UniBuzz team last approved it as ({ vertical, flags }); a resume compares. */
+          reviewed_screen: Json | null;
           created_at: string;
           updated_at: string;
         };

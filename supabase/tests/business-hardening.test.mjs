@@ -11,7 +11,7 @@ const MIGRATION = "migrations/20261109000100_business_hardening.sql";
 const ROLLBACK = "rollbacks/20261109000100_business_hardening.down.sql";
 const hours = (h) => new Date(Date.now() + h * 3600_000).toISOString();
 
-const { db, mk, as } = await boot();
+const { db, mk, as, reopen } = await boot();
 const one = async (p) => (await p).rows[0];
 const rows = async (p) => (await p).rows;
 const signUp = async (email, meta) => (await db.query("insert into auth.users (email, raw_user_meta_data) values ($1, $2) returning id", [email, JSON.stringify(meta)])).rows[0].id;
@@ -44,6 +44,22 @@ const submit = (owner, id) => as(owner, () => db.query("select public.ad_submit(
 const approve = (id, o = {}) => as(admin, () => one(db.query("select (public.admin_approve_ad($1, 5000, 'USD', 'INV-1', $2, $3)).status", [id, o.note ?? null, o.fh ?? false])));
 const feed = (who, placement) => as(who, () => rows(db.query("select * from public.ads_for_feed($1, 10, 0)", [placement])));
 const ad = (id) => one(db.query("select * from public.ads where id = $1", [id]));
+
+// --- A new connection: the ad trigger's checks run there too ---------------------------------------------------------------
+// Every API request may come on a connection that has never seen an ad change status (staging, 2026-10-28). Migration 50's
+// own data step leaves the transition setting defined in this test session, so the check runs on a reopened one.
+await expectOk("on a new connection, a business's ad still starts as a draft, unreviewed and unpaid, and its photos are checked", async () => {
+  const c = await reopen();
+  const row = await c.as(cafeOwner, async () => (await c.db.query(`insert into public.ads (business_id, created_by, name, placements, university_ids, caption, media, cta, budget_cents, status, reviewed_by, reviewed_at, promoted_snapshot)
+    values ($1, $2, 'Self-approved', '{for_you}', $3, 'Come by.', $4, 'visit_profile', 0, 'active', $5, now(), '{}') returning status, reviewed_by, reviewed_at, promoted_snapshot`, [cafe, cafeOwner, [txstate], JSON.stringify([LATTE]), admin])).rows[0]);
+  if (row.status !== "draft" || row.reviewed_by || row.reviewed_at || row.promoted_snapshot) throw new Error(JSON.stringify(row));
+  let refused = false;
+  try {
+    await c.as(cafeOwner, () => c.db.query("insert into public.ads (business_id, created_by, name, placements, university_ids, caption, media, cta, budget_cents) values ($1, $2, 'Linked', '{for_you}', $3, 'x', $4, 'visit_profile', 0)", [cafe, cafeOwner, [txstate], JSON.stringify([{ type: "image", url: "https://tracker.example/storage/v1/object/public/uploads/x.jpg" }])]));
+  } catch (e) { refused = /Upload photos/.test(e.message); }
+  await c.db.close();
+  if (!refused) throw new Error("a linked photo was accepted");
+});
 
 // --- What students see is what was reviewed ---------------------------------------------------------------------------
 let postAd, post;
@@ -194,6 +210,135 @@ await expectOk("a website or a post link that is not http(s) is dropped", async 
   const d = await as(cafeOwner, () => one(db.query("insert into public.deals (business_id, created_by, title, link_url) values ($1, $2, 'Link', 'itms-services://x') returning link_url", [cafe, cafeOwner])));
   const b = await one(db.query("select website from public.businesses where id = $1", [cafe]));
   if (b.website !== null || d.link_url !== null) throw new Error(JSON.stringify({ b, d }));
+});
+
+// --- The second independent review (2026-10-28), on new connections ---------------------------------------------------------
+const approved = async (owner, biz, fields, o = {}) => {
+  const a = await draft(owner, biz, fields);
+  await submit(owner, a.id);
+  await approve(a.id, o);
+  return a.id;
+};
+const fails = (p) => p.then(() => "allowed", (e) => e.message);
+const [gymOwner, gym] = await business("hi@gym.example", "Lift Gym", "fitness");
+const PUMP = await upload(gymOwner, "pump");
+await db.query("update public.profiles set university_id = $2 where id = $1", [ben, txstate]);
+
+await expectOk("an approved video ad keeps the video that was reviewed: a video's id cannot be taken or changed, and status changes do not re-read it", async () => {
+  const c = await reopen();
+  const mine = async (playback) => {
+    const id = (await c.as(gymOwner, () => c.db.query("insert into public.media (owner_id, provider) values ($1, 'mux') returning id", [gymOwner]))).rows[0].id;
+    await c.db.query("update public.media set status = 'ready', playback_id = $2, width = 1080, height = 1920, duration_seconds = 20 where id = $1", [id, playback]);
+    return id;
+  };
+  const m1 = await mine("pb-reviewed");
+  const a = (await c.as(gymOwner, () => c.db.query(AD, [gym, gymOwner, "Video", ["for_you"], [txstate], "Come lift.", JSON.stringify([{ type: "video", media_id: m1 }]), "visit_profile", null, null, null, hours(-1), hours(48)]))).rows[0];
+  await c.as(gymOwner, () => c.db.query("select public.ad_submit($1)", [a.id]));
+  await c.as(admin, () => c.db.query("select public.admin_approve_ad($1, 5000, 'USD', 'INV-V', null, false)", [a.id]));
+  const m2 = await mine("pb-unreviewed");
+  await c.as(gymOwner, () => c.db.query("delete from public.media where id = $1", [m1]));
+  await c.as(gymOwner, () => c.db.query("update public.media set id = $1 where id = $2", [m1, m2]));
+  if ((await c.db.query("select 1 from public.media where id = $1", [m1])).rows.length) throw new Error("a video took the reviewed video's id");
+  await c.as(gymOwner, () => c.db.query("select public.ad_pause($1)", [a.id]));
+  await c.as(gymOwner, () => c.db.query("select public.ad_resume($1)", [a.id]));
+  const served = (await c.db.query("select media from public.ads where id = $1", [a.id])).rows[0].media[0];
+  await c.db.close();
+  if (served.playback_id !== "pb-reviewed") throw new Error(JSON.stringify(served));
+});
+
+let gymAd;
+await expectOk("a photo a live ad shows cannot be replaced or deleted by its uploader; once the ad ends, it can", async () => {
+  gymAd = await approved(gymOwner, gym, { name: "Pump", media: [PUMP] });
+  const path = `posts/${gymOwner}/pump.jpg`;
+  const c = await reopen();
+  const upd = await c.as(gymOwner, () => c.db.query("update storage.objects set owner_id = owner_id where bucket_id = 'uploads' and name = $1", [path]));
+  const del = await c.as(gymOwner, () => c.db.query("delete from storage.objects where bucket_id = 'uploads' and name = $1", [path]));
+  if (upd.affectedRows !== 0 || del.affectedRows !== 0) throw new Error(`update ${upd.affectedRows}, delete ${del.affectedRows}`);
+  const other = await c.as(gymOwner, () => c.db.query("insert into storage.objects (bucket_id, name, owner, owner_id) values ('uploads', $1, $2, $3)", [`posts/${gymOwner}/spare.jpg`, gymOwner, gymOwner]));
+  const delOther = await c.as(gymOwner, () => c.db.query("delete from storage.objects where bucket_id = 'uploads' and name = $1", [`posts/${gymOwner}/spare.jpg`]));
+  if (other.affectedRows !== 1 || delOther.affectedRows !== 1) throw new Error("its other files are locked too");
+  await c.db.close();
+});
+
+await expectOk("pausing first does not skip the review: an edit while the business has it paused hands it to the UniBuzz team", async () => {
+  const deal = (await as(gymOwner, () => one(db.query("insert into public.deals (business_id, created_by, title, media) values ($1, $2, 'Free week', $3) returning id", [gym, gymOwner, JSON.stringify([PUMP])])))).id;
+  const id = await approved(gymOwner, gym, { name: "Free week", deal, cta: "get_offer" });
+  await as(gymOwner, () => db.query("select public.ad_pause($1)", [id]));
+  await as(gymOwner, () => db.query("update public.deals set title = 'Verify your student login', link_url = 'https://phish.example' where id = $1", [deal]));
+  const a = await ad(id);
+  if (a.status !== "paused" || a.paused_by !== "admin") throw new Error(JSON.stringify(a));
+  if (!(await fails(as(gymOwner, () => db.query("select public.ad_resume($1)", [id])))).includes("UniBuzz team paused")) throw new Error("the business resumed it");
+});
+
+await expectOk("an ad waiting for review goes back to draft when its post changes, so the team approves what it was sent", async () => {
+  const deal = (await as(gymOwner, () => one(db.query("insert into public.deals (business_id, created_by, title, media) values ($1, $2, 'Spin class', $3) returning id", [gym, gymOwner, JSON.stringify([PUMP])])))).id;
+  const a = await draft(gymOwner, gym, { name: "Spin", deal, cta: "get_offer" });
+  await submit(gymOwner, a.id);
+  await as(gymOwner, () => db.query("update public.deals set description = 'Changed after submitting' where id = $1", [deal]));
+  const now = await ad(a.id);
+  if (now.status !== "draft" || !now.status_reason) throw new Error(JSON.stringify(now));
+});
+
+await expectOk("a category switch makes a general ad unresumable as it is: the team's resume refuses a housing ad it never approved", async () => {
+  const id = await approved(gymOwner, gym, { name: "Classes", media: [PUMP] });
+  await as(gymOwner, () => db.query("select public.ad_pause($1)", [id]));
+  await as(gymOwner, () => db.query("update public.businesses set category = 'housing' where id = $1", [gym]));
+  const refused = await fails(as(admin, () => db.query("select public.admin_resume_ad($1)", [id])));
+  await as(gymOwner, () => db.query("update public.businesses set category = 'fitness' where id = $1", [gym]));
+  if (!refused.includes("housing")) throw new Error(refused);
+  await as(admin, () => db.query("select public.admin_resume_ad($1)", [id]));
+  if (!["active", "scheduled"].includes((await ad(id)).status)) throw new Error("not resumed once it is what was approved again");
+});
+
+await expectOk("new Fair Housing words make an ad unresumable as it is; any change to a promoted listing pauses its ad", async () => {
+  const apt = (await as(rentOwner, () => one(db.query("insert into public.apartments (owner_id, business_id, title, description, price_per_month, address, university_id) values ($1, $2, 'Studio', 'Bright', 900, '3 River Rd', $3) returning id", [rentOwner, rent, txstate])))).id;
+  const id = await approved(rentOwner, rent, { name: "Studio", apt, cta: "view_listing" }, { fh: true });
+  await as(rentOwner, () => db.query("update public.apartments set amenities = '{\"Adults only\"}', map_url = 'https://phish.example' where id = $1", [apt]));
+  if ((await ad(id)).paused_by !== "admin") throw new Error("amenities and map edits did not pause it");
+  const refused = await fails(as(admin, () => db.query("select public.admin_resume_ad($1)", [id])));
+  if (!refused.includes("Fair Housing")) throw new Error(refused);
+});
+
+await expectOk("when its promoted post is removed, the ad stops and cannot be resumed", async () => {
+  const deal = (await as(gymOwner, () => one(db.query("insert into public.deals (business_id, created_by, title, media) values ($1, $2, 'Scam deal', $3) returning id", [gym, gymOwner, JSON.stringify([PUMP])])))).id;
+  const id = await approved(gymOwner, gym, { name: "Gone", deal, cta: "get_offer" });
+  await db.query("delete from public.deals where id = $1", [deal]);
+  const a = await ad(id);
+  if (a.status !== "paused" || a.paused_by !== "admin") throw new Error(JSON.stringify(a));
+  if ((await feed(ben, "for_you")).some((x) => x.id === id)) throw new Error("still served");
+  if (!(await fails(as(admin, () => db.query("select public.admin_resume_ad($1)", [id])))).includes("removed")) throw new Error("resumed");
+});
+
+await expectOk("a saved ad the UniBuzz team took down stays gone once the business ends it", async () => {
+  await as(ben, () => db.query("select public.save_ad($1, true)", [gymAd]));
+  await as(admin, () => db.query("select public.admin_pause_ad($1, 'Takedown')", [gymAd]));
+  await as(gymOwner, () => db.query("select public.ad_end($1)", [gymAd]));
+  if ((await as(ben, () => rows(db.query("select * from public.my_saved_ads()")))).some((s) => s.id === gymAd)) throw new Error("back in saved ads");
+});
+
+await expectOk("an ad shows the business's logo only when it is the team's own upload, and a new logo goes past the team", async () => {
+  await db.query("update public.businesses set logo_url = 'http://tracker.example/px.gif' where id = $1", [gym]);
+  const id = await approved(gymOwner, gym, { name: "Logo", media: [PUMP] });
+  const logo = async () => (await feed(ben, "for_you")).find((x) => x.id === id)?.business_logo_url;
+  const tracker = await logo();
+  // A new logo pauses the business's ads for the team (it shows on every ad); once resumed, the team's upload shows.
+  await db.query("update public.businesses set logo_url = $2 where id = $1", [gym, PUMP.url]);
+  if ((await ad(id)).paused_by !== "admin") throw new Error("a new logo did not pause the ad");
+  await as(admin, () => db.query("select public.admin_resume_ad($1)", [id]));
+  const own = await logo();
+  if (tracker !== null || own !== PUMP.url) throw new Error(JSON.stringify({ tracker, own }));
+});
+
+await expectOk("payments stay on record when the owner deletes their account (business and ads go)", async () => {
+  const [byeOwner, bye] = await business("hi@bye.example", "Bye Bikes", "retail");
+  const photo = await upload(byeOwner, "bike");
+  const a = await draft(byeOwner, bye, { name: "Bikes", media: [photo] });
+  await submit(byeOwner, a.id);
+  await as(admin, () => db.query("select public.admin_approve_ad($1, 7000, 'USD', 'INV-BYE', null, false)", [a.id]));
+  await as(byeOwner, () => db.query("select public.delete_my_account()"));
+  const p = await one(db.query("select count(*)::int as n, bool_and(business_id is null and ad_id is null) as orphaned, max(amount_cents) as amount from public.listing_promotions where payment_reference = 'INV-BYE'"));
+  if (p.n !== 1 || !p.orphaned || p.amount !== 7000) throw new Error(JSON.stringify(p));
+  await db.query("delete from public.listing_promotions where payment_reference = 'INV-BYE'"); // the rollback below refuses while it exists
 });
 
 // --- Rollback ---------------------------------------------------------------------------------------------------------------

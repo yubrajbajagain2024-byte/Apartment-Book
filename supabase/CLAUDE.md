@@ -44,7 +44,12 @@ Supabase's `auth` and `storage` schemas.
 - `mk(email, name)` makes a confirmed user; `as(uid, fn, { aal: "aal2" })` runs as a user after
   two-factor sign-in (it adds a verified factor); `asAnon`, `asService`; `expectOk`, `expectError`,
   `done`.
-- `tests/staging/` needs a real Supabase project.
+- `reopen()`: the same database on a new connection. A custom setting (`app.…`) that a migration or
+  a function set stays defined, as `''`, in the session that set it, but reads as null on the API's
+  fresh connections: test code that depends on one there.
+- `tests/staging/` needs a real Supabase project, the staging one (`STAGING_SUPABASE_REF`; the scripts
+  refuse production): `business-portal.mjs`, and `release-rehearsal.mjs`, which rehearses a release
+  step by step (see its header).
 
 ## Production
 
@@ -62,10 +67,17 @@ Supabase's `auth` and `storage` schemas.
     `BUSINESS_SITE_URL`) plus `SKIP_ENV=1`.
 - To apply one migration alone, run the file in one transaction together with
   `insert into public._migrations (name) values ('<file name>')`, then
-  `notify pgrst, 'reload schema'` when it adds functions.
-- Before a production migration, take a read-only backup
-  (`~/CampConnect-backups/<date>-before-migration-<n>/` on the owner's Mac). After it, check the
-  objects it created and record it in docs/migrations.md with a docs-only PR.
+  `notify pgrst, 'reload schema'` when it adds functions. To roll one back, the same with its
+  `rollbacks/` file and `delete from public._migrations where name = '<file name>'`, newest first
+  (the SQL editor runs a pasted script as one transaction).
+- Before a production migration, have a backup you can restore: Supabase's daily backup (Pro plan;
+  production was on the Free plan, with none, on 2026-10-28) or a dump with the Supabase CLI
+  (`supabase db dump --db-url … -f roles.sql --role-only`, then `-f schema.sql`, then
+  `-f data.sql --use-copy --data-only`; it needs Docker). Also take the JSON snapshot for row counts
+  (`~/CampConnect-backups/<date>-before-migration-<n>/` on the owner's Mac):
+  `SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=… node scripts/backup.mjs before-migration-<n>`.
+  The JSON alone is not a restore path.
+  After it, check the objects it created and record it in docs/migrations.md with a docs-only PR.
 - `applied-outside-repo/` holds the four migrations production received from `step-admin` on
   2026-10-25. **Read its README before touching the live database.**
 - Read-only: `SUPABASE_ACCESS_TOKEN=… node supabase/applied-outside-repo/verify.mjs --live`, a

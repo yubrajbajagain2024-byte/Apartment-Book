@@ -6,7 +6,8 @@
 --  * public.media's processing state and the video provider's details (status, the upload and asset ids, playback id,
 --    duration, width, height, aspect ratio, poster, error, size) are written by the website's server, which talks to
 --    the provider with the service role: the provider's webhook and the status check behind /api/video/<id>. A signed-in
---    session's insert starts as 'uploading' with none of them, and its updates leave them as they are.
+--    session's insert starts as 'uploading' with none of them, and its updates leave them as they are. A video's id is
+--    the database's too: a session neither picks it nor changes it.
 --  * 30 new videos a day per person (an upload starts with an insert from the uploader's session).
 --  * A video is 10 minutes at most: whoever writes it, a ready video that is longer is stored as failed, with the
 --    reason (the server also deletes it at the provider).
@@ -20,6 +21,8 @@ begin
   -- The API's roles; the service role (the server), definer functions and the database owner are left alone.
   if current_user in ('anon', 'authenticated') then
     if tg_op = 'INSERT' then
+      -- The id is the database's (a session cannot take the id of a video it deleted, which an approved ad may name).
+      new.id := gen_random_uuid();
       -- The server's clock, not the client's: the daily count below reads it.
       new.created_at := now();
       new.status := 'uploading';
@@ -37,6 +40,7 @@ begin
         raise exception 'You have uploaded 30 videos today. Try again tomorrow.' using errcode = '42501', hint = 'RATE_LIMITED';
       end if;
     else
+      new.id := old.id;
       new.owner_id := old.owner_id;
       new.kind := old.kind;
       new.provider := old.provider;
