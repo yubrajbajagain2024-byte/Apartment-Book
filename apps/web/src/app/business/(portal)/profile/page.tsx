@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import { ArrowUpRight, BadgeCheck } from "lucide-react";
+import { BadgeCheck } from "lucide-react";
 import { businessCategoryLabel, listUniversities, teamRoleAllows } from "@apartment-book/shared";
 import { requireBusiness } from "@/lib/business/portal";
 import { getSiteUrl } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/ui/avatar";
 import { BusinessProfileForm } from "@/components/business/profile-form";
-import { bizButton, PageHeader, Panel, Pill } from "@/components/business/ui";
+import { CopyLink } from "@/components/business/copy-link";
+import { PageHeader, Panel, Pill } from "@/components/business/ui";
 
 export const metadata: Metadata = { title: "Business profile" };
 
@@ -15,11 +16,8 @@ export default async function BusinessProfilePage() {
   const business = membership.business;
   const universities = await listUniversities(await createClient());
   const publicUrl = business.status === "approved" ? `${getSiteUrl()}/businesses/${business.id}` : null;
-  const viewPublic = publicUrl ? (
-    <a href={publicUrl} target="_blank" rel="noopener noreferrer" className={bizButton({ variant: "secondary" })}>
-      View as students see it <ArrowUpRight className="h-4 w-4" />
-    </a>
-  ) : null;
+  // A business account is sent back to the portal from the student site, so the link is to share, not to open here.
+  const viewPublic = publicUrl ? <CopyLink url={publicUrl} label="Copy profile link" /> : null;
 
   if (!teamRoleAllows(membership.role, "edit_profile")) {
     const campuses = universities.filter((u) => business.university_ids.includes(u.id)).map((u) => u.name);

@@ -1,6 +1,8 @@
 import { BadgeCheck, ChevronRight, Heart, MessageCircle, MoreHorizontal, Bookmark, Send, Play } from "lucide-react";
 import { adCtaLabel, type AdPlacement, type BusinessMediaItem } from "@apartment-book/shared";
+import { isOptimizableImage } from "@/lib/images";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 import { Avatar } from "@/components/ui/avatar";
 
 /** What the preview needs of an ad, however it got there (the editor's form, a saved ad, the review queue). */
@@ -16,11 +18,11 @@ export type PreviewAd = {
   promoted?: { title: string; image: string | null; price?: string | null } | null;
 };
 
+/** The picture to show, only from a host next/image serves (this project's storage, the provider's posters). */
 function cover(ad: PreviewAd): { src: string | null; video: boolean } {
   const first = ad.media[0];
-  if (first?.type === "image") return { src: first.url, video: false };
-  if (first?.type === "video") return { src: first.poster_url ?? null, video: true };
-  return { src: ad.promoted?.image ?? null, video: false };
+  const pick = first?.type === "image" ? first.url : first?.type === "video" ? (first.poster_url ?? null) : (ad.promoted?.image ?? null);
+  return { src: isOptimizableImage(pick) ? pick : null, video: first?.type === "video" };
 }
 
 function Picture({ ad, className }: { ad: PreviewAd; className?: string }) {
@@ -28,8 +30,7 @@ function Picture({ ad, className }: { ad: PreviewAd; className?: string }) {
   return (
     <div className={cn("relative overflow-hidden bg-[#f0f2f5]", className)}>
       {c.src ? (
-        // eslint-disable-next-line @next/next/no-img-element -- a preview of what the business uploaded, any host the uploader used
-        <img src={c.src} alt="" className="h-full w-full object-cover" />
+        <Image src={c.src} alt="" fill sizes="340px" className="object-cover" />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-[13px] text-[#8a8d91]">Your photo or video</div>
       )}

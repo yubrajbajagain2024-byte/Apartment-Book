@@ -8,6 +8,8 @@ const MIGRATION = "migrations/20261107000000_business_teams.sql";
 const ADS = "migrations/20261107000100_business_ads.sql";
 const ROLLBACK = "rollbacks/20261107000000_business_teams.down.sql";
 const ADS_ROLLBACK = "rollbacks/20261107000100_business_ads.down.sql";
+const HARDENING = "migrations/20261109000100_business_hardening.sql";
+const HARDENING_ROLLBACK = "rollbacks/20261109000100_business_hardening.down.sql";
 
 /** Helpers bound to one database. */
 function helpers(db, as) {
@@ -242,7 +244,8 @@ await expectOk("suspending the business closes every role out of everything but 
 });
 
 // --- Rollback -----------------------------------------------------------------------------------------------------
-await expectOk("the rollback (after part 2's) puts v1 back: editors and admins are staff again, v1's invite function, no log", async () => {
+await expectOk("the rollback (after 56's and part 2's) puts v1 back: editors and admins are staff again, v1's invite function, no log", async () => {
+  await db.exec(read(HARDENING_ROLLBACK));
   await db.exec(read(ADS_ROLLBACK));
   await db.exec(read(ROLLBACK));
   const roles = (await rows(db.query("select distinct role from public.business_members where business_id = $1", [business]))).map((r) => r.role).sort();
@@ -261,6 +264,7 @@ await expectOk("v1's rules hold after the rollback: staff reply, the owner remov
 await expectOk("and both migrations apply again on top", async () => {
   await db.exec(read(MIGRATION));
   await db.exec(read(ADS));
+  await db.exec(read(HARDENING));
   if ((await memberRole(adam)) !== "editor") throw new Error(`adam is ${await memberRole(adam)}`);
 });
 

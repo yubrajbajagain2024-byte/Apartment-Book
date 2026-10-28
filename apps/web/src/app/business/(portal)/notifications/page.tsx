@@ -26,7 +26,7 @@ export default async function NotificationsPage() {
         <Panel className="divide-y divide-biz-line overflow-hidden" data-testid="portal-notifications">
           {items.map((n) => {
             const Icon = n.type === "ad" ? Megaphone : ShieldCheck;
-            const href = typeof n.link === "string" && n.link.startsWith("/") ? n.link : "/";
+            const href = typeof n.link === "string" && n.link.startsWith("/") && !n.link.startsWith("//") ? n.link : "/";
             return (
               <PortalLink key={n.id} href={href} className={cn("flex gap-4 px-6 py-4 transition-colors hover:bg-biz-surface-2", !n.read_at && "bg-biz-accent-soft/40")}>
                 <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-biz-surface-3 text-biz-ink-2">

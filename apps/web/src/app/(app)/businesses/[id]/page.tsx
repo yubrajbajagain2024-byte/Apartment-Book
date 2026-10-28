@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BadgeCheck, Building2, Globe, MapPin, MessageCircle, Phone, Store } from "lucide-react";
@@ -20,6 +21,7 @@ import {
 import { startBusinessChatAction } from "@/lib/actions/ads";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { isOptimizableImage } from "@/lib/images";
 import { firstParam } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -90,7 +92,7 @@ export default async function BusinessProfilePage({ params, searchParams }: Prop
           </p>
           {business.description ? <p className="whitespace-pre-line text-[15px] leading-relaxed text-gray-800">{business.description}</p> : null}
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-            {business.website ? (
+            {business.website && /^https?:\/\//i.test(business.website) ? (
               <a href={business.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline">
                 <Globe className="h-4 w-4" /> {business.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
               </a>
@@ -139,13 +141,14 @@ export default async function BusinessProfilePage({ params, searchParams }: Prop
             ) : (
               <div className="grid grid-cols-3 gap-1 sm:gap-4">
                 {live.map((p) => {
-                  const cover = mediaCover(mediaItems(p.media)) ?? p.image_url;
-                  const line = [p.price_cents !== null ? formatCents(p.price_cents, p.currency) : null, p.discount_label].filter(Boolean).join(" · ");
+                  // Only what next/image serves: our server fetches it, so the business never sees who opened its profile.
+                  const raw = mediaCover(mediaItems(p.media)) ?? p.image_url;
+                  const cover = isOptimizableImage(raw) ? raw : null;
+                  const line = [p.price_cents != null ? formatCents(p.price_cents, p.currency) : null, p.discount_label].filter(Boolean).join(" · ");
                   return (
                     <Link key={p.id} href={`${back}?post=${p.id}${adId ? `&ad=${adId}` : ""}`} scroll className="group relative aspect-square overflow-hidden bg-gray-100 sm:rounded-lg" aria-label={p.title} data-testid="business-post">
                       {cover ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- the business's uploads, any host v1 allowed
-                        <img src={cover} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                        <Image src={cover} alt="" fill sizes="(min-width: 640px) 300px, 33vw" className="object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
                       ) : (
                         <span className="flex h-full items-center justify-center p-3 text-center text-sm font-semibold text-gray-700">{p.title}</span>
                       )}
@@ -168,13 +171,13 @@ export default async function BusinessProfilePage({ params, searchParams }: Prop
               </h2>
               <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 sm:gap-4">
                 {activeListings.map((l) => {
-                  const photo = photosFor(l.images, l.image_meta)[0]?.url ?? null;
+                  const first = photosFor(l.images, l.image_meta)[0]?.url ?? null;
+                  const photo = isOptimizableImage(first) ? first : null;
                   return (
                     <Link key={l.id} href={`/apartments/${l.id}`} className="group overflow-hidden bg-white ring-1 ring-gray-200 sm:rounded-lg">
-                      <span className="block aspect-[4/3] overflow-hidden bg-gray-100">
+                      <span className="relative block aspect-[4/3] overflow-hidden bg-gray-100">
                         {photo ? (
-                          // eslint-disable-next-line @next/next/no-img-element -- listing photos, shown whole
-                          <img src={photo} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                          <Image src={photo} alt="" fill sizes="(min-width: 640px) 300px, 50vw" className="object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
                         ) : null}
                       </span>
                       <span className="block p-2.5">

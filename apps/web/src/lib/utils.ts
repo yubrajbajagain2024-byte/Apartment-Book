@@ -40,6 +40,8 @@ export function safeNextPath(next: string | null | undefined, fallback = "/"): s
     return fallback;
   }
   if (url.origin !== "http://local") return fallback;
+  // The resolved path must not start with "//" either: a browser reads that as another site too.
+  if (url.pathname.startsWith("//")) return fallback;
   return url.pathname + url.search + url.hash;
 }
 

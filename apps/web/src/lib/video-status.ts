@@ -1,9 +1,14 @@
-import { muxPosterUrl, updateMediaRecord, type Client, type Media } from "@apartment-book/shared";
-import { getAsset, getUpload, type MuxAsset } from "@/lib/mux";
+import { MAX_VIDEO_DURATION_SECONDS, muxPosterUrl, updateMediaRecord, videoTooLong, type Client, type Media } from "@apartment-book/shared";
+import { deleteAsset, getAsset, getUpload, type MuxAsset } from "@/lib/mux";
 
-function assetPatch(asset: MuxAsset) {
+/** The media row's update for a provider's asset; a ready video longer than anyone may upload is deleted there and refused. */
+async function assetPatch(asset: MuxAsset) {
   const playback = asset.playback_ids?.find((p) => p.policy === "public")?.id ?? null;
   const video = asset.tracks?.find((t) => t.type === "video");
+  if (asset.status === "ready" && videoTooLong(asset.duration)) {
+    await deleteAsset(asset.id).catch(() => {});
+    return { status: "failed" as const, provider_asset_id: asset.id, error: `Videos can be ${MAX_VIDEO_DURATION_SECONDS / 60} minutes at most.` };
+  }
   if (asset.status === "ready" && playback) {
     return {
       status: "ready" as const,
@@ -23,18 +28,21 @@ function assetPatch(asset: MuxAsset) {
   return { status: "processing" as const, provider_asset_id: asset.id };
 }
 
-/** Ask the provider how the video is doing and store the answer. */
+/**
+ * Ask the provider how the video is doing and store the answer. `supabase` must be the service-role client: a video's
+ * processing details are the server's to write (migration 55), and a session's client changes none of them.
+ */
 export async function syncMediaStatus(supabase: Client, media: Media): Promise<Media> {
   if (media.status === "ready" || media.status === "failed") return media;
   if (media.provider_asset_id) {
     const asset = await getAsset(media.provider_asset_id);
-    return updateMediaRecord(supabase, media.id, assetPatch(asset));
+    return updateMediaRecord(supabase, media.id, await assetPatch(asset));
   }
   if (media.provider_upload_id) {
     const upload = await getUpload(media.provider_upload_id);
     if (upload.status === "asset_created" && upload.asset_id) {
       const asset = await getAsset(upload.asset_id);
-      return updateMediaRecord(supabase, media.id, assetPatch(asset));
+      return updateMediaRecord(supabase, media.id, await assetPatch(asset));
     }
     if (upload.status === "errored" || upload.status === "cancelled" || upload.status === "timed_out") {
       return updateMediaRecord(supabase, media.id, { status: "failed", error: upload.error?.message ?? `Upload ${upload.status}` });

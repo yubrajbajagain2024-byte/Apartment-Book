@@ -343,8 +343,9 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
 
   // Muting: a person's messages everywhere (a direct chat) or this group, for a while or until unmuted; a group also offers every group chat at once.
   // A hidden poster has no id to mute: their chat is muted instead.
-  const muteScope: MuteScope = isGroup || hiddenFromMe ? "conversation" : "user";
-  const muteTarget = isGroup || hiddenFromMe ? conversation.id : (other?.id ?? null);
+  // A chat with a business mutes the chat (there is no one person to mute: anyone on its team may answer).
+  const muteScope: MuteScope = isGroup || hiddenFromMe || business ? "conversation" : "user";
+  const muteTarget = isGroup || hiddenFromMe || business ? conversation.id : (other?.id ?? null);
   const muted = muteTarget ? mutes.find(muteScope, muteTarget) : null;
   const pickDuration = (scope: MuteScope, targetId: string | null, title: string) =>
     show(
@@ -354,7 +355,7 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
   const toggleMute = () => {
     if (!muteTarget) return;
     if (muted) void mutes.unmute(muteScope, muteTarget);
-    else pickDuration(muteScope, muteTarget, isGroup ? `Mute ${conversation.title} for` : `Mute ${other?.full_name ?? "them"} for`);
+    else pickDuration(muteScope, muteTarget, isGroup ? `Mute ${conversation.title} for` : business ? `Mute ${business.name} for` : `Mute ${other?.full_name ?? "them"} for`);
   };
   const allGroups = mutes.find("all_groups");
   const groupMuteActions: InfoListAction[] = isGroup

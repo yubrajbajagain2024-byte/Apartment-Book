@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { BadgeCheck, Bookmark, ChevronRight, EyeOff, Flag, Info, MoreHorizontal, Ban } from "lucide-react";
 import {
@@ -17,6 +18,7 @@ import {
   type FeedAd,
 } from "@apartment-book/shared";
 import { hideAdAction, reportBusinessAction, saveAdAction, setBusinessBlockedAction, startBusinessChatAction } from "@/lib/actions/ads";
+import { isOptimizableImage } from "@/lib/images";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
@@ -60,13 +62,15 @@ function click(ad: FeedAd, placement: AdPlacement) {
   void recordBusinessEvent(createClient(), "click", { adId: ad.id, placement });
 }
 
-/** The pictures an ad shows: its own, or the listing's or post's it promotes. */
+/**
+ * The pictures an ad shows: its own, or the listing's or post's it promotes. Only those next/image serves (this
+ * project's storage, the video provider's posters): the image is fetched by our server, so no business learns which
+ * student looked at its ad from its own server's logs.
+ */
 function adPictures(ad: FeedAd): string[] {
   const own = ad.media.flatMap((m) => (m.type === "image" ? [m.url] : []));
-  if (own.length) return own;
-  if (ad.promoted?.type === "apartment") return ad.promoted.images;
-  if (ad.promoted?.type === "deal") return ad.promoted.media.flatMap((m) => (m.type === "image" ? [m.url] : []));
-  return [];
+  const all = own.length ? own : ad.promoted?.type === "apartment" ? ad.promoted.images : ad.promoted?.type === "deal" ? ad.promoted.media.flatMap((m) => (m.type === "image" ? [m.url] : [])) : [];
+  return all.filter(isOptimizableImage);
 }
 
 function adVideo(ad: FeedAd) {
@@ -233,10 +237,9 @@ export function SponsoredPost({ ad }: { ad: FeedAd }) {
       </div>
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-gray-100">
         {video ? (
-          <ReelVideo src={muxPlaybackUrl(video.playback_id!)} poster={video.poster_url ?? muxPosterUrl(video.playback_id!)} active={inView} near eager={false} />
+          <ReelVideo src={muxPlaybackUrl(video.playback_id!)} poster={muxPosterUrl(video.playback_id!)} active={inView} near eager={false} />
         ) : pictures[0] ? (
-          // eslint-disable-next-line @next/next/no-img-element -- uploads and listing photos of any size, shown whole
-          <img src={pictures[0]} alt="" loading="lazy" className="h-full w-full object-cover" />
+          <Image src={pictures[0]} alt="" fill sizes="(min-width: 640px) 640px, 100vw" className="object-cover" />
         ) : null}
       </div>
       <AdButton ad={ad} placement="for_you" className="h-11 border-b border-gray-100 px-3 text-sm text-brand-600 hover:bg-gray-50" />
@@ -265,8 +268,7 @@ export function SponsoredListing({ ad, compact = false }: { ad: FeedAd; compact?
       </div>
       <div className={cn("relative w-full overflow-hidden bg-gray-100", compact ? "aspect-[4/5]" : "aspect-[4/3]")}>
         {pictures[0] ? (
-          // eslint-disable-next-line @next/next/no-img-element -- listing photos and uploads, shown whole
-          <img src={pictures[0]} alt="" loading="lazy" className="h-full w-full object-cover" />
+          <Image src={pictures[0]} alt="" fill sizes="(min-width: 640px) 320px, 50vw" className="object-cover" />
         ) : null}
       </div>
       <div className={cn("flex flex-col gap-1", compact ? "p-2.5" : "p-3")}>
@@ -295,9 +297,10 @@ export function SponsoredReel({ ad, index, active, near }: { ad: FeedAd; index: 
           <p className="absolute inset-0 flex items-center justify-center px-8 text-center text-sm text-white/90">{gone}</p>
         ) : (
           <>
-            {video ? <ReelVideo src={muxPlaybackUrl(video.playback_id!)} poster={video.poster_url ?? muxPosterUrl(video.playback_id!)} active={active} near={near} eager={false} /> : mediaCover(ad.media) ? (
-              // eslint-disable-next-line @next/next/no-img-element -- the ad's poster when its video cannot play
-              <img src={mediaCover(ad.media)!} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            {video ? (
+              <ReelVideo src={muxPlaybackUrl(video.playback_id!)} poster={muxPosterUrl(video.playback_id!)} active={active} near={near} eager={false} />
+            ) : isOptimizableImage(mediaCover(ad.media)) ? (
+              <Image src={mediaCover(ad.media)!} alt="" fill sizes="100vh" className="object-cover" />
             ) : null}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
             <div className="absolute inset-x-3 bottom-4 z-20 flex flex-col gap-2.5 text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
