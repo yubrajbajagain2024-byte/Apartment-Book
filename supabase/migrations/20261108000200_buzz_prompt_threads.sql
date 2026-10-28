@@ -6,9 +6,9 @@
 --   * Each day's prompt has one thread per campus, and one on Global, owned by no one: its title is the prompt and
 --     its replies are the answers (written, like every reply, through the website's moderated reply API). The first
 --     answer makes it (buzz_v2_prompt_thread), so a day nobody answers leaves nothing in the feed.
---   * A buzz that answers a prompt on its own carries the prompt as its title, always: a trigger on buzz_posts sets
---     it (whatever the composer sent), for the answers already posted too, and the buzz says which prompt thread it
---     belongs with (promptThreadId).
+--   * A buzz that answers a prompt on its own carries the prompt as its title: a trigger on buzz_posts sets it on every
+--     new answer (whatever the composer sent), and the buzz says which prompt thread it belongs with (promptThreadId).
+--     An answer posted before this file gets the prompt only where it has no title; a title its author wrote stays.
 --   * BuzzFeedMeta's prompt says which thread is today's on that feed (threadId, null until the first answer) and
 --     how many answers it has.
 --
@@ -134,10 +134,12 @@ drop trigger if exists buzz_posts_prompt_title on public.buzz_posts;
 create trigger buzz_posts_prompt_title before insert or update of prompt_id, title on public.buzz_posts
   for each row execute function public.buzz_v2_prompt_title();
 
--- The answers already posted on their own get their prompt as their title too.
+-- The answers already posted on their own get their prompt as their title, but only where they have none (null or
+-- blank): a title someone wrote before this file is their words and stays. The trigger above fires on this update too
+-- and sets the same prompt.
 update public.buzz_posts b set title = left(p.text, 100)
 from public.buzz_prompts p
-where b.prompt_id = p.id and b.title is distinct from left(p.text, 100);
+where b.prompt_id = p.id and nullif(btrim(b.title), '') is null;
 
 -- BuzzFeedMeta: today's prompt with its thread on this feed and its answers; the small-campus note; the viewer's campus.
 create or replace function public.buzz_v2_meta(p_scope text default 'campus')

@@ -14,7 +14,7 @@ its row and say why and when.
 | Photos stored untouched; renditions at read time | Photos are the product: originals up to 25 MB, 12 per listing, Next.js images at quality 85–90 with blurred placeholders |
 | No payments in the Marketplace | Meet on campus, like Facebook Marketplace |
 | Buzz tables unreadable through the API | Only the `buzz_v2_*` functions decide what leaves the database, so a policy mistake cannot leak anonymity |
-| Each day's Buzz prompt has one thread per campus and one on Global, owned by no one; answers are its replies by default, or a buzz of their own titled with the prompt (2026-10-28) | Answers read together under the prompt instead of as stray untitled buzzes; no anon owns the prompt; the first answer makes the thread, so a day nobody answers leaves nothing |
+| Each day's Buzz prompt has one thread per campus and one on Global, owned by no one; answers are its replies by default, or a buzz of their own titled with the prompt (2026-10-28); an answer posted before migration 53 gets the prompt only where its title is blank (owner, 2026-10-28) | Answers read together under the prompt instead of as stray untitled buzzes; no anon owns the prompt; the first answer makes the thread, so a day nobody answers leaves nothing; a title a student already wrote is their words and is not overwritten |
 | A buzz's category is optional, one per buzz, from a fixed list (`BUZZ_CATEGORIES`) that the database also enforces (2026-10-28) | Stored now so category sections can come later; a fixed list keeps sections meaningful; optional keeps posting quick |
 | Moderation engine is server-only | Its rules must never be bundled into the app |
 | Businesses can never start a conversation | Students are never cold-messaged |

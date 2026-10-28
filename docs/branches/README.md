@@ -10,6 +10,7 @@ current", rules 2 and 3).
 | --- | --- | --- | --- | --- |
 | `main` | everyone, via PRs | integration branch; **every push deploys production** | — | [../status.md](../status.md) |
 | `ankur/dev` | Ankur | Ankur's feature line | merged (PRs #35, #38, #41, and #50 on 2026-10-28: Buzz threaded replies, top reply, prompt threads, categories, migrations 51 to 54, not on production) | [ankur/dev.md](ankur/dev.md) |
+| `buzz-prompt-titles-keep` | Yubraj | migration 53 keeps a title an author already wrote on a prompt answer (only blank ones get the prompt), with its test and docs | PR open for Ankur's review (2026-10-28); merge before 53 reaches production | [../migrations.md](../migrations.md) |
 | `ankur/owner-moderation` | Ankur | Buzz v2 and Trust & Safety | merged (PR #37) | [ankur/owner-moderation.md](ankur/owner-moderation.md) |
 | `step-admin` | Yubraj | **CampConnect Admin**, the separate staff app, and migrations 14–18 | **not merged**; merge plan in its `docs/step-admin-merge-plan.md` | [step-admin.md](step-admin.md) |
 | `step-1-brand-shell` | Yubraj | first brand-and-shell pass (2026-09-07) | **1 commit never merged**; superseded | [step-1-brand-shell.md](step-1-brand-shell.md) |
