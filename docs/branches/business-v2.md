@@ -25,6 +25,7 @@
 | 49 | `20261107000000_business_teams.sql` (+ rollback) | Team roles, the business audit log, notifications of type `business`. Details below. |
 | 50 | `20261107000100_business_ads.sql` (+ rollback) | Posts, ads, serving, events, Fair Housing, the v1 data migration. Details below. |
 | 51 | `20261107000200_media_server_fields.sql` (+ rollback) | A video's processing details (status, the provider's ids, size, length, poster) are written by the server only; 30 new videos a day per person; a ready video is 10 minutes at most. |
+| 52 | `20261107000300_business_hardening.sql` (+ rollback) | The independent review's fixes (above). |
 
 **49, `business_teams`:**
 - **Roles:** owner, admin, editor and analyst replace owner and staff; every staff member becomes an editor.
@@ -154,8 +155,35 @@
   - The harness's `boot({ skip })`.
   - `packages/shared/tests/video-security.test.mjs`.
   - `home-feed.test.mjs`'s fixture now has the server finish its test videos.
-- **Independent review** (database, and website/app code): findings and fixes are recorded below
-  once applied.
+- **Independent review** of migrations 49 and 50 and the Business v2 code (database, website and
+  app), 2026-10-28. Its findings are fixed in migration 52 (`20261107000300_business_hardening.sql`)
+  and in the code.
+  - An approved ad shows the reviewed copy of what it promotes. It pauses for the UniBuzz team when
+    that changes, or when the business's category changes.
+  - Every ad's words are screened for Fair Housing. Video ads are approved only with 51's guard in
+    place.
+  - Ad photos must be uploads to this project's storage. Both apps load business images only from
+    there (the website through next/image).
+  - A business sees a chat, and the student in it, once the student has written. Blocks stop chats
+    both ways.
+  - Dates come from the server. The foreign-key exception and the payment ledger hold, and events
+    count once and only for the targeted campus.
+  - Saved ads respect takedowns. The reviewer stays unnamed to the business, and the audit log folds
+    repeated edits.
+  - Links that are not http(s) are dropped, and the app opens only http(s).
+  - The Reels video re-check reads the video with the service role. Unknown ad commands are refused,
+    and `safeNextPath` refuses `//`.
+  - Business profile links are copied rather than opened. Mute works in business chats on the app.
+  - In the app's Reels, Message tries the inquiry first.
+  - The rollbacks: 49's removes analysts instead of making them staff; 50's cancels payments of ads
+    that were not running.
+  - Accepted, low: the ads row still carries the reviewing admin's profile id (no name, and the
+    profile is not readable by a business session). Impressions are reported by the student's
+    client: at most one an hour per ad per student.
+  - Tests:
+    - `business-hardening.test.mjs`: one check per finding, plus 52's rollback.
+    - The v1 suite expects an ad paused for review after its promoted listing was edited.
+    - `business-ads.test.mjs` uses real storage uploads.
 
 ## Tests run on this tree, 2026-10-27
 
@@ -181,12 +209,13 @@
 
 ## Pending, in priority order
 
-1. **Production runs #49's code without its migrations.** The owner chooses one way out (both are
-   production writes):
-   - apply 44, 46, 47, 49 and 50 from `main` (backup first, then `verify.mjs --live`);
-   - or revert #49 on `main`.
-2. **A new PR for the second round.** Merge it only after step 1. Then apply 51, then publish the app
-   update (`eas update`).
+1. **Production runs #49's code without its migrations.** The owner chooses (production writes):
+   - do step 2 now;
+   - or revert #49 on `main` first.
+2. **A new PR for the second round.** Recommended:
+   - merge it first;
+   - then run `db:setup` once from `main` with 44, 46, 47, 49, 50, 51 and 52 together (docs/migrations.md);
+   - then publish the app update (`eas update`).
 3. When everything is live, update the rows in migrations.md, move a short summary of this file to
    docs/history.md, and delete the file.
 4. **Mobile Reels ads.** The app's Reels pager has fixed-height pages and its own viewer, so it does not show ads yet.

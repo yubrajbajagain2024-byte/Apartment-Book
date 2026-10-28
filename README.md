@@ -312,6 +312,14 @@ Built on the v1 rules above, which all still hold (`business-portal.test.mjs` ru
 - **Analytics.** `business_events` is closed to the API and written by `record_business_event()`. It keeps impressions and clicks once per student per hour; saves, profile visits and inquiries once per day. The team's own views never count.
   - `business_ad_stats()`, `business_daily_stats()` and `business_analytics_overview()` return counts and reach (distinct students) only, never who.
   - The portal shows them per ad and overall, as a chart and as a table.
+- **What students see is what was reviewed** (migration 52).
+  - An approved ad shows the copy of its post or listing taken at approval (`promoted_snapshot`).
+  - Changing that post or listing, or the business's category, pauses the ad until the UniBuzz team resumes it.
+  - Every ad's words are screened for Fair Housing; a flagged ad needs the reviewer's check and a note.
+  - Ad photos must be uploads to this project's storage by someone on the team, and the apps load business images only from there.
+  - A business sees an inquiry chat, and the student in it, once the student has written.
+  - A block between the student and the business stops the chat both ways.
+- **Videos** (migration 51). A video's processing details are written by the website's server with the service role. Each person has 30 new videos a day, and a ready video is 10 minutes at most. The Mux webhook accepts only recently signed requests.
 - **Notifications.** Types `business` (reviews, the Verified Partner mark, role changes) and `ad` (approved, rejected, live, paused by the UniBuzz team, ended, needs new dates). They go to the team; the portal has a bell and a list.
 - **The portal's design.** Its own colour world under `[data-surface="business"]` (`globals.css`), like Buzz's:
   - light and dark, or the system's, with a switch remembered in the `biz-theme` cookie;
@@ -321,7 +329,7 @@ Built on the v1 rules above, which all still hold (`business-portal.test.mjs` ru
   Inside a dark portal the shared components are remapped rather than rewritten. Every page has loading, error and not-found states.
 - **Inquiries.** 15 new business chats an hour per student. Inquiry targets are now `apartment`, `deal`, `roommate`, `item`, `business` and `ad`.
 
-Checks for v2: `supabase/tests/business-teams.test.mjs` and `supabase/tests/business-ads.test.mjs` (PGlite, both rollbacks included), and `packages/shared/tests/business-ads.test.mjs`.
+Checks for v2: `supabase/tests/business-teams.test.mjs`, `business-ads.test.mjs`, `media-server-fields.test.mjs`, `business-hardening.test.mjs` and `production-rollout.test.mjs` (PGlite, rollbacks included), and `packages/shared/tests/business-ads.test.mjs` and `video-security.test.mjs`.
 
 Checks: `supabase/tests/business-portal.test.mjs` runs every rule above in PGlite (95 checks), and `packages/shared/tests/business.test.mjs` the labels, deal timing and targeting, standings and the team inbox's titles. `supabase/tests/staging/business-portal.mjs` runs the same rules on a real Supabase project through Supabase Auth (real sign-ups and email confirmation, with generated links so no email is sent), the REST API, Realtime (the presence channel, live message events across a suspension) and Storage, then deletes what it made; it refuses the production project:
 

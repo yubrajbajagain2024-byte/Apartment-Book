@@ -49,8 +49,12 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
     `supabase/tests/production-rollout.test.mjs`);
   - or revert PR #49 on `main` until they can be applied.
 
-  Follow-up fixes (migration 51 and the video routes) are on `business-v2` for a new PR. Order
-  there: merge the code, then apply 51 ([migrations.md](migrations.md)).
+  Follow-up work for a new PR is on `business-v2`:
+  - migrations 51 and 52, the video routes, and the fixes from an independent review.
+
+  Recommended order ([migrations.md](migrations.md)):
+  1. Merge that PR.
+  2. Run `db:setup` once from `main` (44, 46, 47, 49, 50, 51 and 52 together, after a backup).
 - **UniBuzz Business v2** (branch `business-v2`). It upgrades the v1 portal to the business spec:
   - team roles;
   - business posts;
