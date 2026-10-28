@@ -10,6 +10,7 @@ current", rules 2 and 3).
 | --- | --- | --- | --- | --- |
 | `main` | everyone, via PRs | integration branch; **every push deploys production** | — | [../status.md](../status.md) |
 | `ankur/dev` | Ankur | Ankur's feature line | merged (PRs #35, #38, #41, and #50 on 2026-10-28: Buzz threaded replies, top reply, prompt threads, categories, migrations 51 to 54, not on production) | [ankur/dev.md](ankur/dev.md) |
+| `docs/production-only-secrets` | Yubraj | docs: Vercel server secrets are for Production only | PR open (2026-10-28), docs only | [../environment.md](../environment.md) |
 | `ankur/owner-moderation` | Ankur | Buzz v2 and Trust & Safety | merged (PR #37) | [ankur/owner-moderation.md](ankur/owner-moderation.md) |
 | `step-admin` | Yubraj | **CampConnect Admin**, the separate staff app, and migrations 14–18 | **not merged**; merge plan in its `docs/step-admin-merge-plan.md` | [step-admin.md](step-admin.md) |
 | `step-1-brand-shell` | Yubraj | first brand-and-shell pass (2026-09-07) | **1 commit never merged**; superseded | [step-1-brand-shell.md](step-1-brand-shell.md) |

@@ -266,7 +266,7 @@ the website pointed at staging (`apps/web/e2e/release-smoke.mjs`, every page of 
 - **Production, read-only (owner's approval):** organization plan Free, **no Supabase-managed backup** (0 backups,
   point-in-time recovery off). Migration 47 is applied (2026-10-27 04:37 UTC); pending: 44, 46, 49, 50, 51 to 54, 55,
   56. Its schema matches this repo's model of that state except CampConnect Admin's staff-invite objects (`step-admin`
-  migration 18). Vercel: `SUPABASE_SERVICE_ROLE_KEY` is a Secret for Production and Preview; `MUX_WEBHOOK_SECRET` is
+  migration 18). Vercel: `SUPABASE_SERVICE_ROLE_KEY` is a Secret; `MUX_WEBHOOK_SECRET` is
   not set anywhere (the webhook answers 501; videos finish through the uploader's status checks).
 - **What the release opens to the API:** to signed-out sessions only pure helpers and Discover (44 and 46: rankings of
   Global posts and of students); to signed-in sessions the business and ad functions, each checking the caller; new
@@ -291,8 +291,7 @@ its migrations 50 and 56 lack the fixes above, so **nothing below starts before 
     `supabase db dump --db-url "$SUPABASE_DB_URL" -f roles.sql --role-only`, then `-f schema.sql`, then
     `-f data.sql --use-copy --data-only`, with the session-pooler URL (port 5432). Neither tool is on the owner's Mac
     as of 2026-10-28.
-- [ ] Decide whether Preview deployments keep the production service key (any branch's preview build gets it);
-      otherwise scope it to Production.
+- [ ] Server secrets in Vercel are scoped as docs/environment.md says (the owner's settings).
 - [ ] Pick a quiet hour (a business reply sent in the second 49 commits can fail once; a retry works).
 
 **Release day, in this order:**
@@ -350,7 +349,7 @@ its migrations 50 and 56 lack the fixes above, so **nothing below starts before 
    - the production deployment checklist below, from its gates on;
    - or revert #49 and #51 on `main` first.
 2. **The checklist's gates:** this branch's fourth-round PR merged (no `db:setup` from `main` before), a restorable
-   backup (Pro's daily backups or a CLI dump: production has none), the Preview key decision.
+   backup (Pro's daily backups or a CLI dump: production has none), the Vercel secrets check.
 3. When everything is live, update the rows in migrations.md, move a short summary of this file to
    docs/history.md, and delete the file.
 4. **Mobile Reels ads.** The app's Reels pager has fixed-height pages and its own viewer, so it does not show ads yet.
@@ -376,7 +375,7 @@ its migrations 50 and 56 lack the fixes above, so **nothing below starts before 
 - **Left as they are, low:** a reviewer approving an ad sees its content as it is when they click (a change while it
   waits sends it back to draft, but not a change in the same second); the ads row names the reviewing admin's
   profile id; impressions come from the student's client.
-- **Production configuration:** Preview deployments get the production service key; `MUX_WEBHOOK_SECRET` is not set
+- **Production configuration:** `MUX_WEBHOOK_SECRET` is not set
   (video status relies on the uploader's checks).
 - **Event counts:**
   - Impressions are counted from the client (once per student per hour per ad).
