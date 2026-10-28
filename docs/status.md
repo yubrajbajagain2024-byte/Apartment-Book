@@ -35,7 +35,23 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   database-URL mode ([supabase/CLAUDE.md](../supabase/CLAUDE.md)), confirm with
   `verify.mjs --live`, then publish the app update. Their code is already on `main`, which deploys
   production, so this is overdue. Needs the owner and a credential.
-- **UniBuzz Business v2** (branch `business-v2`, its PR). It upgrades the v1 portal to the business spec:
+- **UniBuzz Business v2 is on `main` without its migrations.** PR #49 was merged on 2026-10-28 at
+  04:07 UTC, so production's website runs Business v2 code while production has neither migration
+  49 nor 50. As of 2026-10-28, until they are applied, the code says these are broken on production:
+  - creating and editing posts in the portal;
+  - team invites;
+  - the Ads screens;
+  - "Message" on a business profile.
+
+  Student feeds carry on without ads. The owner chooses one of two ways out (both write to
+  production):
+  - apply 44, 46, 47, 49 and 50 (in that order, after a backup; rehearsed in
+    `supabase/tests/production-rollout.test.mjs`);
+  - or revert PR #49 on `main` until they can be applied.
+
+  Follow-up fixes (migration 51 and the video routes) are on `business-v2` for a new PR. Order
+  there: merge the code, then apply 51 ([migrations.md](migrations.md)).
+- **UniBuzz Business v2** (branch `business-v2`). It upgrades the v1 portal to the business spec:
   - team roles;
   - business posts;
   - the Ads Manager with admin review and recorded payment;
@@ -47,7 +63,7 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   Order of release:
   1. Apply migrations 49 and 50 to production, after the pending ones above
      ([migrations.md](migrations.md)).
-  2. Merge.
+  2. Merge the follow-up PR, then apply 51.
   3. Publish the app update.
 
   Follow-up work is listed in [branches/business-v2.md](branches/business-v2.md).
@@ -78,7 +94,7 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 | Item | Where it is written up |
 | --- | --- |
 | Three migrations not on production (44, 46, 47), while `main`, which deploys production, already uses them | [migrations.md](migrations.md) |
-| Business v2's code needs migrations 49 and 50: merging `business-v2` before they are live would break the portal and the business parts of the student site | [migrations.md](migrations.md), [branches/business-v2.md](branches/business-v2.md) |
+| Business v2's code is on `main` (PR #49) without migrations 49 and 50 on production: posts, invites and the Ads screens in the portal fail until they are applied | "UniBuzz Business v2 is on `main` without its migrations" above |
 | `db:setup` token mode resets the production auth Site URL to localhost by default | [supabase/CLAUDE.md](../supabase/CLAUDE.md) |
 | A security fix for a live part of the database is pending | "Security fix pending" above |
 | Supabase CLI history empty on production; `supabase db push` would re-run everything | `supabase/applied-outside-repo/README.md` |

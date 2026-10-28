@@ -4,7 +4,7 @@ Which migration is on the live project. How to write and apply one is in
 [supabase/CLAUDE.md](../supabase/CLAUDE.md). A migration's row (❌ not applied) goes in with its PR;
 when it reaches production, update the row with a docs-only PR (root CLAUDE.md, documentation
 rule 2). On `main` as of 2026-10-27: 47 files in `supabase/migrations/` and 8 rollbacks, for the
-newer migrations, in `supabase/rollbacks/`; the `business-v2` branch adds 49 and 50, with their
+newer migrations, in `supabase/rollbacks/`; the `business-v2` branch adds 49, 50 and 51, with their
 rollbacks.
 
 **As of 2026-10-27.** Assembled from commit messages, `supabase/applied-outside-repo/README.md` and
@@ -28,6 +28,7 @@ The README's statement that 41 and 42 are not live is out of date.
 | 47 | `20261105000000_anonymous_listings.sql`: anonymous roommate/marketplace posts, listing audiences, anonymous inquiry chats | ❌ **not applied** |
 | 49 | `20261107000000_business_teams.sql` (branch `business-v2`): business team roles (owner, admin, editor, analyst), the business audit log, `business` notifications | ❌ **not applied** |
 | 50 | `20261107000100_business_ads.sql` (branch `business-v2`): business posts, ads and their review, serving, students' hide/report/block, events and analytics, Fair Housing screen, v1 promotions migrated to ads, the `ads-sweep` pg_cron job | ❌ **not applied** |
+| 51 | `20261107000200_media_server_fields.sql` (branch `business-v2`): a video's processing details are written by the server only; 30 new videos a day per person; ready videos 10 minutes at most | ❌ **not applied** |
 | (18) | `20261103100200_staff_invite_email.sql`: **file only on `step-admin`** (in neither `supabase/migrations/` nor `supabase/applied-outside-repo/` here) | ✅ applied |
 
 **What the gaps cost today:** without 44, Discover falls back to newest posts and people; without
@@ -39,10 +40,13 @@ carries the code for 44, 46 and 47, so production's website most likely does too
 `discover_refresh()` runs with definer rights and fills world-readable ranking tables, so without
 46 a friends-only or campus-only post's `#tag` would trend for everyone.
 
-**Business v2 (49 and 50):** apply both in the same run, in file order, after every earlier
-migration (`db:setup` applies whatever is pending, in order, so 44, 46 and 47 go first). The code
-of the `business-v2` branch needs both: apply them before that branch is merged, since merging
-deploys. Both rollbacks restore the functions they replaced verbatim; 50's refuses while an ad
+**Business v2 (49, 50 and 51):** apply all three in the same run, in file order, after every
+earlier migration (`db:setup` applies whatever is pending, in order, so 44, 46 and 47 go first). The code
+of the `business-v2` branch needs all three: apply them before that branch is merged, since
+merging deploys. 51 also needs `SUPABASE_SERVICE_ROLE_KEY` on the website (Buzz already does):
+the video status check writes with it. `supabase/tests/production-rollout.test.mjs` rehearses the
+whole run offline on production's state: 44, 46, 47, 49, 50 and 51 applied in order, rolled back
+in reverse, and applied again. Both rollbacks restore the functions they replaced verbatim; 50's refuses while an ad
 that promoted no listing or post has a recorded payment.
 
 **Numbering quirk:** both `20261103000300_discover.sql` and `20261104000000_post_details.sql` call
