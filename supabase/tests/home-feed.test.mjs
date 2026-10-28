@@ -118,10 +118,13 @@ for (const [name, sql, args] of [
   ["reply walk", "select * from public.buzz_v2_visible_replies($1, $2, true)", () => [buzz, B]],
 ]) await expectError(`buzz: ${name} is not reachable through the API`, () => as(B, () => db.query(sql, args())), "permission denied");
 await expectOk("buzz: video ownership is private, and the stored video carries no media id", async () => {
-  await as(A, () => db.query("insert into public.media (owner_id, provider, provider_upload_id, status, playback_id) values ($1,'mux','up1','ready','pbbuzz123')", [A]));
+  // The owner's session starts the upload; the server finishes it (migration 51: only the server writes a video's processing details).
+  const mediaA = (await as(A, () => db.query("insert into public.media (owner_id, provider) values ($1,'mux') returning id", [A]))).rows[0].id;
+  await db.query("update public.media set provider_upload_id='up1', status='ready', playback_id='pbbuzz123' where id=$1", [mediaA]);
   if ((await as(B, () => db.query("select * from public.media where playback_id='pbbuzz123'"))).rows.length !== 0) throw new Error("media owner readable");
   if ((await as(A, () => db.query("select * from public.media"))).rows.length !== 1) throw new Error("owner cannot read own media");
-  await as(C, () => db.query("insert into public.media (owner_id, provider, provider_upload_id, status, playback_id, duration_seconds, width, height) values ($1,'mux','up2','ready','pb1abcdef',12,720,1280)", [C]));
+  const mediaC = (await as(C, () => db.query("insert into public.media (owner_id, provider) values ($1,'mux') returning id", [C]))).rows[0].id;
+  await db.query("update public.media set provider_upload_id='up2', status='ready', playback_id='pb1abcdef', duration_seconds=12, width=720, height=1280 where id=$1", [mediaC]);
   const b = await create(C, "Clip from the quad", { video: { playbackId: "pb1abcdef", posterUrl: null, width: 720, height: 1280, durationSeconds: 12 } });
   const v = (await one(db.query("select videos from public.buzz_posts where id=$1", [b.id]))).videos;
   if (v.length !== 1 || v[0].media_id !== "00000000-0000-0000-0000-000000000000" || v[0].playback_id !== "pb1abcdef") throw new Error(JSON.stringify(v));

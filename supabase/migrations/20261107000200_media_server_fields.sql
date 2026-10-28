@@ -19,6 +19,8 @@ begin
   -- The API's roles; the service role (the server), definer functions and the database owner are left alone.
   if current_user in ('anon', 'authenticated') then
     if tg_op = 'INSERT' then
+      -- The server's clock, not the client's: the daily count below reads it.
+      new.created_at := now();
       new.status := 'uploading';
       new.provider_upload_id := null;
       new.provider_asset_id := null;
@@ -48,6 +50,7 @@ begin
       new.poster_url := old.poster_url;
       new.error := old.error;
       new.size_bytes := old.size_bytes;
+      new.created_at := old.created_at;
     end if;
   end if;
   if new.status = 'ready' and coalesce(new.duration_seconds, 0) > 600 then

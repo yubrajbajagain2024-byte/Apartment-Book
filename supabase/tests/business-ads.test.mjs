@@ -81,6 +81,12 @@ const invite = async (by, email, role) => {
   return id;
 };
 const cafeEditor = await invite(cafeOwner, "ed@beanthere.example", "editor");
+/** A photo the person really uploaded to this project's storage (migration 52 holds ad photos to those). */
+const upload = async (owner, name) => {
+  await db.query("insert into storage.objects (bucket_id, name, owner, owner_id) values ('uploads', $1, $2, $3)", [`posts/${owner}/${name}.jpg`, owner, owner]);
+  return { type: "image", url: `https://proj.supabase.co/storage/v1/object/public/uploads/posts/${owner}/${name}.jpg` };
+};
+const LATTE = await upload(cafeOwner, "latte");
 const cafeAnalyst = await invite(cafeOwner, "al@beanthere.example", "analyst");
 /** A video the business uploaded (as Mux would leave it): ready unless said otherwise. */
 const video = async (owner, width, height, opts = {}) =>
@@ -94,7 +100,7 @@ const AD_INSERT = `insert into public.ads (business_id, created_by, name, object
 /** A complete For You ad of the café, starting in an hour unless said otherwise. */
 const ready = (fields = {}) => ({
   business_id: cafe, created_by: cafeOwner, name: "Latte week", placements: ["for_you"], university_ids: [txstate], caption: "Half-price lattes for students.",
-  media: [photo("latte")], cta: "order_now", cta_url: "https://beanthere.example/order", budget_cents: 5000, starts_at: hours(1), ends_at: hours(24 * 7), ...fields,
+  media: [LATTE], cta: "order_now", cta_url: "https://beanthere.example/order", budget_cents: 5000, starts_at: hours(1), ends_at: hours(24 * 7), ...fields,
 });
 const draft = (who, fields) => as(who, () => one(db.query(AD_INSERT, [JSON.stringify({ created_by: who, ...fields })])));
 const submit = (who, id) => as(who, () => one(db.query("select (public.ad_submit($1)).status", [id])));
@@ -143,6 +149,12 @@ await expectError("a general ad cannot run in Housing", () => draft(cafeOwner, r
 await expectError("an ad runs somewhere", () => draft(cafeOwner, ready({ placements: [] })), "Choose where the ad runs");
 await expectError("a campus that does not exist is refused", () => draft(cafeOwner, ready({ university_ids: ["00000000-0000-0000-0000-000000000001"] })), "campuses does not exist");
 await expectError("photos are uploaded to UniBuzz, not linked from elsewhere", () => draft(cafeOwner, ready({ media: [{ type: "image", url: "https://evil.example/x.jpg" }] })), "Upload photos to UniBuzz");
+await expectError("nor from another host dressed as storage, nor a storage path nobody on the team uploaded", async () => {
+  await draft(cafeOwner, ready({ media: [{ type: "image", url: LATTE.url.replace("proj.supabase.co", "tracker.example") }] })).catch(async (e) => {
+    if (!e.message.includes("Upload photos to UniBuzz")) throw e;
+    await draft(cafeOwner, ready({ media: [{ type: "image", url: "https://proj.supabase.co/storage/v1/object/public/uploads/posts/nobody/x.jpg" }] }));
+  });
+}, "Upload photos to UniBuzz");
 await expectError("an ad promotes only the business's own posts", async () => {
   const other = (await as(rentOwner, () => one(db.query("insert into public.deals (business_id, created_by, title) values ($1, $2, 'Rent deal') returning id", [rent, rentOwner])))).id;
   await draft(cafeOwner, ready({ promoted_deal_id: other }));
@@ -155,9 +167,9 @@ await expectOk("a housing business's ad is a housing ad, in Housing only, screen
   const flags = housingAd.fair_housing_flags.join(" | ");
   if (!flags.includes('Familial status: "no kids"') || !flags.includes('Familial status: "adults only"') || !flags.includes('Familial status: "perfect for singles"')) throw new Error(flags);
 });
-await expectOk("the same words in a café's ad are not screened (only housing ads are)", async () => {
+await expectOk("the same words in a café's ad are screened too (migration 52: every ad, whatever the business's category)", async () => {
   const a = await draft(cafeOwner, ready({ caption: "Adults only open mic. No kids." }));
-  if (a.fair_housing_flags.length !== 0) throw new Error(a.fair_housing_flags.join());
+  if (a.fair_housing_flags.length === 0) throw new Error("not screened");
 });
 await expectOk("the screen catches each protected class and leaves ordinary words alone", async () => {
   const r = await one(db.query(`select public.fair_housing_flags('Christians only. English speakers only. No wheelchairs. Women only. No section 8.') as hit,
@@ -204,7 +216,7 @@ await expectOk("Reels: a photo, a landscape video, a processing one and a long o
     const d = await draft(cafeOwner, ready({ name: "Reel", placements: ["reels"], media }));
     return (await as(cafeOwner, () => one(db.query("select public.ad_problems($1) as p", [d.id])))).p.join(" / ");
   };
-  if (!(await problems([photo("r")])).includes("Reels needs one vertical video.")) throw new Error("photo passed");
+  if (!(await problems([LATTE])).includes("Reels needs one vertical video.")) throw new Error("photo passed");
   if (!(await problems([{ type: "video", media_id: await video(cafeOwner, 1920, 1080) }])).includes("taller than it is wide")) throw new Error("landscape passed");
   if (!(await problems([{ type: "video", media_id: await video(cafeOwner, 1080, 1920, { status: "processing" }) }])).includes("still processing")) throw new Error("processing passed");
   if (!(await problems([{ type: "video", media_id: await video(cafeOwner, 1080, 1920, { seconds: 75 }) }])).includes("60 seconds")) throw new Error("long passed");

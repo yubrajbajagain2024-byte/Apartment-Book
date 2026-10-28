@@ -390,6 +390,9 @@ await expectOk("approved again: chats, deals and listings come back; nothing is 
   if (b.status !== "approved" || b.verified_partner || msgs.length !== 3) throw new Error(JSON.stringify({ b, msgs: msgs.length }));
   await as(owner, () => db.query("update public.apartments set status = 'active' where id = $1", [apt]));
   await as(ben, () => db.query("insert into public.messages (conversation_id, sender_id, content) values ($1, $2, 'Back?')", [chat, ben]));
+  // Migration 52: the staffer changed the listing after its promotion was approved (above), so its ad waits for the
+  // UniBuzz team to look again; once they resume it, the label comes back.
+  await as(admin, () => db.query("select public.admin_resume_ad(a.id) from public.ads a where a.promoted_apartment_id = $1 and a.status = 'paused'", [apt]));
   if ((await sponsored(apt)) !== true) throw new Error("the paid promotion did not come back");
 });
 

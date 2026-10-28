@@ -1,6 +1,6 @@
-// The production rollout, rehearsed offline: a database in production's state as of 2026-10-27 (production's migration
+// The production rollout, rehearsed offline: a database in production's state as of 2026-10-28 (production's migration
 // order, the migrations applied outside this repo, and neither 44, 46 nor 47), with v1 business data in it; then what
-// `npm run db:setup` would apply, in file order (44, 46, 47, 49, 50, 51), with checks after; then every one of their
+// `npm run db:setup` would apply, in file order (44, 46, 47, 49, 50, 51, 52), with checks after; then every one of their
 // rollbacks in reverse order; then all of them again. A real staging project is still the place to try it for real
 // (docs/migrations.md); this shows the files themselves apply, undo and re-apply cleanly in that order.
 import { boot, read, expectOk, done } from "./harness.mjs";
@@ -12,6 +12,7 @@ const PENDING = [
   "20261107000000_business_teams.sql",
   "20261107000100_business_ads.sql",
   "20261107000200_media_server_fields.sql",
+  "20261107000300_business_hardening.sql",
 ];
 const { db, mk, as } = await boot({ live: true, skip: PENDING });
 const one = async (p) => (await p).rows[0];
@@ -76,4 +77,4 @@ await expectOk("after every rollback: v1 again (staff, the listing Sponsored thr
 
 await applyAll("second rollout");
 
-done("PRODUCTION ROLLOUT (44, 46, 47, 49, 50, 51)");
+done("PRODUCTION ROLLOUT (44, 46, 47, 49, 50, 51, 52)");
