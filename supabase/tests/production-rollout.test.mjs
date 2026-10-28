@@ -1,6 +1,7 @@
 // The production rollout, rehearsed offline: a database in production's state as of 2026-10-28 (production's migration
-// order, the migrations applied outside this repo, and neither 44, 46 nor 47), with v1 business data in it; then what
-// `npm run db:setup` would apply, in file order (44, 46, 47, 49, 50, Buzz's 51 to 54, 55, 56), with checks after.
+// order, the migrations applied outside this repo, 47 applied on 2026-10-27 although 44 and 46 were not), with v1
+// business data in it; then what `npm run db:setup` would apply (44, 46, 49, 50, Buzz's 51 to 54, 55, 56: 44 and 46
+// after 47, as production will), with checks after.
 // Then the release's own rollback, the business migrations only (56, 55, 50, 49): every Buzz object and Buzz row stays
 // exactly as it was, Buzz still works, and the schema matches a database that never had the business migrations. Then
 // the business migrations again; then every rollback in reverse order; then all of them again. The staging rehearsal
@@ -12,7 +13,6 @@ import { catalog, diffCatalogs, isBuzz, BUZZ_DATA_SQL, DATA_HELPER_SQL, DROP_DAT
 const PENDING = [
   "20261103000300_discover.sql",
   "20261104000100_discover_audience.sql",
-  "20261105000000_anonymous_listings.sql",
   "20261107000000_business_teams.sql",
   "20261107000100_business_ads.sql",
   "20261108000000_buzz_reply_tree.sql",
@@ -52,14 +52,15 @@ await as(ben, () => db.query("insert into public.feed_posts (author_id, kind, bo
 const sponsored = async () => (await one(db.query("select public.listing_sponsored(a) as ok from public.apartments a where id = $1", [apt]))).ok;
 const staffRole = async () => (await one(db.query("select role from public.business_members where user_id = $1", [staff]))).role;
 
-await expectOk("before: production's state, v1 rules in force (staff on the team, the listing Sponsored)", async () => {
+await expectOk("before: production's state (47 applied, 44 and 46 not), v1 rules in force (staff on the team, the listing Sponsored)", async () => {
   if ((await staffRole()) !== "staff" || !(await sponsored())) throw new Error("v1 data not as expected");
   if (await has("select to_regclass('public.ads') is not null as ok")) throw new Error("ads already there");
+  if (!(await has("select exists (select 1 from information_schema.columns where table_name = 'roommate_posts' and column_name = 'is_anonymous') as ok"))) throw new Error("47 is not applied");
 });
 
 async function applyAll(round, files = PENDING) {
   for (const f of files) await expectOk(`${round}: ${f} applies`, () => db.exec(read(`migrations/${f}`)));
-  await expectOk(`${round}: afterwards, Discover ranks (44 + 46), anonymous listings exist (47), the staffer is an editor (49), the promotion is a running paid ad and the listing is still Sponsored (50), buzzes take a category (54), media are guarded (55)`, async () => {
+  await expectOk(`${round}: afterwards, Discover ranks (44 + 46), anonymous listings still work (47), the staffer is an editor (49), the promotion is a running paid ad and the listing is still Sponsored (50), buzzes take a category (54), media are guarded (55)`, async () => {
     await db.query("select public.discover_refresh()");
     if (!(await has("select exists (select 1 from information_schema.columns where table_name = 'roommate_posts' and column_name = 'is_anonymous') as ok"))) throw new Error("47 missing");
     if ((await staffRole()) !== "editor") throw new Error(`staff is ${await staffRole()}`);
@@ -156,4 +157,4 @@ await expectOk("after every rollback: v1 again (staff, the listing Sponsored thr
 
 await applyAll("second rollout");
 
-done("PRODUCTION ROLLOUT (44, 46, 47, 49 TO 56)");
+done("PRODUCTION ROLLOUT (44, 46, 49 TO 56 AFTER 47)");

@@ -3,8 +3,13 @@
 -- Follows 20261109000000_media_server_fields.sql (migration 55). Rollback:
 -- supabase/rollbacks/20261109000100_business_hardening.down.sql. Safe to run more than once.
 --  * What students see is what was reviewed: an ad keeps a copy of the post or listing it promotes from the moment it
---    is approved (promoted_snapshot), and ads_for_feed() shows that copy. When the post or listing changes, or the
---    business changes its category, its scheduled and running ads pause for the UniBuzz team to look again.
+--    is approved (promoted_snapshot), and ads_for_feed() shows that copy. When anything students see of that post or
+--    listing changes, or the business's category, name or logo, its ads that are scheduled, running or paused (by the
+--    business too) pause for the UniBuzz team, and one waiting for review goes back to draft. The team's resume runs
+--    an ad again only as the kind of ad, and with the Fair Housing flags, it approved (reviewed_screen). From approval
+--    on, an ad's videos are not re-read from the media rows, the files it shows cannot be replaced or deleted by their
+--    uploader (storage policies), and when its post or listing is removed, it stops. Its logo is served only when it
+--    is the team's own upload.
 --  * Fair Housing: every ad's words are screened (not only housing ads'), again at submission and at approval; an ad
 --    with flags needs the reviewer's check and a note, a housing ad the check. A video ad is approved only where
 --    migration 55 guards the media table.
@@ -14,9 +19,10 @@
 --    student and the business stops the chat both ways.
 --  * Dates the database counts by are its own: a post's or an ad's created_at is set on insert and never changed.
 --  * The "foreign key letting go" exception of ads_before_write holds only when the row it pointed to is gone.
---  * Payments outlive what they paid for (listing_promotions' listing and post references are set null, not deleted).
+--  * Payments outlive what they paid for: listing_promotions' listing, post, ad and business references are set null, not
+--    deleted with them (an owner deleting their account leaves the payments on record).
 --  * Events: an ad's events are its own (no post or listing beside them), and only from a student its campus targets.
---  * Saved ads leave out ads the UniBuzz team paused and ads without a payment in force.
+--  * Saved ads leave out ads the UniBuzz team took down (even once ended) and ads without a payment in force.
 --  * A business reads the UniBuzz team's actions without the reviewer's id; the team's notifications carry no actor.
 --  * The audit log folds repeated edits of one thing by one person within 10 minutes into one entry.
 --  * Website and link addresses that are not http(s) are dropped.
@@ -201,6 +207,8 @@ create trigger businesses_clean_website
 -- 3. Ads: what was written, by whom and when
 -- -----------------------------------------------------------------------------
 alter table public.ads add column if not exists promoted_snapshot jsonb;
+-- What the UniBuzz team last approved the ad as: its kind (housing or not) and its Fair Housing flags. A resume compares.
+alter table public.ads add column if not exists reviewed_screen jsonb;
 
 -- Migration 50's ad trigger, with: created_at the database's; the foreign-key exception only when the row it pointed to
 -- is gone; every ad's words screened for Fair Housing (housing ads' and any other's).
@@ -260,6 +268,19 @@ begin
               or (new.reviewed_by is null and not exists (select 1 from public.profiles p where p.id = old.reviewed_by)))
          and (new.fair_housing_checked_by is not distinct from old.fair_housing_checked_by
               or (new.fair_housing_checked_by is null and not exists (select 1 from public.profiles p where p.id = old.fair_housing_checked_by))) then
+        -- The post or listing it promoted is gone (its owner deleted it, or a moderator removed it): the ad stops with it.
+        if new.promoted_deal_id is distinct from old.promoted_deal_id or new.promoted_apartment_id is distinct from old.promoted_apartment_id then
+          if old.status in ('scheduled', 'active', 'paused') then
+            new.status := 'paused';
+            new.paused_by := 'admin';
+            new.status_reason := 'The post or listing this ad promoted was removed.';
+          elsif old.status = 'pending_review' then
+            new.status := 'draft';
+            new.submitted_at := null;
+            new.submitted_by := null;
+            new.status_reason := 'The post or listing this ad promoted was removed.';
+          end if;
+        end if;
         return new;
       end if;
       if old.status not in ('draft', 'rejected') then
@@ -286,9 +307,13 @@ begin
     end if;
   end if;
 
-  -- A status change leaves the content as it is and only refreshes the videos' details.
+  -- A status change leaves the content as it is. Until the ad is approved it refreshes its videos' details (a video can
+  -- still be processing when the ad is submitted); from approval on, the videos it shows are those that were reviewed,
+  -- whatever later happens to the media rows.
   if tg_op = 'UPDATE' and v_transition then
-    new.media := public.business_media_snapshot(new.media);
+    if old.status in ('draft', 'pending_review', 'rejected') then
+      new.media := public.business_media_snapshot(new.media);
+    end if;
     return new;
   end if;
 
@@ -339,7 +364,7 @@ security definer
 set search_path = public
 as $$
   select concat_ws(' ', a.name, a.headline, a.caption,
-    (select concat_ws(' ', x.title, x.description) from public.apartments x where x.id = a.promoted_apartment_id),
+    (select concat_ws(' ', x.title, x.description, array_to_string(x.amenities, ' ')) from public.apartments x where x.id = a.promoted_apartment_id),
     (select concat_ws(' ', d.title, d.description, d.discount_label) from public.deals d where d.id = a.promoted_deal_id));
 $$;
 
@@ -377,6 +402,8 @@ begin
   update public.ads a set promoted_snapshot = public.ad_promoted_snapshot(a)
   where a.status in ('scheduled', 'active', 'paused', 'completed') and a.promoted_snapshot is null
     and (a.promoted_apartment_id is not null or a.promoted_deal_id is not null);
+  update public.ads a set reviewed_screen = jsonb_build_object('vertical', a.vertical, 'flags', to_jsonb(a.fair_housing_flags))
+  where a.status in ('scheduled', 'active', 'paused', 'completed') and a.reviewed_screen is null;
   perform set_config('app.ad_transition', '', true);
 end $$;
 
@@ -510,7 +537,8 @@ begin
       vertical = case when v_housing then 'housing' else 'general' end,
       fair_housing_checked_by = case when v_housing or cardinality(v_flags) > 0 then auth.uid() end,
       fair_housing_checked_at = case when v_housing or cardinality(v_flags) > 0 then now() end,
-      promoted_snapshot = public.ad_promoted_snapshot(a)
+      promoted_snapshot = public.ad_promoted_snapshot(a),
+      reviewed_screen = jsonb_build_object('vertical', case when v_housing then 'housing' else 'general' end, 'flags', to_jsonb(v_flags))
   where id = p_ad returning * into a;
   perform set_config('app.ad_transition', '', true);
   perform public.ad_transition(p_ad, 'admin', 'ad_approved',
@@ -578,7 +606,9 @@ begin
     case when v_starts <= now() then now() end, case when p_ends_at <= now() then now() end,
     now(), auth.uid(), auth.uid(), now())
   returning id into v_ad;
-  update public.ads a set promoted_snapshot = public.ad_promoted_snapshot(a) where a.id = v_ad;
+  update public.ads a set promoted_snapshot = public.ad_promoted_snapshot(a),
+    reviewed_screen = jsonb_build_object('vertical', a.vertical, 'flags', to_jsonb(a.fair_housing_flags))
+  where a.id = v_ad;
   perform set_config('app.ad_transition', '', true);
   insert into public.listing_promotions (business_id, apartment_id, deal_id, ad_id, starts_at, ends_at, amount_cents, currency, payment_reference, created_by)
   values (
@@ -607,15 +637,24 @@ declare
   r record;
 begin
   perform set_config('app.ad_transition', 'on', true);
+  -- Scheduled, running and paused ads (a business's own pause too, or it could edit and resume) wait for the UniBuzz
+  -- team; an ad waiting for review goes back to its draft, so what the team approves is what it was sent.
   for r in
-    update public.ads a set status = 'paused', paused_by = 'admin', status_reason = p_reason,
-      fair_housing_flags = public.fair_housing_flags(public.ad_screen_text(a))
-    where a.id = any (p_ids) and a.status in ('scheduled', 'active')
-    returning a.id, a.business_id, a.name
+    update public.ads a
+    set status = case when a.status = 'pending_review' then 'draft' else 'paused' end,
+        paused_by = case when a.status = 'pending_review' then null else 'admin' end,
+        submitted_at = case when a.status = 'pending_review' then null else a.submitted_at end,
+        submitted_by = case when a.status = 'pending_review' then null else a.submitted_by end,
+        status_reason = p_reason,
+        fair_housing_flags = public.fair_housing_flags(public.ad_screen_text(a))
+    where a.id = any (p_ids) and a.status in ('pending_review', 'scheduled', 'active', 'paused')
+    returning a.id, a.business_id, a.name, a.status
   loop
-    perform public.business_audit_write(r.business_id, 'system', 'ad_paused_for_review', 'ad', r.id, jsonb_build_object('name', r.name, 'reason', p_reason));
-    perform public.business_notify_team(r.business_id, 'ad', 'Your ad is paused for review', p_reason,
-      '/ads/' || r.id, jsonb_build_object('ad_id', r.id, 'status', 'paused'), array['owner', 'admin', 'editor']);
+    perform public.business_audit_write(r.business_id, 'system',
+      case when r.status = 'draft' then 'ad_returned_to_draft' else 'ad_paused_for_review' end, 'ad', r.id, jsonb_build_object('name', r.name, 'reason', p_reason));
+    perform public.business_notify_team(r.business_id, 'ad',
+      case when r.status = 'draft' then 'Your ad is back in draft' else 'Your ad is paused for review' end, p_reason,
+      '/ads/' || r.id, jsonb_build_object('ad_id', r.id, 'status', r.status), array['owner', 'admin', 'editor']);
   end loop;
   perform set_config('app.ad_transition', '', true);
 end;
@@ -628,9 +667,9 @@ security definer
 set search_path = public
 as $$
 begin
-  if (new.title, new.description, new.media, new.image_url, new.price_cents, new.discount_label, new.code, new.link_url, new.kind, new.event_at)
-     is distinct from (old.title, old.description, old.media, old.image_url, old.price_cents, old.discount_label, old.code, old.link_url, old.kind, old.event_at) then
-    perform public.ads_pause_for_review(array(select a.id from public.ads a where a.promoted_deal_id = new.id and a.status in ('scheduled', 'active')),
+  -- Anything students can see of the post (everything but its bookkeeping and its status, which serving checks).
+  if (to_jsonb(new) - array['updated_at', 'created_at', 'created_by', 'status']) <> (to_jsonb(old) - array['updated_at', 'created_at', 'created_by', 'status']) then
+    perform public.ads_pause_for_review(array(select a.id from public.ads a where a.promoted_deal_id = new.id and a.status in ('pending_review', 'scheduled', 'active', 'paused')),
       'The post this ad promotes changed after approval. The UniBuzz team looks at it again before it runs.');
   end if;
   return null;
@@ -650,9 +689,11 @@ begin
   if new.business_id is null then
     return null;
   end if;
-  if (new.title, new.description, new.images, new.price_per_month, new.address, new.city, new.bedrooms, new.bathrooms, new.videos)
-     is distinct from (old.title, old.description, old.images, old.price_per_month, old.address, old.city, old.bedrooms, old.bathrooms, old.videos) then
-    perform public.ads_pause_for_review(array(select a.id from public.ads a where a.promoted_apartment_id = new.id and a.status in ('scheduled', 'active')),
+  -- Anything students can see of the listing (everything but its bookkeeping, its status, which serving checks, and the
+  -- photos' technical details).
+  if (to_jsonb(new) - array['updated_at', 'created_at', 'status', 'image_meta', 'has_video'])
+     <> (to_jsonb(old) - array['updated_at', 'created_at', 'status', 'image_meta', 'has_video']) then
+    perform public.ads_pause_for_review(array(select a.id from public.ads a where a.promoted_apartment_id = new.id and a.status in ('pending_review', 'scheduled', 'active', 'paused')),
       'The listing this ad promotes changed after approval. The UniBuzz team looks at it again before it runs.');
   end if;
   return null;
@@ -669,16 +710,17 @@ security definer
 set search_path = public
 as $$
 begin
-  if new.category is distinct from old.category then
-    perform public.ads_pause_for_review(array(select a.id from public.ads a where a.business_id = new.id and a.status in ('scheduled', 'active')),
-      'The business changed its category. The UniBuzz team looks at its ads again before they run.');
+  -- Its category decides whether its ads are housing ads; its name and logo are shown on every ad.
+  if (new.category, new.name, new.logo_url) is distinct from (old.category, old.name, old.logo_url) then
+    perform public.ads_pause_for_review(array(select a.id from public.ads a where a.business_id = new.id and a.status in ('pending_review', 'scheduled', 'active', 'paused')),
+      'The business changed its category, name or logo. The UniBuzz team looks at its ads again before they run.');
   end if;
   return null;
 end;
 $$;
 
 drop trigger if exists businesses_rereview_ads on public.businesses;
-create trigger businesses_rereview_ads after update of category on public.businesses for each row execute function public.businesses_rereview_ads();
+create trigger businesses_rereview_ads after update of category, name, logo_url on public.businesses for each row execute function public.businesses_rereview_ads();
 
 -- Migration 50's resume by the UniBuzz team, which also keeps a fresh copy of what the ad promotes: the team has looked
 -- at it again (an ad paused because its post, listing or category changed resumes showing what it reviewed now).
@@ -690,6 +732,9 @@ set search_path = public
 as $$
 declare
   a public.ads;
+  v_housing boolean;
+  v_flags text[];
+  v_seen jsonb;
 begin
   perform public.require_admin();
   select * into a from public.ads where id = p_ad for update;
@@ -698,6 +743,24 @@ begin
   end if;
   if not public.business_approved(a.business_id) then
     raise exception 'Only an approved business''s ads can run';
+  end if;
+  if a.promoted_snapshot is not null and a.promoted_apartment_id is null and a.promoted_deal_id is null then
+    raise exception 'The post or listing this ad promoted was removed: it cannot run again.';
+  end if;
+  -- A resume is not an approval: the ad runs again only as the kind of ad (housing or not), and with no Fair Housing
+  -- flag, beyond what the team approved. Otherwise the business copies it into a new draft and submits it.
+  v_housing := a.promoted_apartment_id is not null or (select b.category from public.businesses b where b.id = a.business_id) = 'housing';
+  v_flags := public.fair_housing_flags(public.ad_screen_text(a));
+  v_seen := coalesce(a.reviewed_screen, jsonb_build_object('vertical', a.vertical, 'flags', '[]'::jsonb));
+  if (case when v_housing then 'housing' else 'general' end) is distinct from (v_seen ->> 'vertical')
+     or (v_housing and not ('housing' = any (a.placements) and cardinality(a.placements) = 1))
+     or (not v_housing and 'housing' = any (a.placements)) then
+    raise exception 'This ad is now a % ad, not what was approved: it cannot run again as it is. The business can copy it into a new draft and submit it.',
+      case when v_housing then 'housing' else 'general' end;
+  end if;
+  if exists (select 1 from unnest(v_flags) f where not coalesce(v_seen -> 'flags', '[]'::jsonb) ? f) then
+    raise exception 'Since its review this ad has Fair Housing flags (%): it cannot run again as it is. The business can copy it into a new draft and submit it.',
+      array_to_string(v_flags, ', ');
   end if;
   perform set_config('app.ad_transition', 'on', true);
   update public.ads
@@ -725,10 +788,58 @@ alter table public.listing_promotions add constraint listing_promotions_apartmen
 alter table public.listing_promotions drop constraint if exists listing_promotions_deal_id_fkey;
 alter table public.listing_promotions add constraint listing_promotions_deal_id_fkey
   foreign key (deal_id) references public.deals (id) on delete set null;
+-- And the ad and the business: an owner deleting their account (which deletes the business and its ads) leaves the
+-- payments on record, with the amount, the reference and the dates. Only the UniBuzz team can read a payment whose
+-- business is gone. Payments are written by the team's functions alone, which always name what they pay for.
+alter table public.listing_promotions drop constraint if exists listing_promotions_ad_id_fkey;
+alter table public.listing_promotions add constraint listing_promotions_ad_id_fkey
+  foreign key (ad_id) references public.ads (id) on delete set null;
+alter table public.listing_promotions alter column business_id drop not null;
+alter table public.listing_promotions drop constraint if exists listing_promotions_business_id_fkey;
+alter table public.listing_promotions add constraint listing_promotions_business_id_fkey
+  foreign key (business_id) references public.businesses (id) on delete set null;
+alter table public.listing_promotions drop constraint if exists listing_promotions_one_target;
+alter table public.listing_promotions add constraint listing_promotions_one_target check (num_nonnulls(apartment_id, deal_id) <= 1);
 
 -- -----------------------------------------------------------------------------
 -- 7. What students see
 -- -----------------------------------------------------------------------------
+-- A business's logo as ads show it: only an upload of someone on its team to this project's storage (no other host
+-- reaches students through an ad).
+create or replace function public.business_logo_ok(b public.businesses)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case when public.storage_upload_url_ok(b.logo_url,
+    array(select bm.user_id from public.business_members bm where bm.business_id = b.id union select b.owner_id)) then b.logo_url end;
+$$;
+
+-- Is this uploaded file shown by an ad that is waiting for review, scheduled, running or paused (its own photos, or those
+-- of the post or listing it promotes)? Then its uploader cannot replace it or delete it: the reviewed photo stays.
+create or replace function public.upload_in_live_ad(p_bucket text, p_name text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p_bucket = 'uploads' and p_name is not null and exists (
+    select 1 from public.ads a
+    where a.status in ('pending_review', 'scheduled', 'active', 'paused')
+      and (position('/storage/v1/object/public/uploads/' || p_name in a.media::text) > 0
+        or position('/storage/v1/object/public/uploads/' || p_name in coalesce(a.promoted_snapshot::text, '')) > 0));
+$$;
+
+drop policy if exists "uploads_live_ad_update" on storage.objects;
+create policy "uploads_live_ad_update" on storage.objects as restrictive for update to authenticated
+  using (not public.upload_in_live_ad(bucket_id, name));
+drop policy if exists "uploads_live_ad_delete" on storage.objects;
+create policy "uploads_live_ad_delete" on storage.objects as restrictive for delete to authenticated
+  using (not public.upload_in_live_ad(bucket_id, name));
+
 -- Migration 50's serving, showing the reviewed copy of what an ad promotes.
 create or replace function public.ads_for_feed(p_placement text, p_limit integer default 1, p_offset integer default 0)
 returns table (
@@ -746,7 +857,7 @@ as $$
     from public.profiles p
     where p.id = auth.uid() and p.university_id is not null and public.student_side_ok()
   )
-  select a.id, b.id, b.name, b.logo_url, b.category, b.verified_partner, a.objective, a.headline, a.caption, a.media,
+  select a.id, b.id, b.name, public.business_logo_ok(b), b.category, b.verified_partner, a.objective, a.headline, a.caption, a.media,
     a.cta, a.cta_url, p_placement, a.ends_at, a.promoted_snapshot
   from me
   join public.ads a
@@ -759,6 +870,8 @@ as $$
     and (a.promoted_deal_id is null or exists (
       select 1 from public.deals d where d.id = a.promoted_deal_id and d.status = 'active' and d.starts_at <= now() and (d.ends_at is null or d.ends_at > now())))
     and (jsonb_array_length(a.media) > 0 or a.promoted_snapshot is not null)
+    -- An ad whose promoted post or listing was removed shows nothing of it any more.
+    and (a.promoted_snapshot is null or a.promoted_apartment_id is not null or a.promoted_deal_id is not null)
     and not exists (select 1 from public.ad_hides h where h.user_id = me.id and h.ad_id = a.id)
     and not exists (select 1 from public.business_reports r where r.reporter_id = me.id and r.ad_id = a.id)
     and not public.business_blocked_by_me(a.business_id)
@@ -778,12 +891,14 @@ stable
 security definer
 set search_path = public
 as $$
-  select a.id, b.id, b.name, b.logo_url, b.verified_partner, a.headline, a.caption, a.media, a.cta, a.cta_url,
+  select a.id, b.id, b.name, public.business_logo_ok(b), b.verified_partner, a.headline, a.caption, a.media, a.cta, a.cta_url,
     a.promoted_deal_id, a.promoted_apartment_id,
     (a.status in ('scheduled', 'active') and a.starts_at <= now() and a.ends_at > now()), s.created_at
   from public.ad_saves s
   join public.ads a on a.id = s.ad_id and a.status in ('scheduled', 'active', 'paused', 'completed')
-    and not (a.status = 'paused' and a.paused_by = 'admin')
+    -- Taken down by the UniBuzz team, even once it ended.
+    and a.paused_by is distinct from 'admin'
+    and (a.promoted_snapshot is null or a.promoted_apartment_id is not null or a.promoted_deal_id is not null)
     and exists (select 1 from public.listing_promotions pay where pay.ad_id = a.id and pay.status = 'active')
   join public.businesses b on b.id = a.business_id and b.status = 'approved'
   where s.user_id = auth.uid()
@@ -1042,5 +1157,9 @@ revoke all on function public.ads_pause_for_review(uuid[], text) from public, an
 revoke all on function public.deals_rereview_ads() from public, anon, authenticated;
 revoke all on function public.apartments_rereview_ads() from public, anon, authenticated;
 revoke all on function public.businesses_rereview_ads() from public, anon, authenticated;
+revoke all on function public.business_logo_ok(public.businesses) from public, anon, authenticated;
+-- Storage's policies call it as the signed-in person: it says only whether a file is in a live ad.
+revoke all on function public.upload_in_live_ad(text, text) from public, anon;
+grant execute on function public.upload_in_live_ad(text, text) to authenticated;
 
 notify pgrst, 'reload schema';
