@@ -1,5 +1,5 @@
-// The Business v2 release (migrations 44, 46, 47 and 49 to 56, with Buzz's 51 to 54 in the same run) rehearsed on the
-// staging project, the way production will take it, through the real Supabase stack: Auth sessions, the REST API,
+// The Business v2 release (migrations 44, 46 and 49 to 56, with Buzz's 51 to 54 in the same run; production already has 47)
+// rehearsed on the staging project, the way production will take it, through the real Supabase stack: Auth sessions, the REST API,
 // Storage, pg_cron. Never runs against production: it refuses production's ref and any project not named as staging.
 //
 //   SUPABASE_ACCESS_TOKEN=… STAGING_SUPABASE_REF=<ref> node supabase/tests/staging/release-rehearsal.mjs <step>
@@ -12,6 +12,8 @@
 //             student's ready video.
 //   check     the checks for the state staging is in: before the release (v1), after it (Business v2), or after the
 //             release's rollback (v1 again, with Buzz's 51 to 54 still applied).
+//   probe     after `apply`: the ad approval and payment rules attacked through the API (self-approval on fresh
+//             connections, edits after approval, forged payments, team-only and internal functions, other roles).
 //   apply     what `npm run db:setup` does (every pending migration in file order as one query, recorded in
 //             public._migrations, then the seed) while two students and the staffer keep using the API; reports
 //             every request that failed, and when.
@@ -38,7 +40,6 @@ const read = (rel) => fs.readFileSync(new URL(rel, ROOT), "utf8");
 const RELEASE = [
   "20261103000300_discover.sql",
   "20261104000100_discover_audience.sql",
-  "20261105000000_anonymous_listings.sql",
   "20261107000000_business_teams.sql",
   "20261107000100_business_ads.sql",
   "20261108000000_buzz_reply_tree.sql",
@@ -319,6 +320,173 @@ if (STEP === "check") {
   save();
 }
 
+// --- probe (the release's ad approval and payment rules, attacked through the API) --------------------------------------
+if (STEP === "probe") {
+  const A = state.accounts, I = state.ids, run = state.run;
+  if (!(await val("select to_regclass('public.ads') is not null"))) throw new Error("Run `apply` first: the probe needs Business v2.");
+  const owner = await session(A.owner), staff = await session(A.staff), ops = await session(A.ops), cam = await session(A.cam);
+  const fresh = async (u) => session(u); // a new client: PostgREST may hand it any pooled connection
+  const soon = (d) => new Date(Date.now() + d * 864e5).toISOString();
+  if (!I.upload) throw new Error("Run `check` first: it uploads the photo the probe's ads use.");
+  const photo = { type: "image", url: staff.storage.from("uploads").getPublicUrl(I.upload).data.publicUrl };
+  const base = (extra = {}) => ({ business_id: I.business, created_by: A.staff.id, name: `Rh probe ${run}`, objective: "traffic", placements: ["housing"], university_ids: [I.txstate], caption: "Probe", media: [photo], cta: "visit_profile", budget_cents: 2500, starts_at: soon(-0.01), ends_at: soon(3), ...extra });
+  const adRow = (id) => one(`select status, reviewed_by, reviewed_at, submitted_at, started_at, promoted_snapshot, paused_by, caption, ends_at, university_ids, budget_cents from public.ads where id = ${lit(id)}`);
+  const rejects = (name, fn, pattern) => refused(name, fn, pattern);
+  const made = [];
+
+  // A second approved business, a food one, for the cross-business attempts; an analyst on River Rock's team.
+  const other = A.other ?? (await account("other", `rh-other-${run}@cafe-staging.example`, { account_type: "business", full_name: "Rh Otto", business_name: `Rh Cafe ${run}`, business_category: "food", business_university_id: I.txstate }));
+  I.otherBusiness = I.otherBusiness ?? (await val(`select id from public.businesses where owner_id = ${lit(other.id)}`));
+  await must(ops.rpc("admin_review_business", { p_business: I.otherBusiness, p_decision: "approved", p_note: null })).catch(() => {});
+  if (!A.analyst) {
+    const inv = (await asUser(A.owner.id, `select token from public.business_invite_create(${lit(`rh-analyst-${run}@riverrock-staging.example`)}, 'analyst')`)).at(-1);
+    await account("analyst", `rh-analyst-${run}@riverrock-staging.example`, { account_type: "business", full_name: "Rh Ana", business_invite: inv.token });
+  }
+  save();
+  const otherS = await session(A.other), analyst = await session(A.analyst);
+
+  await check("1. a business's ad written as live (status, review, payment, start, copy) is stored as an unreviewed draft, on 6 fresh connections", async () => {
+    for (let i = 0; i < 6; i++) {
+      const c = await fresh(A.staff);
+      const row = await must(c.from("ads").insert(base({ status: i % 2 ? "scheduled" : "active", reviewed_by: A.ops.id, reviewed_at: soon(0), submitted_at: soon(0), started_at: soon(0), fair_housing_checked_by: A.ops.id, promoted_snapshot: { title: "forged" }, paused_by: null })).select("id").single());
+      made.push(row.id);
+      const r = await adRow(row.id);
+      expect(r.status === "draft" && !r.reviewed_by && !r.reviewed_at && !r.submitted_at && !r.started_at && !r.promoted_snapshot, JSON.stringify(r));
+    }
+  });
+  const draftId = made[0];
+  await check("2. a business cannot move its draft to scheduled, active or pending review by an update", async () => {
+    for (const status of ["active", "scheduled", "pending_review", "completed"]) {
+      await (await fresh(A.owner)).from("ads").update({ status, reviewed_by: A.ops.id }).eq("id", draftId);
+      const r = await adRow(draftId);
+      expect(r.status === "draft" && !r.reviewed_by, `${status}: ${JSON.stringify(r)}`);
+    }
+  });
+  await must(owner.rpc("ad_submit", { p_ad: draftId }));
+  await rejects("3. an ad waiting for review cannot be edited", () => must(staff.from("ads").update({ caption: "Changed while pending" }).eq("id", draftId).select("id")), "Only a draft");
+  await must(ops.rpc("admin_approve_ad", { p_ad: draftId, p_amount_cents: 1000, p_currency: "USD", p_payment_reference: `RH-PROBE-${run}`, p_note: "probe", p_fair_housing_checked: true }));
+  for (const [what, patch] of [["its caption", { caption: "Bait and switch" }], ["its photos", { media: [] }], ["its campuses", { university_ids: [] }], ["its end date (running longer than paid)", { ends_at: soon(60) }], ["its budget", { budget_cents: 1 }], ["the reviewed copy", { promoted_snapshot: { title: "forged" } }], ["its status", { status: "completed" }]]) {
+    await rejects(`4. an approved ad's ${what} cannot be changed by the business`, () => must(owner.from("ads").update(patch).eq("id", draftId).select("id")), "Only a draft|violates|row-level");
+  }
+  await check("4b. after those attempts the approved ad is exactly as approved", async () => {
+    const r = await adRow(draftId);
+    expect(["active", "scheduled"].includes(r.status) && r.caption === "Probe" && Number(r.budget_cents) === 2500 && r.reviewed_by, JSON.stringify(r));
+  });
+  await rejects("5. a business cannot record a payment", () => must(owner.from("listing_promotions").insert({ ad_id: made[1], business_id: I.business, amount_cents: 1, currency: "USD", payment_reference: "FORGED", starts_at: soon(-1), ends_at: soon(30), status: "active" })), "permission denied|row-level|violates");
+  await check("5b. nor change or delete one (nothing changes)", async () => {
+    const before = await val(`select count(*)::int from public.listing_promotions where payment_reference = ${lit(`RH-PROBE-${run}`)} and status = 'active'`);
+    await owner.from("listing_promotions").update({ ends_at: soon(365) }).eq("payment_reference", `RH-PROBE-${run}`);
+    await owner.from("listing_promotions").delete().eq("payment_reference", `RH-PROBE-${run}`);
+    const after = await one(`select count(*)::int as n, max(ends_at) < now() + interval '30 days' as same_end from public.listing_promotions where payment_reference = ${lit(`RH-PROBE-${run}`)} and status = 'active'`);
+    expect(before === 1 && after.n === 1 && after.same_end, JSON.stringify({ before, after }));
+  });
+  for (const [fn, args] of [["admin_approve_ad", { p_ad: made[1], p_amount_cents: 1, p_currency: "USD", p_payment_reference: "SELF", p_note: null, p_fair_housing_checked: true }], ["admin_record_promotion", { p_target_type: "apartment", p_target_id: I.apartment, p_starts_at: soon(-1), p_ends_at: soon(30), p_amount_cents: 1, p_currency: "USD", p_payment_reference: "SELF" }], ["admin_resume_ad", { p_ad: draftId }], ["admin_pause_ad", { p_ad: I.housingAd ?? draftId, p_reason: "x" }], ["admin_reject_ad", { p_ad: made[1], p_reason: "x" }], ["admin_set_verified", { p_business: I.business, p_verified: true, p_evidence: null }], ["admin_review_business", { p_business: I.otherBusiness, p_decision: "suspended", p_note: null }]]) {
+    await rejects(`6. the business cannot call ${fn}`, () => must(owner.rpc(fn, args)), "admin|team|permission|not allowed|Only");
+  }
+  for (const [fn, args] of [["ad_transition", { p_ad: made[1], p_actor_kind: "admin", p_action: "approve" }], ["ads_pause_for_review", { p_ids: [draftId], p_reason: "x" }], ["storage_upload_url_ok", { p_url: "x", p_owners: [] }], ["business_media_problem", { p_media: [], p_business: I.business, p_any_host: true, p_require_ready: false }], ["ads_sweep", {}], ["business_audit_write", { p_business: I.business, p_actor_kind: "admin", p_action: "x", p_target_type: "ad", p_target_id: draftId }], ["business_notify_team", { p_business: I.business, p_title: "x", p_body: "x", p_link: "/" }]]) {
+    await rejects(`7. internal helper ${fn} is not callable through the API`, () => must(owner.rpc(fn, args)), "PGRST202|permission denied|Could not find|not find");
+  }
+  await check("7b. no internal ad, payment or audit helper is executable by a signed-in or signed-out session", async () => {
+    const open = await sql(`select p.oid::regprocedure::text as fn from pg_proc p where p.pronamespace = 'public'::regnamespace
+      and p.proname in ('ad_transition', 'ads_pause_for_review', 'ad_promoted_snapshot', 'ad_screen_text', 'storage_upload_url_ok', 'business_media_problem',
+        'business_media_snapshot', 'ads_sweep', 'business_audit_write', 'business_notify_team', 'ads_before_write', 'deals_before_write', 'business_claim_invite',
+        'deals_rereview_ads', 'apartments_rereview_ads', 'businesses_rereview_ads', 'businesses_clean_website', 'media_server_fields')
+      and (has_function_privilege('authenticated', p.oid, 'execute') or has_function_privilege('anon', p.oid, 'execute'))`);
+    expect(open.length === 0, open.map((r) => r.fn).join(", "));
+  });
+  await must(ops.rpc("admin_pause_ad", { p_ad: draftId, p_reason: "probe takedown" }));
+  await rejects("8. an ad the UniBuzz team paused cannot be resumed by the business", () => must(owner.rpc("ad_resume", { p_ad: draftId })), "UniBuzz|team|paused");
+  await rejects("9. an analyst cannot draft an ad", () => must(analyst.from("ads").insert(base({ created_by: A.analyst.id }))), "row-level|violates");
+  await rejects("9b. nor submit one", () => must(analyst.rpc("ad_submit", { p_ad: made[1] })), "owner or an admin|No such ad|permission");
+  await check("9c. nor read the students' messages", async () => expect((await must(analyst.from("messages").select("id").eq("conversation_id", I.inquiry))).length === 0, "the analyst reads the inquiry"));
+  await check("10. another business reads none of this business's ads or payments", async () => {
+    expect((await must(otherS.from("ads").select("id").eq("business_id", I.business))).length === 0, "ads visible");
+    expect((await must(otherS.from("listing_promotions").select("id").eq("business_id", I.business))).length === 0, "payments visible");
+  });
+  await rejects("10b. nor its numbers", () => must(otherS.rpc("business_ad_stats", { p_business: I.business })), "Only|permission|team|business");
+  await rejects("10c. nor can it draft an ad promoting another business's listing", () => must(otherS.from("ads").insert({ ...base({ business_id: I.otherBusiness, created_by: A.other.id, placements: ["for_you"] }), promoted_apartment_id: I.apartment })), "only your own|row-level");
+  await rejects("11. a student cannot write an ad", () => must(cam.from("ads").insert(base({ created_by: A.cam.id }))), "row-level|violates");
+  await check("11b. nor read the ads table or any payment directly", async () => {
+    expect((await must(cam.from("ads").select("id").limit(5))).length === 0, "a student reads ads");
+    expect((await must(cam.from("listing_promotions").select("id").limit(5))).length === 0, "a student reads payments");
+  });
+  await check("12. copying an approved ad makes an unpaid, unreviewed draft", async () => {
+    const copy = await must(owner.rpc("ad_duplicate", { p_ad: draftId }));
+    const id = typeof copy === "string" ? copy : copy?.id;
+    made.push(id);
+    const r = await adRow(id);
+    expect(r.status === "draft" && !r.reviewed_by && !r.promoted_snapshot, JSON.stringify(r));
+    expect((await val(`select count(*)::int from public.listing_promotions where ad_id = ${lit(id)}`)) === 0, "the copy has a payment");
+  });
+  await check("13. a business cannot delete an ad that ran (the payment record and history stay)", async () => {
+    await owner.from("ads").delete().eq("id", draftId);
+    expect((await val(`select count(*)::int from public.ads where id = ${lit(draftId)}`)) === 1, "deleted");
+  });
+  await check("14. a new listing is not Sponsored, and the business cannot make it so", async () => {
+    const apt = (await must(owner.from("apartments").insert({ owner_id: A.owner.id, business_id: I.business, title: "Rh unpaid listing", description: "x", price_per_month: 900, address: "2 River Rd", university_id: I.txstate }).select("id").single())).id;
+    state.ids.unpaidApartment = apt; save();
+    expect(!(await val(`select public.listing_sponsored(a) from public.apartments a where id = ${lit(apt)}`)), "Sponsored without payment");
+  });
+  await check("15. editing the promoted post of an approved ad pauses the ad for the UniBuzz team", async () => {
+    const ad = await must(staff.from("ads").insert({ ...base({ placements: ["for_you"] }), promoted_deal_id: I.deal }).select("id").single());
+    made.push(ad.id);
+    await must(owner.rpc("ad_submit", { p_ad: ad.id }));
+    await must(ops.rpc("admin_approve_ad", { p_ad: ad.id, p_amount_cents: 500, p_currency: "USD", p_payment_reference: `RH-PROBE2-${run}`, p_note: "probe", p_fair_housing_checked: true }));
+    await must(owner.from("deals").update({ title: `Rh move-in special ${Date.now().toString(36)}` }).eq("id", I.deal));
+    const r = await adRow(ad.id);
+    expect(r.status === "paused" && r.paused_by === "admin", JSON.stringify(r));
+  });
+  await check("16. changing the business's category pauses its running ads for the UniBuzz team", async () => {
+    await must(ops.rpc("admin_resume_ad", { p_ad: I.housingAd })).catch(() => {});
+    const runningBefore = await val(`select count(*)::int from public.ads where business_id = ${lit(I.business)} and status in ('active', 'scheduled')`);
+    await must(owner.from("businesses").update({ category: "food" }).eq("id", I.business));
+    const runningAfter = await val(`select count(*)::int from public.ads where business_id = ${lit(I.business)} and status in ('active', 'scheduled')`);
+    await must(owner.from("businesses").update({ category: "housing" }).eq("id", I.business));
+    expect(runningBefore > 0 && runningAfter === 0, `${runningBefore} running before, ${runningAfter} after`);
+  });
+  await check("17. through Storage itself, the photo of a live ad cannot be overwritten or deleted by its uploader", async () => {
+    const path = state.ids.upload;
+    expect(path, "run `check` first: it uploads the ad photo");
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+    const over = await staff.storage.from("uploads").upload(path, png, { contentType: "image/png", upsert: true });
+    const del = await staff.storage.from("uploads").remove([path]);
+    const still = await val(`select count(*)::int from storage.objects where bucket_id = 'uploads' and name = ${lit(path)}`);
+    expect(over.error && still === 1 && (del.error || (del.data ?? []).length === 0), JSON.stringify({ over: over.error?.message ?? "overwritten", del: del.error?.message ?? del.data, still }));
+  });
+  await check("18. pausing first does not skip the review: an edit while the business has it paused hands it to the UniBuzz team", async () => {
+    const deal = (await must(owner.from("deals").insert({ business_id: I.business, created_by: A.owner.id, title: `Rh pause probe ${run}`, description: "x", university_ids: [I.txstate] }).select("id").single())).id;
+    const ad = await must(staff.from("ads").insert({ ...base({ placements: ["for_you"] }), promoted_deal_id: deal }).select("id").single());
+    made.push(ad.id);
+    await must(owner.rpc("ad_submit", { p_ad: ad.id }));
+    await must(ops.rpc("admin_approve_ad", { p_ad: ad.id, p_amount_cents: 500, p_currency: "USD", p_payment_reference: `RH-PROBE3-${run}`, p_note: "probe", p_fair_housing_checked: true }));
+    await must(owner.rpc("ad_pause", { p_ad: ad.id }));
+    await must(owner.from("deals").update({ title: "Verify your student login", link_url: "https://phish.example" }).eq("id", deal));
+    const r = await adRow(ad.id);
+    expect(r.status === "paused" && r.paused_by === "admin", JSON.stringify(r));
+    let refusedResume = false;
+    try { await must(owner.rpc("ad_resume", { p_ad: ad.id })); } catch (e) { refusedResume = /UniBuzz team paused/.test(e.message); }
+    expect(refusedResume, "the business resumed it");
+    state.ids.probeDeal = deal; save();
+  });
+  await check("19. when its promoted post is deleted, the ad stops, is not served, and the team cannot resume it", async () => {
+    const ad = made.at(-1);
+    await must(owner.from("deals").delete().eq("id", state.ids.probeDeal));
+    const r = await adRow(ad);
+    expect(r.status === "paused" && r.paused_by === "admin", JSON.stringify(r));
+    let refused = false;
+    try { await must(ops.rpc("admin_resume_ad", { p_ad: ad })); } catch (e) { refused = /removed/.test(e.message); }
+    expect(refused, "resumed");
+  });
+  await check("20. an ad shows the business's logo only when it is the team's own upload", async () => {
+    await sql(`update public.businesses set logo_url = 'http://tracker.example/px.gif' where id = ${lit(I.business)}`);
+    for (const { id } of await sql(`select id from public.ads where business_id = ${lit(I.business)} and status = 'paused' and paused_by = 'admin' and promoted_apartment_id is not null`)) await must(ops.rpc("admin_resume_ad", { p_ad: id })).catch(() => {});
+    const served = await must(cam.rpc("ads_for_feed", { p_placement: "housing", p_limit: 10, p_offset: 0 }));
+    await sql(`update public.businesses set logo_url = null where id = ${lit(I.business)}`);
+    expect(served.length > 0 && served.every((a) => a.business_logo_url === null), JSON.stringify(served.map((a) => a.business_logo_url)));
+  });
+  state.ids.probeAds = made; save();
+}
+
 // --- apply (what db:setup does, with traffic) ----------------------------------------------------------------------------
 if (STEP === "apply") {
   const A = state.accounts, I = state.ids;
@@ -444,6 +612,7 @@ if (STEP === "cleanup") {
   if (ids.length) {
     await sql(`delete from public.conversations c where exists (select 1 from public.conversation_members m where m.conversation_id = c.id and m.user_id in (${ids.map(lit).join(", ")}))`);
     await sql(`delete from public.listing_promotions where payment_reference like ${lit(`RH-%${state.run}`)}`).catch(() => {});
+    if (I.otherBusiness) await sql(`delete from public.businesses where id = ${lit(I.otherBusiness)}`).catch(() => {});
   }
   for (const id of ids) { const { error } = await admin.auth.admin.deleteUser(id); if (error) fail(`delete account ${id}`, error); }
   const s = state.baseline?.buzzSecrets;

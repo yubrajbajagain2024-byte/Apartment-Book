@@ -46,6 +46,12 @@ const { data: carousel } = await admin.from("feed_posts").insert({ author_id: le
 // Distinct times: "Liked by" shows the newest liker first, and the flows expect Maya on Leo's carousel (likes from the
 // same instant would be ordered by user id, a coin flip between seeds).
 const minutesAgo = (m) => new Date(Date.now() - m * 60_000).toISOString();
+// Since migration 37 a person's likes are private by default, and "Liked by" shows only likers whose Liked section the
+// viewer may see: Leo shows his to everyone, so the Posts tab says "Liked by UI Leo" signed out and signed in.
+{
+  const r = await admin.from("profiles").update({ liked_visibility: "public" }).eq("id", leo.id);
+  if (r.error) console.warn(`Leo's likes stay private (liked_visibility needs migration 37): ${r.error.message}`);
+}
 await admin.from("post_likes").insert([
   { target_type: "post", target_id: post.id, user_id: leo.id, created_at: minutesAgo(3) },
   { target_type: "post", target_id: carousel.id, user_id: leo.id, created_at: minutesAgo(2) },

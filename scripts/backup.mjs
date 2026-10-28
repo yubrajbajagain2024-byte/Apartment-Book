@@ -13,6 +13,9 @@
  *     manifest.json        when, which project, row counts, and the SHA-256 of every file
  *
  * It refuses to write into a folder that already exists, so an earlier backup is never overwritten.
+ *
+ * It is a snapshot to compare row counts and to recover individual rows by hand, not a way to restore the database:
+ * before a migration, also take a backup that restores (Supabase's daily backup, or a CLI dump: supabase/CLAUDE.md).
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
