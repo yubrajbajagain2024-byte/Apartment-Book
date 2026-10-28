@@ -1,7 +1,7 @@
 // The production rollout, rehearsed offline: a database in production's state as of 2026-10-28 (production's migration
 // order, the migrations applied outside this repo, 47 applied on 2026-10-27 although 44 and 46 were not), with v1
-// business data in it; then what `npm run db:setup` would apply (44, 46, 49, 50, Buzz's 51 to 54, 55, 56: 44 and 46
-// after 47, as production will), with checks after.
+// business data in it; then what `npm run db:setup` would apply (44, 46, 49, 50, Buzz's 51 to 54, 55, 56, 57: 44 and
+// 46 after 47, as production will), with checks after.
 // Then the release's own rollback, the business migrations only (56, 55, 50, 49): every Buzz object and Buzz row stays
 // exactly as it was, Buzz still works, and the schema matches a database that never had the business migrations. Then
 // the business migrations again; then every rollback in reverse order; then all of them again. The staging rehearsal
@@ -21,6 +21,7 @@ const PENDING = [
   "20261108000300_buzz_categories.sql",
   "20261109000000_media_server_fields.sql",
   "20261109000100_business_hardening.sql",
+  "20261110000000_report_auto_hide.sql",
 ];
 // The release's rollback: the business migrations, newest first. Buzz's 51 to 54 stay.
 const BUSINESS = ["20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql"];
@@ -157,4 +158,4 @@ await expectOk("after every rollback: v1 again (staff, the listing Sponsored thr
 
 await applyAll("second rollout");
 
-done("PRODUCTION ROLLOUT (44, 46, 49 TO 56 AFTER 47)");
+done("PRODUCTION ROLLOUT (44, 46, 49 TO 57 AFTER 47)");

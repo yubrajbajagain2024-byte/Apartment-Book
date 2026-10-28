@@ -87,6 +87,15 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 - **Security fix pending.** A security fix for a live part of the database is ready on a local,
   unpushed branch (2026-10-27) and is **not applied to production**. Its details stay out of this
   repository until production is patched, because the repository is public.
+- **Report auto-hide (migration 57, branch `auto-hide-reports`, 2026-10-28).** Content 10 different
+  legitimate people report is hidden, flagged for review in CampConnect Admin, its owner told and the
+  hide audited. Built and tested offline; PR open, not merged, not on production. Its review screens go on `step-admin`.
+  Release order, each step with the owner's approval:
+  1. Apply 57 alone.
+  2. Merge.
+  3. Deploy the admin app.
+
+  See [branches/auto-hide-reports.md](branches/auto-hide-reports.md).
 - **Decide and merge `step-admin`.** Its merge plan lists six open questions for Sunil (migration
   names, who renames production's `_migrations` rows, the fate of `supabase/applied-outside-repo/`,
   a change to admin checks, branch ownership, who resolves the merge). Also reconcile `main`'s

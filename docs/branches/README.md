@@ -12,6 +12,7 @@ current", rules 2 and 3).
 | `ankur/dev` | Ankur | Ankur's feature line | merged (PRs #35, #38, #41, and #50 on 2026-10-28: Buzz threaded replies, top reply, prompt threads, categories, migrations 51 to 54, not on production) | [ankur/dev.md](ankur/dev.md) |
 | `ankur/owner-moderation` | Ankur | Buzz v2 and Trust & Safety | merged (PR #37) | [ankur/owner-moderation.md](ankur/owner-moderation.md) |
 | `step-admin` | Yubraj | **CampConnect Admin**, the separate staff app, and migrations 14–18 | **not merged**; merge plan in its `docs/step-admin-merge-plan.md` | [step-admin.md](step-admin.md) |
+| `auto-hide-reports` | Yubraj | content 10 different people report is hidden, flagged for CampConnect Admin, audited (migration 57) | pushed, **PR open**, not merged, as of 2026-10-28 | [auto-hide-reports.md](auto-hide-reports.md) |
 | `step-1-brand-shell` | Yubraj | first brand-and-shell pass (2026-09-07) | **1 commit never merged**; superseded | [step-1-brand-shell.md](step-1-brand-shell.md) |
 | `step-home-feed` | Sunil | the main feature line, 2026-10-09 to 10-25 | merged (PRs #1 – #32); since then 1 old `CLAUDE.md` commit; **PR #46** carries only that copy | [step-home-feed.md](step-home-feed.md) |
 | `business-portal-prelaunch` | Sunil | the business portal | merged (PR #33, `fee2e8f`); since then the stray `app.json` commit and 1 old `CLAUDE.md` commit; **PR #47** carries only those two | [business-portal-prelaunch.md](business-portal-prelaunch.md) |
