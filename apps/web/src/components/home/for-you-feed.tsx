@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
-import { getPostEngagementMany, getPostPreviewsMany, homeSectionHref, listForYou, type ForYouFilters, type ForYouItem, type PostEngagement, type PostPreview } from "@apartment-book/shared";
+import { ADS_EVERY, adSlotCount, getPostEngagementMany, getPostPreviewsMany, homeSectionHref, interleaveAds, listFeedAds, listForYou, type FeedAd, type ForYouFilters, type ForYouItem, type PostEngagement, type PostPreview } from "@apartment-book/shared";
 import { createClient } from "@/lib/supabase/client";
 import { LinkButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FeedFooter, SkeletonCard } from "@/components/feed/feed-bits";
+import { SponsoredPost } from "@/components/ads/sponsored";
 import { InstaPost } from "./insta-post";
 
 export type ForYouFeedProps = {
@@ -46,6 +47,11 @@ export function ForYouFeed({ initial, hasMore: initialHasMore, filters, savedIds
   const busy = useRef(false);
   const page = useRef(1);
   const saved = new Set(savedIds);
+  // Sponsored posts: at most one after every ADS_EVERY posts, only as many as the feed has room for, in the campus's
+  // daily rotation (the database picks them by campus alone). Signed-out visitors get none.
+  const [ads, setAds] = useState<FeedAd[]>([]);
+  const adsDone = useRef(false);
+  const adsBusy = useRef(false);
 
   const loadMore = useCallback(async () => {
     if (busy.current) return;
@@ -115,6 +121,21 @@ export function ForYouFeed({ initial, hasMore: initialHasMore, filters, savedIds
     };
   }, [items, previews]);
 
+  useEffect(() => {
+    if (!signedIn || adsDone.current || adsBusy.current) return;
+    const need = adSlotCount(items.length, ADS_EVERY) - ads.length;
+    if (need <= 0) return;
+    adsBusy.current = true;
+    listFeedAds(createClient(), "for_you", need, ads.length)
+      .then((more) => {
+        if (more.length < need) adsDone.current = true;
+        setAds((prev) => [...prev, ...more.filter((a) => !prev.some((p) => p.id === a.id))]);
+      })
+      .finally(() => {
+        adsBusy.current = false;
+      });
+  }, [items.length, ads.length, signedIn]);
+
   const filtered = Boolean(filters.universityId);
   const everyCampus = homeSectionHref("foryou", { university: "all" });
 
@@ -149,20 +170,24 @@ export function ForYouFeed({ initial, hasMore: initialHasMore, filters, savedIds
         </div>
       ) : (
         <>
-          {items.map((post, i) => (
+          {interleaveAds(items, ads, ADS_EVERY).map((row) =>
+            row.kind === "ad" ? (
+              <SponsoredPost key={`ad-${row.ad.id}`} ad={row.ad} />
+            ) : (
             <InstaPost
-              key={post.id}
-              post={post}
-              saved={saved.has(post.id)}
+              key={row.item.id}
+              post={row.item}
+              saved={saved.has(row.item.id)}
               signedIn={signedIn}
               currentUserId={currentUserId}
               currentUser={currentUser}
-              engagement={engagement[post.id]}
-              preview={previews[post.id]}
-              subtitle={!filtered && post.university_id ? universityNames?.[post.university_id] : undefined}
-              priority={i < 2}
+              engagement={engagement[row.item.id]}
+              preview={previews[row.item.id]}
+              subtitle={!filtered && row.item.university_id ? universityNames?.[row.item.university_id] : undefined}
+              priority={row.index < 2}
             />
-          ))}
+            ),
+          )}
           {loading ? <SkeletonCard aspect="aspect-[4/5]" lines={3} /> : null}
           <FeedFooter sentinelRef={sentinelRef} loading={loading} done={!hasMore} error={error} onRetry={loadMore} count={items.length} />
         </>

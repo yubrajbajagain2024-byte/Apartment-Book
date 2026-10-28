@@ -258,14 +258,16 @@ export const MUTE_DURATIONS = [
 
 /** The business portal (UniBuzz Business, at /business): businesses post listings and deals, and answer students' inquiries. */
 export const BUSINESS_PORTAL_NAME = "UniBuzz Business";
-export const BUSINESS_PORTAL_TAGLINE = "Reach students where they already look for housing, food and deals around campus.";
+export const BUSINESS_PORTAL_TAGLINE = "Reach verified university students with posts and ads they actually want to see.";
+/** Any legitimate business. 'food' is restaurants and cafés, 'housing' apartments and property ('startup' since migration 50). */
 export const BUSINESS_CATEGORIES = [
-  { value: "housing", label: "Housing & property" },
-  { value: "food", label: "Food & drink" },
+  { value: "food", label: "Restaurants & cafés" },
+  { value: "housing", label: "Apartments & housing" },
   { value: "retail", label: "Retail" },
-  { value: "services", label: "Services" },
+  { value: "startup", label: "Startup" },
+  { value: "services", label: "Service provider" },
   { value: "fitness", label: "Fitness & wellness" },
-  { value: "entertainment", label: "Entertainment" },
+  { value: "entertainment", label: "Entertainment & events" },
   { value: "education", label: "Education & tutoring" },
   { value: "other", label: "Other" },
 ] as const;
@@ -287,3 +289,104 @@ export const DEAL_STATUSES = [
 ] as const;
 export type DealStatusValue = (typeof DEAL_STATUSES)[number]["value"];
 export const DEAL_STATUS_VALUES = DEAL_STATUSES.map((s) => s.value) as [DealStatusValue, ...DealStatusValue[]];
+
+// --- UniBuzz Business v2 (migrations 49 and 50) ----------------------------------------------------------------------
+/** The team's roles and what each may do (the database's business_can() decides; this is what the portal says). */
+export const BUSINESS_TEAM_ROLES = [
+  { value: "owner", label: "Owner", description: "Everything, and the only one who makes admins." },
+  { value: "admin", label: "Admin", description: "The profile, the team, posts, ads and their budgets, the inbox and analytics." },
+  { value: "editor", label: "Editor", description: "Posts, listings, ad drafts and the inbox. Cannot submit ads or manage the team." },
+  { value: "analyst", label: "Analyst", description: "Analytics only. Never sees students' messages." },
+] as const;
+export type BusinessTeamRoleValue = (typeof BUSINESS_TEAM_ROLES)[number]["value"];
+export const BUSINESS_INVITE_ROLE_VALUES = ["admin", "editor", "analyst"] as const;
+export function teamRoleLabel(value: string | null | undefined): string {
+  return BUSINESS_TEAM_ROLES.find((r) => r.value === value)?.label ?? "Editor";
+}
+
+/** What a business post is. Every v1 deal is a "deal". */
+export const POST_KINDS = [
+  { value: "update", label: "Update" },
+  { value: "product", label: "Product" },
+  { value: "service", label: "Service" },
+  { value: "deal", label: "Deal" },
+  { value: "event", label: "Event" },
+  { value: "promotion", label: "Promotion" },
+] as const;
+export type PostKindValue = (typeof POST_KINDS)[number]["value"];
+export const POST_KIND_VALUES = POST_KINDS.map((k) => k.value) as [PostKindValue, ...PostKindValue[]];
+export function postKindLabel(value: string | null | undefined): string {
+  return POST_KINDS.find((k) => k.value === value)?.label ?? "Post";
+}
+/** Photos per post or ad, and the post rate limit the database enforces. */
+export const BUSINESS_MEDIA_MAX = 10;
+export const BUSINESS_POSTS_PER_DAY = 30;
+
+export const AD_OBJECTIVES = [
+  { value: "awareness", label: "Reach", description: "Be seen by as many students on your campuses as possible." },
+  { value: "traffic", label: "Website visits", description: "Send students to your site, menu or booking page." },
+  { value: "engagement", label: "Profile visits", description: "Bring students to your UniBuzz profile and posts." },
+  { value: "messages", label: "Messages", description: "Start conversations: students message you, you reply." },
+] as const;
+export type AdObjectiveValue = (typeof AD_OBJECTIVES)[number]["value"];
+export const AD_OBJECTIVE_VALUES = AD_OBJECTIVES.map((o) => o.value) as [AdObjectiveValue, ...AdObjectiveValue[]];
+
+/** Where an ad runs: For You and Reels for every ad but housing, Housing for housing ads only (the database enforces it). */
+export const AD_PLACEMENTS = [
+  { value: "for_you", label: "For You", description: "Between posts in the Home feed." },
+  { value: "reels", label: "Reels", description: "Full screen between reels. Needs one vertical video." },
+  { value: "housing", label: "Housing", description: "Between listings in Explore › Housing. Housing ads only." },
+] as const;
+export type AdPlacementValue = (typeof AD_PLACEMENTS)[number]["value"];
+
+/** The button under an ad. The link ones need an address; "View listing" and "Get offer" can open what the ad promotes. */
+export const AD_CTAS = [
+  { value: "learn_more", label: "Learn more", needsUrl: true },
+  { value: "shop_now", label: "Shop now", needsUrl: true },
+  { value: "order_now", label: "Order now", needsUrl: true },
+  { value: "book_now", label: "Book now", needsUrl: true },
+  { value: "sign_up", label: "Sign up", needsUrl: true },
+  { value: "get_offer", label: "Get offer", needsUrl: false },
+  { value: "view_listing", label: "View listing", needsUrl: false },
+  { value: "message", label: "Send message", needsUrl: false },
+  { value: "visit_profile", label: "Visit profile", needsUrl: false },
+] as const;
+export type AdCtaValue = (typeof AD_CTAS)[number]["value"];
+export const AD_CTA_VALUES = AD_CTAS.map((c) => c.value) as [AdCtaValue, ...AdCtaValue[]];
+export function adCtaLabel(value: string | null | undefined): string {
+  return AD_CTAS.find((c) => c.value === value)?.label ?? "Learn more";
+}
+
+export const AD_STATUSES = [
+  { value: "draft", label: "Draft" },
+  { value: "pending_review", label: "In review" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "active", label: "Active" },
+  { value: "paused", label: "Paused" },
+  { value: "completed", label: "Completed" },
+  { value: "rejected", label: "Rejected" },
+] as const;
+export type AdStatusValue = (typeof AD_STATUSES)[number]["value"];
+export function adStatusLabel(value: string | null | undefined): string {
+  return AD_STATUSES.find((st) => st.value === value)?.label ?? "Draft";
+}
+
+/** The limits the database checks when an ad is submitted (ad_problems()), so the Ads Manager can say them first. */
+export const AD_MIN_BUDGET_CENTS = 1000;
+export const AD_MAX_DAYS = 90;
+export const AD_REELS_MAX_SECONDS = 60;
+export const AD_VIDEO_MAX_SECONDS = 120;
+export const AD_CAPTION_MAX = 2200;
+export const AD_HEADLINE_MAX = 80;
+/** One ad at most for every this many organic posts, reels or listings: "about one per 8 to 10". */
+export const ADS_EVERY = 9;
+
+export const BUSINESS_REPORT_REASONS = [
+  { value: "misleading", label: "Misleading or false" },
+  { value: "scam", label: "Scam or fraud" },
+  { value: "discrimination", label: "Discriminatory (for example housing)" },
+  { value: "offensive", label: "Offensive" },
+  { value: "prohibited", label: "Prohibited product or service" },
+  { value: "spam", label: "Spam" },
+  { value: "other", label: "Something else" },
+] as const;

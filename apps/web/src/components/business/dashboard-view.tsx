@@ -1,110 +1,196 @@
-import { Building2, Eye, Inbox, Plus, Tag, UserPlus, Users } from "lucide-react";
-import { type Business, type BusinessOverview, type ConversationSummary } from "@apartment-book/shared";
+import { ArrowUpRight, BadgeCheck, Building2, Eye, Inbox, Megaphone, MousePointerClick, Plus, Store, UserPlus, Users } from "lucide-react";
+import { businessCategoryLabel, clickRate, teamRoleAllows, type Ad, type Business, type BusinessAnalyticsOverview, type BusinessTeamRole, type ConversationSummary } from "@apartment-book/shared";
 import { timeAgo } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConversationAvatar } from "@/components/messages/conversation-list";
 import { PortalLink } from "./portal-base";
+import { AdStatusPill, BizLink, Panel, PanelHeader, Pill, StatTile } from "./ui";
 
-/** The portal's front page: who you are, the business's headline numbers, the newest inquiries and the next steps. */
+/** What a complete profile has; a pending business is nudged to finish it (the UniBuzz team reviews it). */
+function missingFromProfile(b: Business): string[] {
+  const out: string[] = [];
+  if (!b.logo_url) out.push("a logo");
+  if (!b.description || b.description.length < 40) out.push("a description");
+  if (!b.website) out.push("a website");
+  if (!b.address && !b.city) out.push("where you are");
+  if (!b.university_ids.length) out.push("the campuses you serve");
+  return out;
+}
+
+/** The portal's front page: the business, its last 30 days, its campaigns, the newest inquiries and what to do next. */
 export function DashboardView({
   firstName,
   business,
   role,
   overview,
-  teamSize,
+  ads,
   inbox,
+  canReply,
+  publicProfileUrl,
 }: {
   firstName: string;
   business: Business;
-  role: "owner" | "staff";
-  overview: BusinessOverview | null;
-  teamSize: number;
+  role: BusinessTeamRole;
+  overview: BusinessAnalyticsOverview | null;
+  ads: Ad[];
   /** The newest inquiries, already titled after the students (businessInboxView). */
   inbox: ConversationSummary[];
+  canReply: boolean;
+  publicProfileUrl: string | null;
 }) {
   const approved = business.status === "approved";
-  const stats = [
-    { label: "Active listings", value: overview?.active_listings ?? 0, icon: Building2, href: "/listings" },
-    { label: "Live deals", value: overview?.active_deals ?? 0, icon: Tag, href: "/deals" },
-    { label: "Views, 30 days", value: overview?.views_30d ?? 0, icon: Eye, href: "/listings" },
-    { label: "Inquiries, 30 days", value: overview?.inquiries_30d ?? 0, icon: Inbox, href: "/inbox" },
-    { label: "Team", value: overview?.team ?? teamSize, icon: Users, href: "/team" },
-  ];
+  const publish = teamRoleAllows(role, "publish");
+  const missing = teamRoleAllows(role, "edit_profile") ? missingFromProfile(business) : [];
+  const fmt = (v: number | undefined) => (v ?? 0).toLocaleString("en-US");
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="flex flex-col gap-8">
+      <header className="ab-fade-in flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Hi {firstName}</h1>
-          <p className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+          <p className="text-[13px] font-medium text-biz-ink-3">Good to see you, {firstName}</p>
+          <h1 className="mt-1 flex flex-wrap items-center gap-3 text-[32px] font-semibold tracking-[-0.025em] text-biz-ink">
             {business.name}
-            {approved && business.verified_partner ? <Badge tone="green">Verified Partner</Badge> : null}
-          </p>
+            <Pill tone="neutral">Business</Pill>
+            {approved && business.verified_partner ? (
+              <Pill tone="accent">
+                <BadgeCheck className="h-3.5 w-3.5" /> Verified Partner
+              </Pill>
+            ) : null}
+          </h1>
+          <p className="mt-1 text-[15px] text-biz-ink-3">{businessCategoryLabel(business.category)}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {approved ? (
-            <PortalLink href="/listings/new" className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand-600 bg-aurora px-4 text-sm font-semibold text-white hover:brightness-95">
-              <Plus className="h-4 w-4" /> Post a listing
-            </PortalLink>
+          {publish ? (
+            <BizLink href="/ads/new">
+              <Megaphone className="h-4 w-4" /> New ad
+            </BizLink>
           ) : null}
-          <PortalLink href="/deals/new" className="inline-flex h-10 items-center gap-2 rounded-lg bg-gray-200 px-4 text-sm font-semibold text-gray-900 hover:bg-gray-300">
-            <Tag className="h-4 w-4" /> Add a deal
-          </PortalLink>
-          {role === "owner" ? (
-            <PortalLink href="/team" className="inline-flex h-10 items-center gap-2 rounded-lg bg-gray-200 px-4 text-sm font-semibold text-gray-900 hover:bg-gray-300">
-              <UserPlus className="h-4 w-4" /> Invite a teammate
-            </PortalLink>
+          {publish ? (
+            <BizLink href="/deals/new" variant="secondary">
+              <Plus className="h-4 w-4" /> New post
+            </BizLink>
+          ) : null}
+          {approved && publish && business.category === "housing" ? (
+            <BizLink href="/listings/new" variant="secondary">
+              <Building2 className="h-4 w-4" /> Post a listing
+            </BizLink>
+          ) : null}
+          {teamRoleAllows(role, "manage_team") ? (
+            <BizLink href="/team" variant="ghost">
+              <UserPlus className="h-4 w-4" /> Invite
+            </BizLink>
           ) : null}
         </div>
-      </div>
+      </header>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" data-testid="overview">
-        {stats.map((s) => (
-          <PortalLink key={s.label} href={s.href} className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200 transition-shadow hover:shadow-md">
-            <span className="flex items-center gap-2 text-xs font-medium text-gray-500">
-              <s.icon className="h-4 w-4 text-brand-600" /> {s.label}
-            </span>
-            <span className="mt-1 block text-2xl font-bold text-gray-900">{s.value}</span>
-          </PortalLink>
-        ))}
-      </div>
+      {missing.length ? (
+        <Panel className="flex flex-wrap items-center justify-between gap-4 p-6">
+          <div>
+            <h2 className="text-[17px] font-semibold text-biz-ink">Finish your profile</h2>
+            <p className="mt-0.5 text-[15px] text-biz-ink-3">Add {missing.join(", ")}. Students and the UniBuzz team read it first.</p>
+          </div>
+          <BizLink href="/profile" variant="secondary">
+            <Store className="h-4 w-4" /> Edit profile
+          </BizLink>
+        </Panel>
+      ) : null}
 
-      <Card>
-        <CardHeader className="flex items-center justify-between">
-          <CardTitle>Recent inquiries</CardTitle>
-          <PortalLink href="/inbox" className="text-sm font-medium text-brand-600 hover:underline">
-            Open inbox
+      <section aria-labelledby="last-30" className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between">
+          <h2 id="last-30" className="text-[17px] font-semibold text-biz-ink">
+            Last 30 days
+          </h2>
+          <PortalLink href="/analytics" className="text-[13px] font-medium text-biz-accent-ink hover:underline">
+            All analytics
           </PortalLink>
-        </CardHeader>
-        <CardBody>
-          {inbox.length === 0 ? (
-            <p className="text-sm text-gray-600">
-              {approved ? "No inquiries yet. Students message you from your listings and deals; every reply lands here." : "Inquiries start once your business is approved and a listing or deal is live."}
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4" data-testid="overview">
+          <StatTile icon={Eye} label="Impressions" value={fmt(overview?.impressions)} sub={`${fmt(overview?.reach)} students reached`} href="/analytics" />
+          <StatTile icon={MousePointerClick} label="Clicks" value={fmt(overview?.clicks)} sub={`${clickRate(overview?.clicks ?? 0, overview?.impressions ?? 0)} of impressions`} href="/analytics" />
+          <StatTile icon={Users} label="Profile visits" value={fmt(overview?.profile_visits)} href="/analytics" />
+          <StatTile icon={Inbox} label="Inquiries" value={fmt(overview?.inquiries)} href={canReply ? "/inbox" : "/analytics"} />
+        </div>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel className="pb-2">
+          <PanelHeader
+            title="Campaigns"
+            subtitle="Your newest ads and where each stands."
+            action={
+              <PortalLink href="/ads" className="text-[13px] font-medium text-biz-accent-ink hover:underline">
+                All ads
+              </PortalLink>
+            }
+          />
+          {ads.length === 0 ? (
+            <p className="px-6 py-8 text-[15px] text-biz-ink-3">
+              No ads yet. {publish ? "Start one: pick your campuses, a budget and dates, and see it as students will before you submit." : null}
             </p>
           ) : (
-            <ul className="divide-y divide-gray-100">
-              {inbox.map((c) => (
-                <li key={c.id}>
-                  <PortalLink href={`/inbox/${c.id}`} className="flex items-center gap-3 py-2.5 hover:bg-gray-50">
-                    <ConversationAvatar conversation={c} size="sm" />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-baseline justify-between gap-2">
-                        <span className={c.unreadCount > 0 ? "truncate text-sm font-bold text-gray-900" : "truncate text-sm font-semibold text-gray-800"}>{c.title}</span>
-                        <span className="shrink-0 text-[11px] text-gray-500" suppressHydrationWarning>
-                          {timeAgo(c.lastMessageAt)}
-                        </span>
-                      </span>
-                      <span className="block truncate text-xs text-gray-500">{c.lastMessagePreview ?? "New inquiry"}</span>
-                    </span>
-                    {c.unreadCount > 0 ? <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1.5 text-[10px] font-bold text-white">{c.unreadCount}</span> : null}
+            <ul className="mt-3 divide-y divide-biz-line">
+              {ads.map((a) => (
+                <li key={a.id}>
+                  <PortalLink href={`/ads/${a.id}`} className="flex items-center gap-3 px-6 py-3 transition-colors hover:bg-biz-surface-2">
+                    <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-biz-ink">{a.name}</span>
+                    <AdStatusPill ad={a} />
                   </PortalLink>
                 </li>
               ))}
             </ul>
           )}
-        </CardBody>
-      </Card>
+        </Panel>
+
+        <Panel className="pb-2">
+          <PanelHeader
+            title="Recent inquiries"
+            subtitle="Students write first; anyone who replies on your team can answer."
+            action={
+              canReply ? (
+                <PortalLink href="/inbox" className="text-[13px] font-medium text-biz-accent-ink hover:underline">
+                  Open inbox
+                </PortalLink>
+              ) : undefined
+            }
+          />
+          {!canReply ? (
+            <p className="px-6 py-8 text-[15px] text-biz-ink-3">
+              {approved ? "Your role reads the numbers, not students' messages." : "Inquiries start once your business is approved and something of it is live."}
+            </p>
+          ) : inbox.length === 0 ? (
+            <p className="px-6 py-8 text-[15px] text-biz-ink-3">No inquiries yet. Students message you from your profile, posts, listings and ads.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-biz-line">
+              {inbox.map((c) => (
+                <li key={c.id}>
+                  <PortalLink href={`/inbox/${c.id}`} className="flex items-center gap-3 px-6 py-3 transition-colors hover:bg-biz-surface-2">
+                    <ConversationAvatar conversation={c} size="sm" />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline justify-between gap-2">
+                        <span className={c.unreadCount > 0 ? "truncate text-[15px] font-semibold text-biz-ink" : "truncate text-[15px] font-medium text-biz-ink-2"}>{c.title}</span>
+                        <span className="shrink-0 text-[11px] text-biz-ink-4" suppressHydrationWarning>
+                          {timeAgo(c.lastMessageAt)}
+                        </span>
+                      </span>
+                      <span className="block truncate text-[13px] text-biz-ink-3">{c.lastMessagePreview ?? "New inquiry"}</span>
+                    </span>
+                    {c.unreadCount > 0 ? <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-biz-accent px-1.5 text-[10px] font-bold text-white">{c.unreadCount}</span> : null}
+                  </PortalLink>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      </div>
+
+      {publicProfileUrl ? (
+        <a href={publicProfileUrl} target="_blank" rel="noopener noreferrer" className="group flex items-center justify-between gap-4 rounded-[22px] bg-biz-surface p-6 shadow-biz ring-1 ring-biz-line transition-shadow hover:shadow-biz-lift">
+          <span>
+            <span className="block text-[17px] font-semibold text-biz-ink">Your public profile</span>
+            <span className="mt-0.5 block text-[15px] text-biz-ink-3">See your business the way students do on UniBuzz.</span>
+          </span>
+          <ArrowUpRight className="h-5 w-5 text-biz-ink-3 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+        </a>
+      ) : null}
     </div>
   );
 }

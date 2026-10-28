@@ -96,6 +96,11 @@ export function PostCard(props: PostCardProps) {
         <span aria-label="Anonymous" className={cn("flex shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500", compact ? "h-6 w-6" : facebook ? "h-10 w-10" : "h-8 w-8")}>
           <EyeOff className={compact ? "h-3 w-3" : "h-4 w-4"} />
         </span>
+      ) : poster.badge && props.businessId ? (
+        // A business's listing: the business's public profile (migration 50), not the person who posted it.
+        <Link href={`/businesses/${props.businessId}`} className="shrink-0">
+          <Avatar name={poster.name} src={poster.avatarUrl} size={compact ? "xs" : facebook ? "md" : "sm"} />
+        </Link>
       ) : poster.badge ? (
         <span className="shrink-0">
           <Avatar name={poster.name} src={poster.avatarUrl} size={compact ? "xs" : facebook ? "md" : "sm"} />
@@ -109,7 +114,13 @@ export function PostCard(props: PostCardProps) {
         {poster.badge ? (
           // Like Instagram's "Sponsored": the label sits under the business's name, so the name keeps the whole line.
           <span className="flex min-w-0 flex-col" data-testid="sponsor">
-            <span className={cn("truncate font-semibold text-gray-900", compact ? "text-xs" : "text-sm")}>{poster.name}</span>
+            {props.businessId ? (
+              <Link href={`/businesses/${props.businessId}`} className={cn("truncate font-semibold text-gray-900 hover:underline", compact ? "text-xs" : "text-sm")}>
+                {poster.name}
+              </Link>
+            ) : (
+              <span className={cn("truncate font-semibold text-gray-900", compact ? "text-xs" : "text-sm")}>{poster.name}</span>
+            )}
             <span className="flex min-w-0 items-center gap-1 text-xs text-gray-500">
               <span className={cn("shrink-0 font-semibold", poster.badge === "Business" ? "text-gray-500" : "text-brand-700", compact && "text-[10px]")}>{poster.badge}</span>
               {props.subtitle && !compact ? <span className="truncate">· {props.subtitle}</span> : null}

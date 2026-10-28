@@ -3,6 +3,7 @@ import { adminBusinessTargets, adminListBusinesses, adminListPromotions, listUni
 import { requireAdmin } from "@/lib/business/portal";
 import { createClient } from "@/lib/supabase/server";
 import { AdminReview } from "@/components/business/admin-review";
+import { PageHeader } from "@/components/business/ui";
 
 export const metadata: Metadata = { title: "Review businesses" };
 
@@ -23,14 +24,11 @@ export default async function AdminPage() {
     }),
   );
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Businesses</h1>
-        <p className="text-sm text-gray-600">
-          New businesses wait here until someone on the team approves them. Verified Partner is only for a business you checked yourself, with what you checked on
-          record; Sponsored is only for a listing or deal with a paid promotion recorded here.
-        </p>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Businesses"
+        subtitle="New businesses wait here until someone on the team approves them. Verified Partner is only for a business you checked yourself, with what you checked on record; Sponsored only ever comes from a recorded payment (the Ads tab, or a promotion recorded here)."
+      />
       <AdminReview businesses={businesses} universityNames={Object.fromEntries(universities.map((u) => [u.id, u.name]))} extras={Object.fromEntries(extras)} />
     </div>
   );

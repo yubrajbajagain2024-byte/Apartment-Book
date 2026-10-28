@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View, type NativeScrollEvent, type NativeSyntheticEvent, type ListViewToken } from "react-native";
 import { useIsFocused, useRouter } from "expo-router";
-import { listForYou, reelFromFeedPost, videosFor, type FeedPostWithAuthor, type ForYouItem, type PostEngagement } from "@apartment-book/shared";
+import { ADS_EVERY, interleaveAds, listForYou, reelFromFeedPost, videosFor, type FeedPostWithAuthor, type ForYouItem, type PostEngagement } from "@apartment-book/shared";
 import { CommentsSheet, type CommentsTarget } from "@/components/comments-sheet";
 import { Fab } from "@/components/feed-header";
 import { FEED_HEADER_PADDING } from "@/components/post-card";
@@ -20,6 +20,8 @@ import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { CaughtUp } from "./caught-up";
 import { useCreateMenu } from "./create-menu";
 import { InstaPost } from "./insta-post";
+import { SponsoredCard } from "@/components/ads/sponsored-card";
+import { isAdRow, useAdImpressions, useFeedAds, type AdRow } from "@/lib/use-feed-ads";
 import { markReelsStale } from "./reels-section";
 import { useTabReselect } from "@/lib/tab-reselect";
 import { refreshWithHaptic } from "@/lib/haptics";
@@ -179,9 +181,15 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
   // One video plays at a time, the first row on screen (at least 60% of it) that has one: sound is one switch for every
   // video, so two playing at once would both be heard.
   const [playingId, setPlayingId] = useState<string | null>(null);
+  // Sponsored posts between the posts (at most one per ADS_EVERY), counted as seen when the list says so.
+  const ads = useFeedAds("for_you", items.length, Boolean(userId));
+  const rows = useMemo<(ForYouItem | AdRow)[]>(() => interleaveAds(items, ads, ADS_EVERY).map((r) => (r.kind === "ad" ? { id: `ad-${r.ad.id}`, ad: r.ad } : r.item)), [items, ads]);
+  const countAds = useAdImpressions("for_you");
+  const countAdsRef = useRef(countAds);
   const onViewable = useRef(({ viewableItems }: { viewableItems: ListViewToken[] }) => {
-    const first = viewableItems.find((v) => v.isViewable && videosFor((v.item as ForYouItem).videos).length > 0);
+    const first = viewableItems.find((v) => v.isViewable && !isAdRow(v.item) && videosFor((v.item as ForYouItem).videos).length > 0);
     setPlayingId(first ? String(first.key) : null);
+    countAdsRef.current(viewableItems);
   }).current;
   const viewability = useRef({ itemVisiblePercentThreshold: 60 }).current;
   // The list starts under the floating bar and scrolls beneath it as the bar slides away.
@@ -191,7 +199,7 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
 
   // Coming back to For you keeps the list and the scroll position. It reloads only when something new was published
   // while another page was showing: a post or a reel by this person.
-  const listRef = useRef<FlatList<ForYouItem>>(null);
+  const listRef = useRef<FlatList<ForYouItem | AdRow>>(null);
   // Rows fade in once as they first arrive (not when scrolled back into view).
   const appearCells = useAppearingCells();
   // Tapping Home again while For you is on screen: back to the top, as on every iOS tab (the bar slides back with it).
@@ -272,8 +280,8 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <AnimatedFlatList
         ref={listRef}
-        data={items}
-        keyExtractor={keyOf}
+        data={rows}
+        keyExtractor={(row) => row.id}
         {...inset.list}
         onScroll={onScroll}
         scrollEventThrottle={16}
@@ -288,7 +296,10 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
         }
         CellRendererComponent={appearCells}
         {...WINDOW}
-        renderItem={({ item }) => (
+        renderItem={({ item }) =>
+          isAdRow(item) ? (
+            <SponsoredCard ad={item.ad} placement="for_you" />
+          ) : (
           <ForYouRow
             item={item}
             saved={savedIds.has(item.id)}
@@ -302,7 +313,8 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
             onRemoved={removeRow}
             onOpenViewer={openInViewer}
           />
-        )}
+          )
+        }
         ListEmptyComponent={
           loading ? (
             <Loading />

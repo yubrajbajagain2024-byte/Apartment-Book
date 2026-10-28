@@ -5,17 +5,22 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   APP_NAME,
+  BUSINESS_REPORT_REASONS,
   blockUser,
   formatDate,
   getConversation,
   getProfile,
   isBlocked,
+  isBusinessBlocked,
   leaveConversation,
   MUTE_DURATIONS,
   muteLabel,
   REPORT_REASONS,
+  reportBusiness,
   reportContent,
+  setBusinessBlocked,
   unblockUser,
+  type BusinessReportReason,
   type ConversationSummary,
   type MuteDuration,
   type MuteScope,
@@ -105,7 +110,11 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isGroup = conversation.type === "group";
-  const other = isGroup ? null : (conversation.otherMembers[0] ?? null);
+  // An inquiry chat is with the business, not with whichever of its people answered: the business's card, its profile,
+  // and blocking or reporting the business (migration 50), never one person on its team.
+  const business = conversation.business;
+  const other = isGroup || business ? null : (conversation.otherMembers[0] ?? null);
+  const businessBlockedQ = useQuery(() => (business ? isBusinessBlocked(supabase, business.id) : Promise.resolve(false)), [business?.id]);
   const otherId = other?.id ?? null;
   const profileQ = useQuery(() => (otherId ? getProfile(supabase, otherId) : Promise.resolve(null)), [otherId]);
   const blockedQ = useQuery(() => (otherId ? isBlocked(supabase, userId, otherId) : Promise.resolve(false)), [otherId, userId]);
@@ -273,6 +282,41 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
     }
   }
 
+  async function toggleBusinessBlock() {
+    if (!business || busy) return;
+    const isOn = businessBlockedQ.data === true;
+    const ok = await confirmAction(
+      isOn
+        ? { title: `Unblock ${business.name}?`, message: "Its posts and ads can show to you again, and you can message it.", confirm: "Unblock", destructive: false }
+        : { title: `Block ${business.name}?`, message: "Its posts and ads won't show to you, and you can't message it. It is not told.", confirm: "Block" },
+    );
+    if (!ok) return;
+    setBusy("block");
+    try {
+      await setBusinessBlocked(supabase, business.id, !isOn);
+      businessBlockedQ.setData(!isOn);
+      hapticSuccess();
+    } catch (e) {
+      notify(isOn ? "Could not unblock" : "Could not block", errorText(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function reportTheBusiness() {
+    if (!business || busy) return;
+    show(
+      BUSINESS_REPORT_REASONS.map((r) => ({
+        label: r.label,
+        onPress: () =>
+          void reportBusiness(supabase, { businessId: business.id }, r.value as BusinessReportReason)
+            .then(() => notify("Thanks for telling us", "The UniBuzz team will look at it. The business is not told who reported it."))
+            .catch((e) => notify("Could not report", errorText(e))),
+      })),
+      `Why are you reporting ${business.name}?`,
+    );
+  }
+
   function report() {
     if ((!other && !hiddenFromMe) || busy) return;
     show(
@@ -321,6 +365,13 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
   // The same actions at the bottom of the screen and in the ••• menu.
   const actions: InfoListAction[] = isGroup
     ? [...groupMuteActions, { key: "leave", label: "Leave group", icon: "exit-outline", onPress: () => void leave(), busy: busy === "leave", disabled: busy !== null }]
+    : business
+      ? [
+          businessBlockedQ.data === true
+            ? { key: "block", label: `Unblock ${business.name}`, icon: "lock-open-outline", tone: "brand", onPress: () => void toggleBusinessBlock(), busy: busy === "block", disabled: busy !== null }
+            : { key: "block", label: `Block ${business.name}`, icon: "ban-outline", onPress: () => void toggleBusinessBlock(), busy: busy === "block", disabled: busy !== null },
+          { key: "report", label: `Report ${business.name}`, icon: "flag-outline", onPress: reportTheBusiness, disabled: busy !== null },
+        ]
     : other
       ? [
           blocked
@@ -387,7 +438,14 @@ function ChatInfo({ conversation, userId, reload }: { conversation: Conversation
 
   const header = (
     <View onLayout={(e) => (headerHeight.current = e.nativeEvent.layout.height)}>
-      {other ? (
+      {business ? (
+        <InfoPersonCard
+          name={business.name}
+          detail={business.verified_partner ? "Business · Verified Partner" : "Business"}
+          avatarUrl={business.logo_url}
+          onPress={() => router.push({ pathname: "/businesses/[id]", params: { id: business.id } })}
+        />
+      ) : other ? (
         <InfoPersonCard name={name} detail={[profileQ.data?.university?.name ?? null, muteLabel(mutes.find("user", other.id))].filter(Boolean).join(" · ") || null} avatarUrl={other.avatar_url} userId={other.id} onPress={() => openProfile(other.id)} />
       ) : isGroup ? (
         <>

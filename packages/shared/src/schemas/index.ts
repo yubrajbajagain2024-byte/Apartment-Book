@@ -1,7 +1,14 @@
 import { z } from "zod";
 import {
+  AD_CAPTION_MAX,
+  AD_CTA_VALUES,
+  AD_HEADLINE_MAX,
+  AD_OBJECTIVE_VALUES,
   AMENITY_VALUES,
   BUSINESS_CATEGORY_VALUES,
+  BUSINESS_INVITE_ROLE_VALUES,
+  BUSINESS_MEDIA_MAX,
+  BUSINESS_REPORT_REASONS,
   CLEANLINESS_LEVELS,
   CURRENCIES,
   DEAL_STATUS_VALUES,
@@ -11,6 +18,7 @@ import {
   LISTING_AUDIENCE_VALUES,
   MAX_POST_VIEWERS,
   POST_AUDIENCE_VALUES,
+  POST_KIND_VALUES,
   POST_TITLE_MAX,
   SLEEP_SCHEDULES,
 } from "../constants";
@@ -318,23 +326,126 @@ export const businessProfileSchema = z.object({
 });
 export type BusinessProfileInput = z.infer<typeof businessProfileSchema>;
 
-/** A deal. Empty universityIds = every campus. */
+const emptyToNothing = (value: unknown) => (typeof value === "string" && value.trim() === "" ? undefined : value);
+
+/**
+ * A post's or an ad's media from the uploaders (migration 50): a JSON list of photos ({type: "image", url}) and at most
+ * one video ({type: "video", media_id}); the database checks the rest (who uploaded it, its size and orientation).
+ */
+export const businessMediaSchema = z.preprocess(
+  (value) => {
+    if (value === undefined || value === null || value === "") return [];
+    if (typeof value !== "string") return value;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  },
+  z
+    .array(
+      z.union([
+        z.object({ type: z.literal("image"), url: z.url({ protocol: /^https$/, error: "Photos need an https address" }).max(2000), width: z.number().int().positive().nullish(), height: z.number().int().positive().nullish() }),
+        z.object({ type: z.literal("video"), media_id: z.uuid() }),
+      ]),
+      { error: "Add photos or a video" },
+    )
+    .max(BUSINESS_MEDIA_MAX, `Add ${BUSINESS_MEDIA_MAX} photos at most`)
+    .refine((m) => m.filter((x) => x.type === "video").length <= 1, "Add one video at most")
+    .refine((m) => !m.some((x) => x.type === "video") || m.every((x) => x.type === "video"), "Use either photos or one video, not both"),
+);
+export type BusinessMediaInput = z.infer<typeof businessMediaSchema>;
+
+/** Money typed in a form ("4.50", "$1,200") as cents; empty is none. */
+export const optionalCents = z.preprocess((value) => {
+  if (value === undefined || value === null) return undefined;
+  const text = String(value).replace(/[$,\s]/g, "");
+  if (text === "") return undefined;
+  const n = Number(text);
+  return Number.isFinite(n) ? Math.round(n * 100) : value;
+}, z.number({ error: "Enter an amount like 4.50" }).int().min(0, "The amount cannot be negative").max(100_000_000).optional());
+
+/** A moment from the browser as an ISO timestamp with its offset (the form turns local time into one); empty is none. */
+export const optionalIsoTime = z.preprocess(emptyToNothing, z.iso.datetime({ offset: true, error: "Choose a date and time" }).optional());
+
+/**
+ * A post (v1's deal; every kind since migration 50). Empty universityIds = every campus. `imageUrl` is v1's single
+ * picture; `media` replaces it when given.
+ */
 export const dealSchema = z
   .object({
-    title: z.string().trim().min(2, "Give the deal a title").max(120),
+    title: z.string().trim().min(2, "Give the post a title").max(120),
     description: z.string().trim().max(2000).optional().default(""),
+    kind: z.enum(POST_KIND_VALUES).default("deal"),
     discountLabel: optionalText(60),
     code: optionalText(60),
     linkUrl: optionalUrl,
     imageUrl: optionalUrl,
+    media: businessMediaSchema.optional(),
+    price: optionalCents,
+    eventAt: optionalIsoTime,
     universityIds: uuidList,
     startsAt: optionalDate,
     endsAt: optionalDate,
     status: z.enum(DEAL_STATUS_VALUES).default("active"),
   })
-  .refine((v) => !v.startsAt || !v.endsAt || v.endsAt > v.startsAt, { error: "The end date must be after the start date", path: ["endsAt"] });
+  .refine((v) => !v.startsAt || !v.endsAt || v.endsAt > v.startsAt, { error: "The end date must be after the start date", path: ["endsAt"] })
+  .refine((v) => v.kind !== "event" || Boolean(v.eventAt), { error: "Say when the event is", path: ["eventAt"] });
 export type DealInput = z.infer<typeof dealSchema>;
 
 export const businessInviteSchema = z.object({
   email: z.email({ error: "Enter a valid email address" }).trim().toLowerCase(),
+  /** Migration 49: what the invite joins as. */
+  role: z.enum(BUSINESS_INVITE_ROLE_VALUES, { error: "Choose a role" }).default("editor"),
+});
+
+// ---------------------------------------------------------------------------
+// Ads (migration 50)
+// ---------------------------------------------------------------------------
+const placementList = z.preprocess(
+  (v) => (Array.isArray(v) ? v : v ? [v] : []),
+  z.array(z.enum(["for_you", "reels", "housing"])).max(3),
+);
+
+/**
+ * An ad draft from the Ads Manager. A draft may be unfinished: what still stops it from being submitted is the
+ * database's ad_problems(), which the editor shows. `promoted` is "deal:<id>" or "apartment:<id>".
+ */
+export const adDraftSchema = z
+  .object({
+    name: z.string().trim().min(2, "Name the ad (only your team sees it)").max(80),
+    objective: z.enum(AD_OBJECTIVE_VALUES).default("awareness"),
+    placements: placementList,
+    universityIds: uuidList,
+    headline: optionalText(AD_HEADLINE_MAX),
+    caption: z.string().trim().max(AD_CAPTION_MAX).optional().default(""),
+    media: businessMediaSchema,
+    cta: z.enum(AD_CTA_VALUES).default("learn_more"),
+    ctaUrl: z.preprocess(emptyToNothing, z.url({ protocol: /^https$/, error: "Use a link starting with https://" }).max(2000).optional()),
+    promoted: z.preprocess(emptyToNothing, z.string().regex(/^(deal|apartment):[0-9a-f-]{36}$/i, "Choose a post or a listing").optional()),
+    budget: optionalCents,
+    startsAt: optionalIsoTime,
+    endsAt: optionalIsoTime,
+  })
+  .refine((v) => !v.startsAt || !v.endsAt || v.endsAt > v.startsAt, { error: "The end must be after the start", path: ["endsAt"] });
+export type AdDraftInput = z.infer<typeof adDraftSchema>;
+
+/** The UniBuzz team approves an ad by recording its payment (no payment provider yet). */
+export const adApprovalSchema = z.object({
+  amount: z.preprocess((v) => (v === undefined || v === null ? undefined : v), optionalCents.refine((c) => c !== undefined && c > 0, "Enter the amount received")),
+  currency: z.preprocess((v) => (typeof v === "string" && v.trim() ? v.trim().toUpperCase() : "USD"), z.string().regex(/^[A-Z]{3}$/, "Use a three-letter currency code")),
+  paymentReference: z.string().trim().min(3, "Enter the invoice or receipt number").max(200),
+  note: optionalText(1000),
+  fairHousingChecked: formBoolean,
+});
+export type AdApprovalInput = z.infer<typeof adApprovalSchema>;
+
+/** A rejection or a pause by the UniBuzz team: the business reads the reason. */
+export const adReasonSchema = z.object({ reason: z.string().trim().min(5, "Say why (the business reads it)").max(1000) });
+
+const REPORT_REASON_VALUES = BUSINESS_REPORT_REASONS.map((r) => r.value) as [string, ...string[]];
+/** A student's report of an ad, a post or a business. */
+export const businessReportSchema = z.object({
+  reason: z.enum(REPORT_REASON_VALUES, { error: "Choose a reason" }),
+  details: optionalText(1000),
 });

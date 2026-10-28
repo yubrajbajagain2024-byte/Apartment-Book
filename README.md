@@ -44,7 +44,7 @@ These help with everyday student life and keep students in their community. They
 ### Three connected platforms
 
 1. **UniBuzz:** the social network for students, as an app for iOS and Android and a website.
-2. **UniBuzz Business:** a portal at `/business` for local businesses, from apartment communities to restaurants, shops and services. They post listings and deals targeted to campuses, promote them, answer student inquiries, see per-listing analytics and add staff.
+2. **UniBuzz Business:** a portal at `/business` for local businesses, from apartment communities to restaurants, cafés, shops, startups and services. They post updates, products, deals and events and housing listings, run Sponsored ads in For You, Reels and Housing after the UniBuzz team's review, answer student inquiries (students always write first), read analytics and run a team with roles (Business v2, migrations 49 and 50).
 3. **CampConnect Admin:** managing users, businesses, content and platform security. It covers the staff console at `/admin` on the website and the separate CampConnect Admin staff app (see [Buzz (anonymous)](#buzz-anonymous)).
 
 ### Business model and design
@@ -252,6 +252,79 @@ Housing is one main tab, labelled **Explore** in the bar with a compass icon, wi
 - **Private details.** Students can read a business's public columns only: the contact email, the admin's review note and the verification evidence are for the team (`my_business()`) and admins.
 - **Analytics.** Per listing: views (one per viewer per day; the team's own views don't count), views this week, saves, "Message" taps, inquiries and when its paid promotion ends. Per deal: views and inquiries. The dashboard adds the 30-day totals (`business_listing_stats()`, `business_deal_stats()`, `business_overview()`, readable by a team in good standing and admins only).
 - **Team.** The owner invites a colleague by email and passes on the join link the portal shows (`/join/<token>`, valid 14 days, only for that address, only for an address with no UniBuzz account yet). Signing up from it makes a staff account; the invite is used up and the person joins the team **only once they confirm their email** (a trigger on Supabase Auth's confirmation), and only if the invite is still valid, the business still in good standing and the inviter still its owner. Staff see every inquiry and post and edit listings and deals; only the owner edits the business profile and the team.
+
+### UniBuzz Business v2 (migrations 49 and 50)
+
+Built on the v1 rules above, which all still hold (`business-portal.test.mjs` runs them on the new schema).
+
+- **Roles** (`20261107000000_business_teams.sql`). A business's team is an owner, admins, editors and analysts (v1's staff became editors). `business_can(business, capability)` decides for every policy and function:
+
+  | Role | What it can do |
+  | --- | --- |
+  | Everyone on the team | view the business, read analytics |
+  | Owner, admins, editors | publish posts and listings, draft ads, reply to inquiries |
+  | Owner and admins | run the team, edit the profile, submit, resume and end ads |
+
+  - Only the owner makes admins.
+  - **Analysts are never in inquiry chats** and never see a student's profile. A role change moves the person in or out of the chats at once.
+  - Owners and admins invite with a role (30 invites a day), change roles and remove people.
+- **Audit log.** `business_audit_log` is append-only and closed to the API.
+  - It records reviews, team changes, posts, ads, payments and closed reports.
+  - It is read through `business_audit()`: the UniBuzz team sees everything; a business's owner and admins see their own, with the reviewers shown as "UniBuzz team".
+- **Posts** (`20261107000100_business_ads.sql`). The `deals` table holds every post, and the portal calls them Posts.
+  - Kinds: update, product, service, deal, event, promotion.
+  - Up to 10 photos or one video (checked to be the team's own upload), a price, a promo code, a link and an event time.
+  - `image_url` still mirrors the first photo for older apps. 30 posts a day per business.
+  - Students see live posts on the business's profile; offers (deals and promotions) also appear on `/deals`.
+- **Public business profile** (`/businesses/<id>` on the website, a screen in the app).
+  - Laid out like a student's: logo, name, the **Business** badge (and Verified Partner), category, place, bio, website and phone, campuses, a grid of posts and, for housing, its listings.
+  - Only approved businesses have one.
+  - Students message the business from it (inquiry target `business`), report it or block it.
+- **Ads.** An ad has:
+  - a name, an objective, its campuses (campus is the only targeting), its placements;
+  - a headline, caption and media, a button, optionally a post or listing it promotes;
+  - a budget and a required start and end.
+
+  Its statuses run draft → pending review → scheduled → active → completed, with paused and rejected (with the reason) on the side.
+  - The team edits drafts and rejected ads. Every other change goes through `ad_submit`, `ad_withdraw`, `ad_pause`, `ad_resume`, `ad_end` and the `admin_*_ad` functions. A trigger keeps the status otherwise.
+  - Editors draft, take back and pause. Owners and admins submit (10 a day), resume and end.
+  - `ad_problems()` lists what still stops a draft, in the portal's words.
+- **Placement rules, in the database.**
+  - A **housing ad** (a housing business's, or one promoting a listing) runs in **Housing only**.
+  - Every other ad runs in **For You and/or Reels**.
+  - **Reels needs one vertical video**, at most 60 seconds. Approval also asks Mux for the video's size.
+- **Fair Housing.** `fair_housing_flags()` screens housing ads for preferences by race, color, national origin, religion, sex, familial status or disability (and source of income, which some cities protect).
+  - The portal shows the flags while the business types.
+  - The reviewer must confirm a Fair Housing check for every housing ad, and give a note to approve a flagged one.
+- **Review and payment.** There is no payment provider yet. The UniBuzz team approves an ad on the portal's **Review › Ads** by recording its payment (amount and invoice or receipt reference) in `listing_promotions`, now the ledger of ad payments.
+  - So **Sponsored still means paid**, and `listing_sponsored`/`deal_sponsored` read the paid, running ads.
+  - The team can also reject with a reason, or pause a running ad for a policy reason (the business cannot resume that one).
+  - v1's `admin_record_promotion()` still works and creates the ad. Every v1 promotion became an ad, its payment linked.
+- **Time.** `ads_sweep()` (pg_cron, every 5 minutes):
+  - starts scheduled ads at their start;
+  - completes every ad at its end date;
+  - returns a submitted ad whose dates passed to draft.
+
+  It tells the team each time. What students see never waits for it: the serving checks the dates itself.
+- **What students see.** `ads_for_feed(placement, limit, offset)` returns running, paid ads of approved businesses for the caller's campus, in a daily rotation that is the same for everyone there.
+  - **Signed-in students only.** No budget, no targeting.
+  - The website and the app place **at most one after every 9** posts, reels or listings (`interleaveAds`, `ADS_EVERY`).
+  - Each ad looks like the post or listing next to it, with **Sponsored** under the business's name. (The app has For You and Housing ads; its Reels does not yet.)
+  - The "…" menu **hides** the ad, **reports** it (`business_reports`: 20 a day per student, read by the UniBuzz team only, never by the business), **blocks the business** (`business_blocks`: its ads and posts disappear and it cannot be messaged) or explains why the ad is there.
+  - Students can save an ad, and message the business from it; the business can still only reply.
+- **Analytics.** `business_events` is closed to the API and written by `record_business_event()`. It keeps impressions and clicks once per student per hour; saves, profile visits and inquiries once per day. The team's own views never count.
+  - `business_ad_stats()`, `business_daily_stats()` and `business_analytics_overview()` return counts and reach (distinct students) only, never who.
+  - The portal shows them per ad and overall, as a chart and as a table.
+- **Notifications.** Types `business` (reviews, the Verified Partner mark, role changes) and `ad` (approved, rejected, live, paused by the UniBuzz team, ended, needs new dates). They go to the team; the portal has a bell and a list.
+- **The portal's design.** Its own colour world under `[data-surface="business"]` (`globals.css`), like Buzz's:
+  - light and dark, or the system's, with a switch remembered in the `biz-theme` cookie;
+  - SF Pro where the system has it, Inter elsewhere;
+  - one accent; frosted glass on the bars only.
+
+  Inside a dark portal the shared components are remapped rather than rewritten. Every page has loading, error and not-found states.
+- **Inquiries.** 15 new business chats an hour per student. Inquiry targets are now `apartment`, `deal`, `roommate`, `item`, `business` and `ad`.
+
+Checks for v2: `supabase/tests/business-teams.test.mjs` and `supabase/tests/business-ads.test.mjs` (PGlite, both rollbacks included), and `packages/shared/tests/business-ads.test.mjs`.
 
 Checks: `supabase/tests/business-portal.test.mjs` runs every rule above in PGlite (95 checks), and `packages/shared/tests/business.test.mjs` the labels, deal timing and targeting, standings and the team inbox's titles. `supabase/tests/staging/business-portal.mjs` runs the same rules on a real Supabase project through Supabase Auth (real sign-ups and email confirmation, with generated links so no email is sent), the REST API, Realtime (the presence channel, live message events across a suspension) and Storage, then deletes what it made; it refuses the production project:
 
