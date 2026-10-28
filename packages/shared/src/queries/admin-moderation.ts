@@ -2,6 +2,9 @@ import type { StaffRole } from "../constants";
 import type { Database } from "../types/database";
 import type {
   AccountRestriction,
+  AutoHiddenCounts,
+  AutoHiddenRow,
+  AutoHideStatus,
   Client,
   ContentSnapshot,
   MediaJob,
@@ -180,6 +183,79 @@ export async function getContentSnapshot(supabase: Client, targetType: Moderatio
 }
 
 // ---------------------------------------------------------------------------
+// Content hidden automatically by reports (main's migration 20261109000000_report_auto_hide.sql)
+// ---------------------------------------------------------------------------
+
+/**
+ * Content hidden automatically by reports, newest first (moderator+, aal2): 10 different eligible
+ * people reported it, or Trust & Safety's own Buzz threshold hid it. `status` defaults to pending
+ * (waiting for review); `target` narrows to one item. Buzz rows never name an author. Up to 200.
+ */
+export async function listAutoHidden(
+  supabase: Client,
+  opts: { status?: AutoHideStatus | "all"; limit?: number; before?: string | null; target?: { type: ModerationTargetType; id: string } } = {},
+): Promise<AutoHiddenRow[]> {
+  const { data, error } = await supabase.rpc("admin_auto_hidden_list", {
+    p_status: opts.status ?? "pending",
+    p_limit: opts.limit ?? 50,
+    p_before: opts.before ?? null,
+    p_target_type: opts.target?.type ?? null,
+    p_target_id: opts.target?.id ?? null,
+  });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    targetType: r.target_type as ModerationTargetType,
+    targetId: r.target_id,
+    source: r.source === "trust_safety" ? "trust_safety" : "report_threshold",
+    reporterCount: r.reporter_count,
+    reasons: countsOf(r.reasons),
+    hiddenAt: r.hidden_at,
+    createdAt: r.created_at,
+    status: r.status as AutoHideStatus,
+    reviewedBy: r.reviewed_by,
+    reviewerName: r.reviewer_name,
+    reviewedAt: r.reviewed_at,
+    reviewNote: r.review_note,
+    targetExists: r.target_exists,
+    targetHidden: r.target_hidden,
+    title: r.title,
+    preview: r.preview ?? "",
+    authorId: r.author_id,
+    authorName: r.author_name,
+  }));
+}
+
+/** How many automatically hidden items stand in each status (moderator+, aal2). */
+export async function getAutoHiddenCounts(supabase: Client): Promise<AutoHiddenCounts> {
+  const { data, error } = await supabase.rpc("admin_auto_hidden_counts");
+  if (error) throw error;
+  const c = countsOf(data);
+  return { pending: c.pending ?? 0, upheld: c.upheld ?? 0, restored: c.restored ?? 0, deleted: c.deleted ?? 0 };
+}
+
+/**
+ * Keep automatically hidden content hidden after review (moderator+, aal2): its reports close as
+ * actioned and its owner is told. Restoring and deleting use restoreContent and
+ * deleteContentPermanently, which settle the flag themselves. `note`: up to 2,000 characters, staff only.
+ */
+export async function upholdAutoHide(supabase: Client, flagId: string, note: string | null): Promise<void> {
+  const { error } = await supabase.rpc("admin_auto_hide_uphold", { p_id: flagId, p_note: note });
+  if (error) throw error;
+}
+
+function countsOf(v: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    for (const [k, n] of Object.entries(v as Record<string, unknown>)) {
+      const num = typeof n === "number" ? n : Number(n);
+      if (Number.isFinite(num)) out[k] = num;
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // Reports
 // ---------------------------------------------------------------------------
 
@@ -288,6 +364,8 @@ export const MODERATION_AUDIT_LABELS: ReadonlyMap<string, string> = new Map<stri
   ["content.hide", "Content hidden"],
   ["content.restore", "Content restored"],
   ["content.delete", "Content deleted permanently"],
+  ["content.auto_hide", "Hidden automatically by reports"],
+  ["content.auto_hide_upheld", "Kept hidden after review"],
   ["content.view", "Buzz author viewed"],
   ["report.resolve", "Report resolved"],
   ["report.reopen", "Report reopened"],

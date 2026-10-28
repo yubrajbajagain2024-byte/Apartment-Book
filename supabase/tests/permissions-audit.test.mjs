@@ -41,7 +41,7 @@ await expectOk("admin_bootstrap_owner cannot be called by anon, authenticated or
   await fails(() => asService(() => db.query("select public.admin_bootstrap_owner('x@txstate.edu')")), /permission denied/);
 });
 await expectOk("internal helpers (staff_*, media_*, snapshot, storage path, triggers) are not executable by API roles", async () => {
-  const internal = fns.filter((f) => /^(staff_|media_(?!jobs_)|admin_content_(snapshot|table)$|storage_path_from_url|moderation_sync_copies|enqueue_media_on_delete|keep_moderation_columns|block_suspended_writes|notify$)/.test(f.name));
+  const internal = fns.filter((f) => /^(staff_|media_(?!jobs_)|admin_content_(snapshot|table)$|storage_path_from_url|moderation_sync_copies|moderation_content_(hide|restore)$|report_auto_hide|report_hidden_at$|report_target_table$|reports_auto_hide$|enqueue_media_on_delete|keep_moderation_columns|block_suspended_writes|notify$)/.test(f.name));
   if (internal.length < 20) throw new Error(`only ${internal.length} internal functions found`);
   const bad = internal.filter((f) => f.anon || f.auth).map((f) => f.name);
   if (bad.length) throw new Error(bad.join(", "));

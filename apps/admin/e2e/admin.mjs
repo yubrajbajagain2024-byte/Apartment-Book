@@ -39,7 +39,7 @@ async function newPage() { const ctx = await browser.newContext({ viewport: { wi
 try {
   const D = await newPage();
   await step("signed out: every page goes to /login with next= pointing back", async () => {
-    for (const path of ["/", "/users", "/reports", "/content", "/media", "/staff", "/audit", "/security"]) { await D.goto(BASE + path); await D.waitForURL((u) => u.pathname === "/login"); expectLogin(D, path); }
+    for (const path of ["/", "/users", "/reports", "/flagged", "/content", "/media", "/staff", "/audit", "/security"]) { await D.goto(BASE + path); await D.waitForURL((u) => u.pathname === "/login"); expectLogin(D, path); }
     await D.waitForLoadState("networkidle"); await D.getByRole("heading", { name: "CampConnect Admin" }).waitFor();
     if (await D.getByText(/create an account/i).count()) throw new Error("a sign-up link is offered");
     await D.screenshot({ path: SHOTS + "admin-01-login.png" });
@@ -78,7 +78,7 @@ try {
         const left = 30 - (Math.floor(Date.now() / 1000) % 30); if (left < 4) await D.waitForTimeout(left * 1000 + 300);
         await code.fill(totp(process.env.ADMIN_E2E_TOTP_SECRET)); await code.press("Enter");
         await D.waitForURL((u) => u.pathname === "/reports"); await D.screenshot({ path: SHOTS + "admin-04-reports.png" });
-        const pages = [["/", "Overview"], ["/users", "Users"], ["/content", "Content"], ["/media", "Media"], ["/staff", "Staff"], ["/audit", "Audit log"]];
+        const pages = [["/", "Overview"], ["/users", "Users"], ["/flagged", "Flagged"], ["/content", "Content"], ["/media", "Media"], ["/staff", "Staff"], ["/audit", "Audit log"]];
         for (const [path, heading] of pages) { await D.goto(BASE + path); await D.getByRole("heading", { name: heading, exact: true }).first().waitFor(); await D.screenshot({ path: SHOTS + `admin-05${path.replace(/\//g, "-") || "-overview"}.png` }); }
       });
     } else note("two-factor step skipped: set ADMIN_E2E_TOTP_SECRET (the base32 key shown at /security when the authenticator was set up)");

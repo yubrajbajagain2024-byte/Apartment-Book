@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Building2, EyeOff, Film, Flag, MessagesSquare, ShieldCheck, UserCog, Users, UserX } from "lucide-react";
 import {
+  getAutoHiddenCounts,
   getMediaJobStats,
   getOverviewStats,
   isMissingFunctionError,
@@ -47,6 +48,14 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
     if (!isMissingFunctionError(error)) throw error;
     needsMigration = true;
   }
+  // Content reports hid automatically and nobody reviewed yet (main's report auto-hide migration; null without it).
+  const flaggedPending = await getAutoHiddenCounts(supabase).then(
+    (c) => c.pending,
+    (error: unknown) => {
+      if (isMissingFunctionError(error)) return null;
+      throw error;
+    },
+  );
   const [user, profile, openReports, media, staff, recent, suspended] = await Promise.all([
     getCurrentUser(),
     getCurrentProfile(),
@@ -69,7 +78,14 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Open reports" value={reportsOpen} hint={stats ? `${stats.reportsClosed7d} closed in 7 days` : undefined} href="/reports" icon={Flag} tone={reportsOpen > 0 ? "amber" : "green"} />
         <StatCard label="Suspended accounts" value={stats?.suspendedActive ?? suspended.length} hint="active suspensions" href="/users?filter=suspended" icon={UserX} tone="red" />
-        <StatCard label="Hidden content" value={stats?.hiddenContent ?? "–"} hint="reversible, owner still sees it" href="/content" icon={EyeOff} tone="amber" />
+        <StatCard
+          label="Hidden content"
+          value={stats?.hiddenContent ?? "–"}
+          hint={flaggedPending ? `${plural(flaggedPending, "item")} hidden by reports, waiting for review` : "reversible, owner still sees it"}
+          href={flaggedPending ? "/flagged" : "/content"}
+          icon={EyeOff}
+          tone={flaggedPending ? "red" : "amber"}
+        />
         <StatCard label="Media queue" value={media.pending} hint={media.failing > 0 ? `${plural(media.failing, "job")} failing` : `${media.done} done`} href="/media" icon={Film} tone={media.failing > 0 ? "red" : "gray"} />
         <StatCard label="People" value={stats?.usersTotal ?? "–"} hint={stats ? `${stats.usersNew7d} new this week · ${stats.usersActive24h} active today` : undefined} href="/users" icon={Users} tone="brand" />
         <StatCard label="Listings" value={stats?.listingsTotal ?? "–"} hint="apartments, items and roommate posts" icon={Building2} />

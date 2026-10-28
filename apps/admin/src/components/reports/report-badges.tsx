@@ -24,5 +24,6 @@ export function ReasonBadge({ reason }: { reason: string }) {
 export function StatusBadge({ status, decision }: { status: ReportStatus; decision: ReportDecision | null }) {
   if (status === "open") return <Badge tone="amber">Open</Badge>;
   if (status === "dismissed") return <Badge tone="gray">Dismissed</Badge>;
+  if (status === "actioned" && !decision) return <Badge tone="green">Action taken</Badge>;
   return <Badge tone="green">{decision ? decisionLabel(decision) : "Reviewed"}</Badge>;
 }

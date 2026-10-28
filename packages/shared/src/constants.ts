@@ -209,6 +209,17 @@ export const REPORT_DECISIONS = [
 ] as const;
 export const REPORT_DECISION_VALUES = REPORT_DECISIONS.map((d) => d.value) as [(typeof REPORT_DECISIONS)[number]["value"], ...(typeof REPORT_DECISIONS)[number]["value"][]];
 
+/** Different eligible people whose reports hide content automatically (report_auto_hide_threshold() in SQL). */
+export const AUTO_HIDE_THRESHOLD = 10;
+
+/** Where an automatically hidden item stands (report_auto_hides.status). */
+export const AUTO_HIDE_STATUSES = [
+  { value: "pending", label: "Waiting for review" },
+  { value: "upheld", label: "Kept hidden" },
+  { value: "restored", label: "Restored" },
+  { value: "deleted", label: "Deleted" },
+] as const;
+
 /** The media clean-up queue (media_jobs.kind): work on storage and Mux that SQL cannot do itself, performed by the app-side worker with the service role. */
 export const MEDIA_JOB_KINDS = [
   { value: "quarantine", label: "Move a hidden photo out of the public bucket" },

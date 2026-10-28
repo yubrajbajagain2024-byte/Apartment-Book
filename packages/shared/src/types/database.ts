@@ -1613,6 +1613,32 @@ export type Database = {
           created_at: string;
         }[];
       };
+      admin_auto_hidden_list: {
+        Args: { p_status?: string; p_limit?: number; p_before?: string | null; p_target_type?: string | null; p_target_id?: string | null };
+        Returns: {
+          id: string;
+          target_type: string;
+          target_id: string;
+          source: string;
+          reporter_count: number;
+          reasons: Json;
+          hidden_at: string;
+          created_at: string;
+          status: string;
+          reviewed_by: string | null;
+          reviewer_name: string | null;
+          reviewed_at: string | null;
+          review_note: string | null;
+          target_exists: boolean;
+          target_hidden: boolean;
+          title: string | null;
+          preview: string | null;
+          author_id: string | null;
+          author_name: string | null;
+        }[];
+      };
+      admin_auto_hidden_counts: { Args: Record<string, never>; Returns: Json };
+      admin_auto_hide_uphold: { Args: { p_id: string; p_note?: string | null }; Returns: undefined };
       admin_report_get: {
         Args: { p_id: string };
         Returns: {

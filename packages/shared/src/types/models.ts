@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database";
-import type { MEDIA_JOB_KINDS, MODERATION_TARGET_TYPES, REPORT_DECISIONS, StaffRole } from "../constants";
+import type { AUTO_HIDE_STATUSES, MEDIA_JOB_KINDS, MODERATION_TARGET_TYPES, REPORT_DECISIONS, StaffRole } from "../constants";
 
 /** A typed Supabase client. Works in the browser, on the server and in React Native. */
 export type Client = SupabaseClient<Database>;
@@ -242,7 +242,8 @@ export type TotpEnrollment = { factorId: string; qrCode: string; secret: string;
 export type ModerationTargetType = (typeof MODERATION_TARGET_TYPES)[number]["value"];
 /** What staff decided when they closed a report. */
 export type ReportDecision = (typeof REPORT_DECISIONS)[number]["value"];
-export type ReportStatus = "open" | "reviewed" | "dismissed";
+/** "actioned" is Trust & Safety's word (production's console and the auto-hide backstop) for a report staff acted on. */
+export type ReportStatus = "open" | "reviewed" | "actioned" | "dismissed";
 export type MediaJobKind = (typeof MEDIA_JOB_KINDS)[number]["value"];
 
 /** One suspension as the staff list shows it (admin_restrictions_list). `reason` is shown to the person; `internalNote` only to staff. */
@@ -406,6 +407,36 @@ export type AdminUserRow = {
   suspended: boolean;
   staffRole: StaffRole | null;
 };
+export type AutoHideStatus = (typeof AUTO_HIDE_STATUSES)[number]["value"];
+/**
+ * Content hidden automatically by reports (admin_auto_hidden_list, migration 20261109000000_report_auto_hide.sql on main).
+ * source "report_threshold": 10 different eligible people reported it; "trust_safety": Trust & Safety's own Buzz threshold.
+ * Buzz rows never carry an author.
+ */
+export type AutoHiddenRow = {
+  id: string;
+  targetType: ModerationTargetType;
+  targetId: string;
+  source: "report_threshold" | "trust_safety";
+  reporterCount: number;
+  /** How many of those reporters gave each reason. */
+  reasons: Record<string, number>;
+  hiddenAt: string;
+  createdAt: string;
+  status: AutoHideStatus;
+  reviewedBy: string | null;
+  reviewerName: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  targetExists: boolean;
+  targetHidden: boolean;
+  title: string | null;
+  preview: string;
+  authorId: string | null;
+  authorName: string | null;
+};
+export type AutoHiddenCounts = Record<AutoHideStatus, number>;
+
 /** One hidden row (admin_hidden_content_list). Buzz rows carry no author and show the published time. */
 export type HiddenContentRow = {
   targetType: ModerationTargetType;

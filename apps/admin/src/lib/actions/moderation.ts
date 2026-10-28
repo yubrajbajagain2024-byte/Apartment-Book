@@ -18,6 +18,7 @@ import {
   suspendUser,
   suspendUserSchema,
   unsuspendUser,
+  upholdAutoHide,
   type ModerationTargetType,
   type ReportDecision,
 } from "@apartment-book/shared";
@@ -163,6 +164,7 @@ export async function restoreContentAction(type: string, id: string): Promise<{ 
   kickMediaWorker();
   revalidateContent(t.data, i.data);
   revalidatePath("/reports");
+  revalidatePath("/flagged");
   return {};
 }
 
@@ -186,7 +188,31 @@ export async function deleteContentAction(_prev: FormState, formData: FormData):
   await closeReport(reportId, "content_deleted");
   revalidateContent(t.type, t.id);
   revalidatePath("/reports");
+  revalidatePath("/flagged");
   redirect(reportId ? `/reports/${reportId}?deleted=1` : safeNextPath(String(formData.get("returnTo") ?? ""), "/content?deleted=1"));
+}
+
+/**
+ * Keep automatically hidden content hidden after review. Restore and delete are the actions above:
+ * the database settles the flag, closes its reports and tells the owner for all three.
+ */
+export async function upholdAutoHideAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const gate = await requireStaffAction();
+  if (gate.error) return { error: gate.error, values: formValues(formData) };
+  const flagId = uuid.safeParse(formData.get("flagId"));
+  const t = target(formData);
+  if (!flagId.success || !t) return { error: "Unknown flag.", values: formValues(formData) };
+  const note = String(formData.get("note") ?? "").trim();
+  if (note.length > 2000) return { error: "Please fix the highlighted fields.", fieldErrors: { note: ["Keep the note under 2,000 characters."] }, values: formValues(formData) };
+  try {
+    await upholdAutoHide(await createClient(), flagId.data, note || null);
+  } catch (error) {
+    return { error: adminErrorMessage(error), values: formValues(formData) };
+  }
+  revalidateContent(t.type, t.id);
+  revalidatePath("/flagged");
+  revalidatePath("/reports");
+  return { success: "Kept hidden. Its reports are closed as acted on and the owner was told it stays hidden." };
 }
 
 // ---------------------------------------------------------------------------

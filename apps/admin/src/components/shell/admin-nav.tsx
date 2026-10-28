@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Flag, EyeOff, Film, LayoutDashboard, ScrollText, ShieldCheck, Users, UserCog, type LucideIcon } from "lucide-react";
+import { Flag, EyeOff, Film, LayoutDashboard, ScrollText, ShieldAlert, ShieldCheck, Users, UserCog, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean };
@@ -10,6 +10,7 @@ type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean 
 export const ADMIN_NAV: NavItem[] = [
   { href: "/", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/reports", label: "Reports", icon: Flag },
+  { href: "/flagged", label: "Flagged", icon: ShieldAlert },
   { href: "/content", label: "Content", icon: EyeOff },
   { href: "/users", label: "Users", icon: Users },
   { href: "/media", label: "Media", icon: Film },
