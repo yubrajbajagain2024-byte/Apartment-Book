@@ -83,9 +83,8 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   Follow-up work is listed in [branches/business-v2.md](branches/business-v2.md).
 - **The business Inbox** (branch `business-inbox`, pushed, no PR yet): directly below Overview, Instagram style, with
   filters, search, what each chat is about, live alerts (toast, badge, tab title, optional desktop notifications) and
-  the reply-only rule. No migration. Unit tests and `npm run check` pass (2026-10-28); its browser test
-  (`apps/web/e2e/business-inbox.mjs`) and the rehearsal's new "cannot write first" check have **not run yet**: they
-  need staging, which needs the owner's go-ahead. See [branches/business-inbox.md](branches/business-inbox.md).
+  the reply-only rule. No migration. Passed on staging, with the release and in production's state (2026-10-29); next
+  is its PR. See [branches/business-inbox.md](branches/business-inbox.md).
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
   website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
   (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).
