@@ -2,7 +2,8 @@
 // message reaches the team on any page (a toast, the Inbox's badge, the tab's title, a desktop alert once turned on),
 // the inbox lists it (unread, needing a reply, what it is about) with working filters and search, the chat shows the
 // inquiry's context, messages arrive in an open chat as they are sent, a reply sends at once and reaches the student,
-// and a business never writes first: a student's empty inquiry is neither listed nor writable. Never talks to production.
+// and a business never writes first: a student's empty inquiry is neither listed nor writable, and a business awaiting
+// review sees the Inbox, which says it opens on approval. Never talks to production.
 // Usage: the site pointed at staging, the release rehearsal's `seed`, `apply` and `check` steps run, then:
 //   SUPABASE_ACCESS_TOKEN=… STAGING_SUPABASE_REF=<ref> BASE=http://localhost:3060 PLAYWRIGHT_CHANNEL=chrome node apps/web/e2e/business-inbox.mjs [screenshots]
 import fs from "node:fs";
@@ -187,8 +188,10 @@ await step("the business cannot write first, even knowing the empty inquiry's ad
     refused = /only reply|row-level/i.test(e.message);
   }
   expect(refused, "the business wrote first");
+  // The portal's not-found page (streamed, so the status may be 200).
   const r = await page.goto(`${BASE}/business/inbox/${empty}`);
-  expect(r?.status() === 404 || (await page.getByText(/not found|404/i).count()) > 0, `the empty inquiry opened: HTTP ${r?.status()}`);
+  await page.waitForLoadState("networkidle");
+  expect(r?.status() === 404 || (await page.getByText("This page does not exist").count()) > 0, `the empty inquiry opened: HTTP ${r?.status()}`);
 });
 
 await step("an editor can reply too (authorized staff), in real time", async () => {
@@ -201,8 +204,57 @@ await step("an editor can reply too (authorized staff), in real time", async () 
   await page.getByText(text).first().waitFor({ timeout: 20000 });
 });
 
-// The empty inquiry goes; the messages stay with the rehearsal's other data until its cleanup.
+// A business still waiting for review: the Inbox is there below Overview and says when it opens; students cannot
+// write to the business yet, so the business has nothing to answer.
+let pending;
+await step("a business awaiting review sees the Inbox below Overview, saying it opens on approval", async () => {
+  const email = `rh-pending-${run}-${Date.now().toString(36)}@pending-staging.example`;
+  const password = `Rh-${run}-${Math.random().toString(36).slice(2, 10)}!`;
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { account_type: "business", full_name: "Rh Pat", business_name: `Rh Pending ${run}`, business_category: "housing", business_university_id: I.txstate },
+  });
+  if (error) throw new Error(error.message);
+  pending = data.user.id;
+  const other = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const p = await other.newPage();
+  p.setDefaultTimeout(45000);
+  p.on("request", (r) => {
+    if (r.url().includes(PRODUCTION)) production++;
+  });
+  await p.goto(`${BASE}/business/login`);
+  await p.fill("#email", email);
+  await p.fill("#password", password);
+  await p.locator("button[type=submit]").first().click();
+  await p.waitForURL((u) => !u.pathname.endsWith("/login"));
+  await p.getByTestId("business-status").waitFor();
+  const side = p.locator("aside[aria-label='Portal']");
+  const main = (await side.locator("nav[aria-label='Sections'] > ul a").allInnerTexts()).map((t) => t.replace(/\s*\d+$/, "").trim());
+  expect(main[0] === "Overview" && main[1] === "Inbox", JSON.stringify(main));
+  await side.getByRole("link", { name: /^Inbox/ }).click();
+  await p.waitForURL(/\/business\/inbox$/);
+  await p.getByTestId("inbox-pending").getByText("Your Inbox opens once you are approved").waitFor();
+  if (SHOTS) await p.screenshot({ path: `${SHOTS}/inbox-pending.png` });
+  const business = (await must(admin.from("businesses").select("id").eq("owner_id", pending).single())).id;
+  let refused = false;
+  try {
+    await must(ben.rpc("start_business_inquiry", { p_target_type: "business", p_target_id: business }));
+  } catch (e) {
+    refused = /taking messages/i.test(e.message);
+  }
+  expect(refused, "a student started a chat with a business awaiting review");
+  await other.close();
+});
+
+// The empty inquiry and the business awaiting review go; the messages stay with the rehearsal's other data until its
+// cleanup.
 if (empty) await admin.from("conversations").delete().eq("id", empty);
+if (pending) {
+  await admin.from("businesses").delete().eq("owner_id", pending);
+  await admin.auth.admin.deleteUser(pending);
+}
 await browser.close();
 console.log(`  ${production === 0 ? "✓" : "✗"} requests to production: ${production}`);
 console.log(`${failures || production ? "✗" : "✓"} business inbox: ${failures ? `${failures} failed` : "all passed"}`);

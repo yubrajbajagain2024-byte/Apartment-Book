@@ -34,8 +34,10 @@ test("portalSectionsFor: roles keep the order and lose only what they cannot use
   assert.deepEqual(biz.portalSectionsFor({ role: "analyst", standing: "approved" }).main, ["overview", "ads", "products", "analytics", "billing"]);
 });
 
-test("portalSectionsFor: pending has no inbox; rejected keeps the front page and Settings; suspended nothing", () => {
-  assert.deepEqual(biz.portalSectionsFor({ role: "owner", standing: "pending" }), { main: ["overview", "ads", "products", "analytics", "billing"], settings: true });
+test("portalSectionsFor: pending keeps the inbox below Overview; rejected keeps the front page and Settings; suspended nothing", () => {
+  assert.deepEqual(biz.portalSectionsFor({ role: "owner", standing: "pending" }), { main: ["overview", "inbox", "ads", "products", "analytics", "billing"], settings: true });
+  assert.deepEqual(biz.portalSectionsFor({ role: "editor", standing: "pending" }).main.slice(0, 2), ["overview", "inbox"]);
+  assert.ok(!biz.portalSectionsFor({ role: "analyst", standing: "pending" }).main.includes("inbox"));
   assert.deepEqual(biz.portalSectionsFor({ role: "owner", standing: "rejected" }), { main: ["overview"], settings: true });
   assert.deepEqual(biz.portalSectionsFor({ role: "owner", standing: "suspended" }), { main: [], settings: false });
 });

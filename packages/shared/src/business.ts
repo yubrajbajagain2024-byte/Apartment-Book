@@ -164,14 +164,15 @@ export function canSeeBilling(role: string | null | undefined): boolean {
 
 /**
  * The sections a member's sidebar shows, in PORTAL_SECTIONS's order, and whether Settings is there: everything their
- * role allows once the business is approved; while it is pending, all but the inbox (students write only to an
- * approved business); when it is rejected, the front page and Settings (to fix the profile); when suspended, nothing.
+ * role allows, whether the business is approved or still pending (a pending business's inbox says it opens on
+ * approval, since students write only to an approved business); when it is rejected, the front page and Settings (to
+ * fix the profile); when suspended, nothing. Analysts never get the inbox: they do not read students' messages.
  */
 export function portalSectionsFor(business: { role: string | null | undefined; standing: BusinessStanding }): { main: PortalSection[]; settings: boolean } {
   if (business.standing === "suspended") return { main: [], settings: false };
   if (business.standing === "rejected") return { main: ["overview"], settings: true };
   const main = PORTAL_SECTIONS.filter((s) => {
-    if (s === "inbox") return business.standing === "approved" && teamRoleAllows(business.role, "reply");
+    if (s === "inbox") return teamRoleAllows(business.role, "reply");
     if (s === "billing") return canSeeBilling(business.role);
     return true;
   });
