@@ -15,6 +15,7 @@ import {
   listPublicBusinessPosts,
   mediaCover,
   mediaItems,
+  parseBusinessHours,
   photosFor,
   postKindLabel,
   recordBusinessEvent,
@@ -26,6 +27,7 @@ import {
 } from "@apartment-book/shared";
 import { useActionSheet } from "@/components/action-sheet";
 import { Avatar } from "@/components/avatar";
+import { BusinessHoursBlock } from "@/components/business-hours";
 import { Icon } from "@/components/icon";
 import { Badge, Button, EmptyState, ErrorBanner, Loading } from "@/components/ui";
 import { errorText, useQuery } from "@/lib/hooks";
@@ -37,8 +39,8 @@ import { makeStyles, useColors } from "@/lib/theme-provider";
 
 /**
  * A business's public profile, laid out like a student's: its logo, name and the Business badge (Verified Partner when
- * the UniBuzz team verified it), what it is and where, its bio and contact, then its posts and, for housing, its
- * listings. Only approved businesses have one. A student messages it from here (students always write first), reports
+ * the UniBuzz team verified it), what it is and where, its bio, whether it is open now with its hours, its website and
+ * phone, then its posts and, for housing, its listings. Only approved businesses have one. A student messages it from here (students always write first), reports
  * it or blocks it; opening it counts as a profile visit, from an ad as that ad's.
  */
 export default function BusinessProfileScreen() {
@@ -68,6 +70,8 @@ export default function BusinessProfileScreen() {
   if (!q.data) return <EmptyState icon="storefront-outline" title="Not on UniBuzz right now" body="This business isn't approved, or it has left UniBuzz." />;
   const { business, blocked, posts, listings } = q.data;
   const tile = Math.floor((width - space.lg * 2 - 4) / 3);
+  const hours = parseBusinessHours(business.hours);
+  const website = business.website && /^https?:\/\//i.test(business.website) ? business.website : null;
 
   async function message(target: { type: "business" | "deal"; id: string; title?: string }) {
     if (!user) return router.push("/(auth)/login" as never);
@@ -132,11 +136,12 @@ export default function BusinessProfileScreen() {
           </Text>
         </View>
         {business.description ? <Text style={styles.bio}>{business.description}</Text> : null}
+        {hours ? <BusinessHoursBlock hours={hours} /> : null}
         <View style={{ flexDirection: "row", gap: space.lg, flexWrap: "wrap", justifyContent: "center" }}>
-          {business.website && /^https?:\/\//i.test(business.website) ? (
-            <Pressable onPress={() => openBusinessLink(business.website)} style={styles.link} accessibilityRole="link">
+          {website ? (
+            <Pressable onPress={() => openBusinessLink(website)} style={styles.link} accessibilityRole="link">
               <Icon name="globe-outline" size={16} color={colors.brand} />
-              <Text style={styles.linkText}>{business.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}</Text>
+              <Text style={styles.linkText}>{website.replace(/^https?:\/\//, "").replace(/\/$/, "")}</Text>
             </Pressable>
           ) : null}
           {business.phone ? (
@@ -152,6 +157,7 @@ export default function BusinessProfileScreen() {
               <Button title={user ? "Message" : "Log in to message"} onPress={() => void message({ type: "business", id: business.id })} loading={busy} />
             </View>
           )}
+          {website ? <Button title="Website" icon="open-outline" variant="secondary" onPress={() => openBusinessLink(website)} accessibilityRole="link" testID="business-website" /> : null}
           {user ? (
             <Pressable onPress={more} style={styles.more} accessibilityRole="button" accessibilityLabel="More">
               <Icon name="ellipsis-horizontal" size={20} color={colors.text} />

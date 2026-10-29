@@ -1,7 +1,7 @@
 # business-inbox-pending
 
-- **Owner:** Sunil. **As of 2026-10-29:** branched from `main` at PR #57 (`e36a53b`); pushed, tested on staging, no PR
-  yet. Written by an AI session.
+- **Owner:** Sunil. **As of 2026-10-29:** branched from `main` at PR #57 (`e36a53b`); merged as PR #58 (06:14 UTC)
+  and deployed (Vercel, 06:16 UTC). Written by an AI session.
 - **Purpose:** the Inbox for a business awaiting the UniBuzz team's review. On production (2026-10-29) a pending
   business's sidebar had no Inbox at all: `portalSectionsFor()` showed it to approved businesses only, and the Inbox's
   route sent anyone else to Overview. The owner read that as the Inbox missing.
@@ -38,7 +38,6 @@ baseline, and `verify.mjs --live` finds the same schema as production.
 
 ## Pending
 
-1. Open the PR, review and merge. Merging deploys the website; it needs no migration.
-2. A business awaiting review receives inquiries only once the UniBuzz team approves it (`/business/admin`, Business
+1. A business awaiting review receives inquiries only once the UniBuzz team approves it (`/business/admin`, Business
    review).
-3. Once merged and deleted, a line in docs/history.md and this file removed.
+2. Delete the branch (the owner's call), then a line under "Retired branches" in docs/history.md and this file removed.

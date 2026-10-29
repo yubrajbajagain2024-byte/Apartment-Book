@@ -1,10 +1,11 @@
 "use client";
 
 import { useActionState } from "react";
-import { BUSINESS_CATEGORIES, type Business, type University } from "@apartment-book/shared";
+import { BUSINESS_CATEGORIES, parseBusinessHours, type Business, type University } from "@apartment-book/shared";
 import { updateBusinessAction } from "@/lib/actions/business";
 import { cn } from "@/lib/utils";
 import { AvatarUploader } from "@/components/common/avatar-uploader";
+import { HoursEditor } from "./hours-editor";
 import { bizButton, bizField, Notice, Panel } from "./ui";
 
 function Field({ label, htmlFor, hint, error, className, children }: { label: string; htmlFor: string; hint?: string; error?: string[]; className?: string; children: React.ReactNode }) {
@@ -70,6 +71,9 @@ export function BusinessProfileForm({ business, universities, userId }: { busine
           <input id="address" name="address" defaultValue={def("address", business.address)} className={cn(bizField, "h-11")} />
         </Field>
       </Panel>
+
+      {/* Only where the database keeps hours (migration 57): my_business() hands over the whole row, so the column shows. */}
+      {"hours" in business ? <HoursEditor initial={parseBusinessHours(business.hours)} error={err?.hours} /> : null}
 
       <Panel className="p-6">
         <h2 className="text-[17px] font-semibold text-biz-ink">Campuses you serve</h2>

@@ -257,7 +257,7 @@ Housing is one main tab, labelled **Explore** in the bar with a compass icon, wi
 
 Built on the v1 rules above, which all still hold (`business-portal.test.mjs` runs them on the new schema).
 
-- **The portal's sidebar** (`components/business/portal-sidebar.tsx`). Graphite, with Overview, Inbox, Advertisements,
+- **The portal's sidebar** (`components/business/portal-sidebar.tsx`). The business's name and photo at the top open its public profile preview. Graphite, with Overview, Inbox, Advertisements,
   Products & Services, Analytics and Billing in that order, and Settings apart at the bottom above the account menu
   (appearance, log out). `portalSectionsFor()` decides what a member sees: an analyst has no Inbox, an editor no
   Billing, a pending business an Inbox that says it opens on approval, a rejected one Overview and Settings. On tablets and phones it is a drawer
@@ -306,9 +306,16 @@ Built on the v1 rules above, which all still hold (`business-portal.test.mjs` ru
   - `image_url` still mirrors the first photo for older apps. 30 posts a day per business.
   - Students see live posts on the business's profile; offers (deals and promotions) also appear on `/deals`.
 - **Public business profile** (`/businesses/<id>` on the website, a screen in the app).
-  - Laid out like a student's: logo, name, the **Business** badge (and Verified Partner), category, place, bio, website and phone, campuses, a grid of posts and, for housing, its listings.
+  - Laid out like a student's: logo, name, the **Business** badge (and Verified Partner), category, place, bio, its hours, website and phone, campuses, a grid of posts and, for housing, its listings.
   - Only approved businesses have one.
-  - Students message the business from it (inquiry target `business`), report it or block it.
+  - Students message the business from it (inquiry target `business`), open its website (a **Website** button, a new tab, no referrer), report it or block it.
+  - One component on the website, `components/business-profile/profile-view.tsx` (`BusinessProfileView`), renders both this page and the portal's preview.
+- **Preview** (`/preview` in the portal). The business's name and photo at the top of the sidebar ("View public profile") open the profile exactly as students see it: the same component in its preview mode, in a window with the student site's look in either portal theme (`[data-student-preview]` in `globals.css`), with nothing to tap. Every member of the team may look; before approval it says students can't see it yet.
+- **Hours** (migration 57, `20261110000000_business_hours.sql`; `packages/shared/src/business-hours.ts`).
+  - `businesses.hours` (jsonb, public like the profile): a time zone (one of the seven United States zones in `HOURS_TIMEZONES`), each weekday's ranges (none is closed; up to 3, for a break; "00:00"–"24:00" is open 24 hours; a close at or before the open runs past midnight) and special hours by date (a holiday or event, named or not, closed or with its own hours), which replace that date's usual hours.
+  - The owner and admins set them in Settings › Business profile (`hours-editor.tsx`): a switch to show them, the time zone, a switch and times for each day, "Copy Monday to weekdays", and holiday and special hours. Saving drops dates before yesterday. The form only offers hours where the database has the column.
+  - The database checks the shape (`businesses_hours_check`, the same rules as `businessHoursSchema`); editors, analysts and students cannot change them; the audit log records the change.
+  - Students see whether the business is open now, in the business's time zone whatever their own (`businessHoursStatus()`): Open, Open 24 hours, Closes soon (within the hour), Opens soon, or Closed, with when it next closes or opens ("Closes 2 AM" after a late night, "Opens tomorrow 9 AM", "Opens Sat 10 AM") and today's special hours by name. Back-to-back days join, so open around the clock never "closes at midnight". The status is worked out again every half minute while the profile is open; a tap opens the week (today in bold), the coming holiday hours and the time zone. The app shows the same (`apps/mobile/src/components/business-hours.tsx`).
 - **Ads.** An ad has:
   - a name, an objective, its campuses (campus is the only targeting), its placements;
   - a headline, caption and media, a button, optionally a post or listing it promotes;

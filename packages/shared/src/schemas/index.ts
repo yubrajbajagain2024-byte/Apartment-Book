@@ -22,6 +22,7 @@ import {
   POST_TITLE_MAX,
   SLEEP_SCHEDULES,
 } from "../constants";
+import { CLOSE_CLOCK, HOURS_TIMEZONE_VALUES, isHoursDate, MAX_HOURS_RANGES, MAX_SPECIAL_HOURS, OPEN_CLOCK } from "../business-hours";
 import {
   formBoolean,
   imageMeta,
@@ -311,6 +312,54 @@ const uuidList = z.preprocess(
   z.array(z.uuid()).max(50),
 );
 
+const hoursRange = z
+  .strictObject({
+    open: z.string().regex(OPEN_CLOCK, "Use a time like 09:00"),
+    close: z.string().regex(CLOSE_CLOCK, "Use a time like 17:00"),
+  })
+  .refine((r) => r.open !== r.close, "Opening and closing can't be the same time");
+const hoursRanges = z.array(hoursRange).max(MAX_HOURS_RANGES, `Up to ${MAX_HOURS_RANGES} sets of hours a day`);
+
+/**
+ * A business's opening hours (businesses.hours, migration 57): a time zone from the list, each weekday's ranges (none
+ * is closed) and special hours by date, each date once, closed or with its own hours. The database checks the same.
+ */
+export const businessHoursSchema = z.strictObject({
+  timezone: z.enum(HOURS_TIMEZONE_VALUES, { error: "Choose a time zone" }),
+  week: z.strictObject({ mon: hoursRanges, tue: hoursRanges, wed: hoursRanges, thu: hoursRanges, fri: hoursRanges, sat: hoursRanges, sun: hoursRanges }),
+  special: z
+    .array(
+      z
+        .strictObject({
+          date: z.string().refine(isHoursDate, "Choose a date"),
+          label: z
+            .string()
+            .trim()
+            .max(40, "Keep the name to 40 characters")
+            .nullish()
+            .transform((v) => v || null),
+          closed: z.boolean(),
+          hours: hoursRanges,
+        })
+        .refine((d) => (d.closed ? d.hours.length === 0 : d.hours.length > 0), "Add the hours, or mark the day closed"),
+    )
+    .max(MAX_SPECIAL_HOURS, `Up to ${MAX_SPECIAL_HOURS} special dates`)
+    .refine((list) => new Set(list.map((d) => d.date)).size === list.length, "Each date can have one set of special hours"),
+});
+export type BusinessHoursInput = z.infer<typeof businessHoursSchema>;
+
+/** The form sends the hours as JSON: "" or nothing leaves them as they are, "null" takes them off the profile. */
+const hoursField = z.preprocess((v) => {
+  if (v === undefined || v === "") return undefined;
+  if (v === "null") return null;
+  if (typeof v !== "string") return v;
+  try {
+    return JSON.parse(v);
+  } catch {
+    return v;
+  }
+}, businessHoursSchema.nullable().optional());
+
 /** The business profile the owner edits. */
 export const businessProfileSchema = z.object({
   name: z.string().trim().min(2, "Enter the business's name").max(120),
@@ -323,6 +372,8 @@ export const businessProfileSchema = z.object({
   city: optionalText(120),
   logoUrl: optionalUrl,
   universityIds: uuidList,
+  /** Undefined leaves the hours as they are (and a database without migration 57 has none to change). */
+  hours: hoursField,
 });
 export type BusinessProfileInput = z.infer<typeof businessProfileSchema>;
 

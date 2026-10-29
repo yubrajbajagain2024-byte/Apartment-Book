@@ -28,8 +28,8 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 - **Explore:** apartments with PostGIS distance and maps, roommates, Marketplace (one video per
   item, no comments), anonymous listings with per-chat reveal (47, live since 2026-10-27).
 - **Business portal** (`/business`): live with migration 39. Its left sidebar, Billing and Settings pages (PR #56,
-  2026-10-29 03:34 UTC) and the Inbox below Overview with live alerts and inquiry context (PR #57, 04:06 UTC) are on
-  production too; Ads and Analytics still need 49 and 50.
+  2026-10-29 03:34 UTC) and the Inbox below Overview with live alerts and inquiry context (PR #57, 04:06 UTC; for
+  businesses awaiting review too since PR #58, 06:14 UTC) are on production too; Ads and Analytics still need 49 and 50.
 - **Staging** (`campconnect-staging`) has production's migrations since 2026-10-28 (it got 41, 42,
   45 and the two admin migrations then; `verify.mjs --live` against it matches production's model).
 - **Video:** Mux uploads and tours. **Mobile:** Expo SDK 58 / RN 0.88; Android release build works
@@ -76,17 +76,19 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
      (read-only check, 2026-10-28), so Pro's daily backups or a CLI dump.
   2. Release day: back up (a CLI dump, and `scripts/backup.mjs`), then check production is in the
      rehearsed state (`verify.mjs --live --except …`).
-  3. Run `db:setup` once from `main`: 44, 46 and 49 to 56 (47 is applied). Then `verify.mjs --live`
+  3. Run `db:setup` once from `main`: 44, 46 and 49 to 56, plus 57 once `business-hours` merges (47 is applied). Then `verify.mjs --live`
      and the smoke test.
   4. Publish the app update.
-  If it must be undone, the release's rollback is 56, 55, 50 and 49 only: Buzz's 51 to 54 stay.
+  If it must be undone, the release's rollback is 57 (once merged), 56, 55, 50 and 49 only: Buzz's 51 to 54 stay.
 
   Follow-up work is listed in [branches/business-v2.md](branches/business-v2.md).
-- **The business Inbox for businesses awaiting review** (branch `business-inbox-pending`, pushed, no PR yet). The
-  Inbox itself is live since PR #57 (2026-10-29 04:08 UTC), but only for approved businesses: one awaiting review had
-  no Inbox in its sidebar (seen on production, 2026-10-29). The branch puts it below Overview for them too, saying it
-  opens on approval. No migration. Passed on staging, with the release and in production's state (2026-10-29). See
-  [branches/business-inbox-pending.md](branches/business-inbox-pending.md).
+- **Business hours and the profile preview** (branch `business-hours`, no PR yet): the business's name and photo at
+  the top of the portal's sidebar open a preview of its public profile; a Website button on the profile; opening hours
+  (weekly, closed days, holiday hours) set in Settings › Business profile, with "open now" for students on the website
+  and in the app. **Migration 57**, not applied anywhere but the rehearsals: until it is, the code shows and offers no
+  hours (preview and Website button work). Passed on staging with the release and in production's state (2026-10-29).
+  The app's part reaches students only with an EAS update (owner's approval). See
+  [branches/business-hours.md](branches/business-hours.md).
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
   website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
   (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).

@@ -1,4 +1,4 @@
-// The Business v2 release (migrations 44, 46 and 49 to 56, with Buzz's 51 to 54 in the same run; production already has 47)
+// The Business v2 release (migrations 44, 46 and 49 to 57, with Buzz's 51 to 54 in the same run; production already has 47)
 // rehearsed on the staging project, the way production will take it, through the real Supabase stack: Auth sessions, the REST API,
 // Storage, pg_cron. Never runs against production: it refuses production's ref and any project not named as staging.
 //
@@ -17,7 +17,7 @@
 //   apply     what `npm run db:setup` does (every pending migration in file order as one query, recorded in
 //             public._migrations, then the seed) while two students and the staffer keep using the API; reports
 //             every request that failed, and when.
-//   rollback  the release's own rollback: 56, 55, 50 and 49, each in one transaction with the removal of its
+//   rollback  the release's own rollback: 57, 56, 55, 50 and 49, each in one transaction with the removal of its
 //             _migrations row. Buzz's 51 to 54 are not touched; every Buzz object and row is compared before and after.
 //   restore   every release migration rolled back (production's state again); the catalog is compared with baseline's.
 //   cleanup   deletes every account, file and row the rehearsal made; row counts are compared with baseline's.
@@ -48,8 +48,9 @@ const RELEASE = [
   "20261108000300_buzz_categories.sql",
   "20261109000000_media_server_fields.sql",
   "20261109000100_business_hardening.sql",
+  "20261110000000_business_hours.sql",
 ];
-const BUSINESS = ["20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql"];
+const BUSINESS = ["20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql", "20261110000000_business_hours.sql"];
 const MIGRATIONS = fs.readdirSync(new URL("supabase/migrations/", ROOT)).filter((f) => f.endsWith(".sql")).sort();
 
 async function mgmt(method, path, body) {

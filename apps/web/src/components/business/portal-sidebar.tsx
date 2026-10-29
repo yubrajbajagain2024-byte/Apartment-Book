@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BarChart3, Bell, CreditCard, Inbox, LayoutGrid, LogOut, Megaphone, Menu, Package, Settings, ShieldCheck, X, type LucideIcon } from "lucide-react";
+import { BarChart3, Bell, ChevronRight, CreditCard, Inbox, LayoutGrid, LogOut, Megaphone, Menu, Package, Settings, ShieldCheck, X, type LucideIcon } from "lucide-react";
 import { BUSINESS_PORTAL_NAME, portalSectionsFor, teamRoleLabel, type BusinessStanding, type BusinessTeamRole, type PortalSection } from "@apartment-book/shared";
 import { businessSignOutAction } from "@/lib/actions/business";
 import type { PortalTheme } from "@/lib/business/theme";
@@ -93,7 +93,11 @@ export function PortalSidebar(props: SidebarProps) {
         >
           <Menu className="h-5 w-5" strokeWidth={1.75} />
         </button>
-        <PortalLink href="/" className="flex min-w-0 flex-1 items-center gap-2.5">
+        <PortalLink
+          href={props.business ? "/preview" : "/"}
+          aria-label={props.business ? `${props.business.name}: view your public profile` : undefined}
+          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl py-1"
+        >
           <Avatar name={props.business?.name ?? BUSINESS_PORTAL_NAME} src={props.business?.logoUrl ?? null} size="xs" className="ring-1 ring-biz-side-line" />
           <span className="truncate text-[15px] font-semibold tracking-[-0.01em]">{props.business?.name ?? BUSINESS_PORTAL_NAME}</span>
         </PortalLink>
@@ -125,11 +129,29 @@ function SidebarBody({ user, business, isAdmin, unread, notifications, theme, pa
   return (
     <div className="flex h-full w-full flex-col text-biz-side-ink">
       <div className="flex h-16 shrink-0 items-center gap-2.5 px-4">
-        <PortalLink href="/" className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl" aria-label={`${business?.name ?? BUSINESS_PORTAL_NAME}, Overview`}>
+        {/* The business's name and photo open its public profile as students see it (/preview), as an Apple account's
+            name opens the account; the UniBuzz team without a business goes to the front page. */}
+        <PortalLink
+          href={business ? "/preview" : "/"}
+          aria-current={business && pathname === "/preview" ? "page" : undefined}
+          aria-label={business ? `${business.name}: view your public profile` : `${BUSINESS_PORTAL_NAME}, Overview`}
+          data-testid="profile-preview-link"
+          className={cn(
+            "group -ml-1.5 flex min-w-0 flex-1 items-center gap-2.5 rounded-xl py-1.5 pl-1.5 pr-2 transition-colors duration-200",
+            business ? (pathname === "/preview" ? "bg-biz-side-raise" : "hover:bg-biz-side-hover") : null,
+          )}
+        >
           <Avatar name={business?.name ?? BUSINESS_PORTAL_NAME} src={business?.logoUrl ?? null} size="sm" className="ring-1 ring-biz-side-line" />
           <span className="min-w-0 leading-tight">
             <span className="block truncate text-[14px] font-semibold tracking-[-0.01em]">{business?.name ?? BUSINESS_PORTAL_NAME}</span>
-            <span className="block truncate text-[11px] text-biz-side-ink-3">{business ? BUSINESS_PORTAL_NAME : "UniBuzz team"}</span>
+            {business ? (
+              <span className="flex items-center gap-0.5 text-[11px] text-biz-side-ink-3 transition-colors group-hover:text-biz-side-ink-2">
+                <span className="truncate">View public profile</span>
+                <ChevronRight className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden="true" />
+              </span>
+            ) : (
+              <span className="block truncate text-[11px] text-biz-side-ink-3">UniBuzz team</span>
+            )}
           </span>
         </PortalLink>
         {onClose ? (
