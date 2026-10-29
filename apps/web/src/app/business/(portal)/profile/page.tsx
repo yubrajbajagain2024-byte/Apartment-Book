@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/ui/avatar";
 import { BusinessProfileForm } from "@/components/business/profile-form";
 import { CopyLink } from "@/components/business/copy-link";
+import { SettingsTabs } from "@/components/business/section-tabs";
 import { PageHeader, Panel, Pill } from "@/components/business/ui";
 
 export const metadata: Metadata = { title: "Business profile" };
@@ -24,6 +25,7 @@ export default async function BusinessProfilePage() {
     return (
       <div className="mx-auto flex max-w-3xl flex-col gap-8">
         <PageHeader title="Business profile" subtitle="Only the owner and admins edit it." actions={viewPublic} />
+        <SettingsTabs active="profile" team={business.status !== "rejected"} />
         <Panel className="flex flex-col gap-5 p-6">
           <div className="flex items-center gap-4">
             <Avatar name={business.name} src={business.logo_url} size="xl" />
@@ -65,6 +67,7 @@ export default async function BusinessProfilePage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-8">
       <PageHeader title="Business profile" subtitle="Your public page on UniBuzz, with the Business badge: students see it once the UniBuzz team approves your business." actions={viewPublic} />
+      <SettingsTabs active="profile" team={business.status !== "rejected"} />
       <BusinessProfileForm business={business} universities={universities} userId={user.id} />
     </div>
   );

@@ -7,7 +7,7 @@ import { cn, firstParam, formatDate } from "@/lib/utils";
 import { PortalLink } from "@/components/business/portal-base";
 import { AdStatusPill, BizLink, EmptyPanel, PageHeader, Panel } from "@/components/business/ui";
 
-export const metadata: Metadata = { title: "Ads" };
+export const metadata: Metadata = { title: "Advertisements" };
 
 const FILTERS = [
   { value: "all", label: "All", statuses: null },
@@ -37,7 +37,7 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        title="Ads"
+        title="Advertisements"
         subtitle="Sponsored posts for students at the campuses you choose. Each runs from its start date once approved, and stops by itself on its end date."
         actions={newAd}
       />

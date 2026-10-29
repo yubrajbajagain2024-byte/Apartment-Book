@@ -1,4 +1,4 @@
-import { BadgeCheck, Building2, Eye, Inbox, Megaphone, MousePointerClick, Plus, Store, UserPlus, Users } from "lucide-react";
+import { BadgeCheck, Building2, CreditCard, Eye, Inbox, Megaphone, MessageCircle, MousePointerClick, Plus, Store, UserPlus, Users } from "lucide-react";
 import { businessCategoryLabel, clickRate, teamRoleAllows, type Ad, type Business, type BusinessAnalyticsOverview, type BusinessTeamRole, type ConversationSummary } from "@apartment-book/shared";
 import { timeAgo } from "@/lib/utils";
 import { ConversationAvatar } from "@/components/messages/conversation-list";
@@ -17,7 +17,22 @@ function missingFromProfile(b: Business): string[] {
   return out;
 }
 
-/** The portal's front page: the business, its last 30 days, its campaigns, the newest inquiries and what to do next. */
+/** What Overview opens with: the ads running and scheduled, the month's spending, the students waiting for a reply. */
+export type OverviewSummary = {
+  running: number;
+  scheduled: number;
+  /** Ads waiting for the UniBuzz team's review. */
+  waiting: number;
+  /** Null for roles that do not see Billing. */
+  spend: { thisMonth: string; allTime: string } | null;
+  /** Null for roles that do not reply (analysts) and before approval. */
+  inquiries: { unread: number; total: number } | null;
+};
+
+/**
+ * Overview, the portal's front page: the business, its ads, spending and inquiries at a glance, its last 30 days, its
+ * campaigns, the newest inquiries and what to do next.
+ */
 export function DashboardView({
   firstName,
   business,
@@ -25,6 +40,7 @@ export function DashboardView({
   overview,
   ads,
   inbox,
+  summary,
   canReply,
   publicProfileUrl,
 }: {
@@ -35,6 +51,7 @@ export function DashboardView({
   ads: Ad[];
   /** The newest inquiries, already titled after the students (businessInboxView). */
   inbox: ConversationSummary[];
+  summary: OverviewSummary;
   canReply: boolean;
   publicProfileUrl: string | null;
 }) {
@@ -47,7 +64,7 @@ export function DashboardView({
     <div className="flex flex-col gap-8">
       <header className="ab-fade-in flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[13px] font-medium text-biz-ink-3">Good to see you, {firstName}</p>
+          <p className="text-[13px] font-medium text-biz-ink-3">Overview · Good to see you, {firstName}</p>
           <h1 className="mt-1 flex flex-wrap items-center gap-3 text-[32px] font-semibold tracking-[-0.025em] text-biz-ink">
             {business.name}
             <Pill tone="neutral">Business</Pill>
@@ -94,6 +111,33 @@ export function DashboardView({
           </BizLink>
         </Panel>
       ) : null}
+
+      <section aria-labelledby="at-a-glance" className="flex flex-col gap-3">
+        <h2 id="at-a-glance" className="text-[17px] font-semibold text-biz-ink">
+          At a glance
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-3" data-testid="at-a-glance">
+          <StatTile
+            icon={Megaphone}
+            label="Active ads"
+            value={fmt(summary.running)}
+            sub={[`${fmt(summary.scheduled)} scheduled`, summary.waiting ? `${fmt(summary.waiting)} in review` : null].filter(Boolean).join(" · ")}
+            href="/ads"
+          />
+          {summary.spend ? (
+            <StatTile icon={CreditCard} label="Spent this month" value={summary.spend.thisMonth} sub={`${summary.spend.allTime} in all`} href="/billing" />
+          ) : null}
+          {summary.inquiries ? (
+            <StatTile
+              icon={MessageCircle}
+              label="Student inquiries"
+              value={fmt(summary.inquiries.unread)}
+              sub={`waiting for a reply · ${fmt(summary.inquiries.total)} ${summary.inquiries.total === 1 ? "chat" : "chats"} in all`}
+              href="/inbox"
+            />
+          ) : null}
+        </div>
+      </section>
 
       <section aria-labelledby="last-30" className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between">

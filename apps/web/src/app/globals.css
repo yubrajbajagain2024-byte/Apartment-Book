@@ -193,6 +193,16 @@ body {
     --biz-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.04);
     --biz-shadow-lift: 0 2px 6px rgb(0 0 0 / 0.06), 0 18px 40px rgb(0 0 0 / 0.08);
     --biz-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", var(--font-inter), "Helvetica Neue", system-ui, sans-serif;
+    /* The sidebar: graphite in both themes, its own quiet inks, and one accent mark for the page you are on. */
+    --biz-sidebar-width: 15.5rem;
+    --biz-side: #111113;
+    --biz-side-raise: rgb(255 255 255 / 0.06);
+    --biz-side-hover: rgb(255 255 255 / 0.045);
+    --biz-side-line: rgb(255 255 255 / 0.08);
+    --biz-side-ink: #f5f5f7;
+    --biz-side-ink-2: #c7c7cc;
+    --biz-side-ink-3: #8e8e93;
+    --biz-side-mark: #5aa2ff;
     color-scheme: light;
     background-color: var(--biz-canvas);
     color: var(--biz-ink);
@@ -343,6 +353,14 @@ body {
   --color-biz-danger-soft: var(--biz-danger-soft);
   --shadow-biz: var(--biz-shadow);
   --shadow-biz-lift: var(--biz-shadow-lift);
+  --color-biz-side: var(--biz-side);
+  --color-biz-side-raise: var(--biz-side-raise);
+  --color-biz-side-hover: var(--biz-side-hover);
+  --color-biz-side-line: var(--biz-side-line);
+  --color-biz-side-ink: var(--biz-side-ink);
+  --color-biz-side-ink-2: var(--biz-side-ink-2);
+  --color-biz-side-ink-3: var(--biz-side-ink-3);
+  --color-biz-side-mark: var(--biz-side-mark);
 }
 
 /* Skeletons in the portal shimmer in its own greys, light or dark. */
@@ -439,8 +457,17 @@ body {
   animation: ab-menu-in 180ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
 }
 
+/* The business portal's sidebar slides in from the left edge on tablets and phones. */
+@keyframes ab-drawer-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.ab-drawer-in {
+  animation: ab-drawer-in 320ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .ab-skeleton, .ab-burst, .ab-pop, .ab-fade-in, .ab-sheet-in, .ab-scrim-in, .ab-menu-in { animation: none; }
+  .ab-skeleton, .ab-burst, .ab-pop, .ab-fade-in, .ab-sheet-in, .ab-scrim-in, .ab-menu-in, .ab-drawer-in { animation: none; }
   /* Without its animation the burst heart would sit over the video for good. */
   .ab-burst { display: none; }
 }

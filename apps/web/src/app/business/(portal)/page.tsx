@@ -1,13 +1,26 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { businessConversations, getAnalyticsOverview, listAds, listConversations, listTeam, standingOf, teamRoleAllows } from "@apartment-book/shared";
+import {
+  adDisplayStatus,
+  businessConversations,
+  canSeeBilling,
+  formatMoneyByCurrency,
+  getAnalyticsOverview,
+  listAds,
+  listBusinessPayments,
+  listConversations,
+  listTeam,
+  paymentTotals,
+  standingOf,
+  teamRoleAllows,
+} from "@apartment-book/shared";
 import { getPortalSession, portalPath } from "@/lib/business/portal";
 import { getSiteUrl } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardView } from "@/components/business/dashboard-view";
 import { BizLink, Panel } from "@/components/business/ui";
 
-export const metadata: Metadata = { title: "Home" };
+export const metadata: Metadata = { title: "Overview" };
 
 export default async function DashboardPage() {
   const session = await getPortalSession();
@@ -35,13 +48,18 @@ export default async function DashboardPage() {
   }
   const supabase = await createClient();
   const canReply = business.status === "approved" && teamRoleAllows(membership.role, "reply");
-  const [overview, ads, conversations, team] = await Promise.all([
+  const billing = canSeeBilling(membership.role);
+  const [overview, ads, conversations, team, payments] = await Promise.all([
     getAnalyticsOverview(supabase, business.id, 30).catch(() => null),
     listAds(supabase, business.id).catch(() => []),
     canReply ? listConversations(supabase, user.id).catch(() => []) : Promise.resolve([]),
     listTeam(supabase, business.id).catch(() => []),
+    billing ? listBusinessPayments(supabase, business.id).catch(() => null) : Promise.resolve(null),
   ]);
-  const inbox = canReply ? businessConversations(conversations, business.id, new Set(team.map((m) => m.user_id))).slice(0, 5) : [];
+  const allInquiries = canReply ? businessConversations(conversations, business.id, new Set(team.map((m) => m.user_id))) : [];
+  const inbox = allInquiries.slice(0, 5);
+  const statuses = ads.map((a) => adDisplayStatus(a));
+  const totals = payments ? paymentTotals(payments) : null;
   return (
     <DashboardView
       firstName={session.profile.full_name.split(" ")[0] || "there"}
@@ -50,6 +68,13 @@ export default async function DashboardPage() {
       overview={overview}
       ads={ads.slice(0, 4)}
       inbox={inbox}
+      summary={{
+        running: statuses.filter((s) => s === "active").length,
+        scheduled: statuses.filter((s) => s === "scheduled").length,
+        waiting: statuses.filter((s) => s === "pending_review").length,
+        spend: totals ? { thisMonth: formatMoneyByCurrency(totals.thisMonth), allTime: formatMoneyByCurrency(totals.allTime) } : null,
+        inquiries: canReply ? { unread: allInquiries.reduce((n, c) => n + (c.unreadCount > 0 ? 1 : 0), 0), total: allInquiries.length } : null,
+      }}
       canReply={canReply}
       publicProfileUrl={business.status === "approved" ? `${getSiteUrl()}/businesses/${business.id}` : null}
     />

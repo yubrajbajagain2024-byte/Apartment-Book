@@ -4,9 +4,13 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { getTotalUnread, markDeliveredAll } from "@apartment-book/shared";
 import { createClient, ensureRealtimeAuth, uniqueChannelName } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 
-/** Red counter on the Messages tab (desktop header and phone bar). Refreshes when new messages arrive. */
-export function UnreadBadge({ initial, userId }: { initial: number; userId: string }) {
+/**
+ * Red counter on the Messages tab (desktop header and phone bar). Refreshes when new messages arrive. `className` places it
+ * elsewhere (the business portal's sidebar shows it inline).
+ */
+export function UnreadBadge({ initial, userId, className }: { initial: number; userId: string; className?: string }) {
   const [count, setCount] = useState(initial);
   const [syncedInitial, setSyncedInitial] = useState(initial);
   const pathname = usePathname();
@@ -58,7 +62,7 @@ export function UnreadBadge({ initial, userId }: { initial: number; userId: stri
 
   if (count <= 0) return null;
   return (
-    <span className="absolute -right-2 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white ring-2 ring-white">
+    <span className={cn("absolute -right-2 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white ring-2 ring-white", className)}>
       {count > 99 ? "99+" : count}
     </span>
   );

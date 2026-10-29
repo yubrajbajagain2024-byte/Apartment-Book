@@ -4,12 +4,11 @@ import { getBusinessListingStats, listApartmentsByBusiness, photosFor } from "@a
 import { requireBusiness } from "@/lib/business/portal";
 import { createClient } from "@/lib/supabase/server";
 import { firstParam } from "@/lib/utils";
-import { EmptyState } from "@/components/ui/empty-state";
-import { FormMessage } from "@/components/ui/field";
 import { ListingTable, type ListingRow } from "@/components/business/listing-table";
-import { PortalLink } from "@/components/business/portal-base";
+import { ProductsTabs } from "@/components/business/section-tabs";
+import { BizLink, EmptyPanel, Notice, PageHeader } from "@/components/business/ui";
 
-export const metadata: Metadata = { title: "Listings" };
+export const metadata: Metadata = { title: "Listings · Products & Services" };
 
 export default async function ListingsPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const [{ membership }, params] = await Promise.all([requireBusiness("/listings"), searchParams]);
@@ -29,36 +28,29 @@ export default async function ListingsPage({ searchParams }: { searchParams: Pro
     stats: statsById.get(a.id) ?? null,
   }));
   const approved = business.status === "approved";
+  const newListing = approved ? (
+    <BizLink href="/listings/new">
+      <Plus className="h-4 w-4" /> Post a listing
+    </BizLink>
+  ) : null;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Listings</h1>
-          <p className="text-sm text-gray-600">
-            {rows.length} {rows.length === 1 ? "listing" : "listings"}. Active ones appear in Explore › Housing in the UniBuzz app and on the website under {business.name}
-            {business.verified_partner ? ", marked Verified Partner" : ""}; a listing with a paid promotion running is labelled Sponsored.
-          </p>
-        </div>
-        {approved ? (
-          <PortalLink href="/listings/new" className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand-600 bg-aurora px-4 text-sm font-semibold text-white hover:brightness-95">
-            <Plus className="h-5 w-5" /> Post a listing
-          </PortalLink>
-        ) : null}
-      </div>
-      {firstParam(params.posted) ? <FormMessage success="Your listing is live. Students near the campus you chose see it in Housing now." /> : null}
+    <div className="flex flex-col gap-8">
+      <PageHeader
+        title="Products & Services"
+        subtitle={`${rows.length} ${rows.length === 1 ? "listing" : "listings"}. Active ones appear in Explore › Housing in the UniBuzz app and on the website under ${business.name}${business.verified_partner ? ", marked Verified Partner" : ""}; a listing with a paid promotion running is labelled Sponsored.`}
+        actions={newListing}
+      />
+      <ProductsTabs active="listings" listings />
+      {firstParam(params.posted) ? (
+        <Notice tone="success">Your listing is live. Students near the campus you chose see it in Housing now.</Notice>
+      ) : null}
       {rows.length === 0 ? (
-        <EmptyState
+        <EmptyPanel
           icon={Building2}
           title="No listings yet"
           description={approved ? "Post your first apartment: photos, a video tour, the rent and the campus it is near." : "Once your business is approved you can post apartment listings here."}
-          action={
-            approved ? (
-              <PortalLink href="/listings/new" className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand-600 bg-aurora px-4 text-sm font-semibold text-white hover:brightness-95">
-                <Plus className="h-5 w-5" /> Post a listing
-              </PortalLink>
-            ) : undefined
-          }
+          action={newListing}
         />
       ) : (
         <ListingTable rows={rows} />

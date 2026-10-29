@@ -7,11 +7,11 @@ import { getPortalSession, portalPath } from "@/lib/business/portal";
 import { PORTAL_THEME_COOKIE, portalThemeOf } from "@/lib/business/theme";
 import { getSiteUrl } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
-import { PortalNav } from "@/components/business/portal-nav";
+import { PortalSidebar } from "@/components/business/portal-sidebar";
 import { StatusBanner } from "@/components/business/status-banner";
 import { bizButton } from "@/components/business/ui";
 
-/** Everything behind the portal's login: the navigation, the business's review status, and the pages. */
+/** Everything behind the portal's login: the sidebar, the business's review status, and the pages. */
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const session = await getPortalSession();
   if (!session) redirect(await portalPath("/login"));
@@ -74,22 +74,20 @@ export default async function PortalLayout({ children }: { children: React.React
   ]);
   return (
     <>
-      <PortalNav
+      <PortalSidebar
         user={{ id: user.id, name: profile.full_name || user.email?.split("@")[0] || "You", avatarUrl: profile.avatar_url }}
-        business={
-          membership
-            ? { name: membership.business.name, logoUrl: membership.business.logo_url, role: membership.role, standing: standing ?? "pending", housing: membership.business.category === "housing" }
-            : null
-        }
+        business={membership ? { name: membership.business.name, logoUrl: membership.business.logo_url, role: membership.role, standing: standing ?? "pending" } : null}
         isAdmin={role === "admin"}
         unread={unread}
         notifications={notifications}
         theme={portalThemeOf(jar.get(PORTAL_THEME_COOKIE)?.value)}
       />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-8 sm:px-6 md:pb-16">
-        {membership ? <StatusBanner business={membership.business} /> : null}
-        {children}
-      </main>
+      <div className="flex flex-1 flex-col lg:pl-[var(--biz-sidebar-width)] print:pl-0">
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-6 sm:px-6 lg:px-10 lg:pt-10">
+          {membership ? <StatusBanner business={membership.business} /> : null}
+          {children}
+        </main>
+      </div>
     </>
   );
 }
