@@ -21,7 +21,8 @@ current", rules 2 and 3).
 | `docs/claude-structure` | Sunil | one shared `CLAUDE.md` plus `docs/` | merged (PR #45); nothing left on it | [../history.md](../history.md) |
 | (one local branch) | Sunil | the pending security fix ([../status.md](../status.md), "Security fix pending") | local only, **not pushed** while production is unpatched | on the branch itself |
 | `business-v2` | Sunil | UniBuzz Business v2: roles, posts, Ads Manager, Sponsored ads, business profiles, analytics (migrations 49, 50, 55, 56) | merged (PR #49, 2026-10-28 04:07 UTC; PR #51, 07:06 UTC: 55, 56, review fixes) before its migrations were applied; PR #52, 19:03 UTC: the fixes to 50, 55 and 56 from the staging rehearsal and a second independent review | [business-v2.md](business-v2.md) |
-| `business-sidebar` | Sunil | The business portal's sidebar: Overview, Advertisements, Inbox, Products & Services, Analytics, Billing, Settings (no migration) | **PR open, not merged** (from `main` at PR #52) | [business-sidebar.md](business-sidebar.md) |
+| `business-sidebar` | Sunil | The business portal's sidebar: Overview, Advertisements, Inbox, Products & Services, Analytics, Billing, Settings (no migration) | merged (PR #56, 2026-10-29 03:34 UTC); nothing left on it | [business-sidebar.md](business-sidebar.md) |
+| `business-inbox` | Sunil | The business Inbox, directly below Overview: Instagram-style list, filters, alerts, inquiry context (no migration) | pushed, **no PR yet** (from `main` at PR #56) | [business-inbox.md](business-inbox.md) |
 | `claude/claude-md-documentation-0b8750` | — | leftover worktree branch of a 2026-10-26 AI session | no commits of its own; left untouched until the owner says otherwise | — |
 
 **Safe to delete once their owner agrees**, because `main` has all their work (what is left on them

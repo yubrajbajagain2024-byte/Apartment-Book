@@ -65,6 +65,9 @@ open work is in [status.md](status.md).
   the staging rehearsal and backup tooling, the production checklist) merged into `main`. None of
   49 to 56 is on production.
 
+- 2026-10-29 03:34 UTC: PR #56 (`business-sidebar`: the business portal's left sidebar, Billing and Settings pages;
+  no migration) merged into `main` and so deployed.
+
 - 2026-10-28, afternoon: read-only checks of production (owner's approval) found migration 47 applied
   on 2026-10-27 at 04:37 UTC although the docs listed it as pending, and no Supabase-managed backup
   (Free plan). A second independent review of the ad approval and payment rules found eight more

@@ -23,14 +23,14 @@ register(
 const biz = await import("../src/business.ts");
 const { paymentSubject } = await import("../src/queries/business.ts");
 
-test("portalSectionsFor: the sidebar's order, everything for an approved owner", () => {
-  assert.deepEqual(biz.PORTAL_SECTIONS, ["overview", "ads", "inbox", "products", "analytics", "billing"]);
-  assert.deepEqual(biz.portalSectionsFor({ role: "owner", standing: "approved" }), { main: ["overview", "ads", "inbox", "products", "analytics", "billing"], settings: true });
+test("portalSectionsFor: the sidebar's order (the inbox right after Overview), everything for an approved owner", () => {
+  assert.deepEqual(biz.PORTAL_SECTIONS, ["overview", "inbox", "ads", "products", "analytics", "billing"]);
+  assert.deepEqual(biz.portalSectionsFor({ role: "owner", standing: "approved" }), { main: ["overview", "inbox", "ads", "products", "analytics", "billing"], settings: true });
 });
 
 test("portalSectionsFor: roles keep the order and lose only what they cannot use", () => {
-  assert.deepEqual(biz.portalSectionsFor({ role: "admin", standing: "approved" }).main, ["overview", "ads", "inbox", "products", "analytics", "billing"]);
-  assert.deepEqual(biz.portalSectionsFor({ role: "editor", standing: "approved" }).main, ["overview", "ads", "inbox", "products", "analytics"]);
+  assert.deepEqual(biz.portalSectionsFor({ role: "admin", standing: "approved" }).main, ["overview", "inbox", "ads", "products", "analytics", "billing"]);
+  assert.deepEqual(biz.portalSectionsFor({ role: "editor", standing: "approved" }).main, ["overview", "inbox", "ads", "products", "analytics"]);
   assert.deepEqual(biz.portalSectionsFor({ role: "analyst", standing: "approved" }).main, ["overview", "ads", "products", "analytics", "billing"]);
 });
 
@@ -100,4 +100,37 @@ test("businessProfileChecklist: six things, each done or not", () => {
   const full = { logo_url: "https://x/l.png", description: "A".repeat(40), website: "https://x", address: null, city: "San Marcos", contact_email: null, phone: "512", university_ids: ["u"] };
   assert.deepEqual(biz.businessProfileChecklist(full).map((c) => c.key), ["logo", "description", "website", "place", "contact", "campuses"]);
   assert.ok(biz.businessProfileChecklist(full).every((c) => c.done));
+});
+
+test("inquiryKindOf: listings, posts, ads and the profile; other chats have none", () => {
+  assert.deepEqual(["apartment", "deal", "ad", "business", "roommate", null].map(biz.inquiryKindOf), ["listing", "post", "ad", "profile", null, null]);
+  assert.deepEqual(["listing", "post", "ad", "profile"].map(biz.inquiryKindLabel), ["Listing", "Post", "Ad", "Your profile"]);
+});
+
+test("inquiryNeedsReply: the student wrote last", () => {
+  const team = new Set(["owner", "editor"]);
+  assert.equal(biz.inquiryNeedsReply("student", team), true);
+  assert.equal(biz.inquiryNeedsReply("editor", team), false);
+  assert.equal(biz.inquiryNeedsReply(null, team), false);
+});
+
+test("inquiryMatches: the inbox's filters and search", () => {
+  assert.deepEqual(biz.INQUIRY_FILTERS.map((f) => f.value), ["all", "unread", "needs_reply", "listing", "post", "ad", "profile"]);
+  const i = { unreadCount: 2, needsReply: true, kind: "listing", text: "Maya Lopez Is the two-bed still free? Two-bed near campus" };
+  const read = { ...i, unreadCount: 0, needsReply: false, kind: "ad" };
+  assert.deepEqual(biz.INQUIRY_FILTERS.map((f) => biz.inquiryMatches(i, f.value)), [true, true, true, true, false, false, false]);
+  assert.deepEqual(biz.INQUIRY_FILTERS.map((f) => biz.inquiryMatches(read, f.value)), [true, false, false, false, false, true, false]);
+  assert.equal(biz.inquiryMatches(i, "all", "  maya "), true);
+  assert.equal(biz.inquiryMatches(i, "all", "two-BED"), true);
+  assert.equal(biz.inquiryMatches(i, "all", "studio"), false);
+  assert.equal(biz.inquiryMatches(i, "ad", "maya"), false);
+});
+
+test("inquiryMessagePreview: the words, shortened, or what the message carries", () => {
+  assert.equal(biz.inquiryMessagePreview({ content: "  Is it\n still free? " }), "Is it still free?");
+  assert.equal(biz.inquiryMessagePreview({ content: "x".repeat(200) }).length, 120);
+  assert.equal(biz.inquiryMessagePreview({ content: "", attachments: [{ kind: "file" }] }), "Sent an attachment");
+  assert.equal(biz.inquiryMessagePreview({ content: "", attachments: [], image_url: "https://x/p.jpg" }), "Sent a photo");
+  assert.equal(biz.inquiryMessagePreview({ content: "", shared_post: { id: "p" } }), "Shared a post");
+  assert.equal(biz.inquiryMessagePreview({}), "Sent a message");
 });

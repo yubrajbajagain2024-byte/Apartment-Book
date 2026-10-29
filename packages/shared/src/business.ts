@@ -149,8 +149,9 @@ export function canManageMember(myRole: string | null | undefined, theirRole: st
 
 // --- The portal's sidebar -----------------------------------------------------------------------------------------
 
-/** The portal's sections, top to bottom; Settings sits apart at the bottom of the sidebar. */
-export const PORTAL_SECTIONS = ["overview", "ads", "inbox", "products", "analytics", "billing"] as const;
+/** The portal's sections, top to bottom; Settings sits apart at the bottom of the sidebar. The inbox comes right after
+ * Overview: students waiting for an answer come first. */
+export const PORTAL_SECTIONS = ["overview", "inbox", "ads", "products", "analytics", "billing"] as const;
 export type PortalSection = (typeof PORTAL_SECTIONS)[number];
 
 /**
@@ -199,6 +200,72 @@ export function businessProfileChecklist(b: {
     { key: "contact", label: "A way to reach you: an email or a phone number", done: Boolean(b.contact_email || b.phone) },
     { key: "campuses", label: "The campuses you serve", done: b.university_ids.length > 0 },
   ];
+}
+
+// --- The inbox --------------------------------------------------------------------------------------------------------
+
+/** What a student opened an inquiry from (conversations.inquiry_target_type): a listing, a post, an ad or the profile. */
+export type InquiryKind = "listing" | "post" | "ad" | "profile";
+export function inquiryKindOf(targetType: string | null | undefined): InquiryKind | null {
+  switch (targetType) {
+    case "apartment":
+      return "listing";
+    case "deal":
+      return "post";
+    case "ad":
+      return "ad";
+    case "business":
+      return "profile";
+    default:
+      return null;
+  }
+}
+export function inquiryKindLabel(kind: InquiryKind): string {
+  return { listing: "Listing", post: "Post", ad: "Ad", profile: "Your profile" }[kind];
+}
+
+/**
+ * Waiting for the business: the student wrote last. A chat appears in the inbox only once the student has written
+ * (migration 56), so there is always a student message somewhere in it.
+ */
+export function inquiryNeedsReply(lastSenderId: string | null | undefined, teamIds: ReadonlySet<string>): boolean {
+  return Boolean(lastSenderId) && !teamIds.has(lastSenderId as string);
+}
+
+/** A new message as an alert shows it: its words, or what it carries. */
+export function inquiryMessagePreview(m: { content?: string | null; image_url?: string | null; attachments?: unknown; shared_post?: unknown }): string {
+  const text = (m.content ?? "").replace(/\s+/g, " ").trim();
+  if (text) return text.length > 120 ? `${text.slice(0, 119)}…` : text;
+  if (Array.isArray(m.attachments) && m.attachments.length) return "Sent an attachment";
+  if (m.image_url) return "Sent a photo";
+  if (m.shared_post) return "Shared a post";
+  return "Sent a message";
+}
+
+/** The inbox's filters, in the order the inbox shows them. */
+export const INQUIRY_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "unread", label: "Unread" },
+  { value: "needs_reply", label: "Needs reply" },
+  { value: "listing", label: "Listings" },
+  { value: "post", label: "Posts" },
+  { value: "ad", label: "Ads" },
+  { value: "profile", label: "Profile" },
+] as const;
+export type InquiryFilter = (typeof INQUIRY_FILTERS)[number]["value"];
+
+/** Whether an inquiry shows under a filter and a search (the student's name, the message, or what it is about). */
+export function inquiryMatches(
+  inquiry: { unreadCount: number; needsReply: boolean; kind: InquiryKind | null; text: string },
+  filter: InquiryFilter,
+  query = "",
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (q && !inquiry.text.toLowerCase().includes(q)) return false;
+  if (filter === "all") return true;
+  if (filter === "unread") return inquiry.unreadCount > 0;
+  if (filter === "needs_reply") return inquiry.needsReply;
+  return inquiry.kind === filter;
 }
 
 // --- Billing --------------------------------------------------------------------------------------------------------

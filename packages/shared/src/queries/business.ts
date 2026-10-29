@@ -34,7 +34,7 @@ import type {
   PostTargetType,
   PromotionTarget,
 } from "../types/models";
-import { mediaItems, roleOf, teamRoleOf, type UserRole } from "../business";
+import { formatCents, inquiryKindOf, mediaItems, roleOf, teamRoleOf, type InquiryKind, type UserRole } from "../business";
 import { getOrCreateDirectConversation } from "./messages";
 import { isMissingInDatabase, isMissingRelation } from "./profile-page";
 
@@ -365,6 +365,66 @@ export async function listPublicBusinessPosts(supabase: Client, businessId: stri
 // --- UniBuzz Business v2: ads, the team's side -----------------------------------------------------------------------
 
 /** Every ad of the business, newest first, budgets included (the team only). */
+/** What a student asked about, as the inbox shows it: the listing, post or ad (or the profile), as it is now. */
+export type InquiryTarget = { kind: InquiryKind; id: string | null; title: string | null; image: string | null; price: string | null };
+/** An inquiry's context and who wrote last (the inbox's "Needs reply" and "You:"). */
+export type InquiryDetails = { target: InquiryTarget | null; lastSenderId: string | null };
+
+/** The first photo of a media list (posts and ads), or a video's poster. */
+function firstPicture(media: unknown, fallback: string | null = null): string | null {
+  for (const m of mediaItems(media as never)) {
+    if (m.type === "image" && m.url) return m.url;
+    if (m.type === "video" && m.poster_url) return m.poster_url;
+  }
+  return fallback;
+}
+
+/**
+ * For each of the business's inquiries: what it was opened from and who wrote last. One query for the chats with their
+ * newest message, one per kind of thing they were opened from. Row-level security keeps it to chats the business can
+ * read (those where the student has written) and to its own listings, posts and ads.
+ */
+export async function getInquiryDetails(supabase: Client, conversationIds: string[]): Promise<Record<string, InquiryDetails>> {
+  const out: Record<string, InquiryDetails> = {};
+  if (conversationIds.length === 0) return out;
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("id, inquiry_target_type, inquiry_target_id, last:messages(sender_id, created_at)")
+    .in("id", conversationIds)
+    .order("created_at", { referencedTable: "messages", ascending: false })
+    .limit(1, { referencedTable: "messages" });
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as { id: string; inquiry_target_type: string | null; inquiry_target_id: string | null; last: { sender_id: string | null }[] }[];
+  const idsOf = (type: string) => [...new Set(rows.filter((r) => r.inquiry_target_type === type && r.inquiry_target_id).map((r) => r.inquiry_target_id as string))];
+  const [apartments, deals, ads] = await Promise.all([
+    idsOf("apartment").length ? supabase.from("apartments").select("id, title, images, price_per_month, currency").in("id", idsOf("apartment")) : null,
+    idsOf("deal").length ? supabase.from("deals").select("id, title, image_url, media, price_cents, currency").in("id", idsOf("deal")) : null,
+    idsOf("ad").length ? supabase.from("ads").select("id, name, media").in("id", idsOf("ad")) : null,
+  ]);
+  const byId = <T extends { id: string }>(res: { data: T[] | null } | null) => new Map((res?.data ?? []).map((r) => [r.id, r]));
+  const aptMap = byId(apartments as { data: { id: string; title: string; images: string[] | null; price_per_month: number; currency: string }[] | null } | null);
+  const dealMap = byId(deals as { data: { id: string; title: string; image_url: string | null; media: unknown; price_cents: number | null; currency: string | null }[] | null } | null);
+  const adMap = byId(ads as { data: { id: string; name: string; media: unknown }[] | null } | null);
+  for (const r of rows) {
+    const kind = inquiryKindOf(r.inquiry_target_type);
+    let target: InquiryTarget | null = null;
+    if (kind === "listing") {
+      const a = aptMap.get(r.inquiry_target_id ?? "");
+      target = { kind, id: r.inquiry_target_id, title: a?.title ?? null, image: a?.images?.[0] ?? null, price: a ? `${formatCents(Math.round(Number(a.price_per_month) * 100), a.currency)}/mo` : null };
+    } else if (kind === "post") {
+      const d = dealMap.get(r.inquiry_target_id ?? "");
+      target = { kind, id: r.inquiry_target_id, title: d?.title ?? null, image: d ? firstPicture(d.media, d.image_url) : null, price: d?.price_cents != null ? formatCents(d.price_cents, d.currency ?? "USD") : null };
+    } else if (kind === "ad") {
+      const ad = adMap.get(r.inquiry_target_id ?? "");
+      target = { kind, id: r.inquiry_target_id, title: ad?.name ?? null, image: ad ? firstPicture(ad.media) : null, price: null };
+    } else if (kind === "profile") {
+      target = { kind, id: r.inquiry_target_id, title: null, image: null, price: null };
+    }
+    out[r.id] = { target, lastSenderId: r.last?.[0]?.sender_id ?? null };
+  }
+  return out;
+}
+
 /** A payment the UniBuzz team recorded for the business, with what it paid for (the ad, or v1's listing or post). */
 export type BusinessPayment = ListingPromotion & {
   ad: { id: string; name: string; status: string } | null;

@@ -247,7 +247,7 @@ Housing is one main tab, labelled **Explore** in the bar with a compass icon, wi
 - **Labels.** "Verified Partner" only for a business an admin verified, with what was checked on record (`admin_set_verified()`; the database refuses the mark without it, and anything but approval clears it). "Sponsored" only for a listing or deal with a **paid promotion** running now: an admin records it on the Review page once it is paid, with the period, the amount and the invoice or receipt reference (`admin_record_promotion()`; nothing else can create one, and payment itself happens outside UniBuzz). Students read the labels through the `listing_sponsored` and `deal_sponsored` computed fields; a business that is neither shows a plain "Business".
 - **Listings.** Apartments posted from the portal are ordinary `apartments` rows with `business_id` set, owned by the business's owner whoever on the team posts them. They appear in **Explore › Housing** in the app and on the website with the business's name and logo, its label and no student profile behind them.
 - **Deals.** Offers with campus targeting (the universities whose students see them; none ticked means every campus), a start, an optional end and an optional code. Students see live deals of approved businesses on the website's `/deals` page, reached from a link on the Housing page when any exist.
-- **Inquiries, never cold messages.** A student messages a business from one of its listings or deals (`start_business_inquiry()`). That opens one chat per student and business, named after the business, with **every team member** in it (later members join it, removed ones leave it). Businesses can't open chats with anyone, can't be messaged directly, can't be added to groups, can't call, and may write in a chat only after the student has, and only while approved. The portal's **Inbox** is the website's Messages (the same two-pane layout, list, chat window, receipts and unread badge) pointed at the portal's own paths: teammates' replies sit on the business's side under their names, and a chat says "Student inquiry" instead of showing the student's activity.
+- **Inquiries, never cold messages.** A student messages a business from one of its listings or deals (`start_business_inquiry()`). That opens one chat per student and business, named after the business, with **every team member** in it (later members join it, removed ones leave it). Businesses can't open chats with anyone, can't be messaged directly, can't be added to groups, can't call, and may write in a chat only after the student has, and only while approved. The portal's **Inbox** has its own list beside the website's chat window (receipts and real-time delivery included), pointed at the portal's own paths: teammates' replies sit on the business's side under their names, and a chat says "Student inquiry" instead of showing the student's activity (v2's Inbox below).
 - **Off the student side.** A signed-in business session reads no student content (feeds, comments, likes, roommate posts, items, classes, follows, other listings) and sees only the profiles of its team and of students in its own inquiries; it writes nothing there, never shows or sees who is online or anyone's activity status, and the student website and app send it to the portal. Public pages stay what signed-out visitors always saw.
 - **Private details.** Students can read a business's public columns only: the contact email, the admin's review note and the verification evidence are for the team (`my_business()`) and admins.
 - **Analytics.** Per listing: views (one per viewer per day; the team's own views don't count), views this week, saves, "Message" taps, inquiries and when its paid promotion ends. Per deal: views and inquiries. The dashboard adds the 30-day totals (`business_listing_stats()`, `business_deal_stats()`, `business_overview()`, readable by a team in good standing and admins only).
@@ -257,12 +257,28 @@ Housing is one main tab, labelled **Explore** in the bar with a compass icon, wi
 
 Built on the v1 rules above, which all still hold (`business-portal.test.mjs` runs them on the new schema).
 
-- **The portal's sidebar** (`components/business/portal-sidebar.tsx`). Graphite, with Overview, Advertisements, Inbox,
+- **The portal's sidebar** (`components/business/portal-sidebar.tsx`). Graphite, with Overview, Inbox, Advertisements,
   Products & Services, Analytics and Billing in that order, and Settings apart at the bottom above the account menu
   (appearance, log out). `portalSectionsFor()` decides what a member sees: an analyst has no Inbox, an editor no
   Billing, a pending business no Inbox, a rejected one Overview and Settings. On tablets and phones it is a drawer
   behind the top bar's menu button.
   - **Overview:** active ads, the month's spending and the inquiries waiting for a reply, then the last 30 days.
+  - **Inbox** (owner, admins, editors; `inbox/layout.tsx`, `components/business/inquiry-list.tsx`), Instagram style:
+    - each row is the student's photo and name, the newest message ("You:" or a teammate's first name when the team
+      wrote it), what the chat is about (a listing, a post, an ad or the profile) and an unread count, or a dot when the
+      student wrote last;
+    - filters (All, Unread, Needs reply, and Listings, Posts, Ads or Profile when there are any), a search over names,
+      messages and what was asked about, and "Mark all read";
+    - a chat opens with what the student asked about at its top (`inquiry-context.tsx`: the listing, post or ad as it is
+      now, with its photo and price, linked to its page in the portal);
+    - everything is live: new messages and receipts move the list, arrive in the open chat, and a reply shows at once;
+    - on every portal page a new message shows a toast with Reply (not for the chat already on screen), raises the
+      Inbox's badge and puts the count in the tab's title (`message-alerts.tsx`). Desktop notifications are off until
+      turned on in Settings › Account or with the bell in the Inbox, per browser.
+    - Students always start: the database refuses a business's chat, and any business message before the student's
+      first. The Inbox lists, and opens, only chats a student has written in (migration 56 also hides the rest in the
+      database). The inquiry helpers (`inquiryKindOf`, `inquiryNeedsReply`, `INQUIRY_FILTERS`, `inquiryMatches`) are in
+      `packages/shared/src/business.ts`; `getInquiryDetails()` reads what each chat is about and who wrote last.
   - **Products & Services:** the posts, with a type filter (products, services, special offers, events, updates), and,
     for housing businesses, the listings.
   - **Billing** (owner, admins, analysts): the payments the UniBuzz team recorded, totals for the month, 30 days and

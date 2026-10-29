@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { Briefcase, LogOut } from "lucide-react";
-import { APP_NAME, BUSINESS_PORTAL_NAME, countUnreadPortalNotifications, getTotalUnread, isBusinessRole, standingOf, teamRoleAllows } from "@apartment-book/shared";
+import { APP_NAME, BUSINESS_PORTAL_NAME, countUnreadPortalNotifications, getTotalUnread, isBusinessRole, listTeam, standingOf, teamRoleAllows } from "@apartment-book/shared";
 import { businessSignOutAction } from "@/lib/actions/business";
 import { getPortalSession, portalPath } from "@/lib/business/portal";
 import { PORTAL_THEME_COOKIE, portalThemeOf } from "@/lib/business/theme";
 import { getSiteUrl } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { InboxAlerts } from "@/components/business/message-alerts";
 import { PortalSidebar } from "@/components/business/portal-sidebar";
 import { StatusBanner } from "@/components/business/status-banner";
 import { bizButton } from "@/components/business/ui";
@@ -67,10 +68,11 @@ export default async function PortalLayout({ children }: { children: React.React
   }
   const supabase = await createClient();
   const canReply = Boolean(membership && standing === "approved" && teamRoleAllows(membership.role, "reply"));
-  const [unread, notifications, jar] = await Promise.all([
+  const [unread, notifications, jar, team] = await Promise.all([
     canReply ? getTotalUnread(supabase).catch(() => 0) : Promise.resolve(0),
     membership ? countUnreadPortalNotifications(supabase).catch(() => 0) : Promise.resolve(0),
     cookies(),
+    canReply && membership ? listTeam(supabase, membership.business.id).catch(() => []) : Promise.resolve([]),
   ]);
   return (
     <>
@@ -82,6 +84,8 @@ export default async function PortalLayout({ children }: { children: React.React
         notifications={notifications}
         theme={portalThemeOf(jar.get(PORTAL_THEME_COOKIE)?.value)}
       />
+      {/* New messages from students, on every page, for those who answer them. */}
+      {canReply ? <InboxAlerts userId={user.id} teamIds={team.map((m) => m.user_id)} /> : null}
       <div className="flex flex-1 flex-col lg:pl-[var(--biz-sidebar-width)] print:pl-0">
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-6 sm:px-6 lg:px-10 lg:pt-10">
           {membership ? <StatusBanner business={membership.business} /> : null}
