@@ -65,6 +65,10 @@ open work is in [status.md](status.md).
   the staging rehearsal and backup tooling, the production checklist) merged into `main`. None of
   49 to 56 is on production.
 
+- 2026-10-29 04:06 UTC: PR #57 (`business-inbox`: the business Inbox below Overview, with alerts and inquiry context;
+  no migration) merged into `main`; Vercel's production deployment finished at 04:08 UTC. As merged, a business
+  awaiting review had no Inbox in its sidebar (`business-inbox-pending` changes that).
+
 - 2026-10-29 03:34 UTC: PR #56 (`business-sidebar`: the business portal's left sidebar, Billing and Settings pages;
   no migration) merged into `main` and so deployed.
 

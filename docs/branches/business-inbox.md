@@ -1,8 +1,9 @@
 # business-inbox
 
-- **Owner:** Sunil. **As of 2026-10-29:** branched from `main` at PR #56 (`20ec63b`); pushed, tested on staging, no PR
-  yet.
-  Written by an AI session.
+- **Owner:** Sunil. **As of 2026-10-29:** branched from `main` at PR #56 (`20ec63b`); its first commit merged as PR #57
+  (2026-10-29 04:06 UTC) and deployed (Vercel, 04:08 UTC). The second commit (the browser test's not-found check, these
+  results) came after the merge and travels with `business-inbox-pending` ([business-inbox-pending.md](business-inbox-pending.md)),
+  which also shows the Inbox to a business awaiting review. Written by an AI session.
 - **Purpose:** a dedicated Inbox directly below Overview in UniBuzz Business: Instagram-style real-time messaging,
   unread badges, filters, notifications, inquiry context and instant replies from the team members who may reply,
   with businesses answering only after a student writes.
@@ -10,8 +11,9 @@
 ## What it does
 
 - **Order:** Overview, **Inbox**, Advertisements, Products & Services, Analytics, Billing; Settings apart at the bottom
-  (`PORTAL_SECTIONS` in `packages/shared/src/business.ts`). Who sees the Inbox is unchanged: the owner, admins and
-  editors of an approved business (`requireCapability("reply")`); analysts and pending businesses do not.
+  (`PORTAL_SECTIONS` in `packages/shared/src/business.ts`). Who sees the Inbox: the owner, admins and editors of an
+  approved business (`requireCapability("reply")`); analysts never. As merged, a business awaiting review did not see it
+  at all; `business-inbox-pending` changes that.
 - **The list** (`components/business/inquiry-list.tsx`, from `inbox/layout.tsx`):
   - rows: the student's photo and name, the newest message ("You:" or a teammate's first name when the team wrote it),
     what the chat is about with its icon, the time, an unread count or a dot when the student wrote last;
@@ -59,7 +61,6 @@ baseline, and `verify.mjs --live` finds the same schema as production.
 
 ## Pending
 
-1. Open the PR, review and merge. Merging deploys the website; it needs no migration. On today's production (no 49
-   to 56) the Inbox works for the inquiries that exist there, from listings and posts; inquiries from the profile and
-   from ads need 50.
-2. Once merged and deleted, a line in docs/history.md and this file removed.
+1. Delete the branch (the owner's call), then a line under "Retired branches" in docs/history.md and this file
+   removed. On today's production (no 49 to 56) the Inbox works for the inquiries that exist there, from listings and
+   posts; inquiries from the profile and from ads need 50.

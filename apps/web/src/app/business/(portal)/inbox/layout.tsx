@@ -1,7 +1,9 @@
-import { businessConversations, getInquiryDetails, inquiryNeedsReply, listConversations, listTeam } from "@apartment-book/shared";
-import { getPortalBase, requireCapability } from "@/lib/business/portal";
+import { redirect } from "next/navigation";
+import { businessConversations, getInquiryDetails, inquiryNeedsReply, listConversations, listTeam, standingOf, teamRoleAllows } from "@apartment-book/shared";
+import { getPortalBase, portalPath, requireBusiness } from "@/lib/business/portal";
 import { joinPortal } from "@/lib/business/paths";
 import { createClient } from "@/lib/supabase/server";
+import { InboxPending } from "@/components/business/inbox-pending";
 import { InquiryList, type InquiryItem } from "@/components/business/inquiry-list";
 import { MessagesPathsProvider } from "@/components/messages/messages-paths";
 import { MessagesShell } from "@/components/messages/messages-shell";
@@ -10,10 +12,14 @@ import { MessagesShell } from "@/components/messages/messages-shell";
  * The business's inbox: its own list (filters, search, what each chat is about, who wrote last) beside the student
  * site's chat window, pointed at the portal's paths. Every chat here was started by a student, from a listing, a post,
  * an ad or the profile; the database lets the business read it only once the student has written, and write only in
- * reply. The team members who reply (the owner, admins, editors) answer together; analysts never see it.
+ * reply. The team members who reply (the owner, admins, editors) answer together; analysts never see it. While the
+ * business waits for review it is already in the sidebar, saying it opens on approval (students write only to an
+ * approved business); the chats themselves stay closed until then, here and in the database.
  */
 export default async function InboxLayout({ children }: { children: React.ReactNode }) {
-  const { user, membership } = await requireCapability("reply", "/inbox");
+  const { user, membership } = await requireBusiness("/inbox");
+  if (!teamRoleAllows(membership.role, "reply")) redirect(await portalPath("/"));
+  if (standingOf(membership.business) !== "approved") return <InboxPending businessName={membership.business.name} />;
   const supabase = await createClient();
   const [conversations, team, base] = await Promise.all([listConversations(supabase, user.id), listTeam(supabase, membership.business.id), getPortalBase()]);
   const teamIds = new Set(team.map((m) => m.user_id));

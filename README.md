@@ -260,7 +260,7 @@ Built on the v1 rules above, which all still hold (`business-portal.test.mjs` ru
 - **The portal's sidebar** (`components/business/portal-sidebar.tsx`). Graphite, with Overview, Inbox, Advertisements,
   Products & Services, Analytics and Billing in that order, and Settings apart at the bottom above the account menu
   (appearance, log out). `portalSectionsFor()` decides what a member sees: an analyst has no Inbox, an editor no
-  Billing, a pending business no Inbox, a rejected one Overview and Settings. On tablets and phones it is a drawer
+  Billing, a pending business an Inbox that says it opens on approval, a rejected one Overview and Settings. On tablets and phones it is a drawer
   behind the top bar's menu button.
   - **Overview:** active ads, the month's spending and the inquiries waiting for a reply, then the last 30 days.
   - **Inbox** (owner, admins, editors; `inbox/layout.tsx`, `components/business/inquiry-list.tsx`), Instagram style:
