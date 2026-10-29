@@ -1,6 +1,7 @@
 # business-inbox
 
-- **Owner:** Sunil. **As of 2026-10-28:** branched from `main` at PR #56 (`20ec63b`); pushed, no PR yet.
+- **Owner:** Sunil. **As of 2026-10-29:** branched from `main` at PR #56 (`20ec63b`); pushed, tested on staging, no PR
+  yet.
   Written by an AI session.
 - **Purpose:** a dedicated Inbox directly below Overview in UniBuzz Business: Instagram-style real-time messaging,
   unread badges, filters, notifications, inquiry context and instant replies from the team members who may reply,
@@ -46,16 +47,19 @@ No migration, and nothing changes what the database allows.
 | --- | --- |
 | `npm run check` | ✅ 6/6 |
 | `npm run test:shared` | ✅ 198/198 (`business-portal.test.mjs`: the new order, and the inquiry kinds, labels, needs-reply, previews, filters and search) |
-| `apps/web/e2e/business-inbox.mjs` | **not run**: needs staging with the release applied |
-| `apps/web/e2e/business-sidebar.mjs` | updated for the new order; **not re-run** |
-| `release-rehearsal.mjs check` | adds "the business cannot write first in an empty inquiry"; **not run** |
+| `apps/web/e2e/business-inbox.mjs` on staging with the release applied | ✅ 9/9 (2026-10-29 04:25 UTC), no request to production |
+| The Inbox in production's state (no 49 to 56), a one-off script | ✅ 5/5: Inbox below Overview, the list with its context, the chat's context card, an empty inquiry neither listed, opened nor writable |
+| `apps/web/e2e/business-sidebar.mjs` | ✅ 12/12 with the new order |
+| `apps/web/e2e/release-smoke.mjs` | ✅ 52/52 pages |
+| `release-rehearsal.mjs check` | ✅ 10/10 before the release, 25/25 after, with "the business cannot write first in an empty inquiry" |
 | App (Expo) | not touched: business accounts use the website |
+
+Staging got the release applied for these runs (owner's go-ahead) and is back in production's state: row counts as at
+baseline, and `verify.mjs --live` finds the same schema as production.
 
 ## Pending
 
-1. Run the browser test and the rehearsal's checks on staging (needs the owner's go-ahead: staging gets the release
-   applied, then restored).
-2. Open the PR, review and merge. Merging deploys the website; it needs no migration. On today's production (no 49
+1. Open the PR, review and merge. Merging deploys the website; it needs no migration. On today's production (no 49
    to 56) the Inbox works for the inquiries that exist there, from listings and posts; inquiries from the profile and
    from ads need 50.
-3. Once merged and deleted, a line in docs/history.md and this file removed.
+2. Once merged and deleted, a line in docs/history.md and this file removed.

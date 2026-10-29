@@ -187,8 +187,10 @@ await step("the business cannot write first, even knowing the empty inquiry's ad
     refused = /only reply|row-level/i.test(e.message);
   }
   expect(refused, "the business wrote first");
+  // The portal's not-found page (streamed, so the status may be 200).
   const r = await page.goto(`${BASE}/business/inbox/${empty}`);
-  expect(r?.status() === 404 || (await page.getByText(/not found|404/i).count()) > 0, `the empty inquiry opened: HTTP ${r?.status()}`);
+  await page.waitForLoadState("networkidle");
+  expect(r?.status() === 404 || (await page.getByText("This page does not exist").count()) > 0, `the empty inquiry opened: HTTP ${r?.status()}`);
 });
 
 await step("an editor can reply too (authorized staff), in real time", async () => {
