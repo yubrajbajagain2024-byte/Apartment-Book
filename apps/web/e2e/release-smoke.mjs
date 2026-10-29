@@ -17,8 +17,8 @@ const A = state.accounts, I = state.ids;
 const ROLES = [
   { who: "signed out", login: null, pages: ["/", "/login", "/signup", "/business/login", "/privacy", "/guidelines"] },
   { who: "student", login: ["/login", A.ben], pages: ["/", "/?tab=buzz", "/?tab=reels", "/?tab=posts", "/apartments", `/apartments/${I.apartment}`, `/businesses/${I.business}`, "/deals", "/messages", `/messages/${I.inquiry}`, `/messages/${I.direct}`, "/notifications", "/profile/me", `/profile/${A.cam.id}`, "/saved", "/search?q=river", `/buzz/${I.thread}`, "/settings/profile"] },
-  { who: "business owner", login: ["/business/login", A.owner], pages: ["/business", "/business/deals", "/business/deals/new", `/business/deals/${I.deal}/edit`, "/business/listings", `/business/listings/${I.apartment}/edit`, "/business/ads", "/business/ads/new", "/business/inbox", `/business/inbox/${I.inquiry}`, "/business/team", "/business/analytics", "/business/profile", "/business/notifications"] },
-  { who: "business staffer", login: ["/business/login", A.staff], pages: ["/business", "/business/inbox", `/business/inbox/${I.inquiry}`, "/business/deals"] },
+  { who: "business owner", login: ["/business/login", A.owner], pages: ["/business", "/business/deals", "/business/deals/new", `/business/deals/${I.deal}/edit`, "/business/listings", `/business/listings/${I.apartment}/edit`, "/business/ads", "/business/ads/new", "/business/inbox", `/business/inbox/${I.inquiry}`, "/business/team", "/business/analytics", "/business/profile", "/business/notifications", "/business/billing", "/business/settings", "/business/settings/verification", "/business/settings/account"] },
+  { who: "business staffer", login: ["/business/login", A.staff], pages: ["/business", "/business/inbox", `/business/inbox/${I.inquiry}`, "/business/deals", "/business/settings", "/business/settings/account"] },
   { who: "UniBuzz team", login: ["/business/login", A.ops], pages: ["/business/admin", "/business/admin/ads", "/business/admin/reports", "/business/admin/audit"] },
 ];
 
