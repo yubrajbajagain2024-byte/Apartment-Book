@@ -20,7 +20,10 @@ export default async function InboxLayout({ children }: { children: React.ReactN
     <MessagesPathsProvider
       value={{ base: joinPortal(base, "/inbox"), newChat: null, profile: null, audience: "business", emptyText: "No inquiries yet. Students message you from your listings and deals; every reply lands here." }}
     >
-      <MessagesShell list={<ConversationList conversations={inbox} currentUserId={user.id} />}>{children}</MessagesShell>
+      {/* Beside the sidebar on wide screens; under the portal's top bar (and with no tab bar) on smaller ones. */}
+      <MessagesShell list={<ConversationList conversations={inbox} currentUserId={user.id} />} className="lg:left-[var(--biz-sidebar-width)] lg:top-0" bottomBar={false}>
+        {children}
+      </MessagesShell>
     </MessagesPathsProvider>
   );
 }

@@ -257,6 +257,19 @@ Housing is one main tab, labelled **Explore** in the bar with a compass icon, wi
 
 Built on the v1 rules above, which all still hold (`business-portal.test.mjs` runs them on the new schema).
 
+- **The portal's sidebar** (`components/business/portal-sidebar.tsx`). Graphite, with Overview, Advertisements, Inbox,
+  Products & Services, Analytics and Billing in that order, and Settings apart at the bottom above the account menu
+  (appearance, log out). `portalSectionsFor()` decides what a member sees: an analyst has no Inbox, an editor no
+  Billing, a pending business no Inbox, a rejected one Overview and Settings. On tablets and phones it is a drawer
+  behind the top bar's menu button.
+  - **Overview:** active ads, the month's spending and the inquiries waiting for a reply, then the last 30 days.
+  - **Products & Services:** the posts, with a type filter (products, services, special offers, events, updates), and,
+    for housing businesses, the listings.
+  - **Billing** (owner, admins, analysts): the payments the UniBuzz team recorded, totals for the month, 30 days and
+    all time, a CSV for the books, and a printable receipt for each payment. Nothing is charged from the portal.
+  - **Settings:** the business profile, the team, verification (the review and Verified Partner, with a profile
+    checklist) and the account (appearance, notifications, log out).
+
 - **Roles** (`20261107000000_business_teams.sql`). A business's team is an owner, admins, editors and analysts (v1's staff became editors). `business_can(business, capability)` decides for every policy and function:
 
   | Role | What it can do |

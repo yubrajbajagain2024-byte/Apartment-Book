@@ -69,10 +69,9 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   Order of release (the full list, rollbacks included, is "Production deployment checklist" in
   [branches/business-v2.md](branches/business-v2.md); rehearsed on staging on 2026-10-28). PR #51,
   the website part with 55 and 56, is live since 2026-10-28 07:06 UTC.
-  1. Gates: `business-v2`'s next PR merged (the fixes to 50, 55 and 56 from the staging rehearsal
-     and a second independent review; `main`'s copies lack them: **no `db:setup` from `main`
-     before**), and a restorable backup possible: production is on the Free plan, with no
-     Supabase-managed backup (read-only check, 2026-10-28), so Pro's daily backups or a CLI dump.
+  1. Gates: `business-v2`'s fixes to 50, 55 and 56 merged (done: PR #52, 2026-10-28 19:03 UTC), and
+     a restorable backup possible: production is on the Free plan, with no Supabase-managed backup
+     (read-only check, 2026-10-28), so Pro's daily backups or a CLI dump.
   2. Release day: back up (a CLI dump, and `scripts/backup.mjs`), then check production is in the
      rehearsed state (`verify.mjs --live --except …`).
   3. Run `db:setup` once from `main`: 44, 46 and 49 to 56 (47 is applied). Then `verify.mjs --live`
@@ -81,6 +80,11 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   If it must be undone, the release's rollback is 56, 55, 50 and 49 only: Buzz's 51 to 54 stay.
 
   Follow-up work is listed in [branches/business-v2.md](branches/business-v2.md).
+- **The business portal's sidebar** (branch `business-sidebar`, its PR): Overview, Advertisements, Inbox,
+  Products & Services, Analytics, Billing (new: payments, receipts, a CSV) and Settings (new: verification and
+  account pages). No migration. Checked on staging in production's state too (2026-10-28): every sidebar page
+  loads, Billing shows v1's payments. See
+  [branches/business-sidebar.md](branches/business-sidebar.md).
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
   website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
   (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).

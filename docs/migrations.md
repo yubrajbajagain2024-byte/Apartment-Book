@@ -54,9 +54,8 @@ not applied, by a read-only check of production on 2026-10-28). 55 and 56 reache
 write a video's processing details with the service role, which works with or without 55. The full
 list, with the rollbacks, is "Production deployment checklist" in
 [branches/business-v2.md](branches/business-v2.md). In short:
-1. Merge `business-v2`'s fixes to 50, 55 and 56 (the ad trigger found on staging, and a second
-   independent review's eight findings, after #51). **`main`'s copies lack them: no `db:setup` from
-   `main` before they are merged.**
+1. `business-v2`'s fixes to 50, 55 and 56 (the ad trigger found on staging, and a second independent
+   review's eight findings) are on `main` since PR #52 (2026-10-28, 19:03 UTC).
 2. Back up production first: it has no restorable backup yet (Free plan, read-only check on
    2026-10-28), so Pro's daily backups or a Supabase CLI dump, plus `scripts/backup.mjs` for row
    counts. Then check with `verify.mjs --live --except …` that production is still in the state that

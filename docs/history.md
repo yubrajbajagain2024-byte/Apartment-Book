@@ -61,6 +61,10 @@ open work is in [status.md](status.md).
   status.md). The follow-up work (migration 51, now 55; video routes; review fixes) stays on
   `business-v2` for a new PR.
 
+- 2026-10-28 19:03 UTC: PR #52 (`business-v2`'s third and fourth rounds: the fixes to 50, 55 and 56,
+  the staging rehearsal and backup tooling, the production checklist) merged into `main`. None of
+  49 to 56 is on production.
+
 - 2026-10-28, afternoon: read-only checks of production (owner's approval) found migration 47 applied
   on 2026-10-27 at 04:37 UTC although the docs listed it as pending, and no Supabase-managed backup
   (Free plan). A second independent review of the ad approval and payment rules found eight more
