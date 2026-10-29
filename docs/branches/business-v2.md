@@ -9,10 +9,10 @@
     at 07:06 UTC**; production's website runs it, its migrations are not applied. 55 and 56 were 51
     and 52 until 2026-10-28, and this branch's earlier commit messages still call them that
     (docs/migrations.md, "Numbering quirk").
-  - The third and fourth rounds, after #51, are on this branch for a new PR: the fix to 50's and 56's
-    ad trigger found by the staging rehearsal, the fixes to 55 and 56 from a second independent review,
-    the rehearsal, probe and backup tooling, and these docs. **`main`'s 50, 55 and 56 lack those fixes:
-    do not run `db:setup` from `main` before this PR is merged.**
+  - The third and fourth rounds (the fix to 50's and 56's ad trigger found by the staging rehearsal,
+    the fixes to 55 and 56 from a second independent review, the rehearsal, probe and backup tooling,
+    and these docs) were **merged into `main` as PR #52 on 2026-10-28 at 19:03 UTC**. None of its
+    migrations is on production.
   - Written by an AI session.
 - **Purpose:** UniBuzz Business v2: upgrade the v1 portal (migration 39) to the business spec without
   rebuilding it.
@@ -279,11 +279,11 @@ the website pointed at staging (`apps/web/e2e/release-smoke.mjs`, every page of 
 
 ## Production deployment checklist (final, 2026-10-28)
 
-Each production step needs the owner's explicit approval. `main` has PR #51 (the website part, live since 07:06 UTC);
-its migrations 50 and 56 lack the fixes above, so **nothing below starts before this branch's next PR is merged.**
+Each production step needs the owner's explicit approval. `main` has PR #51 (the website part, live since 07:06 UTC)
+and PR #52 (the fixes above, 19:03 UTC): the migrations on `main` are the corrected ones.
 
 **Gates, before release day (none changes production):**
-- [ ] This branch's PR (fourth round: fixes to 55 and 56, tests, tooling, docs; no website code) reviewed and merged.
+- [x] This branch's fourth-round PR (fixes to 55 and 56, tests, tooling, docs) merged: PR #52, 2026-10-28 19:03 UTC.
 - [ ] **A restorable backup is possible.** Production has none today (Free plan). One of, preferably both:
   - Pro plan for the CampConnect organization (USD 25 a month): Supabase's daily backups, restorable from the
     dashboard. Check one exists (read-only): `GET /v1/projects/<ref>/database/backups` lists it.
@@ -349,8 +349,8 @@ its migrations 50 and 56 lack the fixes above, so **nothing below starts before 
 1. **Production runs #49's and #51's code without their migrations.** The owner chooses (production writes):
    - the production deployment checklist below, from its gates on;
    - or revert #49 and #51 on `main` first.
-2. **The checklist's gates:** this branch's fourth-round PR merged (no `db:setup` from `main` before), a restorable
-   backup (Pro's daily backups or a CLI dump: production has none), the Preview key decision.
+2. **The checklist's gates:** a restorable backup (Pro's daily backups or a CLI dump: production has none) and the
+   Preview key decision. (The fourth-round PR is merged: #52.)
 3. When everything is live, update the rows in migrations.md, move a short summary of this file to
    docs/history.md, and delete the file.
 4. **Mobile Reels ads.** The app's Reels pager has fixed-height pages and its own viewer, so it does not show ads yet.
