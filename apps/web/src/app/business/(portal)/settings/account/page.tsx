@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Bell, LogOut } from "lucide-react";
-import { countUnreadPortalNotifications, standingOf, teamRoleLabel } from "@apartment-book/shared";
+import { countUnreadPortalNotifications, standingOf, teamRoleAllows, teamRoleLabel } from "@apartment-book/shared";
 import { businessSignOutAction, markPortalNotificationsReadAction } from "@/lib/actions/business";
 import { requirePortalSession } from "@/lib/business/portal";
 import { PORTAL_THEME_COOKIE, portalThemeOf } from "@/lib/business/theme";
 import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/ui/avatar";
+import { MessageAlertsSetting } from "@/components/business/message-alerts";
 import { SettingsTabs } from "@/components/business/section-tabs";
 import { ThemeSwitch } from "@/components/business/theme-switch";
 import { BizButton, BizLink, PageHeader, Panel, PanelHeader } from "@/components/business/ui";
@@ -43,6 +44,15 @@ export default async function AccountPage() {
           <ThemeSwitch initial={portalThemeOf(jar.get(PORTAL_THEME_COOKIE)?.value)} />
         </div>
       </Panel>
+
+      {membership && standingOf(membership.business) === "approved" && teamRoleAllows(membership.role, "reply") ? (
+        <Panel className="pb-6">
+          <PanelHeader title="Message alerts" subtitle="New messages from students show in the portal as they arrive, on the Inbox's badge and in the tab's title." />
+          <div className="px-6 pt-4">
+            <MessageAlertsSetting />
+          </div>
+        </Panel>
+      ) : null}
 
       {membership ? (
         <Panel className="pb-6">

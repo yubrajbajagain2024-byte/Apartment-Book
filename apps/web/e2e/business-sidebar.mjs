@@ -1,4 +1,4 @@
-// The business portal's sidebar in a browser: its sections in their order (Overview, Advertisements, Inbox, Products &
+// The business portal's sidebar in a browser: its sections in their order (Overview, Inbox, Advertisements, Products &
 // Services, Analytics, Billing, then Settings apart at the bottom), the active mark on each page, every section's page
 // doing its job (Overview's figures, Products' type filter, Billing's totals, CSV and receipt, Settings' pages), the
 // drawer on a phone, and an editor without Billing. Never talks to production.
@@ -14,7 +14,7 @@ const SHOTS = process.argv[2] ?? null;
 if (SHOTS) fs.mkdirSync(SHOTS, { recursive: true });
 const state = JSON.parse(fs.readFileSync(new URL("../../../supabase/tests/staging/.rehearsal.json", import.meta.url), "utf8"));
 const A = state.accounts;
-const MAIN = ["Overview", "Advertisements", "Inbox", "Products & Services", "Analytics", "Billing"];
+const MAIN = ["Overview", "Inbox", "Advertisements", "Products & Services", "Analytics", "Billing"];
 
 let failures = 0;
 let production = 0;
@@ -91,7 +91,7 @@ const heading = (page, name) => page.getByRole("heading", { level: 1, name }).wa
       await heading(page, "Advertisements");
       expect(await page.getByText(/Rh ad /).count(), "the approved ad is not listed");
     }],
-    ["Inbox", "/business/inbox", async () => await page.getByText(/Rh Ben|Rh Dee/).first().waitFor()],
+    ["Inbox", "/business/inbox", async () => await page.getByTestId("inquiry-list").getByText(/Rh Ben|Rh Dee/).first().waitFor()],
     ["Products & Services", "/business/deals", async () => {
       await heading(page, "Products & Services");
       await page.getByRole("navigation", { name: "Filter by type" }).getByRole("link", { name: /Special offers/ }).click();

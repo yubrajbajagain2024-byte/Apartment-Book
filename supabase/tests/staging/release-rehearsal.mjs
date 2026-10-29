@@ -259,7 +259,7 @@ if (STEP === "check") {
       expect(!(await must(cam.rpc("my_saved_ads"))).some((a) => (a.id ?? a.ad_id) === adId), "a paused ad is still in saved ads");
       await must(ops.rpc("admin_resume_ad", { p_ad: adId }));
     });
-    await check("a new inquiry: the business sees neither the chat nor the student until the student writes", async () => {
+    await check("a new inquiry: the business sees neither the chat nor the student, nor can it write first, until the student writes", async () => {
       // A student who has never written to this business (a new one each run, so the check can run again).
       const key = `inq${Date.now().toString(36)}`;
       const dee = await account(key, `rh-${key}-${run}@txstate.edu`, { full_name: "Rh Dee" });
@@ -268,6 +268,9 @@ if (STEP === "check") {
       const chat = await must(deeS.rpc("start_business_inquiry", { p_target_type: "deal", p_target_id: I.deal }));
       expect((await must(staff.from("conversations").select("id").eq("id", chat))).length === 0, "the business sees the empty chat");
       expect((await must(owner.from("profiles").select("id").eq("id", dee.id))).length === 0, "the business sees the student");
+      let first = false;
+      try { await must(staff.from("messages").insert({ conversation_id: chat, sender_id: A.staff.id, content: "Hi! Can we help?" })); } catch (e) { first = /only reply|row-level/i.test(e.message); }
+      expect(first, "the business wrote first in the student's empty inquiry");
       await must(deeS.from("messages").insert({ conversation_id: chat, sender_id: dee.id, content: "Does the code work online?" }));
       expect((await must(staff.from("conversations").select("id").eq("id", chat))).length === 1, "the business cannot see the chat after the student wrote");
       await must(staff.from("messages").insert({ conversation_id: chat, sender_id: A.staff.id, content: "It does" }));

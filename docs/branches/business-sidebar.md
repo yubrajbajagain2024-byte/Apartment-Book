@@ -1,7 +1,8 @@
 # business-sidebar
 
-- **Owner:** Sunil. **As of 2026-10-28:** branched from `main` at PR #52 (`f77d796`); a PR open, not merged.
-  Written by an AI session.
+- **Owner:** Sunil. **As of 2026-10-28:** branched from `main` at PR #52 (`f77d796`); merged as PR #56
+  (2026-10-29 03:34 UTC), nothing left on it. Written by an AI session. The Inbox moved right after Overview on
+  `business-inbox` ([business-inbox.md](business-inbox.md)).
 - **Purpose:** the business portal's navigation as a left sidebar, with every section a working page. The owner's
   brief named a reference image that did not reach the session; the sidebar follows the brief's written description.
 
@@ -58,6 +59,4 @@ Staging was rehearsed with the release and restored to production's state afterw
 
 ## Pending
 
-1. Review and merge the PR. Merging deploys the website. It needs no migration: on today's production the sidebar's
-   pages work as the rest of the portal does, and Ads and Analytics still need 49 and 50 (docs/migrations.md).
-2. Once merged and deleted, a line in docs/history.md and this file removed.
+1. Delete the branch (the owner's call); then a line under "Retired branches" in docs/history.md and this file removed.

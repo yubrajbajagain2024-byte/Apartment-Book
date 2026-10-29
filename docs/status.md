@@ -27,7 +27,8 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   attachments, requests, mute; **Snaps** (view-once); **Calls** (built, paused).
 - **Explore:** apartments with PostGIS distance and maps, roommates, Marketplace (one video per
   item, no comments), anonymous listings with per-chat reveal (47, live since 2026-10-27).
-- **Business portal** (`/business`): live with migration 39.
+- **Business portal** (`/business`): live with migration 39. Its left sidebar, Billing and Settings pages (PR #56,
+  2026-10-29 03:34 UTC) are on production too; Ads and Analytics still need 49 and 50.
 - **Staging** (`campconnect-staging`) has production's migrations since 2026-10-28 (it got 41, 42,
   45 and the two admin migrations then; `verify.mjs --live` against it matches production's model).
 - **Video:** Mux uploads and tours. **Mobile:** Expo SDK 58 / RN 0.88; Android release build works
@@ -80,11 +81,11 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   If it must be undone, the release's rollback is 56, 55, 50 and 49 only: Buzz's 51 to 54 stay.
 
   Follow-up work is listed in [branches/business-v2.md](branches/business-v2.md).
-- **The business portal's sidebar** (branch `business-sidebar`, its PR): Overview, Advertisements, Inbox,
-  Products & Services, Analytics, Billing (new: payments, receipts, a CSV) and Settings (new: verification and
-  account pages). No migration. Checked on staging in production's state too (2026-10-28): every sidebar page
-  loads, Billing shows v1's payments. See
-  [branches/business-sidebar.md](branches/business-sidebar.md).
+- **The business Inbox** (branch `business-inbox`, pushed, no PR yet): directly below Overview, Instagram style, with
+  filters, search, what each chat is about, live alerts (toast, badge, tab title, optional desktop notifications) and
+  the reply-only rule. No migration. Unit tests and `npm run check` pass (2026-10-28); its browser test
+  (`apps/web/e2e/business-inbox.mjs`) and the rehearsal's new "cannot write first" check have **not run yet**: they
+  need staging, which needs the owner's go-ahead. See [branches/business-inbox.md](branches/business-inbox.md).
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
   website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
   (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).
