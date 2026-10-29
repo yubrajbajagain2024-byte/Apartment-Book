@@ -33,6 +33,7 @@ import {
   markPortalNotificationsRead,
   mediaItems,
   pauseAd,
+  pruneSpecialHours,
   resumeAd,
   setMemberRole,
   submitAd,
@@ -192,8 +193,10 @@ export async function updateBusinessAction(_prev: FormState, formData: FormData)
   if (!parsed.success) {
     return { error: "Please fix the highlighted fields.", fieldErrors: flattenZodError(parsed.error).fieldErrors, values: formValues(formData) };
   }
+  // Special hours for dates already gone are dropped as the profile is saved.
+  const input = parsed.data.hours ? { ...parsed.data, hours: pruneSpecialHours(parsed.data.hours, new Date()) } : parsed.data;
   try {
-    await updateBusiness(await createClient(), membership.business.id, parsed.data);
+    await updateBusiness(await createClient(), membership.business.id, input);
   } catch (error) {
     return { error: errorMessage(error), values: formValues(formData) };
   }

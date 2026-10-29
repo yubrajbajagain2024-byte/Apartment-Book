@@ -82,6 +82,8 @@ export async function updateBusiness(supabase: Client, id: string, input: Busine
       city: input.city ?? null,
       logo_url: input.logoUrl ?? null,
       university_ids: input.universityIds,
+      // Only when the form sent them: a database without migration 57 has no hours column to write.
+      ...(input.hours !== undefined ? { hours: input.hours } : {}),
     })
     .eq("id", id);
   if (error) throw error;
@@ -340,16 +342,22 @@ export async function startListingConversation(
 
 /** What students read of a business: approved ones only (row-level security), never the contact address or the review. */
 export const PUBLIC_BUSINESS_SELECT = "id, name, category, description, website, phone, address, city, logo_url, university_ids, status, verified_partner, created_at";
-export type PublicBusiness = Pick<Business, "id" | "name" | "category" | "description" | "website" | "phone" | "address" | "city" | "logo_url" | "university_ids" | "status" | "verified_partner" | "created_at">;
+/** `hours` is missing on a database without migration 57. */
+export type PublicBusiness = Pick<Business, "id" | "name" | "category" | "description" | "website" | "phone" | "address" | "city" | "logo_url" | "university_ids" | "status" | "verified_partner" | "created_at"> & {
+  hours?: Business["hours"];
+};
 
-/** A business's public profile; null when it is not approved (or does not exist). */
+/** A business's public profile, with its opening hours where the database has them; null when it is not approved (or does not exist). */
 export async function getPublicBusiness(supabase: Client, id: string): Promise<PublicBusiness | null> {
-  const { data, error } = await supabase.from("businesses").select(PUBLIC_BUSINESS_SELECT).eq("id", id).eq("status", "approved").maybeSingle();
+  const read = (columns: string) => supabase.from("businesses").select(columns).eq("id", id).eq("status", "approved").maybeSingle();
+  let { data, error } = await read(`${PUBLIC_BUSINESS_SELECT}, hours`);
+  // Before migration 57 there is no hours column: the profile without them.
+  if (error && String(error.code) === "42703") ({ data, error } = await read(PUBLIC_BUSINESS_SELECT));
   if (error) {
     if (isMissingRelation(error)) return null;
     throw error;
   }
-  return data as PublicBusiness | null;
+  return data as unknown as PublicBusiness | null;
 }
 
 /** A business's live posts, newest first, as students see them (the database leaves out the rest). */

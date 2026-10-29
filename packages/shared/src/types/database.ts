@@ -1377,6 +1377,8 @@ export type Database = {
           reviewed_by: string | null;
           created_at: string;
           updated_at: string;
+          /** Opening hours (migration 57): { timezone, week, special }, read with parseBusinessHours(); null for none. Public. */
+          hours: Json | null;
         };
         Insert: {
           id?: string;
@@ -1390,6 +1392,7 @@ export type Database = {
           address?: string | null;
           city?: string | null;
           logo_url?: string | null;
+          hours?: Json | null;
           university_ids?: string[];
           status?: string;
           verified_partner?: boolean;
@@ -1414,6 +1417,7 @@ export type Database = {
           address?: string | null;
           city?: string | null;
           logo_url?: string | null;
+          hours?: Json | null;
           university_ids?: string[];
           status?: string;
           verified_partner?: boolean;
