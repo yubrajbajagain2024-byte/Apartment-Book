@@ -79,6 +79,8 @@ const signIn = async (page, path, u) => {
   await page.waitForURL((url) => !url.pathname.endsWith("/login"));
 };
 
+// From no hours and no website, so the editor starts where a business that never set them does.
+await must(owner.from("businesses").update({ hours: null, website: null }).eq("id", I.business).select("id"));
 const portal = watch(await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage());
 await signIn(portal, "/business/login", A.owner);
 
@@ -130,10 +132,16 @@ await step("the preview shows the hours and a Website button, with the student s
 
 const student = watch(await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage());
 await signIn(student, "/login", A.ben);
-const profileStatus = async (page) => {
+// What is on screen: while a page streams in, React briefly holds a hidden copy of it.
+const shown = (page, id) => page.locator(`[data-testid="${id}"]:visible`);
+const openProfile = async (page) => {
   await page.goto(`${BASE}/businesses/${I.business}`);
-  await page.getByTestId("business-hours").waitFor();
-  return (await page.getByTestId("business-hours").locator("summary").innerText()).replace(/\s+/g, " ").trim();
+  await page.waitForLoadState("networkidle");
+  await shown(page, "business-profile").waitFor();
+};
+const profileStatus = async (page) => {
+  await openProfile(page);
+  return (await shown(page, "business-hours").locator("summary").innerText()).replace(/\s+/g, " ").trim();
 };
 
 await step("a student sees it open now when today has special hours around the clock, with today's name", async () => {
@@ -146,16 +154,17 @@ await step("…and closed, opening tomorrow at 9, when today is a closed holiday
   await must(owner.from("businesses").update({ hours: { timezone: "America/Chicago", week: everyDay(nine), special: [{ date: today, label: "Inventory day", closed: true, hours: [] }, { date: inDays(5), label: "Staff party", closed: false, hours: [{ open: "12:00", close: "15:00" }] }] } }).eq("id", I.business).select("id"));
   const text = await profileStatus(student);
   expect(/^Closed · Opens tomorrow 9 AM/.test(text) && text.includes("Inventory day"), text);
-  const panel = student.getByTestId("business-hours");
+  const panel = shown(student, "business-hours");
   await panel.locator("summary").click();
   expect((await panel.locator("dt").count()) === 7, "the week is not seven days");
   const holidays = await panel.innerText();
-  expect(holidays.includes("Holiday hours") && holidays.includes("Staff party") && holidays.includes("12 PM – 3 PM") && holidays.includes("Times in Central Time"), holidays);
+  // innerText is as drawn: the heading is in capitals.
+  expect(/holiday hours/i.test(holidays) && holidays.includes("Staff party") && holidays.includes("12 PM – 3 PM") && holidays.includes("Times in Central Time"), holidays.replace(/\s+/g, " "));
   if (SHOTS) await student.screenshot({ path: `${SHOTS}/student.png` });
 });
 
 await step("the Website button opens the business's own site in a new tab, without telling it where the student came from", async () => {
-  const button = student.getByTestId("business-website");
+  const button = shown(student, "business-website");
   expect((await button.getAttribute("href")) === WEBSITE, "href");
   expect((await button.getAttribute("target")) === "_blank", "not a new tab");
   const rel = (await button.getAttribute("rel")) ?? "";
@@ -178,10 +187,9 @@ await step("the database refuses malformed hours, and an editor cannot change th
 
 await step("a business without hours shows none", async () => {
   await must(owner.from("businesses").update({ hours: null, website: null }).eq("id", I.business).select("id"));
-  await student.goto(`${BASE}/businesses/${I.business}`);
-  await student.getByTestId("business-profile").waitFor();
-  expect((await student.getByTestId("business-hours").count()) === 0, "hours still shown");
-  expect((await student.getByTestId("business-website").count()) === 0, "a Website button without a website");
+  await openProfile(student);
+  expect((await shown(student, "business-hours").count()) === 0, "hours still shown");
+  expect((await shown(student, "business-website").count()) === 0, "a Website button without a website");
 });
 
 await browser.close();

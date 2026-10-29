@@ -53,7 +53,7 @@ function TimeField({ value, onChange, label }: { value: string; onChange: (v: st
       aria-label={label}
       value={value === "24:00" ? "00:00" : value}
       onChange={(e) => onChange(e.target.value)}
-      className={cn(bizField, "h-10 w-[7.75rem] px-3 tabular-nums")}
+      className={cn(bizField, "h-10 min-w-0 flex-1 px-2 tabular-nums sm:w-[9.25rem] sm:flex-none sm:px-3")}
     />
   );
 }
@@ -74,16 +74,16 @@ function Ranges({ ranges, onChange, name }: { ranges: HoursRange[]; onChange: (r
   return (
     <div className="flex flex-col gap-2">
       {ranges.map((r, i) => (
-        <div key={i} className="flex flex-wrap items-center gap-2">
+        <div key={i} className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <TimeField value={r.open} onChange={(v) => set(i, { open: v })} label={`${name}: opens`} />
-          <span className="text-biz-ink-4">–</span>
+          <span className="shrink-0 text-biz-ink-4">–</span>
           <TimeField value={r.close} onChange={(v) => set(i, { close: v })} label={`${name}: closes`} />
           {ranges.length > 1 ? (
-            <button type="button" onClick={() => onChange(ranges.filter((_, j) => j !== i))} aria-label={`Remove these hours on ${name}`} className="flex h-8 w-8 items-center justify-center rounded-full text-biz-ink-4 hover:bg-biz-surface-3 hover:text-biz-ink-2">
+            <button type="button" onClick={() => onChange(ranges.filter((_, j) => j !== i))} aria-label={`Remove these hours on ${name}`} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-biz-ink-4 hover:bg-biz-surface-3 hover:text-biz-ink-2">
               <X className="h-4 w-4" />
             </button>
           ) : null}
-          {r.close !== "24:00" && minutesOfClock(r.close) <= minutesOfClock(r.open) && r.open !== r.close ? <span className="text-[12px] text-biz-ink-4">closes after midnight</span> : null}
+          {r.close !== "24:00" && minutesOfClock(r.close) <= minutesOfClock(r.open) && r.open !== r.close ? <span className="basis-full text-[12px] text-biz-ink-4 sm:basis-auto">closes after midnight</span> : null}
         </div>
       ))}
       <div className="flex gap-4">
@@ -125,7 +125,7 @@ export function HoursEditor({ initial, error }: { initial: BusinessHours | null;
   const dates = hours.special.map((s) => s.date);
 
   return (
-    <Panel className="flex flex-col gap-5 p-6" data-testid="hours-editor">
+    <Panel className="flex flex-col gap-5 p-4 sm:p-6" data-testid="hours-editor">
       <input type="hidden" name="hours" value={enabled ? JSON.stringify(hours) : "null"} />
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -159,12 +159,22 @@ export function HoursEditor({ initial, error }: { initial: BusinessHours | null;
               const ranges = hours.week[day];
               const open = ranges.length > 0;
               return (
-                <li key={day} className="grid grid-cols-[6.5rem_auto_1fr] items-start gap-x-4 px-4 py-3 sm:grid-cols-[8rem_auto_1fr]" data-testid={`hours-${day}`}>
-                  <span className="pt-2 text-[15px] font-medium text-biz-ink">{HOURS_DAY_LABELS[day]}</span>
-                  <span className="pt-[7px]">
+                // On a phone: the day and its switch on one line, the times under them across the row.
+                <li key={day} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2.5 px-3 py-3 sm:grid-cols-[8rem_auto_1fr] sm:items-start sm:px-4" data-testid={`hours-${day}`}>
+                  <span className="text-[15px] font-medium text-biz-ink sm:pt-2">
+                    {HOURS_DAY_LABELS[day]}
+                    {open ? null : <span className="ml-2 font-normal text-biz-ink-4 sm:hidden">Closed</span>}
+                  </span>
+                  <span className="justify-self-end sm:justify-self-auto sm:pt-[7px]">
                     <Switch checked={open} onChange={(on) => setDay(day, on ? [{ open: "09:00", close: "17:00" }] : [])} label={`Open on ${HOURS_DAY_LABELS[day]}`} />
                   </span>
-                  {open ? <Ranges ranges={ranges} onChange={(r) => setDay(day, r)} name={HOURS_DAY_LABELS[day]} /> : <span className="pt-2 text-[15px] text-biz-ink-4">Closed</span>}
+                  {open ? (
+                    <div className="col-span-2 sm:col-span-1">
+                      <Ranges ranges={ranges} onChange={(r) => setDay(day, r)} name={HOURS_DAY_LABELS[day]} />
+                    </div>
+                  ) : (
+                    <span className="hidden pt-2 text-[15px] text-biz-ink-4 sm:block">Closed</span>
+                  )}
                 </li>
               );
             })}

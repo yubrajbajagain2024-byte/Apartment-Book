@@ -125,6 +125,11 @@ test("the week as listed, Monday first, today marked; upcoming special hours onl
   assert.deepEqual(rows.map((r) => r.label), ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]);
   assert.deepEqual(rows.filter((r) => r.today).map((r) => r.text), ["9 AM – 1 PM, 2 PM – 2 AM"]);
   assert.equal(rows[6].text, "Closed");
+  // Today's special hours replace today's row, with the day's name; the other days keep the week's.
+  const holiday = h.hoursWeekRows(HOURS, "thu", "2026-11-26");
+  assert.deepEqual(holiday.filter((r) => r.today).map((r) => [r.text, r.special]), [["Closed", "Thanksgiving"]]);
+  assert.equal(holiday[2].text, "9 AM – 5 PM");
+  assert.deepEqual(h.hoursWeekRows(HOURS, "thu", "2026-12-24")[3], { day: "thu", label: "Thursday", text: "10 AM – 2 PM", today: true, special: "Special hours" });
   assert.deepEqual(h.upcomingSpecialHours(HOURS, "2026-11-27"), [{ date: "2026-12-24", dateLabel: "Thu, Dec 24", label: null, text: "10 AM – 2 PM" }]);
   assert.equal(h.upcomingSpecialHours(HOURS, "2026-11-20").length, 2);
   assert.equal(h.upcomingSpecialHours(HOURS, "2026-11-20", 10).length, 1);

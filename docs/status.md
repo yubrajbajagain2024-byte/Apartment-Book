@@ -86,8 +86,9 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   the top of the portal's sidebar open a preview of its public profile; a Website button on the profile; opening hours
   (weekly, closed days, holiday hours) set in Settings › Business profile, with "open now" for students on the website
   and in the app. **Migration 57**, not applied anywhere but the rehearsals: until it is, the code shows and offers no
-  hours (preview and Website button work). The app's part reaches students only with an EAS update (owner's approval).
-  See [branches/business-hours.md](branches/business-hours.md).
+  hours (preview and Website button work). Passed on staging with the release and in production's state (2026-10-29).
+  The app's part reaches students only with an EAS update (owner's approval). See
+  [branches/business-hours.md](branches/business-hours.md).
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
   website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
   (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).

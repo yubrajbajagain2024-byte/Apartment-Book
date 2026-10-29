@@ -44,14 +44,19 @@
 | `npm run check` | ✅ 6/6 |
 | `npm run test:shared` | ✅ 213/213 (new `business-hours.test.mjs`, 15 tests: the clock and ranges, open/soon/closed, time zones, past midnight, special hours, 24 hours, daylight saving, parsing, the week and holidays, pruning, the schema, the form field) |
 | `npm run db:test` | ✅ 42 suites, 1561 checks (new `business-hours.test.mjs`: who sets and reads the hours, 22 malformed values refused, the audit, the rollback; the production rollout with 57 in the release) |
-| `apps/web/e2e/business-profile.mjs` on staging | not run yet |
+| `apps/web/e2e/business-profile.mjs` on staging with the release (57 included) | ✅ 9/9, no request to production |
+| The preview, form and profile in production's state (no 49 to 57), a one-off script | ✅ 3/3: the preview with a Website button and no hours, a form without hours that still saves, the student page |
+| `release-rehearsal.mjs` | ✅ 10/10 before, apply in 12 steps with 0 failed requests, 25/25 after; 57's rollback first, cleanly |
+| `apps/web/e2e/business-sidebar.mjs`, `apps/web/e2e/release-smoke.mjs` | ✅ 12/12, 55/55 pages (new: the preview for the owner and an editor, the profile signed out) |
+| Screens looked at | the preview in the light and the dark portal (the student look in both), the student page with a closed holiday, the editor on a desktop and a 390-pixel phone |
 | App (Expo) | typecheck only; not run on a device |
+
+Staging got the release with 57 for these runs (owner's go-ahead) and is back in production's state: row counts as at
+baseline, and `verify.mjs --live` finds the same schema as production.
 
 ## Pending
 
-1. Run the browser test (and the page smoke, which now opens `/business/preview` and the signed-out profile) on
-   staging with the release applied, and the preview in production's state (needs the owner's go-ahead for staging).
-2. Open the PR, review and merge. Merging deploys the website; it works without 57.
-3. Apply 57 on production with the release (owner's approval; docs/migrations.md).
-4. Publish the app's part with an EAS update (owner's approval).
-5. Once merged and deleted, a line in docs/history.md and this file removed.
+1. Open the PR, review and merge. Merging deploys the website; it works without 57.
+2. Apply 57 on production with the release (owner's approval; docs/migrations.md).
+3. Publish the app's part with an EAS update (owner's approval).
+4. Once merged and deleted, a line in docs/history.md and this file removed.

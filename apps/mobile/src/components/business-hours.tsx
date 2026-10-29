@@ -21,7 +21,7 @@ export function BusinessHoursBlock({ hours }: { hours: BusinessHours }) {
   }, []);
   const status = businessHoursStatus(hours, now);
   const tone: Record<HoursStatus["tone"], string> = { open: colors.successText, soon: colors.warningText, closed: colors.dangerText };
-  const rows = hoursWeekRows(hours, status?.today ?? null);
+  const rows = hoursWeekRows(hours, status?.today ?? null, status?.date);
   const specials = status ? upcomingSpecialHours(hours, status.date) : [];
   const zone = HOURS_TIMEZONES.find((t) => t.value === hours.timezone)?.label ?? hours.timezone;
 
@@ -60,7 +60,10 @@ export function BusinessHoursBlock({ hours }: { hours: BusinessHours }) {
           {rows.map((r) => (
             <View key={r.day} style={styles.row}>
               <Text style={[styles.day, r.today && styles.today]}>{r.label}</Text>
-              <Text style={[styles.time, r.today && styles.today, r.text === "Closed" && !r.today && { color: colors.muted }]}>{r.text}</Text>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={[styles.time, r.today && styles.today, r.text === "Closed" && !r.today && { color: colors.muted }]}>{r.text}</Text>
+                {r.special ? <Text style={{ fontSize: 12, fontWeight: "600", color: colors.warningText }}>{r.special}</Text> : null}
+              </View>
             </View>
           ))}
           {specials.length ? (

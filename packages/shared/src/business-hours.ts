@@ -243,9 +243,22 @@ export function businessHoursStatus(hours: BusinessHours | null, now: Date): Hou
   return { ...base, tone: "closed", label: "Closed", detail: next ? `Opens ${at(next[0], false)}` : null };
 }
 
-/** The week as the profile lists it, Monday first: each day's regular hours, today marked. */
-export function hoursWeekRows(hours: BusinessHours, today: HoursDay | null): { day: HoursDay; label: string; text: string; today: boolean }[] {
-  return HOURS_DAYS.map((d) => ({ day: d, label: HOURS_DAY_LABELS[d], text: formatHoursRanges(hours.week[d]), today: d === today }));
+/**
+ * The week as the profile lists it, Monday first: each day's regular hours, today marked, and today's own hours when
+ * `todayDate` has special ones (closed on a holiday reads "Closed" today, with the day's name), so the list never
+ * contradicts the status above it.
+ */
+export function hoursWeekRows(
+  hours: BusinessHours,
+  today: HoursDay | null,
+  todayDate?: string | null,
+): { day: HoursDay; label: string; text: string; today: boolean; special: string | null }[] {
+  const special = todayDate ? specialHoursOn(hours, todayDate) : null;
+  return HOURS_DAYS.map((d) => {
+    const isToday = d === today;
+    if (isToday && special) return { day: d, label: HOURS_DAY_LABELS[d], text: special.closed ? "Closed" : formatHoursRanges(special.hours), today: true, special: special.label ?? "Special hours" };
+    return { day: d, label: HOURS_DAY_LABELS[d], text: formatHoursRanges(hours.week[d]), today: isToday, special: null };
+  });
 }
 
 /** Special hours from today on, within `days` days, soonest first: "Thu, Nov 26 · Thanksgiving · Closed". */

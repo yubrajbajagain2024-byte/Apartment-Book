@@ -22,7 +22,7 @@ export function BusinessHoursPanel({ hours, initial }: { hours: BusinessHours; i
     const timer = setInterval(() => setStatus(businessHoursStatus(hours, new Date())), 30_000);
     return () => clearInterval(timer);
   }, [hours]);
-  const rows = hoursWeekRows(hours, status?.today ?? null);
+  const rows = hoursWeekRows(hours, status?.today ?? null, status?.date);
   const specials = status ? upcomingSpecialHours(hours, status.date) : [];
   const zone = HOURS_TIMEZONES.find((t) => t.value === hours.timezone)?.label ?? hours.timezone;
 
@@ -46,7 +46,10 @@ export function BusinessHoursPanel({ hours, initial }: { hours: BusinessHours; i
           {rows.map((r) => (
             <Fragment key={r.day}>
               <dt className={r.today ? "font-semibold text-gray-900" : "text-gray-600"}>{r.label}</dt>
-              <dd className={cn("text-right tabular-nums", r.today ? "font-semibold text-gray-900" : r.text === "Closed" ? "text-gray-500" : "text-gray-800")}>{r.text}</dd>
+              <dd className={cn("text-right tabular-nums", r.today ? "font-semibold text-gray-900" : r.text === "Closed" ? "text-gray-500" : "text-gray-800")}>
+                {r.text}
+                {r.special ? <span className="block text-xs font-medium text-amber-700">{r.special}</span> : null}
+              </dd>
             </Fragment>
           ))}
         </dl>
