@@ -29,6 +29,7 @@ import type {
   Deal,
   DealWithBusiness,
   InquiryTargetType,
+  ListingPromotion,
   MyBusiness,
   PostTargetType,
   PromotionTarget,
@@ -364,6 +365,48 @@ export async function listPublicBusinessPosts(supabase: Client, businessId: stri
 // --- UniBuzz Business v2: ads, the team's side -----------------------------------------------------------------------
 
 /** Every ad of the business, newest first, budgets included (the team only). */
+/** A payment the UniBuzz team recorded for the business, with what it paid for (the ad, or v1's listing or post). */
+export type BusinessPayment = ListingPromotion & {
+  ad: { id: string; name: string; status: string } | null;
+  apartment: { id: string; title: string } | null;
+  deal: { id: string; title: string } | null;
+};
+
+const PAYMENT_SELECT = "*, ad:ads(id, name, status), apartment:apartments(id, title), deal:deals(id, title)";
+// Before migration 50 a payment names a listing or a post only.
+const PAYMENT_SELECT_V1 = "*, apartment:apartments(id, title), deal:deals(id, title)";
+
+/** What a payment paid for, in a few words. */
+export function paymentSubject(p: Pick<BusinessPayment, "ad" | "apartment" | "deal">): string {
+  if (p.ad) return `Ad: ${p.ad.name}`;
+  if (p.apartment) return `Listing: ${p.apartment.title}`;
+  if (p.deal) return `Post: ${p.deal.title}`;
+  return "Removed ad or listing";
+}
+
+/**
+ * The business's payments, newest first (Billing). The UniBuzz team records each one when it approves an ad (there is
+ * no card on file); every member of the team can read them, and only the team's functions write them.
+ */
+export async function listBusinessPayments(supabase: Client, businessId: string): Promise<BusinessPayment[]> {
+  const full = await supabase.from("listing_promotions").select(PAYMENT_SELECT).eq("business_id", businessId).order("created_at", { ascending: false });
+  if (!full.error) return full.data as unknown as BusinessPayment[];
+  if (!isMissingRelation(full.error)) throw full.error;
+  const v1 = await supabase.from("listing_promotions").select(PAYMENT_SELECT_V1).eq("business_id", businessId).order("created_at", { ascending: false });
+  if (v1.error) throw v1.error;
+  return (v1.data as unknown as BusinessPayment[]).map((p) => ({ ...p, ad_id: p.ad_id ?? null, ad: null }));
+}
+
+/** One of the business's payments (its receipt), or null. */
+export async function getBusinessPayment(supabase: Client, businessId: string, id: string): Promise<BusinessPayment | null> {
+  const full = await supabase.from("listing_promotions").select(PAYMENT_SELECT).eq("business_id", businessId).eq("id", id).maybeSingle();
+  if (!full.error) return full.data as unknown as BusinessPayment | null;
+  if (!isMissingRelation(full.error)) throw full.error;
+  const v1 = await supabase.from("listing_promotions").select(PAYMENT_SELECT_V1).eq("business_id", businessId).eq("id", id).maybeSingle();
+  if (v1.error) throw v1.error;
+  return v1.data ? { ...(v1.data as unknown as BusinessPayment), ad: null } : null;
+}
+
 export async function listAds(supabase: Client, businessId: string): Promise<Ad[]> {
   const { data, error } = await supabase.from("ads").select("*").eq("business_id", businessId).order("created_at", { ascending: false });
   if (error) throw error;

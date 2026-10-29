@@ -147,6 +147,126 @@ export function canManageMember(myRole: string | null | undefined, theirRole: st
   return them !== "admin" || me === "owner";
 }
 
+// --- The portal's sidebar -----------------------------------------------------------------------------------------
+
+/** The portal's sections, top to bottom; Settings sits apart at the bottom of the sidebar. */
+export const PORTAL_SECTIONS = ["overview", "ads", "inbox", "products", "analytics", "billing"] as const;
+export type PortalSection = (typeof PORTAL_SECTIONS)[number];
+
+/**
+ * Who sees Billing: the owner and admins, who decide ad spend, and analysts, who read the numbers. Editors draft ads
+ * but never pay for them. (Every member can read the business's payments in the database; this keeps the portal lean.)
+ */
+export function canSeeBilling(role: string | null | undefined): boolean {
+  return teamRoleAllows(role, "manage_ads") || teamRoleOf(role) === "analyst";
+}
+
+/**
+ * The sections a member's sidebar shows, in PORTAL_SECTIONS's order, and whether Settings is there: everything their
+ * role allows once the business is approved; while it is pending, all but the inbox (students write only to an
+ * approved business); when it is rejected, the front page and Settings (to fix the profile); when suspended, nothing.
+ */
+export function portalSectionsFor(business: { role: string | null | undefined; standing: BusinessStanding }): { main: PortalSection[]; settings: boolean } {
+  if (business.standing === "suspended") return { main: [], settings: false };
+  if (business.standing === "rejected") return { main: ["overview"], settings: true };
+  const main = PORTAL_SECTIONS.filter((s) => {
+    if (s === "inbox") return business.standing === "approved" && teamRoleAllows(business.role, "reply");
+    if (s === "billing") return canSeeBilling(business.role);
+    return true;
+  });
+  return { main, settings: true };
+}
+
+/**
+ * What a complete business profile has, as Settings › Verification lists it: the UniBuzz team reads the profile first
+ * when it reviews a business and when it decides on Verified Partner.
+ */
+export function businessProfileChecklist(b: {
+  logo_url: string | null;
+  description: string | null;
+  website: string | null;
+  address: string | null;
+  city: string | null;
+  contact_email: string | null;
+  phone: string | null;
+  university_ids: string[];
+}): { key: string; label: string; done: boolean }[] {
+  return [
+    { key: "logo", label: "A logo", done: Boolean(b.logo_url) },
+    { key: "description", label: "A description of at least 40 characters", done: (b.description ?? "").trim().length >= 40 },
+    { key: "website", label: "A website", done: Boolean(b.website) },
+    { key: "place", label: "Where you are: an address or a city", done: Boolean(b.address || b.city) },
+    { key: "contact", label: "A way to reach you: an email or a phone number", done: Boolean(b.contact_email || b.phone) },
+    { key: "campuses", label: "The campuses you serve", done: b.university_ids.length > 0 },
+  ];
+}
+
+// --- Billing --------------------------------------------------------------------------------------------------------
+
+/** How a payment stands: running now, not started, over, or cancelled by the UniBuzz team. */
+export type PaymentStanding = "active" | "upcoming" | "ended" | "cancelled";
+export function paymentStanding(p: { status: string; starts_at: string; ends_at: string }, now: number = Date.now()): PaymentStanding {
+  if (p.status === "cancelled") return "cancelled";
+  if (new Date(p.ends_at).getTime() <= now) return "ended";
+  return new Date(p.starts_at).getTime() > now ? "upcoming" : "active";
+}
+
+export function paymentStandingLabel(s: PaymentStanding): string {
+  return { active: "Running", upcoming: "Scheduled", ended: "Ended", cancelled: "Cancelled" }[s];
+}
+
+/** Money by currency (a business may have paid in more than one), as "$120 + €40". */
+export type MoneyByCurrency = Record<string, number>;
+export function formatMoneyByCurrency(totals: MoneyByCurrency): string {
+  const parts = Object.entries(totals).filter(([, cents]) => cents > 0).map(([currency, cents]) => formatCents(cents, currency));
+  return parts.length ? parts.join(" + ") : formatCents(0);
+}
+
+/**
+ * What a business has paid, counting payments by when the UniBuzz team recorded them; cancelled ones count in none
+ * of the totals. `thisMonth` is the calendar month of `now` (UTC), `last30` the 30 days up to it.
+ */
+export function paymentTotals(payments: { status: string; amount_cents: number; currency: string; created_at: string; starts_at: string; ends_at: string }[], now: number = Date.now()): {
+  thisMonth: MoneyByCurrency;
+  last30: MoneyByCurrency;
+  allTime: MoneyByCurrency;
+  running: number;
+} {
+  const out = { thisMonth: {} as MoneyByCurrency, last30: {} as MoneyByCurrency, allTime: {} as MoneyByCurrency, running: 0 };
+  const d = new Date(now);
+  const monthStart = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
+  const add = (into: MoneyByCurrency, currency: string, cents: number) => {
+    into[currency] = (into[currency] ?? 0) + cents;
+  };
+  for (const p of payments) {
+    if (p.status === "cancelled") continue;
+    const at = new Date(p.created_at).getTime();
+    add(out.allTime, p.currency, p.amount_cents);
+    if (at >= monthStart && at <= now) add(out.thisMonth, p.currency, p.amount_cents);
+    if (at > now - 30 * 864e5 && at <= now) add(out.last30, p.currency, p.amount_cents);
+    if (paymentStanding(p, now) === "active") out.running += 1;
+  }
+  return out;
+}
+
+/**
+ * A CSV of payments for a spreadsheet: one row each, the amount in the currency's units. A cell that a spreadsheet
+ * would run as a formula (starting with =, +, -, @ or a tab) is written as text, since ad and listing names are the
+ * business's own words.
+ */
+export function paymentsCsv(rows: { recorded_at: string; reference: string; paid_for: string; starts_at: string; ends_at: string; amount_cents: number; currency: string; status: string }[]): string {
+  const cell = (v: string) => {
+    const safe = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
+    return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+  };
+  const day = (iso: string) => iso.slice(0, 10);
+  const lines = [["Recorded", "Reference", "Paid for", "From", "To", "Amount", "Currency", "Status"].join(",")];
+  for (const r of rows) {
+    lines.push([day(r.recorded_at), r.reference, r.paid_for, day(r.starts_at), day(r.ends_at), (r.amount_cents / 100).toFixed(2), r.currency, r.status].map((v) => cell(String(v))).join(","));
+  }
+  return lines.join("\r\n") + "\r\n";
+}
+
 // --- UniBuzz Business v2: ads ------------------------------------------------------------------------------------
 
 /** An ad's status as it stands now, whether or not the database's sweep has run since its dates came (ad_effective_status()). */
