@@ -521,11 +521,16 @@ Buzz, so nothing on the Buzz page shows who is looking) and the Buzz label carri
   (`supabase/migrations/20261108000200_buzz_prompt_threads.sql`); on a database without it an answer is its own buzz. While
   the account cannot post, "Muted until … · Details" stands in for the actions. A blocked text gets the engine's sheet
   (Edit, the guidelines, and support resources where they apply); a held one says it is with the safety team.
-- **Thread.** The root large, then the conversation as a tree, like Reddit's: every reply under the one it answers, at
-  any depth, joined to it by a thread line in the colour of that anon, so a back-and-forth reads top to bottom like a
-  story. Best (the default; the choice holds for the session), New or Old orders each level. A tap on a reply's header
-  folds it and everything under it ("+N"); past three replies under a top-level one (two deeper) the rest wait behind
-  "N more replies", and past six levels "Continue this thread" shows that branch on its own ("All replies" goes back).
+- **Thread.** The root large, then the conversation as a tree, laid out like Reddit's: every reply under the one it
+  answers, one step in, at any depth, with its alias mark, its words across the row (17 pt) and one quiet line of
+  actions at its right (the menu, Reply, the votes on nothing). A subtle grey-green line runs down from each reply below
+  its words, curving into the marks of its replies, so who answers whom reads at a glance; each conversation under the
+  buzz is set apart by a band. Best (the default; the choice holds for the session), New or Old orders each level. A tap
+  on a reply's header folds it and everything under it ("+N ⌄"); so does a tap on any thread line, which folds the reply
+  that line belongs to and brings it back into view if it was scrolled past. Past three replies under a top-level one
+  (two deeper) the rest wait behind "N more replies ⌄", and past six levels "Continue this thread" shows that branch on
+  its own ("All replies" goes back). A round ⌄ button at the bottom right goes to the next conversation under the buzz
+  (from the top, to the first).
   Replies that arrived since you last opened the thread carry a lime dot and "N new" goes to the first (when you last
   looked is kept on the phone only, `src/lib/buzz-seen.ts`). Folds, placeholders, the reply bar ("You're anonymous",
   the "replying to" chip, 500 characters, send) or the locked line. The nesting comes from `treeParentId`

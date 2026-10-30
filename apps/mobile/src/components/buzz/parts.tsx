@@ -247,19 +247,19 @@ export function CollapsedFold({ id, reason, children }: { id: string; reason: "c
  * the lit arrow again to take the vote back. Your own items and items under review are not voted on: the arrows dim.
  * Up is lime, down coral.
  */
-export function VoteCluster({ item, size = "sm" }: { item: Item; size?: "sm" | "md" }) {
+export function VoteCluster({ item, size = "sm", plain = false }: { item: Item; size?: "sm" | "md"; plain?: boolean }) {
   const up = item.myVote === 1;
   const down = item.myVote === -1;
   const disabled = item.isMine || item.status !== "active";
   const upBounce = useBounceOn(up);
   const downBounce = useBounceOn(down);
-  const height = size === "sm" ? 36 : 44;
+  const height = plain ? 32 : size === "sm" ? 36 : 44;
   const upColor = up ? P.accentInk : P.ink3;
   const downColor = down ? P.down : P.ink3;
   // Screen readers hear what is voted on: "Upvote" on a buzz, "Upvote reply" on a reply.
   const noun = item.kind === "reply" ? " reply" : "";
   return (
-    <View style={[styles.votes, { height }]} accessibilityRole="toolbar" accessibilityLabel="Votes">
+    <View style={[styles.votes, plain && styles.votesPlain, { height }]} accessibilityRole="toolbar" accessibilityLabel="Votes">
       <Pressable
         onPress={() => voteOnBuzz(item.id, 1)}
         disabled={disabled}
@@ -419,6 +419,8 @@ const styles = StyleSheet.create({
   content: { gap: 6 },
   fold: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, borderRadius: R.md, borderCurve: "continuous", backgroundColor: P.surface2 },
   votes: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", borderRadius: R.pill, backgroundColor: P.surface2 },
+  // A reply's votes in a thread: the arrows and the score on nothing, as quiet as the other actions beside them.
+  votesPlain: { backgroundColor: "transparent", alignSelf: "auto" },
   arrow: { height: "100%", minWidth: 44, alignItems: "center", justifyContent: "center" },
   arrowLeft: { paddingLeft: 4 },
   arrowRight: { paddingRight: 4 },
