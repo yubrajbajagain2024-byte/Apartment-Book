@@ -40,7 +40,7 @@ import { openThread } from "./card";
 import { BuzzGatePanel, BuzzSignedOutPanel, useBuzzGate } from "./gate";
 import { ComposerGuard, ComposerModeBanner, useBuzzPostingStatus } from "./guard";
 import { BuzzActionsHost, useBuzzItemMenu } from "./item-menu";
-import { BuzzMediaActive, BuzzMediaView } from "./media";
+import { BuzzMediaView } from "./media";
 import { useBuzzModeration } from "./moderation";
 import { AliasLine, BuzzContent, BuzzTags, BuzzText, CollapsedFold, MoreButton, PollView, PromptLine, ShareButton, StatusChip, SupportLink, VoteCluster } from "./parts";
 import { BuzzToastHost } from "./toast";
@@ -407,28 +407,26 @@ function Thread({ threadId, openAt, userId, onBack }: { threadId: string; openAt
     );
 
   return (
-    <BuzzMediaActive.Provider value={focused}>
-      <BuzzActionsHost>
-        <View style={styles.screen}>
-          <StatusBar style="light" />
-          <ThreadHeader root={state.status === "ready" ? (root ?? null) : null} onBack={onBack} />
-          <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-            <View style={styles.flex}>{content}</View>
-            {state.status === "ready" && root ? (
-              locked ? (
-                <View style={[styles.lockedBar, { paddingBottom: Math.max(insets.bottom, 12) }]} accessibilityRole="summary">
-                  <Icon name="lock-closed-outline" size={15} color={P.ink3} />
-                  <Text style={[T.footnote, { color: P.ink3 }]}>{root.locked ? BUZZ_REPLY_COPY.locked : BUZZ_REPLY_COPY.closed}</Text>
-                </View>
-              ) : (
-                <ReplyBar threadId={threadId} prompt={root.isPromptThread === true} inputRef={inputRef} bottom={insets.bottom} onSent={onSent} onLocked={() => void load("quiet")} />
-              )
-            ) : null}
-          </KeyboardAvoidingView>
-          <BuzzToastHost bottom={Math.max(insets.bottom, 12) + 112} enabled={focused} />
-        </View>
-      </BuzzActionsHost>
-    </BuzzMediaActive.Provider>
+    <BuzzActionsHost>
+      <View style={styles.screen}>
+        <StatusBar style="light" />
+        <ThreadHeader root={state.status === "ready" ? (root ?? null) : null} onBack={onBack} />
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <View style={styles.flex}>{content}</View>
+          {state.status === "ready" && root ? (
+            locked ? (
+              <View style={[styles.lockedBar, { paddingBottom: Math.max(insets.bottom, 12) }]} accessibilityRole="summary">
+                <Icon name="lock-closed-outline" size={15} color={P.ink3} />
+                <Text style={[T.footnote, { color: P.ink3 }]}>{root.locked ? BUZZ_REPLY_COPY.locked : BUZZ_REPLY_COPY.closed}</Text>
+              </View>
+            ) : (
+              <ReplyBar threadId={threadId} prompt={root.isPromptThread === true} inputRef={inputRef} bottom={insets.bottom} onSent={onSent} onLocked={() => void load("quiet")} />
+            )
+          ) : null}
+        </KeyboardAvoidingView>
+        <BuzzToastHost bottom={Math.max(insets.bottom, 12) + 112} enabled={focused} />
+      </View>
+    </BuzzActionsHost>
   );
 }
 
@@ -463,7 +461,7 @@ function RootArticle({ root }: { root: Buzz }) {
       ) : (
         <>
           <BuzzContent buzz={root} large />
-          <BuzzMediaView media={root.media} />
+          <BuzzMediaView buzz={root} repliesBehind />
         </>
       )}
       {root.poll ? <PollView threadId={root.id} poll={root.poll} isMine={root.isMine} disabled={root.status !== "active"} /> : null}

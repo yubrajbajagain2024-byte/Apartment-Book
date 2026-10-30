@@ -1,19 +1,12 @@
-import { createContext, memo, useContext, useEffect, useState } from "react";
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { memo, useContext, useRef } from "react";
+import { Pressable, StyleSheet, View, type StyleProp, type ViewInstance, type ViewStyle } from "react-native";
 import { Image } from "expo-image";
-import { useIsFocused } from "expo-router";
-import { useVideoPlayer, VideoView } from "expo-video";
-import { muxPlaybackUrl, muxPosterUrl, type BuzzMedia } from "@apartment-book/shared";
+import { useRouter } from "expo-router";
+import { muxPosterUrl, type Buzz, type BuzzMedia } from "@apartment-book/shared";
 import { Icon } from "@/components/icon";
-import { MediaViewer, type MediaViewerItem } from "@/components/messages/media-viewer";
-import { VIDEO_AUDIO_MODE } from "@/lib/video-sound";
+import { entryOf, measureOrigin, openViewer, viewerItemFromBuzz } from "@/lib/reel-viewer";
+import { OpeningBandContext } from "@/lib/viewer-chrome";
 import { P, R } from "./ui";
-
-/**
- * Whether the Buzz surface around the media is on screen (Home's Buzz page while it is the page shown, a thread while
- * it is on top). A video playing inline pauses when it is not, so nothing goes on talking behind another screen.
- */
-export const BuzzMediaActive = createContext(true);
 
 type Photo = Extract<BuzzMedia, { type: "image" }>;
 type Video = Extract<BuzzMedia, { type: "video" }>;
@@ -27,24 +20,69 @@ function aspectOf(m: { width: number | null; height: number | null }, fallback: 
 }
 
 /**
- * A buzz's photos or its one video (UniVerse's BuzzMediaView). Up to four photos in the 1 / 2 / 3 / 4 layouts, a tap
- * opening them full screen (swipe between them, pinch or double tap to zoom: the app's media viewer); or one video, its
- * still with a play button, then playing in place with the system controls. Anonymous photos carry no metadata (they
- * were re-encoded on the phone that posted them) and the viewer shows nothing but the picture.
+ * A buzz's photos or its one video (UniVerse's BuzzMediaView): up to four photos in the 1 / 2 / 3 / 4 layouts, or one
+ * video's still with a play button. A tap opens them in the app's full-screen viewer, as Orbit and Reels do: the tapped
+ * tile grows to the screen, a sideways swipe moves between the photos with the finger, a swipe back (or Back) shrinks the
+ * page into the tile of the photo on screen, and the list behind stays exactly where it was. The page is anonymous (see
+ * viewerItemFromBuzz): the alias, the words and Buzz's own votes, replies and share, never a name or a profile.
+ * `repliesBehind`: shown on the thread's own screen, whose replies the viewer then closes back onto.
  */
-export const BuzzMediaView = memo(function BuzzMediaView({ media, style }: { media: readonly BuzzMedia[]; style?: StyleProp<ViewStyle> }) {
-  const [open, setOpen] = useState<number | null>(null);
+export const BuzzMediaView = memo(function BuzzMediaView({ buzz, repliesBehind = false, style }: { buzz: Buzz; repliesBehind?: boolean; style?: StyleProp<ViewStyle> }) {
+  const router = useRouter();
+  const openingBand = useContext(OpeningBandContext);
+  /** Each tile as laid out, to measure where the viewer opens from and lands. */
+  const tiles = useRef<(ViewInstance | null)[]>([]);
+  const media = buzz.media;
   if (media.length === 0) return null;
   const video = media.find((m): m is Video => m.type === "video");
-  if (video) return <BuzzVideo video={video} style={style} />;
-  const photos = media.filter((m): m is Photo => m.type === "image").slice(0, 4);
-  const n = photos.length;
+  const photos = video ? [] : media.filter((m): m is Photo => m.type === "image").slice(0, 4);
+  const shown: BuzzMedia[] = video ? [video] : photos;
+  const n = shown.length;
   if (n === 0) return null;
-  const items: MediaViewerItem[] = photos.map((p) => ({ kind: "image", uri: p.url }));
+  // A lone picture keeps the frame's rounded corners; tiles in a grid meet square.
+  const radius = n === 1 ? R.lg : 0;
+
+  /**
+   * Opens the viewer on the tapped photo or the video. Every tile is measured, so closing on another photo lands on that
+   * one; under a floating bar (Home's Buzz page) only the part of a tile between the bars is opened from (OpeningBand).
+   */
+  async function open(index: number) {
+    const item = viewerItemFromBuzz({ ...buzz, media: shown });
+    if (!item) return;
+    const band = openingBand?.();
+    const measured = await Promise.all(shown.map((_, i) => measureOrigin(tiles.current[i] ?? null, radius)));
+    const origins = measured.map((m) => (m && band ? { ...m, clip: band } : m));
+    openViewer(router, { entries: [entryOf(item, index)], index: 0, then: "end", origin: origins[index], origins: n > 1 ? origins : undefined, repliesBehind });
+  }
+
+  if (video) {
+    const poster = video.posterUrl ?? muxPosterUrl(video.playbackId);
+    return (
+      <View style={[styles.frame, { aspectRatio: aspectOf(video, 16 / 9) }, style]}>
+        <Pressable ref={(v) => void (tiles.current[0] = v)} onPress={() => void open(0)} accessibilityRole="button" accessibilityLabel="Play video" accessibilityHint="Opens it full screen" style={styles.fill}>
+          <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} recyclingKey={poster} />
+          <View style={styles.playWrap} pointerEvents="none">
+            <View style={styles.play}>
+              <Icon name="play" size={26} color="#ffffff" style={{ marginLeft: 3 }} />
+            </View>
+          </View>
+        </Pressable>
+      </View>
+    );
+  }
+
   const tile = (i: number, tileStyle: StyleProp<ViewStyle>) => {
     const p = photos[i]!;
     return (
-      <Pressable key={p.url} onPress={() => setOpen(i)} accessibilityRole="imagebutton" accessibilityLabel={`Photo ${i + 1} of ${n}`} accessibilityHint="Opens it full screen" style={[styles.tile, tileStyle]}>
+      <Pressable
+        key={p.url}
+        ref={(v) => void (tiles.current[i] = v)}
+        onPress={() => void open(i)}
+        accessibilityRole="imagebutton"
+        accessibilityLabel={`Photo ${i + 1} of ${n}`}
+        accessibilityHint="Opens it full screen"
+        style={[styles.tile, tileStyle]}
+      >
         <Image source={{ uri: p.url }} placeholder={p.blur ? { blurhash: p.blur } : undefined} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} recyclingKey={p.url} />
       </Pressable>
     );
@@ -83,52 +121,8 @@ export const BuzzMediaView = memo(function BuzzMediaView({ media, style }: { med
       </View>
     );
 
-  return (
-    <>
-      <View style={[styles.frame, style]}>{grid}</View>
-      <MediaViewer visible={open !== null} items={items} index={open ?? 0} onClose={() => setOpen(null)} />
-    </>
-  );
+  return <View style={[styles.frame, style]}>{grid}</View>;
 });
-
-/** One video: its still and a play button until tapped, then the player itself with the system's controls. */
-function BuzzVideo({ video, style }: { video: Video; style?: StyleProp<ViewStyle> }) {
-  const [playing, setPlaying] = useState(false);
-  const poster = video.posterUrl ?? muxPosterUrl(video.playbackId);
-  return (
-    <View style={[styles.frame, { aspectRatio: aspectOf(video, 16 / 9) }, style]}>
-      {playing ? (
-        <InlinePlayer playbackId={video.playbackId} />
-      ) : (
-        <Pressable onPress={() => setPlaying(true)} accessibilityRole="button" accessibilityLabel="Play video" style={styles.fill}>
-          <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
-          <View style={styles.playWrap} pointerEvents="none">
-            <View style={styles.play}>
-              <Icon name="play" size={26} color="#ffffff" style={{ marginLeft: 3 }} />
-            </View>
-          </View>
-        </Pressable>
-      )}
-    </View>
-  );
-}
-
-/** Plays once it mounts (the person asked for it), with sound; pauses whenever the Buzz surface leaves the screen. */
-function InlinePlayer({ playbackId }: { playbackId: string }) {
-  const active = useContext(BuzzMediaActive);
-  const focused = useIsFocused();
-  const player = useVideoPlayer({ uri: muxPlaybackUrl(playbackId) }, (p) => {
-    p.loop = false;
-    p.audioMixingMode = VIDEO_AUDIO_MODE;
-    p.muted = false;
-    p.play();
-  });
-  const onScreen = active && focused;
-  useEffect(() => {
-    if (!onScreen) player.pause();
-  }, [onScreen, player]);
-  return <VideoView player={player} style={styles.fill} contentFit="contain" nativeControls fullscreenOptions={{ enable: true }} allowsPictureInPicture={false} allowsVideoFrameAnalysis={false} accessibilityLabel="Video" />;
-}
 
 const styles = StyleSheet.create({
   frame: { overflow: "hidden", borderRadius: R.lg, borderCurve: "continuous", backgroundColor: P.surface2 },
