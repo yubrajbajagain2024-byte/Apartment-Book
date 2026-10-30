@@ -118,7 +118,7 @@ export function ConsoleChart<K extends string>({ series, measures, label, emptyT
       </div>
 
       {table ? (
-        <div className="max-h-72 overflow-y-auto rounded-lg ring-1 ring-gray-200">
+        <div className="relative max-h-72 overflow-y-auto rounded-lg ring-1 ring-gray-200">
           <table className="w-full text-left text-sm">
             <caption className="sr-only">{`${label}: ${current.label} by day`}</caption>
             <thead className="sticky top-0 bg-gray-50 text-xs text-gray-500">

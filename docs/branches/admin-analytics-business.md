@@ -53,7 +53,7 @@ branch brings over **the app and the shared code it needs, and nothing that touc
 | `npm run db:test` | ✅ 43 suites, 1661 checks, 0 failures (new: `console-business.test.mjs`, 95 checks, on this repo's schema and production's; `production-rollout.test.mjs` applies and rolls back 59 with the release) |
 | `npm run test:shared` | ✅ 219/219 (new: `ad-ops.test.mjs`) |
 | `npm run check` | ✅ 9/9 tasks: typecheck, lint and build of the website, CampConnect Admin, the app and the shared package |
-| The new components in a browser | sample data through the real components, desktop and phone, in Chrome (a throwaway page in the website before the move, not committed): no browser errors; fixed a clipped chart label and a grid that could widen phone pages |
+| The new components in a browser | sample data through the real components, desktop and phone, in Chrome (throwaway pages, not committed), in the website before the move and in the admin app after it: no browser errors; fixed a clipped chart label, a grid that could widen phone pages, and a screen-reader label that widened phone pages from inside a scrolling table |
 | `apps/admin/e2e/admin.mjs` (extended: every view of both sections, shown to owners and admins only) | **not run**: it needs the admin app running against a project with a staff account and its authenticator key |
 | Against staging, signed in as staff with a second factor | **not run**: no staging credentials on this machine |
 

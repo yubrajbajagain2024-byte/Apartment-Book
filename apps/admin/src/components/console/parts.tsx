@@ -52,7 +52,8 @@ export function KeyValue({ rows, className }: { rows: { k: string; v: ReactNode 
 }
 
 export function Panel({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200", className)}>{children}</div>;
+  // relative: a screen-reader-only label inside a scrolling table stays inside the panel, not widening the page.
+  return <div className={cn("relative rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-200", className)}>{children}</div>;
 }
 
 export function StatTile({ label, value, hint, children }: { label: string; value: string; hint?: string; children?: ReactNode }) {

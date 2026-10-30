@@ -32,7 +32,7 @@ export function PaymentsTable({ payments, showBusiness = true }: { payments: Con
   return (
     <>
       <Panel className="overflow-x-auto p-0">
-        <table className="w-full min-w-[720px] text-sm">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="text-left text-xs text-gray-500">
             <tr>
               <th className="px-3 py-2 font-medium">Recorded</th>
