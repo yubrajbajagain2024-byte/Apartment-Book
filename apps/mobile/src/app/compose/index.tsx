@@ -38,24 +38,41 @@ import { useAppTheme } from "@/lib/theme-provider";
  */
 type CameraMode = "post" | "reel" | "buzz" | "snap" | ListingMode;
 
-/** Along the bottom, left to right; the camera opens on POST. */
+/** Along the bottom, left to right: BUZZ at the far left, SNAP at the far right; the camera opens on POST. */
 const MODES: { value: CameraMode; label: string }[] = [
-  { value: "snap", label: "SNAP" },
+  { value: "buzz", label: "BUZZ" },
   { value: "post", label: "POST" },
   { value: "reel", label: "REEL" },
-  { value: "buzz", label: "BUZZ" },
+  { value: "snap", label: "SNAP" },
 ];
+/** Above the shutter for a Snap or a listing: a photo or a video. */
 const CAPTURE: { value: "photo" | "video"; label: string }[] = [
   { value: "photo", label: "Photo" },
   { value: "video", label: "Video" },
 ];
-const REEL_LENGTHS: { value: "180" | "60" | "15"; label: string }[] = [
+/** A video's length (its seconds), or a photo. */
+type Shot = "180" | "60" | "15" | "photo";
+type Length = Exclude<Shot, "photo">;
+/**
+ * Above the shutter for POST and REEL alike, TikTok's row: the video lengths, then Photo beside them. It is the same row
+ * in both modes, so moving between them changes only what is chosen in it: each mode keeps its own choice (POST opens on
+ * Photo, REEL on 60s), and Photo chosen on REEL makes a post (a reel is a video).
+ */
+const SHOTS: { value: Shot; label: string }[] = [
   { value: "180", label: "3m" },
   { value: "60", label: "60s" },
   { value: "15", label: "15s" },
+  { value: "photo", label: "Photo" },
 ];
-/** A video in a post can run as long as a reel. */
-const POST_VIDEO_MAX = REEL_MAX_SECONDS;
+/** A listing's video can run as long as a reel. */
+const LISTING_VIDEO_MAX = REEL_MAX_SECONDS;
+/**
+ * The camera's own mode (photo or video output). On iOS the camera stays in video mode for POST, REEL and SNAP: expo-camera
+ * keeps its photo output in both modes, so a photo comes from the same session and changing mode, or between a photo and
+ * a video, never rebuilds it (no reload, no blink). Android's camera (CameraX) binds one or the other, so there it
+ * follows what is being shot, the change hidden under a short dip of the veil. A listing keeps the full-size photo mode.
+ */
+const HOLD_VIDEO = Platform.OS === "ios";
 /** Shorter than this and a tap-tap is a slip, not a video. */
 const MIN_SECONDS = 1;
 const BAR = 64;
@@ -65,7 +82,9 @@ const SIMULATOR = Platform.OS === "ios" && !Device.isDevice;
 /**
  * Create, TikTok's way: the + opens straight onto the live camera, full screen. The picture fills a rounded stage with
  * the camera's switches down its right edge (flip, flash, timer), the capture choices above the shutter, and below the
- * stage the library's newest picture (the in-app gallery), SNAP | POST | REEL | BUZZ, and the drafts. Tap the shutter
+ * stage the library's newest picture (the in-app gallery) at the bottom left, BUZZ | POST | REEL | SNAP, and the drafts.
+ * POST and REEL are one camera: the same stage, the same switches and the same row above the shutter (3m, 60s, 15s,
+ * Photo), so moving between them only moves the choice in that row, and the camera never restarts. Tap the shutter
  * for a photo, or to start and stop a video; pinch to zoom, double-tap to flip, swipe sideways to change mode. A post's
  * or reel's shot goes to the editor at once; a Snap goes to Send To (app/snap). BUZZ turns the stage into an anonymous
  * text composer (components/compose/buzz-stage.tsx) while the camera pauses underneath; its X comes back to POST.
@@ -105,8 +124,11 @@ export default function CameraScreen() {
   const [flash, setFlash] = useState<"off" | "on" | "auto">("off");
   const [timer, setTimer] = useState<0 | 3 | 10>(0);
   const [zoom, setZoom] = useState(0);
+  /** A Snap's or a listing's choice: a photo or a video. */
   const [capture, setCapture] = useState<"photo" | "video">("photo");
-  const [reelLength, setReelLength] = useState<"180" | "60" | "15">("60");
+  /** POST's choice in the shared row (a photo, or a video of that length), and REEL's length. */
+  const [postShot, setPostShot] = useState<Shot>("photo");
+  const [reelLength, setReelLength] = useState<Length>("60");
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -140,8 +162,12 @@ export default function CameraScreen() {
   const shownDrafts = useMemo(() => drafts.filter((d) => (listing ? d.state.mode === s.mode : !isListing(d.state.mode))), [drafts, listing, s.mode]);
   const adding = s.media.length > 0;
   const room = roomFor(s);
-  const video = mode === "reel" || capture === "video";
-  const maxSeconds = mode === "reel" ? Number(reelLength) : mode === "snap" ? SNAP_LIMITS.maxVideoSeconds : POST_VIDEO_MAX;
+  /** POST and REEL share the row of lengths and Photo; a Snap and a listing have Photo | Video. */
+  const shared = mode === "post" || mode === "reel";
+  const shot: Shot = mode === "reel" ? reelLength : postShot;
+  const video = shared ? shot !== "photo" : capture === "video";
+  const maxSeconds = shared && shot !== "photo" ? Number(shot) : mode === "snap" ? SNAP_LIMITS.maxVideoSeconds : LISTING_VIDEO_MAX;
+  const cameraMode = HOLD_VIDEO && !listing ? "video" : video ? "video" : "picture";
   const canCapture = mode === "snap" || (video ? room.videos > 0 : room.photos > 0);
   const micOff = micPermission !== null && !micPermission.granted;
 
@@ -158,11 +184,23 @@ export default function CameraScreen() {
 
   // Adding to a post with no room left for a photo (or a video): the capture switches to what still fits.
   useEffect(() => {
-    if ((mode === "post" || listing) && adding) {
+    if (!adding) return;
+    if (mode === "post") {
+      if (room.photos === 0 && room.videos > 0) setPostShot((v) => (v === "photo" ? "60" : v));
+      if (room.videos === 0 && room.photos > 0) setPostShot("photo");
+    } else if (listing) {
       if (room.photos === 0 && room.videos > 0) setCapture("video");
       if (room.videos === 0 && room.photos > 0) setCapture("photo");
     }
-  }, [mode, adding, room.photos, room.videos]);
+  }, [mode, listing, adding, room.photos, room.videos]);
+
+  // Android rebinds its camera when it moves between photo and video: a short dip of the veil hides the frames that takes.
+  const shownMode = useRef(cameraMode);
+  useEffect(() => {
+    if (shownMode.current === cameraMode) return;
+    shownMode.current = cameraMode;
+    if (!reduceMotion) veil.value = withSequence(withTiming(0.7, { duration: 90 }), withDelay(220, withTiming(0, { duration: 240, easing: Easing.out(Easing.quad) })));
+  }, [cameraMode, reduceMotion, veil]);
 
   // Signed out there is nothing to post with.
   useEffect(() => {
@@ -344,6 +382,15 @@ export default function CameraScreen() {
     if (next === "post" || next === "reel") compose.setMode(next);
   }
 
+  /** A choice in POST's and REEL's shared row. Photo on REEL moves to POST, on Photo: a reel is a video. */
+  function chooseShot(next: Shot) {
+    if (mode !== "reel") return setPostShot(next);
+    if (next !== "photo") return setReelLength(next);
+    if (recording || adding || countdown !== null) return;
+    setPostShot("photo");
+    switchMode("post");
+  }
+
   /** A buzz went out: away from the camera, to Home's Buzz page, where it is at the top of the feed it went to. */
   function buzzPosted() {
     openHomeSection("buzz");
@@ -460,7 +507,7 @@ export default function CameraScreen() {
             facing={facing}
             // Selfies come out as they looked on screen, as TikTok's and Snapchat's do.
             mirror={facing === "front"}
-            mode={video ? "video" : "picture"}
+            mode={cameraMode}
             // The front camera has no flash of its own: the screen lights the face instead.
             flash={(facing === "front" && flash !== "off" ? "screen" : flash) as FlashMode}
             enableTorch={video && recording && flash === "on" && facing === "back"}
@@ -556,9 +603,10 @@ export default function CameraScreen() {
               </Pressable>
             ) : null}
             {!recording && countdown === null ? (
-              <Animated.View key={mode} entering={reduceMotion ? undefined : FadeIn.duration(200)} style={styles.lengths}>
-                {mode === "reel" ? (
-                  <ModeSwitcher options={REEL_LENGTHS} value={reelLength} onChange={setReelLength} size="small" pill />
+              // POST and REEL keep the very same row (its choice glides between them); a Snap's or a listing's fades in.
+              <Animated.View key={shared ? "shared" : mode} entering={reduceMotion ? undefined : FadeIn.duration(200)} style={styles.lengths}>
+                {shared ? (
+                  <ModeSwitcher options={SHOTS.filter((o) => !adding || (o.value === "photo" ? room.photos > 0 : room.videos > 0))} value={shot} onChange={chooseShot} size="small" pill />
                 ) : (
                   <ModeSwitcher options={CAPTURE.filter((o) => mode === "snap" || !adding || (o.value === "photo" ? room.photos > 0 : room.videos > 0))} value={capture} onChange={setCapture} size="small" pill />
                 )}

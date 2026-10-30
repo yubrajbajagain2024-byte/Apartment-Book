@@ -12,7 +12,7 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   blocking, notifications with mutes and mark-all-read, activity status, push (migration 36).
 - **Home:** Orbit (posts + reels blend), Buzz tab, Reels viewer, floating "+" on Orbit, the menu
   under your photo; Posts kept as a tabless section.
-- **Create flow (app):** camera first (SNAP | POST | REEL | BUZZ, front lens by default), gallery,
+- **Create flow (app):** camera first (BUZZ | POST | REEL | SNAP since 2026-10-30, front lens by default), gallery,
   editor, publish with title, link, audience (campus | global | friends | selected) and comments
   switch; roommate posts and Marketplace items made in the same flow, optionally anonymous.
 - **Discover tab:** search plus popular posts, topics and accounts per campus (falls back until 44
@@ -94,8 +94,13 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 - **The Buzz thread, laid out like Reddit's** (PR #66): larger replies with their actions at the right, subtle thread
   lines that fold their branch when tapped, a band between conversations, a button to the next one. App only; reaches
   testers with an EAS update (owner's approval). Not seen on a device.
-- **Snap previews in chats** (branch `snap-preview-frost`, no PR yet): a lighter frost and a slow drift while unopened,
-  in the app and on the website. The preview itself is unchanged (32 pixels). Not seen on a device.
+- **Snap previews in chats** (PR #67): a lighter frost and a slow drift while unopened, in the app and on the website.
+  The preview itself is unchanged (32 pixels). Not seen on a device.
+- **One camera for POST and REEL** (branch `camera-post-reel`, no PR yet): BUZZ | POST | REEL | SNAP; one TikTok row
+  above the shutter for both (3m, 60s, 15s, Photo); on iOS the camera stays in video mode, so switching never reloads it
+  (photos then come from the 1080p video session, 16:9 rather than 4:3, their exact size the phone's; the microphone
+  indicator stays on while the camera is open). Not tried on a device: photo size and back-camera flash in video mode
+  need checking there.
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
   website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
   (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).
