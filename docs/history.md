@@ -65,6 +65,12 @@ open work is in [status.md](status.md).
   the staging rehearsal and backup tooling, the production checklist) merged into `main`. None of
   49 to 56 is on production.
 
+- 2026-10-30 20:30 UTC: **migration 59 (a story's photo and video) applied to production on its own**, after 58 and
+  ahead of the Business v2 release, with the owner's approval: story photos in `uploads/stories/<author>/`, read through
+  the API by their owner alone; photos and videos accepted only from the author's own uploads; a story's photo deleted
+  with the story; the sweep at expiry, every ten minutes. JSON backup `2026-10-30-before-migration-59` and a read-only
+  `verify.mjs --live` first. The two stories shared before it keep their photos in `posts/` until they expire.
+
 - 2026-10-30 19:30 UTC: **migration 58 (Stories) applied to production on its own**, ahead of the Business v2
   release (44, 46 and 49 to 57 stay pending): the file as one query through the Management API, then its
   `_migrations` row, after the JSON backup `2026-10-30-before-migration-58` and a read-only `verify.mjs --live`

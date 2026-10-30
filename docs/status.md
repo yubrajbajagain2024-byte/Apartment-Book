@@ -76,7 +76,7 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
      (read-only check, 2026-10-28), so Pro's daily backups or a CLI dump.
   2. Release day: back up (a CLI dump, and `scripts/backup.mjs`), then check production is in the
      rehearsed state (`verify.mjs --live --except …`).
-  3. Run `db:setup` once from `main`: 44, 46 and 49 to 57 (57 on `main` since PR #59; 47 and 58 are applied). Then `verify.mjs --live`
+  3. Run `db:setup` once from `main`: 44, 46 and 49 to 57 (57 on `main` since PR #59; 47, 58 and 59 are applied). Then `verify.mjs --live`
      and the smoke test.
   4. Publish the app update.
   If it must be undone, the release's rollback is 57, 56, 55, 50 and 49 only: Buzz's 51 to 54 stay. Once an ad
@@ -113,8 +113,12 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   Selected people story, both with exactly 24 hours (a read-only count of production; deleting one on the device and
   the 24-hour expiry not yet watched there). `stories-live` adds: the viewer's
   bar waits for the photo or video and stops while a video buffers, the next photo loads ahead, expired stories leave
-  an open tray, and Home's pull to refresh reloads the tray. Testers' builds get Stories with an EAS update (owner's
-  approval). App only (the website shows no stories yet).
+  an open tray, and Home's pull to refresh reloads the tray. `stories-media` adds **migration 59** (live since 2026-10-30
+  20:30 UTC, applied on its own after 58): a story's photo moves into `uploads/stories/<author>/`, which only its owner reads through the
+  API; the database takes a photo from there only and a video only from the author's own uploads, and deletes the
+  photo when the story goes (deleted, expired within ten minutes, or its account gone). Stories shared before 59 keep
+  their photo where it was. Testers' builds get Stories with an EAS update (owner's approval). App only (the website
+  shows no stories yet).
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
   website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
   (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).

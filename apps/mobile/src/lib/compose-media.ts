@@ -5,7 +5,7 @@ import * as ImagePicker from "expo-image-picker";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as MediaLibrary from "expo-media-library/legacy";
 import * as VideoThumbnails from "expo-video-thumbnails";
-import { muxPosterUrl, uploadImage, type ListingVideo, type PhotoMeta, type UploadKind } from "@apartment-book/shared";
+import { deleteImageByUrl, moveUpload, muxPosterUrl, uploadImage, type ListingVideo, type PhotoMeta, type UploadKind } from "@apartment-book/shared";
 import { localId, type ComposeMedia, type ComposeMode } from "./compose-store";
 import { supabase } from "./supabase";
 import { uploadVideo } from "./video";
@@ -156,6 +156,7 @@ type Job = { uri: string; place: string; status: UploadStatus; done: Promise<Upl
  */
 export type UploadPlace = { kind: UploadKind; anonymous: boolean };
 const POST_PLACE: UploadPlace = { kind: "posts", anonymous: false };
+const placeKey = (place: UploadPlace) => `${place.kind}:${place.anonymous ? "anon" : "named"}`;
 
 /**
  * Uploads start as soon as the publish screen opens (while the title and caption are being written), one job per item
@@ -178,7 +179,7 @@ function setStatus(id: string, job: Job, status: UploadStatus) {
 
 /** The upload of `item`'s current file to `place`: the one already running, or a new one (a new file, or a new place). */
 export function ensureUpload(item: ComposeMedia, userId: string, place: UploadPlace = POST_PLACE): Promise<Uploaded> {
-  const where = `${place.kind}:${place.anonymous ? "anon" : "named"}`;
+  const where = placeKey(place);
   const existing = jobs.get(item.id);
   if (existing && existing.uri === item.uri && existing.place === where && existing.status.phase !== "failed") return existing.done;
   existing?.cancel();
@@ -224,6 +225,36 @@ export function ensureUpload(item: ComposeMedia, userId: string, place: UploadPl
   jobs.set(item.id, job);
   publish();
   return job.done;
+}
+
+const STORY_PLACE: UploadPlace = { kind: "stories", anonymous: false };
+
+/**
+ * A story's media. A photo goes to stories/<you>/…, the folder kept to its owner, whose files the database accepts on a
+ * story and deletes with it (migration 59): the copy the publish screen sent ahead to posts/<you>/… is moved there (one
+ * request), or, if that fails, uploaded again and the copy removed. The upload remembered for the item is then the
+ * story's, so a second try at the story reuses it and a post made afterwards uploads its own copy. A video is the post's
+ * upload: it lives with the video provider either way.
+ */
+export async function ensureStoryUpload(item: ComposeMedia, userId: string): Promise<Uploaded> {
+  const already = jobs.get(item.id);
+  if (already && already.uri === item.uri && already.place === placeKey(STORY_PLACE) && already.status.phase !== "failed") return already.done;
+  const ahead = await ensureUpload(item, userId);
+  if (ahead.kind !== "photo") return ahead;
+  let story: Uploaded;
+  try {
+    story = { kind: "photo", photo: { ...ahead.photo, url: await moveUpload(supabase, ahead.photo.url, "stories", userId) } };
+  } catch {
+    story = await ensureUpload(item, userId, STORY_PLACE);
+    void deleteImageByUrl(supabase, ahead.photo.url).catch(() => {});
+    return story;
+  }
+  const job = jobs.get(item.id);
+  if (job && job.uri === item.uri) {
+    job.place = placeKey(STORY_PLACE);
+    job.done = Promise.resolve(story);
+  }
+  return story;
 }
 
 /** Stops and forgets every upload except those of `keep` (items still in the post). */

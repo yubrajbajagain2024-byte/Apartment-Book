@@ -1,6 +1,6 @@
 // The production rollout, rehearsed offline: a database in production's state as of 2026-10-30 (production's migration
 // order, the migrations applied outside this repo, 47 applied on 2026-10-27 although 44 and 46 were not, 58 applied on
-// its own on 2026-10-30), with v1 business data in it; then what `npm run db:setup` would apply (44, 46, 49, 50, Buzz's
+// its own on 2026-10-30, and 59 after it, alone too), with v1 business data in it; then what `npm run db:setup` would apply (44, 46, 49, 50, Buzz's
 // 51 to 54, 55, 56, 57: 44 and 46 after 47 and 58, as production will), with checks after.
 // Then the release's own rollback, the business migrations only (57, 56, 55, 50, 49): every Buzz object and Buzz row stays
 // exactly as it was, Buzz still works, and the schema matches a database that never had the business migrations. Then
