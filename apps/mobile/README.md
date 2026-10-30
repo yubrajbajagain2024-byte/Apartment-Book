@@ -170,10 +170,12 @@ exactly the feed's crop at the feed's size (the feed trims a vertical video's to
 back on it; and a video's shades and frost come and go with the words and the rail, never over the bare picture. A
 sideways swipe, either way, goes back too, under the finger (`usePageSwipe` in `src/lib/viewer-swipe.ts`): the page
 follows it, shrinking and rounding its corners as the screen it was opened from shows through, its words and buttons
-fading away; let go past about a third of the way, or with a flick, and it carries on, the page it was opened on shrinking
-into the post it came from, still exactly where it was (the feed keeps its scroll position, and a carousel post's row has
-followed the viewer to the photo on screen, `emitPostSlide`), any other page sliding on out and fading; let go sooner and
-it springs back. A post's photos keep their own sideways swipes: only past its first or last photo, or from the left edge,
+fading away; let go past about a third of the way, or with a flick, and it carries on, shrinking into the post it came
+from, still exactly where it was (the feed keeps its scroll position and its video plays on, and a carousel post's row has
+followed the viewer to the photo on screen, `emitPostSlide`): from the page it opened on, the feed's own picture takes
+over as it lands; from any other (a later reel), it fades into that picture on the way (`CROSS_FADE`), as Instagram's
+does, and Back does the same. Only a viewer opened from a link, with no post behind it, sends the page sliding on out and
+fading. Let go sooner and it springs back. A post's photos keep their own sideways swipes: only past its first or last photo, or from the left edge,
 does a swipe pull the page back. The viewer is a modal screen, outside the view in which the gesture library cancels React
 Native's touches, so the page's taps check `swipedJustNow` themselves: a touch that ended a swipe never pauses, likes or
 opens anything. Feed and viewer videos skip Live Text on a paused frame (`allowsVideoFrameAnalysis={false}`): its button
