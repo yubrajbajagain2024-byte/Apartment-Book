@@ -99,6 +99,8 @@ type Props = {
   topInset: number;
   /** How much of the page's bottom the floating bar covers: the caption and the rail sit above it. */
   bottomInset: number;
+  /** The rail's inset from the screen's right edge (8 by default; the full-screen viewer's sits nearer the edge). */
+  railRight?: number;
   /** Close enough to the visible page (one behind, two ahead) to have its player loaded and waiting. */
   near: boolean;
   /** This is the visible reel and the Reels section is on screen. */
@@ -140,7 +142,7 @@ type Props = {
  * rail's buttons white over the photo or inked over the page (see ViewerSurface, photoLayout); one too tall to leave the
  * words their space is shown full screen like a video. A double tap anywhere likes.
  */
-export const ReelItem = memo(function ReelItem({ reel: source, width, height, topInset, bottomInset, near, playing, onPatch, onOpenComments, onRemoved, initialSlide = 0, startAt, borrowed, contentTop = topInset + 54, onSlideChange, onShown, onDrawn, standIn, pictures = true }: Props) {
+export const ReelItem = memo(function ReelItem({ reel: source, width, height, topInset, bottomInset, railRight = 8, near, playing, onPatch, onOpenComments, onRemoved, initialSlide = 0, startAt, borrowed, contentTop = topInset + 54, onSlideChange, onShown, onDrawn, standIn, pictures = true }: Props) {
   const reel = useMemo(() => asViewerItem(source), [source]);
   const { user } = useSession();
   const router = useRouter();
@@ -274,7 +276,7 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   const canExpand = clipped || oneLine.includes("\n");
   /** A posted reel's or post's link (migration 44), in a pill under the words. Video tours have none. */
   const link = postLink(reel.link);
-  /** Comments turned off by the author: no comment button (and, in the viewer, no comment bar). */
+  /** Comments turned off by the author: no comment button. */
   const commentsOff = reel.commentsOff ?? false;
   /** Only a Global or campus post can be sent into a chat (see canShareAudience); a video tour is always Global. */
   const shareable = canShareAudience(reel.audience ?? "global");
@@ -582,7 +584,7 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
         </View>
       ) : null}
 
-      <View style={[styles.overlay, { paddingBottom: OVERLAY_PAD + bottomInset }]} pointerEvents="box-none" onLayout={(e) => setOverlayTop(e.nativeEvent.layout.y)}>
+      <View style={[styles.overlay, { paddingBottom: OVERLAY_PAD + bottomInset, paddingRight: railRight }]} pointerEvents="box-none" onLayout={(e) => setOverlayTop(e.nativeEvent.layout.y)}>
         <View style={styles.info} pointerEvents="box-none" onLayout={(e) => setInfoTop(e.nativeEvent.layout.y)}>
           {business ? (
             <Pressable onPress={unlessSwiped(() => router.push({ pathname: "/businesses/[id]", params: { id: business.id } }))} style={{ flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start" }} accessibilityRole="link" accessibilityLabel={`${business.name}'s profile`}>

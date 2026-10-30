@@ -65,6 +65,14 @@ open work is in [status.md](status.md).
   the staging rehearsal and backup tooling, the production checklist) merged into `main`. None of
   49 to 56 is on production.
 
+- 2026-10-29 07:18 UTC: PR #59 (`business-hours`: the public profile's preview from the sidebar, the Website button,
+  opening hours; migration 57, not on production) merged into `main`; Vercel's production deployment finished at
+  07:19 UTC.
+
+- 2026-10-25: `4294c2f` gave the app's full-screen viewer the app's tab bar in place of its "Add comment…" bar; the
+  merge `8951d46` (main into `business-portal-prelaunch`) the same night kept the older viewer and undid it, without
+  anyone noticing until 2026-10-30, when `reel-viewer-actions` restored it (`floating-tab-bar.tsx` had kept its half).
+
 - 2026-10-29 06:14 UTC: PR #58 (`business-inbox-pending`: the Inbox below Overview for a business awaiting review
   too; no migration) merged into `main`; Vercel's production deployment finished at 06:16 UTC.
 
