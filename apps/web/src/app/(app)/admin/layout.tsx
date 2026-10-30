@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ShieldCheck } from "lucide-react";
-import { fetchQueueCounts, requireStaff, staffMetadata } from "@/lib/staff/server";
+import { fetchBusinessBadge, fetchQueueCounts, requireStaff, staffMetadata } from "@/lib/staff/server";
 import { Pill, ROLE_TONE } from "@/components/staff/parts";
 import { StaffTabs } from "@/components/staff/tabs";
 
@@ -13,7 +13,8 @@ export const generateMetadata = () => staffMetadata("Trust & Safety");
  */
 export default async function StaffLayout({ children }: { children: ReactNode }) {
   const me = await requireStaff();
-  const counts = await fetchQueueCounts().catch(() => null);
+  const admin = me.role === "admin";
+  const [counts, businessCount] = await Promise.all([fetchQueueCounts().catch(() => null), admin ? fetchBusinessBadge() : null]);
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4" data-testid="staff-console">
       <header className="flex flex-wrap items-center gap-3">
@@ -28,7 +29,12 @@ export default async function StaffLayout({ children }: { children: ReactNode })
           </div>
         </div>
       </header>
-      <StaffTabs queueCount={counts?.priority ?? null} appealCount={counts?.appeals ?? null} />
+      <StaffTabs
+        queueCount={counts?.priority ?? null}
+        appealCount={counts?.appeals ?? null}
+        admin={admin}
+        businessCount={businessCount}
+      />
       {children}
     </div>
   );

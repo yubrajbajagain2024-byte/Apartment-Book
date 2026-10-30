@@ -109,6 +109,67 @@ The staging project (`campconnect-staging`) is built like production: this repo'
 
 **Presence (migration 40).** Testing presence on staging showed that Supabase Realtime checks a private channel's join with a broadcast read, so migration 22's presence policy, which allowed only presence reads, refused every join: "Active now" and the green dots stay empty. Migration 40 (`20261102000000_presence_channel_join.sql`) allows reading that one topic for either kind, still only for people who show their status (sending stays presence only, so there are no broadcasts to read); `supabase/tests/presence-channel-join.test.mjs` checks it.
 
+## Staff console: Analytics and Business
+
+Two tabs of the website's staff console (`/admin`), added with migration 59 (`supabase/migrations/20261112000000_console_business.sql`;
+branch notes in [branches/admin-analytics-business.md](branches/admin-analytics-business.md) while it is not merged).
+
+- **Who may use it.** The console's admins (an owner or admin of the staff, not suspended) in a session signed in with a
+  second factor: the page guard (`requireStaffAdmin()`), each server action and each `console_*` function check it.
+  Moderators and everyone else get the not-found page. The Business section also needs the UniBuzz admin role on the
+  account (`profiles.role`, set by `grant_role()`), because it reuses Business v2's review functions; a staff admin
+  without it sees a notice saying so. The tabs Analytics and Business show only to admins.
+- **Analytics** (`apps/web/src/app/(app)/admin/analytics/page.tsx`): Platform, Ads and Revenue views; 7, 30, 90 or 365
+  days ending today, in Central-time days; a campus filter (Platform and Ads); every number against the previous range.
+  - Platform (`console_analytics_overview`): students and sign-ups (with a running total), engaged students (wrote
+    anything: posts, reels, comments, likes, messages, follows, listings, items), active students now / today / 7 /
+    30 days and day by day, engagement by kind and day, campuses, the last hour. Buzz counts as posts only, never as
+    people, and by when students could see it (`visible_at`), never by when it was written. Business accounts and staff are not counted.
+  - Ads (`console_analytics_ads`): impressions, reach, clicks and click rate, saves and messages from ads, business
+    profile visits, by day and placement; top 10 campaigns; campaigns by status; review times.
+  - Revenue (`console_analytics_revenue`): booked (payments recorded), voided, net, earned (each payment spread over the
+    days it paid for), by day, placement, category and advertiser; the pipeline (ads in review and their budgets).
+  - "Live" asks again every 30 seconds while the tab is in front (on by default, per browser); charts have a table view
+    and keyboard reading; each section downloads as CSV (built in the browser, formulas defused).
+- **Business** (`apps/web/src/app/(app)/admin/business/`):
+  - Overview: businesses to review, ads in review, running and scheduled, money this month, campaigns ending in three
+    days.
+  - Advertisers: search (name, owner, email, id), filters by standing; a business's page has the standing actions
+    (approve, reject, suspend, reinstate, back to review, with the note the business reads), Verified Partner, the
+    profile, the advertiser accounts (team, linking to each person's user page for sanctions), campaigns, payments,
+    students' reports (never who reported), the team's notes (never shown to the business) and its audit log.
+  - Campaigns: in review first, oldest first; each campaign's page shows the creative through the portal's own preview,
+    what still stops it, the money (budget, rate-card price, payments, how much of the paid period has run), its numbers
+    by day and its history. Actions: approve with the payment (the rate-card price filled in to start from), reject,
+    pause and resume, change the dates and budget (with a reason the business reads; payments already recorded keep their period),
+    record a further payment (for the rest of the ad; its note is for the team only).
+  - Drafting for a business: the team can prepare a draft for an approved business; it lands in the business's Ads
+    Manager and its owner and admins are told. The business adds photos if it likes and submits it: the spend stays its
+    decision.
+  - Payments: the ledger across businesses (30 / 90 / 365 days or all, in force or voided, search), totals, void with a
+    reason (an ad left with no payment in force ends), CSV.
+  - Pricing: the rate card, a daily price per campus for each placement and a minimum per ad. A campaign's price is the
+    sum over its placements of rate × days × campuses, at least the highest minimum. A suggestion only: approving records
+    what was actually paid. Businesses do not see it.
+  - Reports and Audit: Business v2's students' reports queue and business audit log, as in the portal's admin pages.
+- **Migration 59** (`supabase/migrations/20261112000000_console_business.sql`, rollback beside it): the `console_*`
+  functions above; three closed tables (`ad_rates`, `business_admin_notes`, `platform_activity_daily`); the
+  `platform-activity` pg_cron job (every 15 minutes, last at :59) that keeps active students per campus and day as
+  numbers only, because `user_activity` keeps one time per student and only for those who show their activity status.
+  It changes no existing object. Its functions read Business v2's tables, so it comes after 49, 50 and 56, and the
+  release's rollback undoes it first. The rollback refuses while notes or rates exist (export, then delete them).
+- **Reused, not rebuilt:** Business v2's `admin_review_business`, `admin_set_verified`, `admin_approve_ad`,
+  `admin_reject_ad`, `admin_pause_ad`, `admin_resume_ad`, `admin_list_business_reports`,
+  `admin_resolve_business_report`, `business_audit`, `business_daily_stats`; the Reels video check moved to
+  `apps/web/src/lib/business/reels-check.ts` for both callers; the portal's audit wording to
+  `apps/web/src/lib/business/audit-format.ts`. The portal's own admin pages (`/business/admin`) are unchanged.
+- **Before migration 59 is applied** (merging deploys first): the tabs show, and Analytics and Business say they need
+  migration 59; the rest of the console works as before.
+
+Checks: `supabase/tests/console-business.test.mjs` (who may call, every number, the campaign and payment rules, the rate
+card, re-running and the rollback, on this repo's schema and production's), `packages/shared/tests/ad-ops.test.mjs`
+(money as typed, Central-time fields, CSV).
+
 ## Video tours (Mux)
 
 Video is the main attraction, so it gets a real pipeline:

@@ -29,9 +29,7 @@ import {
   duplicateAd,
   endAd,
   getAd,
-  isVerticalVideo,
   markPortalNotificationsRead,
-  mediaItems,
   pauseAd,
   pruneSpecialHours,
   resumeAd,
@@ -61,8 +59,7 @@ import {
   type ListingStatus,
 } from "@apartment-book/shared";
 import { portalCallbackUrl, portalPath, requireAdmin, requireBusiness, requireCapability } from "@/lib/business/portal";
-import { getAsset } from "@/lib/mux";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { reelsVideoProblem } from "@/lib/business/reels-check";
 import { getBusinessSiteUrl, getSiteUrl } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { errorMessage, formToObject, safeNextPath } from "@/lib/utils";
@@ -559,33 +556,6 @@ export async function markPortalNotificationsReadAction(): Promise<void> {
 }
 
 // --- The UniBuzz team: ads and reports ------------------------------------------------------------------------------
-
-/**
- * Before a Reels ad is approved, the video's size as the provider reports it: it must be taller than it is wide. Null
- * when it is, or when the provider cannot be asked (no credentials here: the reviewer looks at the video).
- */
-async function reelsVideoProblem(adId: string): Promise<string | null> {
-  const supabase = await createClient();
-  const ad = await getAd(supabase, adId);
-  if (!ad || !ad.placements.includes("reels")) return null;
-  const video = mediaItems(ad.media).find((m) => m.type === "video");
-  if (!video || video.type !== "video") return "Reels needs one vertical video.";
-  // The media row is its uploader's alone to read (migration 11): the server's key reads it, after requireAdmin.
-  const admin = createAdminClient();
-  if (!admin) return null;
-  const { data: media } = await admin.from("media").select("provider_asset_id").eq("id", video.media_id).maybeSingle();
-  if (!media?.provider_asset_id) return null;
-  try {
-    const asset = await getAsset(media.provider_asset_id);
-    const track = asset.tracks?.find((t) => t.type === "video");
-    if (track && !isVerticalVideo({ width: track.max_width ?? null, height: track.max_height ?? null })) {
-      return `The video is ${track.max_width}×${track.max_height}: Reels needs a vertical one. Reject the ad and ask for a vertical video.`;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
 
 /** Approves an ad by recording its payment; a housing ad also needs the reviewer's Fair Housing check. */
 export async function approveAdAction(adId: string, input: Record<string, string | boolean | undefined>): Promise<{ error?: string }> {

@@ -42,7 +42,7 @@ State University. Sign-up is limited to the email domains on the `universities` 
 apps/web/src/
   app/(app)/       the site: /, apartments, roommates, marketplace, posts, reels, buzz, messages,
                    profile, notifications, saved, search, settings, deals, two-factor, and admin/
-                   (staff console: queue, rules, users, appeals, audit, metrics)
+                   (staff console: queue, rules, users, appeals, audit, metrics, analytics, business)
   app/(auth)/      login, signup     app/auth/  auth callbacks     app/business/  the portal
   app/api/         buzz (moderated writes), video (Mux uploads + webhooks), geocode
   app/             also privacy, terms, guidelines, design, sitemap, robots, manifest

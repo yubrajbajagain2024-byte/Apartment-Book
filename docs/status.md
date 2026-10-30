@@ -76,19 +76,29 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
      (read-only check, 2026-10-28), so Pro's daily backups or a CLI dump.
   2. Release day: back up (a CLI dump, and `scripts/backup.mjs`), then check production is in the
      rehearsed state (`verify.mjs --live --except …`).
-  3. Run `db:setup` once from `main`: 44, 46 and 49 to 56, plus 57 once `business-hours` merges (47 is applied). Then `verify.mjs --live`
+  3. Run `db:setup` once from `main`: 44, 46 and 49 to 57 (57 merged in PR #59, 2026-10-29), plus 59 once `admin-analytics-business` merges (47 is applied). Then `verify.mjs --live`
      and the smoke test.
   4. Publish the app update.
-  If it must be undone, the release's rollback is 57 (once merged), 56, 55, 50 and 49 only: Buzz's 51 to 54 stay.
+  If it must be undone, the release's rollback is 59 (once merged; its functions read 50's tables, so it goes first), 57, 56, 55, 50 and 49 only: Buzz's 51 to 54 stay.
 
   Follow-up work is listed in [branches/business-v2.md](branches/business-v2.md).
-- **Business hours and the profile preview** (branch `business-hours`, no PR yet): the business's name and photo at
+- **Business hours and the profile preview** (branch `business-hours`, merged in PR #59 on 2026-10-29): the business's name and photo at
   the top of the portal's sidebar open a preview of its public profile; a Website button on the profile; opening hours
   (weekly, closed days, holiday hours) set in Settings › Business profile, with "open now" for students on the website
   and in the app. **Migration 57**, not applied anywhere but the rehearsals: until it is, the code shows and offers no
   hours (preview and Website button work). Passed on staging with the release and in production's state (2026-10-29).
   The app's part reaches students only with an EAS update (owner's approval). See
   [branches/business-hours.md](branches/business-hours.md).
+- **Analytics and Business for the UniBuzz team** (branch `admin-analytics-business`, draft PR, not to be merged as it
+  is, as of 2026-10-30): built as two new sections of the website's `/admin` console for admins of the staff with a
+  second factor; **before production they move into CampConnect Admin (`apps/admin`)**, off the student website (owner's
+  decision, 2026-10-30).
+  Analytics: growth, active and engaged students, engagement, ad delivery, the review queue and revenue, live, with
+  CSV exports. Business: advertisers (review, Verified Partner, suspension, accounts, internal notes), campaigns (review
+  with the payment, drafting for a business, schedule and budget, pause, performance), payments (further payments,
+  voiding, the ledger), a rate card, students' reports and the business audit log. **Migration 59**, not applied
+  anywhere: until it is, both sections say they need it. Offline tests pass (43 suites); not yet tried on staging as a
+  staff member with a second factor. See [branches/admin-analytics-business.md](branches/admin-analytics-business.md).
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
   website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
   (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).

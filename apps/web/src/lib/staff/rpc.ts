@@ -16,6 +16,8 @@ export function toStaffError(e: unknown): StaffError {
   const m = /(?:ts|buzz):([a-z_]+):([\s\S]*)$/.exec(raw);
   if (m) return new StaffError(m[1]!, m[2]!.trim() || "Something went wrong. Try again.");
   if (/permission denied/i.test(raw)) return new StaffError("not_found", "Not found");
+  // A function or table a migration adds, on a database that does not have it yet (merging deploys before migrating).
+  if (/Could not find the function|PGRST202|(function|relation) [^ ]+ does not exist/i.test(raw)) return new StaffError("not_deployed", "This needs a database migration that is not applied here yet.");
   return new StaffError("unknown", raw || "Something went wrong. Try again.");
 }
 
