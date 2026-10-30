@@ -1,6 +1,6 @@
 # business-performance
 
-- **Owner:** Sunil. **As of 2026-10-30:** branched from `main` at PR #72 (`f2fd658`); not yet pushed or merged. Written
+- **Owner:** Sunil. **As of 2026-10-30:** branched from `main` at PR #72 (`f2fd658`); pushed 2026-10-30 (`6ff78a1`), PR to open. Written
   by an AI session.
 - **Purpose:** the owner's brief: make UniBuzz Business feel instant, smooth and premium end to end (every page, the
   Overview, the Inbox, the Ads Manager, Billing, the profile), with real performance work before visual tricks, no

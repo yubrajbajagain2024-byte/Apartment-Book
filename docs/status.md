@@ -30,7 +30,7 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 - **Business portal** (`/business`): live with migration 39. Its left sidebar, Billing and Settings pages (PR #56,
   2026-10-29 03:34 UTC) and the Inbox below Overview with live alerts and inquiry context (PR #57, 04:06 UTC; for
   businesses awaiting review too since PR #58, 06:14 UTC) are on production too; Ads and Analytics still need 49 and 50.
-  **Made instant on `business-performance`** (2026-10-30, local, not yet pushed): no Auth round trip per request
+  **Made instant on `business-performance`** (2026-10-30, pushed, PR to open): no Auth round trip per request
   (local token verification in the proxy and the portal), parallel and deduplicated reads, pages prefetched in full on
   intent, skeletons that wait 160 ms, filters that cost no request, one live channel and a self-updating Inbox list;
   `npm run check` and the unit tests pass, the browser timings (`apps/web/e2e/business-performance.mjs`) still need a
