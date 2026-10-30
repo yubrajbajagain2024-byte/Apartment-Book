@@ -167,7 +167,7 @@ band between them (`OpeningBand`, from a JS copy of the collapsing bar's positio
 a video is lined up on the whole of its picture (`wholeVideo`: drawn whole, past the page's sides where it
 fills a phone taller than 9:16, and trimmed by the page, a carousel's slide or the zoom's opening), so the opening starts on
 exactly the feed's crop at the feed's size (the feed trims a vertical video's top and bottom, the viewer its sides) and lands
-back on it; and a video's shades and frost come and go with the words and the rail, never over the bare picture. A
+back on it; and a video's shades come and go with the words and the rail, never over the bare picture. A
 sideways swipe, either way, goes back too, under the finger (`usePageSwipe` in `src/lib/viewer-swipe.ts`): the page
 follows it, shrinking and rounding its corners as the screen it was opened from shows through, its words and buttons
 fading away; let go past about a third of the way, or with a flick, and it carries on, shrinking into the post it came
@@ -188,8 +188,8 @@ for the name and the words, all in the theme's ink; a photo too tall to leave th
 screenshot) is shown full screen on black like a video instead. Over every page, one top row with Back at the left and the
 Campus | Global toggle in the middle (for reels and For you, while the toggle is shown); the creator's name, the words and the heart, comments, share,
 save and "…" rail sit at the bottom (as on the Reels page, the rail a little nearer the right edge: `railRight`), over a
-video's shades and gradual frost (`src/components/progressive-blur.tsx`: expo-blur through a gradient mask, left out on a
-build without them). Opened over the tabs, the viewer keeps the app's tab bar in view under them: it draws a copy of the
+video's shades (gradients only, as Instagram's: a blur under the words was re-drawn every frame the video played or the
+page zoomed, and dropped frames). Opened over the tabs, the viewer keeps the app's tab bar in view under them: it draws a copy of the
 tabs' own bar in the same place (`TabBarMirror` in `src/components/floating-tab-bar.tsx`); the tab it was opened from
 closes it like Back, another switches tabs at once. Opened from a profile, a chat, Saved or a link, there is no bar. There
 is no comment bar: the rail's Comments (a tour's Inbox) opens the comments or the chat. Share opens the same share sheet
@@ -233,7 +233,7 @@ had got to (`startAt`: the feed's poster, then the still from that moment, cover
 goes on from wherever the viewer leaves it (`emitPostSlide` with a time) rather than starting again. Saved fills the
 bookmark in the rail's own colour. Swiping between pages never blinks: two pages ahead (and one behind) are laid out
 with their videos loaded and waiting (from the moment the zoom open has finished: until then only the page opened on
-has its player, frost and pictures, since a large photo or poster is decoded and resized on the main thread as it
+has its player and pictures, since a large photo or poster is decoded and resized on the main thread as it
 arrives, which made the zoom drop frames; profiled with Instruments), a video's still is its very first frame (Mux `time=0`) so the player takes over
 without a jump, and in dark mode the top row keeps one style over photos and videos alike. The bottom tab bar plays no
 haptic, and neither do Home's For you | Buzz | Reels, Explore's Housing | Roommate | Marketplace and its "+", Messages'

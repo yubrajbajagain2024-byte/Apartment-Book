@@ -26,7 +26,8 @@ current", rules 2 and 3).
 | `business-inbox-pending` | Sunil | The Inbox for a business awaiting review: below Overview, saying it opens on approval (no migration) | merged (PR #58, 2026-10-29 06:14 UTC) | [business-inbox-pending.md](business-inbox-pending.md) |
 | `business-hours` | Sunil | The public profile's preview from the sidebar, a Website button, and opening hours with "open now" (migration 57) | merged (PR #59, 2026-10-29 07:18 UTC); 57 not on production | [business-hours.md](business-hours.md) |
 | `reel-viewer-actions` | Sunil | The app's full-screen viewer: no comment bar, the tab bar kept in view, the rail nearer the right edge (no migration) | merged (PR #61) | this table and docs/status.md (one PR) |
-| `viewer-close-transition` | Sunil | The app's viewer closes into the post it was opened from from any page, fading from a later reel (no migration) | pushed, **no PR yet** (from `main` at PR #61) | this table and docs/status.md (one PR) |
+| `viewer-close-transition` | Sunil | The app's viewer closes into the post it was opened from from any page, fading from a later reel (no migration) | merged (PR #62) | this table and docs/status.md (one PR) |
+| `viewer-polish` | Sunil | The app's viewer: the zoom at Instagram's measured speed, no blur under the words (no migration) | pushed, **no PR yet** (from `main` at PR #62) | this table and docs/status.md (one PR) |
 | `claude/claude-md-documentation-0b8750` | — | leftover worktree branch of a 2026-10-26 AI session | no commits of its own; left untouched until the owner says otherwise | — |
 
 **Safe to delete once their owner agrees**, because `main` has all their work (what is left on them

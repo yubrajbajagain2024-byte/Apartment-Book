@@ -20,7 +20,6 @@ import { useActionSheet } from "../action-sheet";
 import { POST_LINK_HEIGHT, PostLink } from "../post-bits";
 import { useShareSheet } from "../share-sheet";
 import { Icon, useBounceOn } from "@/components/icon";
-import { ProgressiveBlur } from "@/components/progressive-blur";
 import { ViewerChromeContext, ViewerClockContext, ViewerClosingContext, ViewerZoomContext } from "@/lib/viewer-chrome";
 import { hasDrawn, lendPlayer, returnPlayer } from "@/lib/video-handoff";
 import { setVideosMuted, useVideosMuted, VIDEO_AUDIO_MODE, videosMuted } from "@/lib/video-sound";
@@ -54,8 +53,6 @@ const TOP_SHADE_MIN = 170;
 const TOP_SHADE_EXTRA = 96;
 /** Tall enough to sit under the whole rail (like, comments, share, save, "…") with room to fade in above the like. */
 const SHADE_HEIGHT = 540;
-/** How far above the bottom inset (the tab bar, or the home indicator) the frosted blur reaches: past the name and the words. */
-const BLUR_REACH = 230;
 /** The overlay's own bottom padding: the "…" centre 46pt above the bottom inset, Instagram's geometry. */
 const OVERLAY_PAD = 31;
 /**
@@ -556,7 +553,7 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
     <View style={{ width, height, overflow: chrome ? "visible" : "hidden", backgroundColor: onPage ? colors.bg : colors.mediaBg }}>
       {single ? (
         <>
-          <VideoSlide uri={single.playbackUrl} poster={poster} aspect={aspectOf(single)} width={width} height={height} mounted={near} playing={playing && (closing || !userPaused)} muted={muted} topInset={topInset} bottomInset={bottomInset} frost={near} index={0} startAt={startFrom} borrowed={lentPlayer} onStarted={started} onClock={onClock} onShown={firstShown} standIn={standIn} />
+          <VideoSlide uri={single.playbackUrl} poster={poster} aspect={aspectOf(single)} width={width} height={height} mounted={near} playing={playing && (closing || !userPaused)} muted={muted} topInset={topInset} bottomInset={bottomInset} index={0} startAt={startFrom} borrowed={lentPlayer} onStarted={started} onClock={onClock} onShown={firstShown} standIn={standIn} />
           <Pressable style={StyleSheet.absoluteFill} onPress={onVideoTap} accessibilityRole="button" accessibilityLabel={userPaused ? "Play" : "Pause"} />
         </>
       ) : (
@@ -831,13 +828,15 @@ function coversPage(place: Placement, pageW: number, pageH: number) {
 
 /**
  * A full-screen slide (a video, or a photo too tall for a page): dark, the picture's blurred backdrop wherever the picture
- * leaves the page empty, and over the picture the frost and the shades that keep the white words and the rail readable.
+ * leaves the page empty, and over the picture the shades that keep the white words and the rail readable. Shades only, as
+ * Instagram draws them: a blur under the words would be sampled again every frame the video plays, and re-drawn every
+ * frame the page zooms or is pulled back, which is where frames were being dropped.
  */
-function MediaFrame({ place, whole, backdrop, width, height, topInset, bottomInset, frost, children }: { place: Placement; whole?: Placement; backdrop: string | null; width: number; height: number; topInset: number; bottomInset: number; frost: boolean; children: ReactNode }) {
+function MediaFrame({ place, whole, backdrop, width, height, topInset, bottomInset, children }: { place: Placement; whole?: Placement; backdrop: string | null; width: number; height: number; topInset: number; bottomInset: number; children: ReactNode }) {
   const colors = useColors();
   const styles = useStyles();
-  // The frost and the shades are there for the words and the rail, so in the viewer they come and go with them: the zoom
-  // opens on the bare picture, exactly as the feed showed it, and lands back on it.
+  // The shades are there for the words and the rail, so in the viewer they come and go with them: the zoom opens on the
+  // bare picture, exactly as the feed showed it, and lands back on it.
   const chrome = useContext(ViewerChromeContext);
   const shadesStyle = useAnimatedStyle(() => ({ opacity: chrome ? chrome.value : 1 }));
   // As wide as the picture, where a video runs past the page's sides (see wholeVideo): fading, they leave no edge on it.
@@ -846,8 +845,6 @@ function MediaFrame({ place, whole, backdrop, width, height, topInset, bottomIns
     <View style={{ width, height, backgroundColor: colors.mediaBg }} pointerEvents="none">
       {backdrop && !coversPage(place, width, height) ? <Backdrop uri={backdrop} /> : null}
       {children}
-      {/* Behind the words and the tab bar, the picture frosts over gradually towards the bottom, as under an iOS bar. */}
-      {frost ? <ProgressiveBlur height={bottomInset + BLUR_REACH} shown={chrome} style={across} /> : null}
       {/* Soft shades so white words and icons stay readable over a bright picture: at the top under the bar, at the bottom under the name and the rail. */}
       <Reanimated.View style={[StyleSheet.absoluteFill, across, shadesStyle]}>
         <View style={[styles.topShade, { height: Math.max(TOP_SHADE_MIN, topInset + TOP_SHADE_EXTRA) }]} />
@@ -861,7 +858,7 @@ function MediaFrame({ place, whole, backdrop, width, height, topInset, bottomIns
 type VideoHandover = { index: number; startAt?: number; borrowed?: VideoPlayer; onStarted?: () => void; onClock?: (index: number, read: (() => number) | null) => void; onShown?: () => void; standIn?: string };
 
 /** A video's slide, full screen when it is vertical: its player (only near the page on screen, so at most a few exist at a time) or its poster. */
-function VideoSlide({ uri, poster, aspect, width, height, mounted, playing, muted, topInset, bottomInset, frost, ...handover }: { uri: string; poster: string; aspect: number | null; width: number; height: number; mounted: boolean; playing: boolean; muted: boolean; topInset: number; bottomInset: number; frost: boolean } & VideoHandover) {
+function VideoSlide({ uri, poster, aspect, width, height, mounted, playing, muted, topInset, bottomInset, ...handover }: { uri: string; poster: string; aspect: number | null; width: number; height: number; mounted: boolean; playing: boolean; muted: boolean; topInset: number; bottomInset: number } & VideoHandover) {
   const styles = useStyles();
   const place = placeVideo(aspect, width, height);
   // Drawn whole; the page (or the carousel's slide) trims it to its place (see wholeVideo).
@@ -871,7 +868,7 @@ function VideoSlide({ uri, poster, aspect, width, height, mounted, playing, mute
   const first = poster ? posterAt(poster, 0) : "";
   const pictures = useContext(PicturesContext);
   return (
-    <MediaFrame place={place} whole={whole} backdrop={poster || null} width={width} height={height} topInset={topInset} bottomInset={bottomInset} frost={frost}>
+    <MediaFrame place={place} whole={whole} backdrop={poster || null} width={width} height={height} topInset={topInset} bottomInset={bottomInset}>
       {mounted ? (
         <PageVideo uri={uri} poster={poster} first={first} whole={whole} playing={playing} muted={muted} {...handover} />
       ) : first && pictures ? (
@@ -1006,7 +1003,7 @@ function goOnFrom(player: VideoPlayer, seconds: number, done: () => void): () =>
  * page's own colour, which stays free below it for the words; or, too tall for that, full screen on black like a video.
  * Its tiny blurred preview shows at once; a photo uploaded without its size reports its shape once loaded (`onAspect`).
  */
-function PhotoSlide({ uri, blur, aspect, width, height, top, floor, topInset, bottomInset, frost, onAspect, onShown, standIn }: { uri: string; blur: string | null; aspect: number | null; width: number; height: number; top: number; floor: number; topInset: number; bottomInset: number; frost: boolean; onAspect: (aspect: number) => void; onShown?: () => void; standIn?: string }) {
+function PhotoSlide({ uri, blur, aspect, width, height, top, floor, topInset, bottomInset, onAspect, onShown, standIn }: { uri: string; blur: string | null; aspect: number | null; width: number; height: number; top: number; floor: number; topInset: number; bottomInset: number; onAspect: (aspect: number) => void; onShown?: () => void; standIn?: string }) {
   const colors = useColors();
   const styles = useStyles();
   const { place, surface } = photoLayout(aspect, width, height, top, floor);
@@ -1028,7 +1025,7 @@ function PhotoSlide({ uri, blur, aspect, width, height, top, floor, topInset, bo
   );
   if (surface === "media") {
     return (
-      <MediaFrame place={place} backdrop={null} width={width} height={height} topInset={topInset} bottomInset={bottomInset} frost={frost}>
+      <MediaFrame place={place} backdrop={null} width={width} height={height} topInset={topInset} bottomInset={bottomInset}>
         {image}
       </MediaFrame>
     );
@@ -1071,9 +1068,9 @@ function SlideStrip({ media, aspects, pos, settled, shown, width, height, photoT
           >
             <SlideClip settled={i === settled}>
               {item.type === "photo" ? (
-                <PhotoSlide uri={item.url} blur={item.blur} aspect={aspectOf(item) ?? aspects[i] ?? null} width={width} height={height} top={top} floor={floor} topInset={topInset} bottomInset={bottomInset} frost={close} onAspect={(a) => onAspect(i, a)} onShown={i === startSlide ? onShown : undefined} standIn={i === 0 ? standIn : undefined} />
+                <PhotoSlide uri={item.url} blur={item.blur} aspect={aspectOf(item) ?? aspects[i] ?? null} width={width} height={height} top={top} floor={floor} topInset={topInset} bottomInset={bottomInset} onAspect={(a) => onAspect(i, a)} onShown={i === startSlide ? onShown : undefined} standIn={i === 0 ? standIn : undefined} />
               ) : (
-                <VideoSlide uri={item.playbackUrl} poster={item.poster ?? ""} aspect={aspectOf(item)} width={width} height={height} mounted={close} playing={playing && i === settled} muted={muted} topInset={topInset} bottomInset={bottomInset} frost={close} index={i} startAt={i === startSlide ? startAt : undefined} borrowed={i === startSlide ? borrowed : undefined} onStarted={onStarted} onClock={onClock} onShown={i === startSlide ? onShown : undefined} standIn={i === 0 ? standIn : undefined} />
+                <VideoSlide uri={item.playbackUrl} poster={item.poster ?? ""} aspect={aspectOf(item)} width={width} height={height} mounted={close} playing={playing && i === settled} muted={muted} topInset={topInset} bottomInset={bottomInset} index={i} startAt={i === startSlide ? startAt : undefined} borrowed={i === startSlide ? borrowed : undefined} onStarted={onStarted} onClock={onClock} onShown={i === startSlide ? onShown : undefined} standIn={i === 0 ? standIn : undefined} />
               )}
             </SlideClip>
           </Pressable>

@@ -51,14 +51,18 @@ const BAR_CLEAR = 4;
 const RAIL_RIGHT = 2;
 /** How many pages ahead (and one behind) a post known only by its id is loaded. */
 const LOAD_AHEAD = 3;
-/** The zoom open: critically damped (it never overshoots the screen's edges), about 0.4s. */
-const ZOOM_IN = { damping: 32, stiffness: 270, mass: 1, overshootClamping: true };
+/**
+ * The zoom open: critically damped (it never overshoots the screen's edges), to the screen in about a fifth of a second
+ * and at rest by a quarter, as Instagram's (measured frame by frame in the owner's recording: full screen 0.15 to 0.2s
+ * after the tapped post starts to grow).
+ */
+const ZOOM_IN = { damping: 46, stiffness: 520, mass: 1, overshootClamping: true };
 /**
  * The zoom closed: quick off the mark and braking evenly all the way down, so it stops on the picture it came from in the
  * frame it seems to arrive. A curve with a long soft tail (iOS's 0.32, 0.72, 0, 1) leaves the page creeping the last few
  * points for a fifth of a second, where its scaled copy of the picture shows softer than the feed's own and shimmers.
  */
-const ZOOM_OUT_MS = 300;
+const ZOOM_OUT_MS = 240;
 const ZOOM_OUT_CURVE = [0.3, 0.7, 0.45, 1] as const;
 /**
  * Closing onto the tapped picture, the page fades out over the feed's own during the zoom's last HAND_OVER_MS, as it
@@ -487,7 +491,7 @@ export default function ReelViewerScreen() {
   /** The viewer has started to close (see ViewerClosingContext). */
   const [closingNow, setClosingNow] = useState(false);
   /**
-   * The zoom open has finished. Until then only the page opened on has its player and frost: the pages around it get
+   * The zoom open has finished. Until then only the page opened on has its player: the pages around it get
    * theirs once it has opened, so the first frames draw quickly and the zoom starts (and runs) unhurried.
    */
   const [opened, setOpened] = useState(reduceMotion);
@@ -527,7 +531,7 @@ export default function ReelViewerScreen() {
       zoomUI.value = 0;
       runOnJS(zoomOpened)();
     });
-    chrome.value = withDelay(170, withTiming(1, { duration: 200 }));
+    chrome.value = withDelay(110, withTiming(1, { duration: 160 }));
   }, [seen, open, chrome, zoomUI, zoomOpened]);
   useEffect(() => {
     if (reduceMotion) return;
