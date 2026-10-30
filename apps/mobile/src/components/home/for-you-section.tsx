@@ -26,6 +26,7 @@ import { isAdRow, useAdImpressions, useFeedAds, type AdRow } from "@/lib/use-fee
 import { markReelsStale } from "./reels-section";
 import { useTabReselect } from "@/lib/tab-reselect";
 import { refreshWithHaptic } from "@/lib/haptics";
+import { refreshStories } from "@/lib/stories-store";
 
 /** The list's key: posts and reels share one table, so the id alone tells rows apart. */
 const keyOf = (post: ForYouItem) => post.id;
@@ -155,7 +156,9 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
   const refresh = useCallback(() => {
     setRefreshing(true);
     void load("replace");
-  }, [load]);
+    // The story tray above the list reloads with it.
+    if (userId) void refreshStories(userId);
+  }, [load, userId]);
 
   const fetchMore = useCallback(() => {
     if (loading || refreshing || loadingMore || !hasMore || items.length === 0) return;

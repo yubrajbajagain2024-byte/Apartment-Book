@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -26,8 +26,10 @@ const PULL_VELOCITY = 900;
  * Stories full screen, Instagram's way: one person's stories play in turn (a photo for five seconds, a video for its
  * length), a thin bar for each along the top filling as it plays. A tap on the right goes on, on the left goes back;
  * holding the picture pauses it; a sideways swipe moves to the next or the last person (the pages sit side by side);
- * a pull down closes. Each story is marked seen as it shows (mark_story_seen, the database refusing anything the person
- * may not see), so its ring greys in the tray. Your own stories carry the eye with how many people have seen each, a
+ * a pull down closes. A story's bar starts once its photo has loaded or its video can play, and stops while a video
+ * buffers, so a slow connection never runs a story out behind a blank screen; the next photo loads ahead. Each story is
+ * marked seen as it shows (mark_story_seen, the database refusing anything the person may not see), so its ring greys
+ * in the tray. Your own stories carry the eye with how many people have seen each, a
  * tap on which lists them (the database tells only the author), and a bin to take one down. Opened from the tray with
  * the groups it showed (handStories), so nothing loads first; opened cold it reads the store.
  */
@@ -127,7 +129,20 @@ function StoryPage({ group, active, width, height, me, onDone, onBack, onClose }
   const duration = storyDurationMs(story);
   const elapsedBefore = useRef(0);
   const mine = group.mine && group.author.id === me;
-  const playing = active && !held && viewers === null;
+  // The story whose picture can be seen: its photo loaded (or failed, so the viewer moves on), its video ready and not
+  // buffering. The clock runs only for it; the video is asked to play as soon as the page is on screen.
+  const [shown, setShown] = useState<string | null>(null);
+  const ready = shown === story.id;
+  const wanted = active && !held && viewers === null;
+  const playing = wanted && ready;
+  const storyId = story.id;
+  const onPhoto = useCallback(() => setShown(storyId), [storyId]);
+  const onVideo = useCallback((canPlay: boolean) => setShown(canPlay ? storyId : null), [storyId]);
+  // The next photo of this person's loads while this one shows (the next person's page renders beside this one).
+  useEffect(() => {
+    const next = group.stories[at + 1];
+    if (active && next?.kind === "photo" && next.photo) void Image.prefetch(next.photo.url).catch(() => false);
+  }, [active, at, group.stories]);
 
   const advance = useCallback(() => {
     if (at + 1 < group.stories.length) setAt(at + 1);
@@ -199,8 +214,14 @@ function StoryPage({ group, active, width, height, me, onDone, onBack, onClose }
 
   return (
     <View style={{ width, height, backgroundColor: "#000" }}>
-      {story.kind === "photo" && story.photo ? <Image source={{ uri: story.photo.url }} placeholder={story.photo.blur ? { blurhash: story.photo.blur } : undefined} style={StyleSheet.absoluteFill} contentFit="cover" transition={120} accessibilityIgnoresInvertColors /> : null}
-      {story.kind === "video" && story.video ? <StoryVideo key={story.id} playbackId={story.video.playback_id} playing={playing} /> : null}
+      {story.kind === "photo" && story.photo ? <Image key={story.id} source={{ uri: story.photo.url }} placeholder={story.photo.blur ? { blurhash: story.photo.blur } : undefined} style={StyleSheet.absoluteFill} contentFit="cover" transition={120} onLoad={onPhoto} onError={onPhoto} accessibilityIgnoresInvertColors /> : null}
+      {story.kind === "video" && story.video ? <StoryVideo key={story.id} playbackId={story.video.playback_id} playing={wanted} onReady={onVideo} /> : null}
+      {/* Only when loading takes a moment: a cached photo shows before this would. */}
+      {active && !ready ? (
+        <Animated.View entering={FadeIn.delay(300).duration(200)} pointerEvents="none" style={styles.loading}>
+          <ActivityIndicator color="#fff" />
+        </Animated.View>
+      ) : null}
       <View pointerEvents="none" style={styles.topShade} />
       <View pointerEvents="none" style={styles.bottomShade} />
 
@@ -270,8 +291,11 @@ function Bar({ state, progress }: { state: 0 | 1 | null; progress: SharedValue<n
   );
 }
 
-/** A video story: its own player, from the start, with sound; paused with the page. */
-function StoryVideo({ playbackId, playing }: { playbackId: string; playing: boolean }) {
+/**
+ * A video story: its own player, from the start, with sound; paused with the page. It tells the page whether it can be
+ * seen playing (ready, not buffering); a video that fails counts as ready, so the story's time runs out and moves on.
+ */
+function StoryVideo({ playbackId, playing, onReady }: { playbackId: string; playing: boolean; onReady: (canPlay: boolean) => void }) {
   const player = useVideoPlayer({ uri: muxPlaybackUrl(playbackId) }, (p) => {
     p.loop = false;
     p.muted = false;
@@ -281,6 +305,11 @@ function StoryVideo({ playbackId, playing }: { playbackId: string; playing: bool
     if (playing) player.play();
     else player.pause();
   }, [player, playing]);
+  useEffect(() => {
+    onReady(player.status === "readyToPlay" || player.status === "error");
+    const sub = player.addListener("statusChange", ({ status }) => onReady(status === "readyToPlay" || status === "error"));
+    return () => sub.remove();
+  }, [player, onReady]);
   return <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} allowsPictureInPicture={false} allowsVideoFrameAnalysis={false} accessibilityLabel="Video" />;
 }
 
@@ -292,6 +321,7 @@ const styles = StyleSheet.create({
   pages: { overflow: "hidden", backgroundColor: "#000" },
   topShade: { position: "absolute", top: 0, left: 0, right: 0, height: 140, experimental_backgroundImage: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 100%)" },
   bottomShade: { position: "absolute", bottom: 0, left: 0, right: 0, height: 120, experimental_backgroundImage: "linear-gradient(to top, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 100%)" },
+  loading: { position: "absolute", top: 0, bottom: 0, left: 0, right: 0, alignItems: "center", justifyContent: "center" },
   leftZone: { position: "absolute", top: 0, bottom: 0, left: 0, width: "32%" },
   rightZone: { position: "absolute", top: 0, bottom: 0, right: 0, width: "68%" },
   header: { position: "absolute", top: 0, left: 0, right: 0, paddingHorizontal: 10, gap: 10 },
