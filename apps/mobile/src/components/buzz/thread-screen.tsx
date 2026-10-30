@@ -1,5 +1,5 @@
-import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
-import { AppState, FlatList, KeyboardAvoidingView, LayoutAnimation, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View, type TextInputInstance } from "react-native";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { AppState, FlatList, KeyboardAvoidingView, LayoutAnimation, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View, type ListViewToken, type TextInputInstance } from "react-native";
 import { useFocusEffect, useIsFocused, useRouter } from "expo-router";
 import Reanimated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { StatusBar } from "expo-status-bar";
@@ -47,12 +47,15 @@ import { BuzzToastHost } from "./toast";
 import { Badge, EmptyState, ErrorState, GUTTER, P, PageHeader, PIconButton, R, Segmented, Skeleton, T } from "./ui";
 
 /*
- * A Buzz thread (UniVerse's ThreadPage, design §7.2, threaded like Reddit): a compact "Thread" header with the root's
+ * A Buzz thread (UniVerse's ThreadPage, design §7.2, laid out like Reddit's): a compact "Thread" header with the root's
  * menu; the root large, without card chrome; then the conversation as a tree. Every reply sits under the one it
- * answers, at any depth, joined to it by a thread line in the colour of that anon, so a back-and-forth reads top to
- * bottom like a story. Best (the default), New or Old orders each level. A tap on a reply's header folds it with
- * everything under it; long lists of replies wait behind "N more replies", and past six levels "Continue this thread"
- * shows that branch on its own. Replies that arrived since you last opened the thread carry a lime dot, and "N new"
+ * answers, one step in, at any depth: its alias, its words across the row, and one quiet line of actions at the right
+ * (its menu, Reply, the votes). A subtle line runs down from each reply below its words, curving into each of its
+ * replies' marks, so who answers whom reads at a glance; each conversation under the thread is set apart by a band.
+ * Best (the default), New or Old orders each level. A tap on a reply's header, or on any line, folds that reply with
+ * everything under it (from a line, the reply it belongs to comes into view); long lists of replies wait behind "N more
+ * replies", and past six levels "Continue this thread" shows that branch on its own; a round button at the bottom goes
+ * on to the next conversation. Replies that arrived since you last opened the thread carry a lime dot, and "N new"
  * goes to the first. Reply on each; folds for community-collapsed replies and anons you hid here; placeholders for
  * removed and deleted ones. At the bottom, the reply bar: "You're anonymous", the "replying to" chip, the words (500,
  * the count near the end) and send; or the locked / closed line. Publication is delayed by a random jitter, so
@@ -68,12 +71,15 @@ const POLL_MS = 30_000;
 const PAGE = 100;
 const MAX_REPLIES = 500;
 
-/* The tree's geometry: every level steps INDENT to the right; a row's avatar (AV) sits ROW_TOP from its top, and every
- * thread line runs through the centre of the avatar of the reply it belongs to. */
-const AV = 24;
-const INDENT = 22;
-const ROW_TOP = 10;
+/* The tree's geometry: every level steps INDENT to the right; a row's alias mark (AV) sits ROW_TOP from its top, its
+ * words and actions run the row's width under it, and every thread line runs down the middle of the mark of the reply
+ * it belongs to, from below that reply's actions, curving into the marks of its replies. */
+const AV = 28;
+const INDENT = 24;
+const ROW_TOP = 12;
 const LINE = 1.5;
+/** Each line's tap target: wide enough to hit with a thumb, not so wide it reaches into the replies' marks. */
+const LINE_TAP = 20;
 const lineX = (level: number) => GUTTER + level * INDENT + AV / 2;
 
 const SORTS = [
@@ -292,6 +298,60 @@ function Thread({ threadId, openAt, userId, onBack }: { threadId: string; openAt
     setTimeout(() => listRef.current?.scrollToIndex({ index, animated: true, viewPosition: target.at }), 120);
   }, [rows]);
 
+  /** Which replies are on screen now, and the first row that is (see onViewable). */
+  const visibleIds = useRef<ReadonlySet<string>>(NO_IDS);
+  const firstVisible = useRef(0);
+  /** How far the list is scrolled, and how tall the root above the replies is: the round button starts from the top there. */
+  const scrollY = useRef(0);
+  const headerH = useRef(0);
+
+  /**
+   * A tap on a thread line: the reply it belongs to folds, with everything under it, as Reddit's does; scrolled past, it
+   * comes back into view, so the reader is never left far below a branch that has gone.
+   */
+  const foldBranch = useCallback(
+    (id: string) => {
+      animate();
+      hapticSelect();
+      setCollapsed((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+      if (!visibleIds.current.has(id)) scrollTo.current = { id, at: 0.12 };
+    },
+    [animate],
+  );
+
+  /** The next reply to the buzz itself after row `from` (-1: from above the replies), or -1 when there is none. */
+  const nextTopFrom = useCallback((from: number) => {
+    const rs = rowsRef.current;
+    for (let i = from + 1; i < rs.length; i++) {
+      const r = rs[i]!;
+      if (r.kind === "reply" && r.depth === 0) return i;
+    }
+    return -1;
+  }, []);
+  /** Where the reader is: above the replies while the root still fills the top of the screen, else the first row shown. */
+  const readingFrom = useCallback(() => (scrollY.current < headerH.current - 24 ? -1 : firstVisible.current), []);
+  const [hasNext, setHasNext] = useState(false);
+  const viewability = useRef({ itemVisiblePercentThreshold: 50 }).current;
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ListViewToken[] }) => {
+    const shown = viewableItems.filter((v) => v.isViewable && v.index != null);
+    firstVisible.current = shown.length > 0 ? Math.min(...shown.map((v) => v.index!)) : 0;
+    visibleIds.current = new Set(
+      shown.flatMap((v) => {
+        const row = v.item as BuzzThreadRow;
+        return row.kind === "reply" ? [row.id] : [];
+      }),
+    );
+    setHasNext(nextTopFrom(readingFrom()) >= 0);
+  }).current;
+  useEffect(() => setHasNext(nextTopFrom(readingFrom()) >= 0), [rows, nextTopFrom, readingFrom]);
+  /** The round button: on to the next conversation under the buzz, at the top of the screen. */
+  const jumpNext = useCallback(() => {
+    const index = nextTopFrom(readingFrom());
+    if (index < 0) return;
+    hapticSelect();
+    listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0 });
+  }, [nextTopFrom, readingFrom]);
+
   // Opened at a reply: once the thread is in, open the way to it (and its branch alone when it is too deep), then go there.
   const opening = useRef(openAt);
   useEffect(() => {
@@ -335,16 +395,16 @@ function Thread({ threadId, openAt, userId, onBack }: { threadId: string; openAt
 
   const renderRow = useCallback(
     ({ item, index }: { item: BuzzThreadRow; index: number }) => {
-      if (item.kind === "more") return <MoreRow row={item} onPress={showMore} />;
-      if (item.kind === "continue") return <ContinueRow row={item} onPress={focusOn} />;
-      return <ReplyRow row={item} first={index === 0} locked={locked} nested={nested} seenBefore={seenBefore} highlighted={item.id === highlight} onReply={replyTo} onToggle={toggle} />;
+      if (item.kind === "more") return <MoreRow row={item} onPress={showMore} onFold={foldBranch} />;
+      if (item.kind === "continue") return <ContinueRow row={item} onPress={focusOn} onFold={foldBranch} />;
+      return <ReplyRow row={item} first={index === 0} locked={locked} nested={nested} seenBefore={seenBefore} highlighted={item.id === highlight} onReply={replyTo} onToggle={toggle} onFold={foldBranch} />;
     },
-    [showMore, focusOn, locked, nested, seenBefore, highlight, replyTo, toggle],
+    [showMore, focusOn, locked, nested, seenBefore, highlight, replyTo, toggle, foldBranch],
   );
 
   const header =
     state.status === "ready" && root ? (
-      <View>
+      <View onLayout={(e) => (headerH.current = e.nativeEvent.layout.height)}>
         <RootArticle root={root} />
         <View style={styles.divider} />
         {state.replyIds.length === 0 ? (
@@ -379,9 +439,16 @@ function Thread({ threadId, openAt, userId, onBack }: { threadId: string; openAt
           state.truncated ? (
             <Text style={[T.footnote, styles.truncated]}>Showing the first {MAX_REPLIES} replies.</Text>
           ) : (
-            <View style={{ height: 20 }} />
+            // Room under the last reply for the round button, so it never sits on that reply's actions.
+            <View style={{ height: 76 }} />
           )
         }
+        onViewableItemsChanged={onViewable}
+        viewabilityConfig={viewability}
+        onScroll={(e) => (scrollY.current = e.nativeEvent.contentOffset.y)}
+        scrollEventThrottle={32}
+        initialNumToRender={12}
+        maxToRenderPerBatch={10}
         onScrollToIndexFailed={(info) => {
           // Not measured yet: get near it, then try once more.
           listRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false });
@@ -412,7 +479,16 @@ function Thread({ threadId, openAt, userId, onBack }: { threadId: string; openAt
         <StatusBar style="light" />
         <ThreadHeader root={state.status === "ready" ? (root ?? null) : null} onBack={onBack} />
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <View style={styles.flex}>{content}</View>
+          <View style={styles.flex}>
+            {content}
+            {state.status === "ready" && hasNext ? (
+              <Reanimated.View entering={reduceMotion ? undefined : FadeIn.duration(160)} exiting={reduceMotion ? undefined : FadeOut.duration(160)} style={styles.nextWrap} pointerEvents="box-none">
+                <Pressable onPress={jumpNext} hitSlop={8} accessibilityRole="button" accessibilityLabel="Next conversation" accessibilityHint="Goes to the next reply to the buzz" style={({ pressed }) => [styles.next, pressed && styles.nextPressed]}>
+                  <Icon name="chevron-down" size={22} color={P.ink} />
+                </Pressable>
+              </Reanimated.View>
+            ) : null}
+          </View>
           {state.status === "ready" && root ? (
             locked ? (
               <View style={[styles.lockedBar, { paddingBottom: Math.max(insets.bottom, 12) }]} accessibilityRole="summary">
@@ -520,43 +596,52 @@ function rgbOf(hex: string): [number, number, number] | null {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-const CANVAS = rgbOf(P.canvas);
-/** How much of the anon's colour a thread line carries over the canvas. */
-const LINE_TINT = 0.42;
-
-/** A thread line's colour: the anon's own colour, mixed into the canvas (opaque, so lines that meet do not double up). */
-function lineColor(hex: string | undefined): string {
-  const c = hex ? rgbOf(hex) : null;
-  if (!c || !CANVAS) return P.lineStrong;
-  const [r, g, b] = c.map((v, i) => Math.round(CANVAS[i]! + (v - CANVAS[i]!) * LINE_TINT));
-  return `rgb(${r},${g},${b})`;
-}
-
-/** The line of the reply at `id`, in its anon's colour. */
-function railColor(id: string | undefined): string {
-  return lineColor(id ? getBuzzItem<BuzzReply>(id)?.alias.color : undefined);
+/** `share` of the way from colour `a` to colour `b`, opaque. */
+function mix(a: string, b: string, share: number): string {
+  const x = rgbOf(a);
+  const y = rgbOf(b);
+  if (!x || !y) return b;
+  const [r, g, bl] = x.map((v, i) => Math.round(v + (y[i]! - v) * share));
+  return `rgb(${r},${g},${bl})`;
 }
 
 /**
- * A row's thread lines: those of the replies above it that run on past it, its own link to the reply it answers (a
- * curve into its avatar, the line carrying on when more replies follow), and the stem down to its own replies.
+ * The thread lines: one quiet grey-green for everyone, opaque (lines that meet do not double up), present enough to
+ * follow a branch down the screen and no more. Who wrote what is the alias's job.
  */
-function Rails({ row, stemColor }: { row: BuzzThreadRow; stemColor?: string }) {
+const THREAD_LINE = mix(P.canvas, P.ink3, 0.3);
+const THREAD_LINE_PRESSED = mix(P.canvas, P.accent, 0.55);
+
+/**
+ * A row's thread lines: those of the replies above it that run on past it, and its own link to the reply it answers (a
+ * curve into its mark, the line carrying on when more replies follow). A reply's own line starts in the row of its
+ * first reply, below its words and actions, as Reddit's does. Every line is a tap target too (hidden from VoiceOver,
+ * which folds from the header): it folds the reply it belongs to, lighting up while pressed.
+ */
+function Rails({ row, onFold }: { row: BuzzThreadRow; onFold: (id: string) => void }) {
   const last = row.rails.length - 1;
   return (
     <>
       {row.rails.map((rail, k) => {
         if (rail === "none") return null;
-        const color = railColor(row.railIds[k]);
-        const left = lineX(k) - LINE / 2;
+        const id = row.railIds[k];
         return (
-          <Fragment key={k}>
-            {rail !== "end" ? <View pointerEvents="none" style={[styles.line, { left, backgroundColor: color }]} /> : null}
-            {k === last ? <View pointerEvents="none" style={[styles.elbow, { left, borderColor: color }]} /> : null}
-          </Fragment>
+          <Pressable
+            key={k}
+            onPress={id ? () => onFold(id) : undefined}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={[styles.lineTap, { left: lineX(k) - LINE_TAP / 2 }]}
+          >
+            {({ pressed }) => (
+              <>
+                {rail !== "end" ? <View style={[styles.line, { left: LINE_TAP / 2 - LINE / 2, backgroundColor: pressed ? THREAD_LINE_PRESSED : THREAD_LINE }]} /> : null}
+                {k === last ? <View style={[styles.elbow, { left: LINE_TAP / 2 - LINE / 2, borderColor: pressed ? THREAD_LINE_PRESSED : THREAD_LINE }]} /> : null}
+              </>
+            )}
+          </Pressable>
         );
       })}
-      {row.kind === "reply" && row.stem ? <View pointerEvents="none" style={[styles.stem, { left: lineX(row.depth) - LINE / 2, backgroundColor: lineColor(stemColor) }]} /> : null}
     </>
   );
 }
@@ -572,14 +657,16 @@ type ReplyRowProps = {
   highlighted: boolean;
   onReply: (parentId: string) => void;
   onToggle: (id: string) => void;
+  onFold: (id: string) => void;
 };
 
 /**
- * One reply in the tree: its header (a tap folds it and everything under it into this one line, "+N"), then, unfolded,
- * "↳ replying to …" on a two-level database, the words, votes and Reply.
+ * One reply in the tree: its header (the alias mark, "You", the alias, OP, the time; a tap folds it and everything under
+ * it into this one line, "+N"), then, unfolded, "↳ replying to …" on a two-level database, the words across the row,
+ * and the actions at its right: the menu, Reply, the votes.
  */
 const ReplyRow = memo(
-  function ReplyRow({ row, first, locked, nested, seenBefore, highlighted, onReply, onToggle }: ReplyRowProps) {
+  function ReplyRow({ row, first, locked, nested, seenBefore, highlighted, onReply, onToggle, onFold }: ReplyRowProps) {
     const reply = useBuzzItem<BuzzReply>(row.id);
     const openMenu = useBuzzItemMenu();
     const reduceMotion = useReduceMotion();
@@ -591,7 +678,7 @@ const ReplyRow = memo(
     return (
       <View style={[styles.row, { paddingLeft: GUTTER + row.depth * INDENT }, row.depth === 0 && !first && styles.branch]}>
         {highlighted ? <Reanimated.View pointerEvents="none" entering={reduceMotion ? undefined : FadeIn.duration(180)} exiting={reduceMotion ? undefined : FadeOut.duration(900)} style={styles.glow} /> : null}
-        <Rails row={row} stemColor={reply.alias.color} />
+        <Rails row={row} onFold={onFold} />
         <View style={reply.status === "deleted" && styles.deleted}>
           <View style={styles.head}>
             <Pressable
@@ -603,12 +690,13 @@ const ReplyRow = memo(
               accessibilityState={{ expanded: !row.collapsed }}
               style={styles.headTap}
             >
-              <AliasLine alias={reply.alias} isMine={reply.isMine} isOp={reply.isOp} createdAt={reply.createdAt} size="xs" fresh={fresh} trailing={row.collapsed && row.hidden > 0 ? <FoldedCount count={row.hidden} /> : null} />
+              <AliasLine alias={reply.alias} isMine={reply.isMine} isOp={reply.isOp} createdAt={reply.createdAt} size="sm" fresh={fresh} trailing={row.collapsed ? <FoldedCount count={row.hidden} /> : null} />
             </Pressable>
             {row.collapsed ? null : (
               <View style={styles.trailing}>
                 {reply.isMine ? <StatusChip status={reply.status} /> : null}
-                <MoreButton onPress={() => openMenu(reply)} />
+                {/* Folded by the community or by you: its menu stays at hand up here, there being no actions below. */}
+                {folded ? <MoreButton onPress={() => openMenu(reply)} /> : null}
               </View>
             )}
           </View>
@@ -628,16 +716,18 @@ const ReplyRow = memo(
                       </Text>
                     </View>
                   ) : null}
-                  <BuzzText text={reply.text} status={reply.status} />
+                  <BuzzText text={reply.text} status={reply.status} large />
                   {reply.supportLink ? <SupportLink /> : null}
+                  {/* Reddit's line of actions, quiet and at the right: the menu, Reply, the votes. */}
                   <View style={styles.actions}>
-                    <VoteCluster item={reply} />
+                    <MoreButton onPress={() => openMenu(reply)} />
                     {!locked && reply.status === "active" ? (
-                      <Pressable onPress={() => onReply(reply.id)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Reply to ${reply.alias.label}`} style={({ pressed }) => [styles.replyButton, pressed && { backgroundColor: P.surface2 }]}>
-                        <Icon name="arrow-undo-outline" size={15} color={P.ink2} />
-                        <Text style={[T.labelSm, { color: P.ink2 }]}>Reply</Text>
+                      <Pressable onPress={() => onReply(reply.id)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Reply to ${reply.alias.label}`} style={({ pressed }) => [styles.replyButton, pressed && styles.pressed]}>
+                        <Icon name="arrow-undo-outline" size={17} color={P.ink3} />
+                        <Text style={[T.labelSm, { color: P.ink3 }]}>Reply</Text>
                       </Pressable>
                     ) : null}
+                    <VoteCluster item={reply} plain />
                   </View>
                 </>
               )}
@@ -648,60 +738,69 @@ const ReplyRow = memo(
     );
   },
   (a, b) =>
-    sameRow(a.row, b.row) && a.first === b.first && a.locked === b.locked && a.nested === b.nested && a.seenBefore === b.seenBefore && a.highlighted === b.highlighted && a.onReply === b.onReply && a.onToggle === b.onToggle,
+    sameRow(a.row, b.row) &&
+    a.first === b.first &&
+    a.locked === b.locked &&
+    a.nested === b.nested &&
+    a.seenBefore === b.seenBefore &&
+    a.highlighted === b.highlighted &&
+    a.onReply === b.onReply &&
+    a.onToggle === b.onToggle &&
+    a.onFold === b.onFold,
 );
 
-/** "+3" on a folded reply: how many replies it folds away. */
+/** On a folded reply: "+3" (the replies it folds away, when it has any) and the chevron that says a tap opens it again. */
 function FoldedCount({ count }: { count: number }) {
   return (
-    <View style={styles.foldedCount}>
-      <Text style={[T.micro, { color: P.ink2 }]}>+{compactCount(count)}</Text>
+    <View style={styles.folded}>
+      {count > 0 ? (
+        <View style={styles.foldedCount}>
+          <Text style={[T.micro, { color: P.ink2 }]}>+{compactCount(count)}</Text>
+        </View>
+      ) : null}
+      <Icon name="chevron-down" size={15} color={P.ink3} />
     </View>
   );
 }
 
-/** "4 more replies" under a reply whose further replies wait: a tap shows them all. */
+/** "4 more replies ⌄" under a reply whose further replies wait, where the next of them would be: a tap shows them all. */
 const MoreRow = memo(
-  function MoreRow({ row, onPress }: { row: Extract<BuzzThreadRow, { kind: "more" }>; onPress: (parentId: string) => void }) {
+  function MoreRow({ row, onPress, onFold }: { row: Extract<BuzzThreadRow, { kind: "more" }>; onPress: (parentId: string) => void; onFold: (id: string) => void }) {
     const label = `${compactCount(row.count)} more ${buzzReplyCountLabel(row.count)}`;
     return (
       <View style={[styles.row, styles.linkRow, { paddingLeft: GUTTER + row.depth * INDENT }]}>
-        <Rails row={row} />
-        <Pressable onPress={() => onPress(row.parentId)} hitSlop={{ top: 6, bottom: 6, right: 16 }} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.link, pressed && { opacity: 0.7 }]}>
-          <View style={styles.linkDisc}>
-            <Icon name="add" size={15} color={P.accentInk} />
-          </View>
-          <Text style={[T.labelSm, { color: P.accentInk }]}>{label}</Text>
+        <Rails row={row} onFold={onFold} />
+        <Pressable onPress={() => onPress(row.parentId)} hitSlop={{ top: 6, bottom: 6, right: 16 }} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.link, pressed && styles.pressed]}>
+          <Text style={[T.labelSm, { color: P.ink2 }]}>{label}</Text>
+          <Icon name="chevron-down" size={15} color={P.ink2} />
         </Pressable>
       </View>
     );
   },
-  (a, b) => sameRow(a.row, b.row) && a.onPress === b.onPress,
+  (a, b) => sameRow(a.row, b.row) && a.onPress === b.onPress && a.onFold === b.onFold,
 );
 
 /** "Continue this thread" where the tree gets too deep for the screen: that branch on its own. */
 const ContinueRow = memo(
-  function ContinueRow({ row, onPress }: { row: Extract<BuzzThreadRow, { kind: "continue" }>; onPress: (id: string) => void }) {
+  function ContinueRow({ row, onPress, onFold }: { row: Extract<BuzzThreadRow, { kind: "continue" }>; onPress: (id: string) => void; onFold: (id: string) => void }) {
     return (
       <View style={[styles.row, styles.linkRow, { paddingLeft: GUTTER + row.depth * INDENT }]}>
-        <Rails row={row} />
+        <Rails row={row} onFold={onFold} />
         <Pressable
           onPress={() => onPress(row.id)}
           hitSlop={{ top: 6, bottom: 6, right: 16 }}
           accessibilityRole="button"
           accessibilityLabel={`Continue this thread, ${row.count} ${buzzReplyCountLabel(row.count)}`}
-          style={({ pressed }) => [styles.link, pressed && { opacity: 0.7 }]}
+          style={({ pressed }) => [styles.link, pressed && styles.pressed]}
         >
-          <View style={styles.linkDisc}>
-            <Icon name="arrow-forward" size={15} color={P.accentInk} />
-          </View>
-          <Text style={[T.labelSm, { color: P.accentInk }]}>Continue this thread</Text>
+          <Text style={[T.labelSm, { color: P.ink2 }]}>Continue this thread</Text>
           <Text style={[T.caption, { color: P.ink3 }]}>· {compactCount(row.count)}</Text>
+          <Icon name="arrow-forward" size={15} color={P.ink2} />
         </Pressable>
       </View>
     );
   },
-  (a, b) => sameRow(a.row, b.row) && a.onPress === b.onPress,
+  (a, b) => sameRow(a.row, b.row) && a.onPress === b.onPress && a.onFold === b.onFold,
 );
 
 /** The thread's reply draft as it is now (read when needed, not a subscription). */
@@ -821,28 +920,34 @@ const styles = StyleSheet.create({
   newDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: P.accent },
   focusBar: { flexDirection: "row", alignItems: "center", gap: 6, marginHorizontal: GUTTER, marginTop: 6, marginBottom: 2, paddingHorizontal: 12, minHeight: 40, borderRadius: R.md, borderCurve: "continuous", backgroundColor: P.surface2 },
   // A row: no space between rows of a branch, so the thread lines run on from one to the next.
-  row: { paddingRight: GUTTER, paddingTop: ROW_TOP, paddingBottom: 4 },
-  // Each reply to the thread starts its own branch, a little apart from the one before.
-  branch: { marginTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: P.lineSubtle },
+  row: { paddingRight: GUTTER, paddingTop: ROW_TOP, paddingBottom: 2 },
+  // Each conversation under the buzz is set apart by a band, as Reddit's are.
+  branch: { borderTopWidth: 6, borderTopColor: P.surface1 },
+  lineTap: { position: "absolute", top: 0, bottom: 0, width: LINE_TAP },
   line: { position: "absolute", top: 0, bottom: 0, width: LINE },
-  // The curve from the line above into the row's avatar (its centre, ROW_TOP + AV / 2 down).
-  elbow: { position: "absolute", top: 0, height: ROW_TOP + AV / 2 + LINE / 2, width: INDENT - AV / 2 - 2 + LINE / 2, borderLeftWidth: LINE, borderBottomWidth: LINE, borderBottomLeftRadius: 8 },
-  stem: { position: "absolute", top: ROW_TOP + AV + 3, bottom: 0, width: LINE },
+  // The curve from the line above into the row's mark (its centre, ROW_TOP + AV / 2 down).
+  elbow: { position: "absolute", top: 0, height: ROW_TOP + AV / 2 + LINE / 2, width: INDENT - AV / 2 - 2 + LINE / 2, borderLeftWidth: LINE, borderBottomWidth: LINE, borderBottomLeftRadius: 9 },
   deleted: { opacity: 0.7 },
   // The reply the thread was opened at, lit up a moment.
   glow: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: P.accentSoft },
   head: { height: AV, flexDirection: "row", alignItems: "center", gap: 4 },
   headTap: { flex: 1, minWidth: 0, height: AV, justifyContent: "center" },
   trailing: { flexDirection: "row", alignItems: "center", gap: 4, marginRight: -8, marginVertical: -6 },
+  folded: { flexDirection: "row", alignItems: "center", gap: 6 },
   foldedCount: { height: 18, minWidth: 26, alignItems: "center", justifyContent: "center", paddingHorizontal: 6, borderRadius: R.pill, backgroundColor: P.surface3 },
-  // The words start under the alias, to the right of the line that runs down from the avatar.
-  body: { gap: 6, paddingLeft: AV + 8, paddingTop: 4 },
+  // The words run the row's full width under the alias, as Reddit's do: a reply's own line starts below them.
+  body: { gap: 4, paddingTop: 6 },
   replyingTo: { flexDirection: "row", alignItems: "center", gap: 4 },
-  actions: { flexDirection: "row", alignItems: "center", gap: 6, marginLeft: -4 },
-  replyButton: { minHeight: 36, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, borderRadius: R.pill },
-  linkRow: { paddingBottom: 6 },
-  link: { height: AV, flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start" },
-  linkDisc: { width: AV, height: AV, borderRadius: AV / 2, alignItems: "center", justifyContent: "center", backgroundColor: P.accentSoft },
+  // The actions at the row's right: the menu, Reply, the votes, all on nothing.
+  actions: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 2, marginRight: -8 },
+  replyButton: { minHeight: 32, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, borderRadius: R.pill },
+  pressed: { opacity: 0.55 },
+  linkRow: { paddingBottom: 8 },
+  link: { height: AV, flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start" },
+  // The round button to the next conversation: glass over the replies, at the bottom right above the reply bar.
+  nextWrap: { position: "absolute", right: GUTTER, bottom: 14 },
+  next: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: P.glassStrong, borderWidth: StyleSheet.hairlineWidth, borderColor: P.lineStrong, shadowColor: P.shadow, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+  nextPressed: { transform: [{ scale: 0.94 }], opacity: 0.85 },
   truncated: { color: P.ink3, textAlign: "center", paddingHorizontal: GUTTER, paddingVertical: 20 },
   lockedBar: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 52, paddingHorizontal: GUTTER, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: P.line, backgroundColor: P.canvas },
   replyBar: { gap: 8, paddingHorizontal: GUTTER, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: P.line, backgroundColor: P.glassStrong },
