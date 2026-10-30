@@ -76,7 +76,7 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
      (read-only check, 2026-10-28), so Pro's daily backups or a CLI dump.
   2. Release day: back up (a CLI dump, and `scripts/backup.mjs`), then check production is in the
      rehearsed state (`verify.mjs --live --except …`).
-  3. Run `db:setup` once from `main`: 44, 46 and 49 to 58 (57 on `main` since PR #59, 58 once `stories` merges; 47 is applied). Then `verify.mjs --live`
+  3. Run `db:setup` once from `main`: 44, 46 and 49 to 57 (57 on `main` since PR #59; 47 and 58 are applied). Then `verify.mjs --live`
      and the smoke test.
   4. Publish the app update.
   If it must be undone, the release's rollback is 57, 56, 55, 50 and 49 only: Buzz's 51 to 54 stay.
@@ -101,12 +101,14 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   (photos then come from the 1080p video session, 16:9 rather than 4:3, their exact size the phone's; the microphone
   indicator stays on while the camera is open). Merged as PR #68. Not tried on a device: photo size and back-camera
   flash in video mode need checking there.
-- **Stories** (branch `stories`, no PR yet): a row of story rings under Home's tabs with "Your story", a full-screen
-  viewer (tap, hold, swipe, pull down; your own views with who), "Your story" beside Post on the publish screen with
-  the post's own audience choice. **Migration 58** keeps the audience, the 24 hours and blocks on the server; until it
-  is on production the tray is empty and "Your story" explains. The photo files of expired stories stay in the uploads
-  bucket (follow-up: delete them as purge_snaps() does). App only (the website shows no stories yet). Not run on a
-  device.
+- **Stories** (PR #69, merged 2026-10-30 17:26 UTC; **migration 58 live since 2026-10-30 19:30 UTC**, applied on its
+  own ahead of the release above, so it leaves that release): a row of story rings under Home's tabs with "Your story",
+  a full-screen viewer (tap, hold, swipe, pull down; your own views with who), "Your story" beside Post on the publish
+  screen with the post's own audience choice; the database keeps the audience, the 24 hours and blocks. Works in Expo
+  Go against production now; testers' builds get it with an EAS update (owner's approval). The photo files of expired
+  stories stay in the uploads bucket (follow-up: delete them as purge_snaps() does). App only (the website shows no
+  stories yet). Rehearsed offline and on staging through the API; not yet seen on a device by the session that shipped
+  it (the owner was about to try it, 2026-10-30).
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
   website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
   (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).

@@ -65,6 +65,14 @@ open work is in [status.md](status.md).
   the staging rehearsal and backup tooling, the production checklist) merged into `main`. None of
   49 to 56 is on production.
 
+- 2026-10-30 19:30 UTC: **migration 58 (Stories) applied to production on its own**, ahead of the Business v2
+  release (44, 46 and 49 to 57 stay pending): the file as one query through the Management API, then its
+  `_migrations` row, after the JSON backup `2026-10-30-before-migration-58` and a read-only `verify.mjs --live`
+  showing production in the rehearsed state. Rehearsed the same day offline (`stories-rollout.test.mjs`: 58 after
+  48, then the release after it, then 58's rollback alone) and on staging through the real API
+  (`staging/stories.mjs`, 12/12; 58 stays on staging). PR #69 (`stories`) had merged at 17:26 UTC with the app's
+  Stories and the migration; the app in Expo Go had shown "Not available yet" until the apply.
+
 - 2026-10-29 07:18 UTC: PR #59 (`business-hours`: the public profile's preview from the sidebar, the Website button,
   opening hours; migration 57, not on production) merged into `main`; Vercel's production deployment finished at
   07:19 UTC.
