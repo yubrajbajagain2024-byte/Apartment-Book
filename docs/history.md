@@ -65,6 +65,12 @@ open work is in [status.md](status.md).
   the staging rehearsal and backup tooling, the production checklist) merged into `main`. None of
   49 to 56 is on production.
 
+- 2026-10-30 21:46 UTC: **migration 60 (every upload folder its owner's to list; a post's photos from and with the
+  post) applied to production on its own**, after 58 and 59, with the owner's approval: the first full backup
+  (`2026-10-30-before-migration-60`: rows, accounts with their password hashes, 101 files, restorable with
+  `scripts/restore.mjs`) and a read-only `verify.mjs --live` first. Signed out, listing any folder of the uploads bucket
+  now returns nothing; public addresses still serve. The restore tool was rehearsed on staging the same day (5/5).
+
 - 2026-10-30 21:03 UTC: PRs #70 (`stories-live`) and #71 (`stories-media`) merged into `main` by the owner; the
   website redeployed without a change of its own.
 

@@ -76,7 +76,7 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
      (read-only check, 2026-10-28), so Pro's daily backups or a CLI dump.
   2. Release day: back up (a CLI dump, and `scripts/backup.mjs`), then check production is in the
      rehearsed state (`verify.mjs --live --except …`).
-  3. Run `db:setup` once from `main`: 44, 46 and 49 to 57 (57 on `main` since PR #59; 47, 58 and 59 are applied). Then `verify.mjs --live`
+  3. Run `db:setup` once from `main`: 44, 46 and 49 to 57 (57 on `main` since PR #59; 47 and 58 to 60 are applied). Then `verify.mjs --live`
      and the smoke test.
   4. Publish the app update.
   If it must be undone, the release's rollback is 57, 56, 55, 50 and 49 only: Buzz's 51 to 54 stay. Once an ad
@@ -119,8 +119,8 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   20:30 UTC, applied on its own after 58): a story's photo moves into `uploads/stories/<author>/`, which only its owner reads through the
   API; the database takes a photo from there only and a video only from the author's own uploads, and deletes the
   photo when the story goes (deleted, expired within ten minutes, or its account gone). Stories shared before 59 keep
-  their photo where it was. **Migration 60** (branch `post-media-privacy`) closes the same gap for every other folder
-  of the uploads bucket: through the API a person's files are listed by that person alone (a Friends-only or Selected
+  their photo where it was. **Migration 60** (branch `post-media-privacy`; live since 2026-10-30 21:46 UTC, applied on its own)
+  closes the same gap for every other folder of the uploads bucket: through the API a person's files are listed by that person alone (a Friends-only or Selected
   people post's photos could be found by listing `posts/<their id>/`), a post takes only its author's own uploads, and
   a post's photos are deleted when the post goes. Testers' builds get Stories with an EAS update (owner's approval).
   App only (the website shows no stories yet).
