@@ -44,12 +44,15 @@ Supabase's `auth` and `storage` schemas.
 - `mk(email, name)` makes a confirmed user; `as(uid, fn, { aal: "aal2" })` runs as a user after
   two-factor sign-in (it adds a verified factor); `asAnon`, `asService`; `expectOk`, `expectError`,
   `done`.
+- `as()` sets the role on the one connection: never run two of them at once (`Promise.all`), or each
+  sees the other's user. Loop instead.
 - `reopen()`: the same database on a new connection. A custom setting (`app.…`) that a migration or
   a function set stays defined, as `''`, in the session that set it, but reads as null on the API's
   fresh connections: test code that depends on one there.
 - `tests/staging/` needs a real Supabase project, the staging one (`STAGING_SUPABASE_REF`; the scripts
-  refuse production): `business-portal.mjs`, and `release-rehearsal.mjs`, which rehearses a release
-  step by step (see its header).
+  refuse production): `business-portal.mjs`; `stories.mjs`, Stories through Auth, the REST API and
+  Storage; and `release-rehearsal.mjs`, which rehearses a release step by step (see its header).
+  Staging's `media_jobs` grows on its own: leave it out of row-count comparisons.
 
 ## Production
 
@@ -65,6 +68,11 @@ Supabase's `auth` and `storage` schemas.
     URL to `SITE_URL`, which defaults to `http://localhost:3000`**, breaking production's sign-in
     emails. Only for a fresh or local project, or with the real `SITE_URL` (and
     `BUSINESS_SITE_URL`) plus `SKIP_ENV=1`.
+- A migration that needs only what production already has may go live ahead of a pending release,
+  alone (58 did, 2026-10-30): rehearse it offline on production's state (`boot({ live: true, skip })`,
+  as `tests/stories-rollout.test.mjs` does) and on staging, apply it as below, then take it out of
+  the release lists (`PENDING` in `tests/production-rollout.test.mjs`, `RELEASE` in
+  `tests/staging/release-rehearsal.mjs`).
 - To apply one migration alone, run the file in one transaction together with
   `insert into public._migrations (name) values ('<file name>')`, then
   `notify pgrst, 'reload schema'` when it adds functions. To roll one back, the same with its
