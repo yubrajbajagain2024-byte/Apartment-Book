@@ -51,6 +51,16 @@ test("groupStories: signed out (no me) nobody is mine; an empty list is an empty
   assert.deepEqual(groupStories([], "me"), []);
 });
 
+test("groupStories: a story past its 24 hours is left out, and a person with none left has no ring", () => {
+  const now = Date.parse("2026-10-30T12:00:00Z");
+  const groups = groupStories([
+    story("a1", "amy", "2026-10-29T11:00:00Z", { expiresAt: "2026-10-30T11:00:00Z" }),
+    story("a2", "amy", "2026-10-30T10:00:00Z", { expiresAt: "2026-10-31T10:00:00Z" }),
+    story("b1", "ben", "2026-10-29T12:00:00Z", { expiresAt: "2026-10-30T12:00:00Z" }),
+  ], null, now);
+  assert.deepEqual(groups.map((g) => [g.author.id, g.stories.map((s) => s.id)]), [["amy", ["a2"]]]);
+});
+
 test("storyDurationMs: a photo 5 s; a video its length, at least 1 s, at most 60 s", () => {
   assert.equal(storyDurationMs({ kind: "photo", video: null }), STORY_PHOTO_MS);
   assert.equal(storyDurationMs({ kind: "video", video: { duration_seconds: 12.4 } }), 12400);

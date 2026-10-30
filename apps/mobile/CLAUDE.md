@@ -7,13 +7,15 @@ device builds and store releases.
 ## Layout
 
 ```
-src/app/(tabs)/   index (Home: Orbit, Buzz, Reels), discover, messages, housing (Explore), profile
+src/app/(tabs)/   index (Home: the story tray, then Orbit, Buzz, Reels), discover, messages,
+                  housing (Explore), profile
 src/app/compose/  the create flow behind every "+": camera → edit → publish; listing, listing-form,
                   listing-preview for roommate posts and Marketplace items
 src/app/create/   per-kind entry points: post, reel, buzz, apartment, roommate, item
 src/app/…         buzz, messages, posts, reels, apartments, roommates, marketplace, profile, follows,
-                  call, snap, topics, settings, notifications, saved, find-people
-src/lib/          app-only helpers: calls.ts, home-scope.ts, supabase.ts, dev-overrides.ts, …
+                  call, snap, stories, topics, settings, notifications, saved, find-people
+src/lib/          app-only helpers: calls.ts, home-scope.ts, stories-store.ts, supabase.ts,
+                  dev-overrides.ts, …
 e2e/              Maestro flows (flows/*.yaml, run.sh), seed and lifecycle scripts
 ```
 

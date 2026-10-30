@@ -35,7 +35,7 @@ The README's statement that 41 and 42 are not live is out of date.
 | 55 | `20261109000000_media_server_fields.sql` (merged in PR #51; its fix on `business-v2`): a video's processing details are written by the server only; 30 new videos a day per person; ready videos 10 minutes at most | ❌ **not applied** |
 | 56 | `20261109000100_business_hardening.sql` (merged in PR #51; its fixes on `business-v2`): Business v2 hardening after an independent review: ads show the reviewed copy of what they promote and pause when it changes, every ad screened for Fair Housing, ad photos from this project's storage, chats visible to a business once the student writes, blocks stop chats, server-set dates, payments kept, stricter event counting | ❌ **not applied** |
 | 57 | `20261110000000_business_hours.sql` (merged in PR #59, 2026-10-29): a business's opening hours, `businesses.hours` (time zone, weekly ranges, special dates), checked by `businesses_hours_check`, public with the profile; 49's audit of profile edits records them. Needs only 39 (and 49 for the audit); the website and the app work without it (no hours shown, none offered) | ❌ **not applied** |
-| 58 | `20261110000100_stories.sql` (on `stories`, not merged): Stories: `stories`, `story_viewers`, `story_views`, the audience rule `can_see_story()` (campus by verified email, global, friends, selected), `set_story_viewers()`, `mark_story_seen()`, `stories_sweep()` (pg_cron hourly). Needs 45 (`verified_university`) and 9 (blocks), both on production; the app shows an empty tray without it | ❌ **not applied** |
+| 58 | `20261110000100_stories.sql` (merged in PR #69, 2026-10-30): Stories: `stories`, `story_viewers`, `story_views`, the audience rule `can_see_story()` (campus by verified email, global, friends, selected), `set_story_viewers()`, `mark_story_seen()`, `stories_sweep()` (pg_cron hourly). Needs only 45 (`verified_university`) and 9 (blocks), so it went live on its own, ahead of 44, 46 and 49 to 57 | ✅ applied 2026-10-30 19:30 UTC, alone: the file as one query through the Management API (1.3 s), then its `_migrations` row, after `scripts/backup.mjs before-migration-58` and a read-only `verify.mjs --live --except` the 12 pending files (production in the rehearsed state); the same diff with 11 excepted afterwards shows only the staff-invite objects. Rehearsed first offline (`supabase/tests/stories-rollout.test.mjs`) and on staging (`supabase/tests/staging/stories.mjs`, 12/12), where 58 stays applied as on production |
 | (18) | `20261103100200_staff_invite_email.sql`: **file only on `step-admin`** (in neither `supabase/migrations/` nor `supabase/applied-outside-repo/` here) | ✅ applied |
 
 **What the gaps cost today:** without 44, Discover falls back to newest posts and people. `main`
@@ -62,8 +62,9 @@ list, with the rollbacks, is "Production deployment checklist" in
    2026-10-28), so Pro's daily backups or a Supabase CLI dump, plus `scripts/backup.mjs` for row
    counts. Then check with `verify.mjs --live --except …` that production is still in the state that
    was rehearsed.
-3. Run `db:setup` once from `main`: 44, 46 and 49 to 58 (57 on `main` since PR #59, 58 once `stories` merges; both in the
-   rehearsal's and the offline rollout's release since 2026-10-29).
+3. Run `db:setup` once from `main`: 44, 46 and 49 to 57 (57 on `main` since PR #59). 58 is already live, applied
+   on its own on 2026-10-30, and out of the rehearsal's and the offline rollout's release since then; the offline
+   `stories-rollout.test.mjs` shows the release landing after it.
 
 Applying 55 under the older video routes would leave new uploads "processing". Applying 49 and 50
 without 55 and 56 would let ads rely on unchecked video details: run them together. 55 also needs

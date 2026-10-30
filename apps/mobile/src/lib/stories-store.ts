@@ -5,8 +5,10 @@ import { supabase } from "./supabase";
 /**
  * The stories the person may see, read once for the whole app (Home's tray and the full-screen viewer share it), with
  * the viewer's own marks of what has been watched, so a ring greys out the moment its stories were seen rather than on
- * the next load. Reloaded when stale (a minute), after a story of your own is shared (markStoriesStale) and on pull to
- * refresh. What may be seen is the database's decision (migration 58): this only orders what it sent.
+ * the next load. Reloaded when stale (a minute, checked every half minute while the tray is on screen), after a story of
+ * your own is shared (markStoriesStale) and on Home's pull to refresh. A story that passes its 24 hours while the app is
+ * open leaves the tray at the next check. What may be seen is the database's decision (migration 58): this only orders
+ * what it sent.
  */
 let stories: Story[] = [];
 let groups: StoryGroup[] = [];
@@ -16,6 +18,7 @@ let version = 0;
 let inflight: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 const STALE_MS = 60_000;
+const TICK_MS = 30_000;
 
 function emit() {
   version++;
@@ -74,6 +77,15 @@ export function noteStoryDeleted(storyId: string): void {
   emit();
 }
 
+/** Stories past their 24 hours leave the tray (groupStories drops them); nothing changes when none has. */
+function dropExpired(): void {
+  const now = Date.now();
+  if (!stories.some((s) => Date.parse(s.expiresAt) <= now)) return;
+  stories = stories.filter((s) => Date.parse(s.expiresAt) > now);
+  groups = groupStories(stories, loadedFor, now);
+  emit();
+}
+
 export function useStoryGroups(): StoryGroup[] {
   return useSyncExternalStore(subscribe, () => groups, () => groups);
 }
@@ -83,7 +95,14 @@ export function useStories(meId: string | null, active: boolean): StoryGroup[] {
   const v = useSyncExternalStore(subscribe, () => version, () => version);
   useEffect(() => {
     if (!meId || !active) return;
-    if (loadedFor !== meId || Date.now() - loadedAt > STALE_MS) void refreshStories(meId);
+    const look = () => {
+      dropExpired();
+      if (loadedFor !== meId || Date.now() - loadedAt > STALE_MS) void refreshStories(meId);
+    };
+    look();
+    // While the tray is on screen, expired stories leave it and new ones arrive without a pull.
+    const timer = setInterval(look, TICK_MS);
+    return () => clearInterval(timer);
     // `v` re-runs the check after markStoriesStale().
   }, [meId, active, v]);
   return useStoryGroups();

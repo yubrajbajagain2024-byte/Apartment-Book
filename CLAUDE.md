@@ -18,7 +18,7 @@ writes itself. Leave those two alone.
 State University. Sign-up is limited to the email domains on the `universities` table
 (`txstate.edu` today), checked by the form and by a `before insert` trigger on `auth.users`.
 
-- **Social network first.** Lead with people, posts, Orbit, Buzz, Reels and messages. Housing,
+- **Social network first.** Lead with people, posts, Stories, Orbit, Buzz, Reels and messages. Housing,
   roommates and the Marketplace are supporting tools on the Explore tab; they must not set the
   app's identity, navigation or wording outside Explore.
 - **Three surfaces, one Supabase project:** UniBuzz for students (Next.js website and Expo app);
@@ -53,7 +53,7 @@ apps/web/e2e/      Playwright: home-feed.mjs, release-smoke.mjs (every page of e
 apps/mobile/       Expo app (expo-router): apps/mobile/CLAUDE.md
 packages/shared/   everything that is not UI: types/ (incl. database.ts), schemas/ (zod), queries/
                    (every read and write), buzz/, trust-safety/, constants.ts, for-you.ts, discover.ts,
-                   profile.ts, snaps.ts, calls.ts, share.ts, format.ts, …
+                   profile.ts, snaps.ts, stories.ts, calls.ts, share.ts, format.ts, …
 packages/moderation/  the Buzz moderation engine (rule packs, PII detector, policy); server-only
 supabase/          migrations/, rollbacks/, tests/, applied-outside-repo/, functions/, seed.sql
 scripts/           supabase-setup.mjs (db:setup), e2e-check.mjs (db:check), e2e-home-feed.mjs,

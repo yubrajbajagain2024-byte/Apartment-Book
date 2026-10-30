@@ -1,4 +1,5 @@
-// The Business v2 release (migrations 44, 46 and 49 to 57, with Buzz's 51 to 54 in the same run; production already has 47)
+// The Business v2 release (migrations 44, 46 and 49 to 57, with Buzz's 51 to 54 in the same run; production already has 47 and,
+// since 2026-10-30, 58: Stories went live on its own, see supabase/tests/staging/stories.mjs)
 // rehearsed on the staging project, the way production will take it, through the real Supabase stack: Auth sessions, the REST API,
 // Storage, pg_cron. Never runs against production: it refuses production's ref and any project not named as staging.
 //
@@ -49,7 +50,6 @@ const RELEASE = [
   "20261109000000_media_server_fields.sql",
   "20261109000100_business_hardening.sql",
   "20261110000000_business_hours.sql",
-  "20261110000100_stories.sql",
 ];
 const BUSINESS = ["20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql", "20261110000000_business_hours.sql"];
 const MIGRATIONS = fs.readdirSync(new URL("supabase/migrations/", ROOT)).filter((f) => f.endsWith(".sql")).sort();

@@ -45,11 +45,13 @@ export type StoryGroup = {
 
 /**
  * The tray's order, Instagram's: your own first, then people with something you have not seen (newest story first),
- * then the people whose stories you have all seen (newest first). Within a person, oldest story first.
+ * then the people whose stories you have all seen (newest first). Within a person, oldest story first. A story past its
+ * 24 hours is left out: the database stops sending it, and this drops one that expires while the app stays open.
  */
-export function groupStories(stories: readonly Story[], meId: string | null): StoryGroup[] {
+export function groupStories(stories: readonly Story[], meId: string | null, now: number = Date.now()): StoryGroup[] {
   const byAuthor = new Map<string, Story[]>();
   for (const s of stories) {
+    if (Date.parse(s.expiresAt) <= now) continue;
     const list = byAuthor.get(s.author.id);
     if (list) list.push(s);
     else byAuthor.set(s.author.id, [s]);
