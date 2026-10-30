@@ -22,6 +22,7 @@ const PENDING = [
   "20261109000000_media_server_fields.sql",
   "20261109000100_business_hardening.sql",
   "20261110000000_business_hours.sql",
+  "20261110000100_stories.sql",
 ];
 // The release's rollback: the business migrations (57 included), newest first. Buzz's 51 to 54 stay.
 const BUSINESS = ["20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql", "20261110000000_business_hours.sql"];
