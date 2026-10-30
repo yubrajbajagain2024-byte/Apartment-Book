@@ -86,10 +86,10 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   Website button are live on the website; the hours need **migration 57** on production (with the release above) and
   the app's part an EAS update, both the owner's approval. Until 57, the website shows and offers no hours. See
   [branches/business-hours.md](branches/business-hours.md).
-- **The full-screen viewer in the app** (branch `reel-viewer-actions`, no PR yet): no "Add comment…" bar, the app's tab
-  bar kept in view when the viewer is opened over the tabs, the rail a little nearer the right edge at the same height.
-  It restores a change of 2026-10-25 (`4294c2f`) that a merge undid the same night (`8951d46`). Reaches testers only
-  with an EAS update (owner's approval).
+- **The full-screen viewer in the app**: no "Add comment…" bar, the tab bar kept in view, the rail nearer the right
+  edge (PR #61, merged); closing from a later reel shrinks into the post it was opened from, fading into it, as
+  Instagram's does (branch `viewer-close-transition`, no PR yet). Both reach testers only with an EAS update (owner's
+  approval).
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
   website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
   (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).

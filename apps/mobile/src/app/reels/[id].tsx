@@ -69,6 +69,12 @@ const ZOOM_OUT_CURVE = [0.3, 0.7, 0.45, 1] as const;
 const HAND_OVER_MS = 50;
 /** Most of the fade comes last, where the two pictures are a pixel or less apart: no ghost of one beside the other. */
 const HAND_OVER = { duration: HAND_OVER_MS, easing: Easing.in(Easing.cubic) };
+/**
+ * Closing from another page than the one it opened on (a later reel), the page shrinks into the post it was opened from
+ * all the same, as Instagram's does, and fades out on the way, quickly at first: the feed's own picture of that post
+ * shows through it and has taken over well before it lands, so the two never sit one over the other.
+ */
+const CROSS_FADE = { duration: Math.round(ZOOM_OUT_MS * 0.75), easing: Easing.out(Easing.quad) };
 /** Device pixels per point: the opening's edges sit on whole pixels (see frameStyle). */
 const PIXEL = PixelRatio.get();
 
@@ -667,7 +673,11 @@ export default function ReelViewerScreen() {
     requestAnimationFrame(() => requestAnimationFrame(() => go()));
   }, []);
 
-  /** Zooms closed (into the tapped picture when that page is still the one on screen), then runs `done`. */
+  /**
+   * Zooms closed, then runs `done`: into the tapped picture, from the page it opened on (the feed's own picture takes over
+   * in the last moment) or from any other (fading into it as it goes, see CROSS_FADE); opened from a link, with no picture
+   * to go back to, it shrinks and fades where it is.
+   */
   const closing = useRef(false);
   /** The same, set on whichever thread a close starts: the swipe's starts on the UI thread (see swipeClose). */
   const closingUI = useSharedValue(0);
@@ -689,7 +699,7 @@ export default function ReelViewerScreen() {
       }
       zoomUI.value = 1;
       const home = origin !== null && isStartAt(visibleRef.current);
-      toOrigin.value = home ? 1 : 0;
+      toOrigin.value = origin !== null ? 1 : 0;
       chrome.value = withTiming(0, { duration: 110 });
       drag.value = withTiming(0, { duration: ZOOM_OUT_MS });
       open.value = withTiming(0, { duration: ZOOM_OUT_MS, easing: Easing.bezier(...ZOOM_OUT_CURVE) }, (finished) => {
@@ -697,8 +707,10 @@ export default function ReelViewerScreen() {
         seen.value = 0;
         runOnJS(land)();
       });
-      // Onto the tapped picture, the feed's own takes over in the last moment (anywhere else the page fades out as it goes).
+      // From the page it opened on, the feed's own picture takes over in the last moment; from another, the page fades
+      // into it as it goes (with no picture to go back to, the page fades as it shrinks: frameStyle).
       if (home) seen.value = withDelay(ZOOM_OUT_MS - HAND_OVER_MS, withTiming(0, HAND_OVER));
+      else if (origin !== null) seen.value = withTiming(0, CROSS_FADE);
     },
     [reduceMotion, origin, isStartAt, toOrigin, chrome, drag, open, seen, zoomUI, handBack, afterLanding],
   );
@@ -744,9 +756,11 @@ export default function ReelViewerScreen() {
   const hasOrigin = origin !== null;
   /**
    * The swipe back (see usePageSwipe): the modal has no system back swipe, so each page pulls itself sideways with the
-   * finger, either way. Let go past the point of no return, it goes on from where the finger left it: the page it was
-   * opened on shrinks back into the post it was opened from, which is right where it was in the feed; any other page goes
-   * on out the way it was swiped, fading; then the viewer really leaves. A worklet, run by the swipe on the UI thread the
+   * finger, either way. Let go past the point of no return, it goes on from where the finger left it and shrinks back into
+   * the post it was opened from, which is right where it was in the feed: from the page it opened on, the feed's picture
+   * takes over as it lands; from any other (a later reel), it fades into that picture on the way, as Instagram's does.
+   * Opened from a link, with no post to go back to, the page goes on out the way it was swiped, fading. Then the viewer
+   * really leaves. A worklet, run by the swipe on the UI thread the
    * moment the finger lets go, so the page carries on with no pause whatever the JS thread is doing; only what JS has to
    * do waits for it.
    */
@@ -764,17 +778,18 @@ export default function ReelViewerScreen() {
       }
       zoomUI.value = 1;
       const home = hasOrigin && onStartPage.value === 1;
-      toOrigin.value = home ? 1 : 0;
+      toOrigin.value = hasOrigin ? 1 : 0;
       chrome.value = withTiming(0, { duration: 110 });
       const easing = Easing.bezier(...ZOOM_OUT_CURVE);
       const away = Math.sign(drag.value || velocityX || 1) * screenW;
-      drag.value = withTiming(home ? 0 : away, { duration: ZOOM_OUT_MS, easing });
+      drag.value = withTiming(hasOrigin ? 0 : away, { duration: ZOOM_OUT_MS, easing });
       open.value = withTiming(0, { duration: ZOOM_OUT_MS, easing }, (finished) => {
         if (!finished) return;
         seen.value = 0;
         runOnJS(swipeLeave)();
       });
       if (home) seen.value = withDelay(ZOOM_OUT_MS - HAND_OVER_MS, withTiming(0, HAND_OVER));
+      else if (hasOrigin) seen.value = withTiming(0, CROSS_FADE);
     },
     [closingUI, swipeClosing, reduceMotion, seen, zoomUI, swipeLeave, hasOrigin, onStartPage, toOrigin, chrome, drag, screenW, open],
   );
