@@ -159,4 +159,4 @@ await expectOk("after every rollback: v1 again (staff, the listing Sponsored thr
 
 await applyAll("second rollout");
 
-done("PRODUCTION ROLLOUT (44, 46, 49 TO 57 AFTER 47)");
+done("PRODUCTION ROLLOUT (44, 46, 49 TO 58 AFTER 47)");
