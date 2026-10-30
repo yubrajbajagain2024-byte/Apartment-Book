@@ -1,6 +1,6 @@
 # Project status
 
-As of **2026-10-28**. Sources: the code, commit messages, and the owner's deploy notes (read-only
+As of **2026-10-30**. Sources: the code, commit messages, and the owner's deploy notes (read-only
 checks of production). Migration-by-migration status is in [migrations.md](migrations.md); branch
 details in [branches/](branches/README.md). Refer to an item below by its title.
 
@@ -30,6 +30,11 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 - **Business portal** (`/business`): live with migration 39. Its left sidebar, Billing and Settings pages (PR #56,
   2026-10-29 03:34 UTC) and the Inbox below Overview with live alerts and inquiry context (PR #57, 04:06 UTC; for
   businesses awaiting review too since PR #58, 06:14 UTC) are on production too; Ads and Analytics still need 49 and 50.
+  **Made instant on `business-performance`** (2026-10-30, local, not yet pushed): no Auth round trip per request
+  (local token verification in the proxy and the portal), parallel and deduplicated reads, pages prefetched in full on
+  intent, skeletons that wait 160 ms, filters that cost no request, one live channel and a self-updating Inbox list;
+  `npm run check` and the unit tests pass, the browser timings (`apps/web/e2e/business-performance.mjs`) still need a
+  staging run ([branches/business-performance.md](branches/business-performance.md)).
 - **Staging** (`campconnect-staging`) has production's migrations since 2026-10-28 (it got 41, 42,
   45 and the two admin migrations then; `verify.mjs --live` against it matches production's model).
 - **Video:** Mux uploads and tours. **Mobile:** Expo SDK 58 / RN 0.88; Android release build works

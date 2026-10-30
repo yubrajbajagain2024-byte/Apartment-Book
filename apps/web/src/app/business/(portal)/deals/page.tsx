@@ -3,9 +3,8 @@ import { Plus, Store } from "lucide-react";
 import { getBusinessDealStats, listBusinessDeals, listUniversities, teamRoleAllows, type Deal } from "@apartment-book/shared";
 import { requireBusiness } from "@/lib/business/portal";
 import { createClient } from "@/lib/supabase/server";
-import { cn, firstParam } from "@/lib/utils";
 import { DealTable } from "@/components/business/deal-table";
-import { PortalLink } from "@/components/business/portal-base";
+import { FilterTabs } from "@/components/business/filter-tabs";
 import { ProductsTabs } from "@/components/business/section-tabs";
 import { BizLink, EmptyPanel, PageHeader } from "@/components/business/ui";
 
@@ -22,10 +21,15 @@ const KINDS = [
 ] as const;
 
 const matches = (f: (typeof KINDS)[number], d: Deal) => !f.kinds || (f.kinds as readonly string[]).includes(d.kind);
+/** Each filter's kinds, for the grid to pick from in the browser (null: every kind). */
+const KINDS_BY_FILTER = Object.fromEntries(KINDS.map((k) => [k.value, k.kinds])) as Record<string, readonly string[] | null>;
 
-/** Products & Services: the business's posts (products, services, special offers, events, updates) and its listings. */
-export default async function DealsPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
-  const [{ membership }, params] = await Promise.all([requireBusiness("/deals"), searchParams]);
+/**
+ * Products & Services: the business's posts (products, services, special offers, events, updates) and its listings.
+ * Every post is on the page; the type filter (?kind=) picks from them in the browser, so switching costs no request.
+ */
+export default async function DealsPage() {
+  const { membership } = await requireBusiness("/deals");
   const business = membership.business;
   const supabase = await createClient();
   const [deals, stats, universities] = await Promise.all([
@@ -35,8 +39,6 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
   ]);
   const names = new Map(universities.map((u) => [u.id, u.name]));
   const canPublish = teamRoleAllows(membership.role, "publish");
-  const filter = KINDS.find((k) => k.value === firstParam(params.kind)) ?? KINDS[0];
-  const shown = deals.filter((d) => matches(filter, d));
   const newPost = canPublish ? (
     <BizLink href="/deals/new">
       <Plus className="h-4 w-4" /> New post
@@ -58,30 +60,8 @@ export default async function DealsPage({ searchParams }: { searchParams: Promis
         <EmptyPanel icon={Store} title="Nothing here yet" description="A new product, a service, a student discount, an event: photos or a video, a price, a code, a link." action={newPost} />
       ) : (
         <>
-          <nav aria-label="Filter by type" className="-mb-2 flex gap-1 overflow-x-auto no-scrollbar">
-            {KINDS.map((k) => {
-              const active = k.value === filter.value;
-              const count = deals.filter((d) => matches(k, d)).length;
-              return (
-                <PortalLink
-                  key={k.value}
-                  href={k.value === "all" ? "/deals" : `/deals?kind=${k.value}`}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-4 text-[13px] font-medium transition-colors",
-                    active ? "bg-biz-ink text-biz-surface" : "bg-biz-surface text-biz-ink-2 ring-1 ring-biz-line hover:text-biz-ink",
-                  )}
-                >
-                  {k.label} <span className={cn("tabular-nums", active ? "opacity-70" : "text-biz-ink-4")}>{count}</span>
-                </PortalLink>
-              );
-            })}
-          </nav>
-          {shown.length === 0 ? (
-            <p className="py-10 text-center text-[15px] text-biz-ink-3">Nothing of this type yet.</p>
-          ) : (
-            <DealTable deals={shown} stats={stats} universityNames={names} canPublish={canPublish} />
-          )}
+          <FilterTabs label="Filter by type" param="kind" path="/deals" fallback="all" options={KINDS.map((k) => ({ value: k.value, label: k.label, count: deals.filter((d) => matches(k, d)).length }))} />
+          <DealTable deals={deals} stats={stats} universityNames={names} canPublish={canPublish} filter={{ param: "kind", fallback: "all", kinds: KINDS_BY_FILTER }} />
         </>
       )}
     </div>

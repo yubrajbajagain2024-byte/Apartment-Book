@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { businessInboxView, getConversation, getInquiryDetails, listMessages, listTeam } from "@apartment-book/shared";
+import { businessInboxView, getConversation, getInquiryDetails, listMessages } from "@apartment-book/shared";
+import { portalTeam } from "@/lib/business/data";
 import { requireCapability } from "@/lib/business/portal";
 import { createClient } from "@/lib/supabase/server";
 import { InquiryContext } from "@/components/business/inquiry-context";
@@ -19,11 +20,17 @@ export default async function InquiryPage({ params }: Props) {
   const { conversationId } = await params;
   const { user, membership } = await requireCapability("reply", `/inbox/${conversationId}`);
   const supabase = await createClient();
-  const [conversation, team] = await Promise.all([getConversation(supabase, conversationId, user.id), listTeam(supabase, membership.business.id)]);
+  // One round trip for everything the page needs: the database answers each read for this member alone, so the checks
+  // below only decide what to show, not what was read.
+  const [conversation, team, messages, details] = await Promise.all([
+    getConversation(supabase, conversationId, user.id),
+    portalTeam(membership.business.id),
+    listMessages(supabase, conversationId),
+    getInquiryDetails(supabase, [conversationId]).catch(() => null),
+  ]);
   // Not until the student has written (the inbox's rule, and migration 56's in the database).
   if (!conversation || conversation.business?.id !== membership.business.id || !conversation.lastMessageAt) notFound();
   const view = businessInboxView(conversation, new Set(team.map((m) => m.user_id)));
-  const [messages, details] = await Promise.all([listMessages(supabase, conversationId), getInquiryDetails(supabase, [conversationId]).catch(() => null)]);
   const target = details?.[conversationId]?.target ?? null;
 
   return (

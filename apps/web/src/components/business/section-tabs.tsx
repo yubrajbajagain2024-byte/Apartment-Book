@@ -1,16 +1,17 @@
 import { cn } from "@/lib/utils";
-import { PortalLink } from "./portal-base";
+import { IntentLink } from "./portal-base";
 
 /**
  * The pages of one sidebar section, as a quiet segmented row under its title (Products & Services: posts and
- * listings; Settings: profile, team, verification, account). The page says which one it is.
+ * listings; Settings: profile, team, verification, account). The page says which one it is. Each tab's page is
+ * prefetched in full as the pointer reaches it, so moving between a section's pages shows no loading state.
  */
 export function SectionTabs({ label, tabs }: { label: string; tabs: { href: string; label: string; active: boolean }[] }) {
   if (tabs.length < 2) return null;
   return (
     <nav aria-label={label} className="-mt-2 flex gap-1 overflow-x-auto border-b border-biz-line no-scrollbar">
       {tabs.map((t) => (
-        <PortalLink
+        <IntentLink
           key={t.href}
           href={t.href}
           aria-current={t.active ? "page" : undefined}
@@ -21,7 +22,7 @@ export function SectionTabs({ label, tabs }: { label: string; tabs: { href: stri
         >
           {t.label}
           <span aria-hidden="true" className={cn("absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-biz-accent transition-opacity", t.active ? "opacity-100" : "opacity-0")} />
-        </PortalLink>
+        </IntentLink>
       ))}
     </nav>
   );

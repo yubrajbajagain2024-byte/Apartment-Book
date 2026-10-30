@@ -6,6 +6,7 @@ import { Archive, CalendarDays, Eye, Inbox, Pause, Pencil, Play, Store, Trash2 }
 import { dealStatusLabel, formatCents, mediaCover, mediaItems, postKindLabel, type BusinessDealStats, type Deal } from "@apartment-book/shared";
 import { deleteDealAction, setDealStatusAction } from "@/lib/actions/business";
 import { cn, formatDate } from "@/lib/utils";
+import { useListFilter } from "./filter-tabs";
 import { PortalLink } from "./portal-base";
 import { Notice, Pill, type Tone } from "./ui";
 
@@ -16,13 +17,29 @@ const STATUS_TONE: Record<string, Tone> = { Live: "success", Scheduled: "accent"
  * inquiries, and pausing, archiving, editing and deleting (for the roles that publish; the database checks the same).
  * Kept under v1's name, DealTable: every post lives in the deals table.
  */
-export function DealTable({ deals, stats, universityNames, canPublish = true }: { deals: Deal[]; stats: BusinessDealStats[]; universityNames: Map<string, string>; canPublish?: boolean }) {
+export function DealTable({
+  deals,
+  stats,
+  universityNames,
+  canPublish = true,
+  filter,
+}: {
+  deals: Deal[];
+  stats: BusinessDealStats[];
+  universityNames: Map<string, string>;
+  canPublish?: boolean;
+  /** The type filter (FilterTabs above the grid): the address's parameter, and the kinds each value shows (null: all). */
+  filter?: { param: string; fallback: string; kinds: Record<string, readonly string[] | null> };
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const statsById = new Map(stats.map((s) => [s.deal_id, s]));
+  const active = useListFilter(filter?.param ?? "kind", filter ? Object.keys(filter.kinds) : [], filter?.fallback ?? "all");
+  const kinds = filter?.kinds[active] ?? null;
+  const shown = kinds ? deals.filter((d) => kinds.includes(d.kind)) : deals;
 
   const run = (id: string, work: () => Promise<{ error?: string }>) => {
     setBusyId(id);
@@ -36,11 +53,12 @@ export function DealTable({ deals, stats, universityNames, canPublish = true }: 
   };
   const action = "inline-flex h-8 items-center gap-1 rounded-full px-3 text-[13px] font-medium text-biz-ink-2 transition-colors hover:bg-biz-line hover:text-biz-ink";
 
+  if (shown.length === 0) return <p className="py-10 text-center text-[15px] text-biz-ink-3">Nothing of this type yet.</p>;
   return (
     <div className="flex flex-col gap-4" data-testid="deal-table">
       {error ? <Notice tone="danger" title={error} /> : null}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {deals.map((deal) => {
+        {shown.map((deal) => {
           const busy = pending && busyId === deal.id;
           const s = statsById.get(deal.id);
           const label = dealStatusLabel(deal);
@@ -51,7 +69,7 @@ export function DealTable({ deals, stats, universityNames, canPublish = true }: 
               <PortalLink href={canPublish ? `/deals/${deal.id}/edit` : "/deals"} className="relative block aspect-[4/3] bg-biz-surface-3">
                 {cover ? (
                   // eslint-disable-next-line @next/next/no-img-element -- the business's own upload, any host v1 allowed
-                  <img src={cover} alt="" className="h-full w-full object-cover" />
+                  <img src={cover} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 ) : (
                   <Store className="absolute inset-0 m-auto h-8 w-8 text-biz-ink-4" />
                 )}

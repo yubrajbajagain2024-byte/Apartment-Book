@@ -74,10 +74,11 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  // Refreshes the session cookie when needed. Do not remove.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Refreshes the session cookie when needed, and checks the token's signature against the project's public signing
+  // keys (kept in memory for ten minutes) instead of asking the Auth server on every request: the same check the
+  // database makes before answering a query, without a round trip in front of every page. Do not remove.
+  const { data: claims } = await supabase.auth.getClaims();
+  const user = claims?.claims ?? null;
 
   if (portalPath !== null) {
     const isPublic = PORTAL_PUBLIC.some((p) => portalPath === p || portalPath.startsWith(`${p}/`));

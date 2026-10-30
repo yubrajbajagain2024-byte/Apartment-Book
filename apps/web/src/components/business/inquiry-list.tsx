@@ -6,18 +6,22 @@ import { usePathname, useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import {
   INQUIRY_FILTERS,
+  inboxAfterMessage,
+  inboxAfterRead,
+  inboxReflects,
   inquiryKindLabel,
   inquiryMatches,
   markConversationsRead,
   type ConversationSummary,
+  type InboxMessageEvent,
   type InquiryFilter,
   type InquiryTarget,
 } from "@apartment-book/shared";
-import { useHydrated } from "@/lib/hooks";
 import { createClient, ensureRealtimeAuth, uniqueChannelName } from "@/lib/supabase/client";
 import { cn, timeAgo } from "@/lib/utils";
 import { ConversationAvatar } from "@/components/messages/conversation-list";
 import { useMessagesPaths } from "@/components/messages/messages-paths";
+import { readInboxLive, setInboxUnread } from "./inbox-live";
 import { INQUIRY_ICONS } from "./inquiry-icons";
 import { MessageAlertsButton } from "./message-alerts";
 
@@ -31,35 +35,64 @@ export type InquiryItem = {
   lastBy: string | null;
 };
 
+/** A team member as the list needs them: to tell a teammate's reply from a student's, and to name it. */
+export type InquiryTeammate = { id: string; firstName: string };
+
 /**
  * The business's inbox list, Instagram style: the student's photo and name, the newest message ("You:" when the team
  * wrote it), what the chat is about, unread counts, and filters (unread, needing a reply, by what it came from) with a
- * search. New messages and read receipts refresh it as they happen. Students always start these chats.
+ * search. Students always start these chats.
+ *
+ * It keeps itself current without the server: a message moves its chat to the top with the new preview and count, a
+ * read receipt clears a count (inboxAfterMessage, inboxAfterRead), at once and with no re-render of the page. Only
+ * what it cannot know, a chat it has not seen (a student's first message, which has a context to look up), is read
+ * from the server. A message that arrived while another page was open is caught up on when the list mounts.
  */
-export function InquiryList({ items }: { items: InquiryItem[] }) {
+export function InquiryList({ items, userId, team }: { items: InquiryItem[]; userId: string; team: InquiryTeammate[] }) {
   const pathname = usePathname();
   const router = useRouter();
   const paths = useMessagesPaths();
-  const hydrated = useHydrated();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [filter, setFilter] = useState<InquiryFilter>("all");
   const [query, setQuery] = useState("");
   const [marking, setMarking] = useState(false);
+  // The list as it stands: the server's, then patched as messages and receipts arrive; the server's again after any refresh.
+  const [rows, setRows] = useState(items);
+  const [synced, setSynced] = useState(items);
+  if (items !== synced) {
+    setSynced(items);
+    setRows(items);
+  }
+  // What the realtime handlers read: the list as it stands, who the viewer is, and which chat is open on screen.
+  const rowsRef = useRef(rows);
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
+  const openId = pathname.startsWith(`${paths.base}/`) ? pathname.slice(paths.base.length + 1) : null;
+  const me = useRef({ userId, team: new Map(team.map((t) => [t.id, t.firstName])), openConversationId: openId });
+  const teamKey = team.map((t) => `${t.id}\t${t.firstName}`).join("\n");
+  useEffect(() => {
+    const members = teamKey ? teamKey.split("\n").map((line) => line.split("\t") as [string, string]) : [];
+    me.current = { userId, team: new Map(members), openConversationId: openId };
+  }, [userId, teamKey, openId]);
 
-  const rows = items.map((i) => {
-    const c = i.conversation;
-    const about = i.target ? [inquiryKindLabel(i.target.kind), i.target.title].filter(Boolean).join(" · ") : null;
-    return { ...i, about, state: { unreadCount: c.unreadCount, needsReply: i.needsReply, kind: i.target?.kind ?? null, text: [c.title, c.lastMessagePreview, about].filter(Boolean).join(" ") } };
-  });
-  const shown = rows.filter((r) => inquiryMatches(r.state, filter, query));
-  const unreadIds = items.filter((i) => i.conversation.unreadCount > 0).map((i) => i.conversation.id);
+  const shown = rows
+    .map((i) => {
+      const c = i.conversation;
+      const about = i.target ? [inquiryKindLabel(i.target.kind), i.target.title].filter(Boolean).join(" · ") : null;
+      return { ...i, about, state: { unreadCount: c.unreadCount, needsReply: i.needsReply, kind: i.target?.kind ?? null, text: [c.title, c.lastMessagePreview, about].filter(Boolean).join(" ") } };
+    });
+  const visible = shown.filter((r) => inquiryMatches(r.state, filter, query));
+  const unreadIds = rows.filter((i) => i.conversation.unreadCount > 0).map((i) => i.conversation.id);
 
   async function markAllRead() {
     if (marking || unreadIds.length === 0) return;
     setMarking(true);
     try {
       await markConversationsRead(createClient(), unreadIds);
-      router.refresh();
+      // The counts are 0 at once, here and on the sidebar; the read receipts the database sends agree.
+      setRows((prev) => prev.map((r) => (r.conversation.unreadCount > 0 ? { ...r, conversation: { ...r.conversation, unreadCount: 0 } } : r)));
+      setInboxUnread(0);
     } catch {
       // The counts stay as they are; the next refresh tells the truth.
     } finally {
@@ -67,7 +100,14 @@ export function InquiryList({ items }: { items: InquiryItem[] }) {
     }
   }
 
-  // New chats, new messages and read receipts: re-read the list (previews, order, counts) as they happen.
+  // A message that came in while another page was open is not in the server's list if the page was rendered (or
+  // prefetched) before it: ask once. Compared by the database's own times, so the clocks here and there do not matter.
+  useEffect(() => {
+    if (!inboxReflects(rowsRef.current, readInboxLive().lastMessage)) router.refresh();
+    // On mount only: the list the server sent is what is being checked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const supabase = createClient();
     let cancelled = false;
@@ -80,9 +120,26 @@ export function InquiryList({ items }: { items: InquiryItem[] }) {
       if (cancelled || !authed) return;
       channel = supabase
         .channel(uniqueChannelName("inquiry-list"), { config: { postgres_changes_options: { wait: true } } })
-        .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, refresh)
-        .on("postgres_changes", { event: "*", schema: "public", table: "conversation_members" }, refresh)
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, refresh)
+        // Chats and memberships coming and going (a role change, a chat removed): the server knows what to list.
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "conversations" }, refresh)
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "conversations" }, refresh)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "conversation_members" }, refresh)
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "conversation_members" }, refresh)
+        // My own read receipt (this tab, another device): the count clears here.
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversation_members" }, (payload) => {
+          const row = payload.new as { conversation_id: string; user_id: string; last_read_at: string | null };
+          if (row.user_id !== me.current.userId) return;
+          setRows((prev) => inboxAfterRead(prev, row));
+        })
+        // A message: the chat moves up with it; a chat not listed yet comes from the server with what it is about.
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
+          const row = payload.new as InboxMessageEvent;
+          if (!rowsRef.current.some((r) => r.conversation.id === row.conversation_id)) {
+            refresh();
+            return;
+          }
+          setRows((prev) => inboxAfterMessage(prev, row, me.current) ?? prev);
+        })
         .subscribe();
     });
     return () => {
@@ -123,7 +180,7 @@ export function InquiryList({ items }: { items: InquiryItem[] }) {
       </div>
       <nav aria-label="Filter inquiries" className="flex gap-1.5 overflow-x-auto px-4 pb-3 no-scrollbar">
         {INQUIRY_FILTERS.map((f) => {
-          const count = rows.filter((r) => inquiryMatches(r.state, f.value)).length;
+          const count = shown.filter((r) => inquiryMatches(r.state, f.value)).length;
           if (f.value !== "all" && f.value !== "unread" && f.value !== "needs_reply" && count === 0) return null;
           const active = f.value === filter;
           return (
@@ -144,9 +201,9 @@ export function InquiryList({ items }: { items: InquiryItem[] }) {
         })}
       </nav>
       <ul className="scrollbar-thin flex-1 overflow-y-auto px-2 pb-2">
-        {items.length === 0 ? <li className="px-4 py-10 text-center text-[14px] text-biz-ink-3">{paths.emptyText}</li> : null}
-        {items.length > 0 && shown.length === 0 ? <li className="px-4 py-10 text-center text-[14px] text-biz-ink-3">No inquiries match.</li> : null}
-        {shown.map((r) => {
+        {rows.length === 0 ? <li className="px-4 py-10 text-center text-[14px] text-biz-ink-3">{paths.emptyText}</li> : null}
+        {rows.length > 0 && visible.length === 0 ? <li className="px-4 py-10 text-center text-[14px] text-biz-ink-3">No inquiries match.</li> : null}
+        {visible.map((r) => {
           const c = r.conversation;
           const active = pathname === `${paths.base}/${c.id}`;
           const unread = c.unreadCount > 0;
@@ -163,7 +220,10 @@ export function InquiryList({ items }: { items: InquiryItem[] }) {
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline justify-between gap-2">
                     <span className={cn("truncate text-[15px]", unread ? "font-semibold text-biz-ink" : "font-medium text-biz-ink-2")}>{c.title}</span>
-                    <span className="shrink-0 text-[11px] text-biz-ink-4">{hydrated ? timeAgo(c.lastMessageAt) : ""}</span>
+                    {/* Rendered on the server too, so the column never starts empty; the browser's own wording wins on hydration. */}
+                    <span className="shrink-0 text-[11px] text-biz-ink-4" suppressHydrationWarning>
+                      {timeAgo(c.lastMessageAt)}
+                    </span>
                   </span>
                   <span className={cn("block truncate text-[13px]", unread ? "font-semibold text-biz-ink" : "text-biz-ink-3")}>
                     {r.lastBy ? `${r.lastBy}: ` : ""}

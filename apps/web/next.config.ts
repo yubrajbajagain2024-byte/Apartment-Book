@@ -13,6 +13,13 @@ const supabaseHost = (() => {
 const nextConfig: NextConfig = {
   // The shared package is plain TypeScript; let Next.js compile it.
   transpilePackages: ["@apartment-book/shared", "@apartment-book/moderation"],
+  experimental: {
+    // How long the browser keeps a page it prefetched in full (the business portal's sidebar and tabs prefetch their
+    // pages that way on intent: components/business/portal-base.tsx) before fetching it again: a minute, not Next's
+    // five, so a page opened from the sidebar is never more than a minute behind the database. A server action that
+    // changes anything clears the cache at once, whatever the age. Pages prefetched the default way are not kept.
+    staleTimes: { dynamic: 0, static: 60 },
+  },
   images: {
     // Photos are the product: serve them sharp. Originals stay untouched in
     // storage; these settings control the on-page renditions next/image makes.

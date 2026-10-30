@@ -4,7 +4,7 @@ import { clickRate, formatCents, getAdStats, getAnalyticsOverview, getDailyStats
 import { requireCapability } from "@/lib/business/portal";
 import { createClient } from "@/lib/supabase/server";
 import { cn, firstParam } from "@/lib/utils";
-import { PortalLink } from "@/components/business/portal-base";
+import { IntentLink, PortalLink } from "@/components/business/portal-base";
 import { TrendChart } from "@/components/business/trend-chart";
 import { AdStatusPill, EmptyPanel, PageHeader, Panel, PanelHeader, StatTile } from "@/components/business/ui";
 
@@ -30,16 +30,17 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         title="Analytics"
         subtitle="What students did with your ads, posts, listings and profile. Counts only: UniBuzz never tells a business who a student is."
         actions={
+          // Each period's page is prefetched in full as the pointer reaches it: the switch then shows no loading state.
           <nav aria-label="Period" className="inline-flex rounded-full bg-biz-surface p-1 ring-1 ring-biz-line">
             {PERIODS.map((p) => (
-              <PortalLink
+              <IntentLink
                 key={p}
                 href={p === 30 ? "/analytics" : `/analytics?days=${p}`}
                 aria-current={p === days ? "page" : undefined}
                 className={cn("inline-flex h-8 items-center rounded-full px-3.5 text-[13px] font-medium transition-colors", p === days ? "bg-biz-ink text-biz-surface" : "text-biz-ink-3 hover:text-biz-ink")}
               >
                 {p} days
-              </PortalLink>
+              </IntentLink>
             ))}
           </nav>
         }

@@ -16,10 +16,11 @@ import {
 } from "@apartment-book/shared";
 import { portalPath, requireBusiness } from "@/lib/business/portal";
 import { createClient } from "@/lib/supabase/server";
-import { cn, firstParam, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { DownloadCsv } from "@/components/business/billing-actions";
+import { FilteredList, FilterTabs } from "@/components/business/filter-tabs";
 import { PortalLink } from "@/components/business/portal-base";
-import { EmptyPanel, PageHeader, Panel, Pill, StatTile, type Tone } from "@/components/business/ui";
+import { EmptyPanel, PageHeader, Pill, StatTile, type Tone } from "@/components/business/ui";
 
 export const metadata: Metadata = { title: "Billing" };
 
@@ -31,6 +32,7 @@ const FILTERS: { value: "all" | PaymentStanding; label: string }[] = [
   { value: "cancelled", label: "Cancelled" },
 ];
 const TONES: Record<PaymentStanding, Tone> = { active: "success", upcoming: "accent", ended: "neutral", cancelled: "danger" };
+const FILTER_VALUES = FILTERS.map((f) => f.value);
 
 /** Where a payment's subject lives in the portal: its ad, or v1's listing or post. */
 function subjectHref(p: BusinessPayment): string | null {
@@ -49,16 +51,15 @@ async function loadPayments(businessId: string): Promise<{ payments: BusinessPay
 /**
  * Billing: what the business has paid for advertising, each payment's receipt, and a CSV for its books. The UniBuzz
  * team records a payment when it approves an ad (there is no card on file), so this page reads and never charges.
- * For the owner, admins and analysts (canSeeBilling); editors draft ads but never pay for them.
+ * For the owner, admins and analysts (canSeeBilling); editors draft ads but never pay for them. Every payment is on
+ * the page; the standing filter (?status=) picks from them in the browser, so switching costs no request.
  */
-export default async function BillingPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
-  const [{ membership }, params] = await Promise.all([requireBusiness("/billing"), searchParams]);
+export default async function BillingPage() {
+  const { membership } = await requireBusiness("/billing");
   if (!canSeeBilling(membership.role)) redirect(await portalPath("/"));
   const business = membership.business;
   const { payments, now } = await loadPayments(business.id);
   const totals = paymentTotals(payments, now);
-  const filter = FILTERS.find((f) => f.value === firstParam(params.status)) ?? FILTERS[0];
-  const shown = filter.value === "all" ? payments : payments.filter((p) => paymentStanding(p, now) === filter.value);
   const csv = paymentsCsv(
     payments.map((p) => ({
       recorded_at: p.created_at,
@@ -96,29 +97,22 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         />
       ) : (
         <>
-          <nav aria-label="Filter payments" className="-mb-2 flex gap-1 overflow-x-auto no-scrollbar">
-            {FILTERS.map((f) => {
-              const active = f.value === filter.value;
-              const count = f.value === "all" ? payments.length : payments.filter((p) => paymentStanding(p, now) === f.value).length;
-              return (
-                <PortalLink
-                  key={f.value}
-                  href={f.value === "all" ? "/billing" : `/billing?status=${f.value}`}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-4 text-[13px] font-medium transition-colors",
-                    active ? "bg-biz-ink text-biz-surface" : "bg-biz-surface text-biz-ink-2 ring-1 ring-biz-line hover:text-biz-ink",
-                  )}
-                >
-                  {f.label} <span className={cn("tabular-nums", active ? "opacity-70" : "text-biz-ink-4")}>{count}</span>
-                </PortalLink>
-              );
-            })}
-          </nav>
-          {shown.length === 0 ? (
-            <p className="py-10 text-center text-[15px] text-biz-ink-3">Nothing here.</p>
-          ) : (
-            <Panel className="overflow-hidden" data-testid="payments">
+          <FilterTabs
+            label="Filter payments"
+            param="status"
+            path="/billing"
+            fallback="all"
+            options={FILTERS.map((f) => ({ value: f.value, label: f.label, count: f.value === "all" ? payments.length : payments.filter((p) => paymentStanding(p, now) === f.value).length }))}
+          />
+          <FilteredList
+            param="status"
+            values={FILTER_VALUES}
+            fallback="all"
+            emptyText="Nothing here."
+            className="overflow-hidden"
+            testId="payments"
+            list
+            header={
               <div className="hidden grid-cols-[7rem_minmax(0,1fr)_11rem_9rem_7rem_6rem] gap-4 border-b border-biz-line px-6 py-3 text-[12px] font-medium uppercase tracking-wide text-biz-ink-4 md:grid">
                 <span>Recorded</span>
                 <span>Paid for</span>
@@ -127,8 +121,8 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                 <span className="text-right">Amount</span>
                 <span className="text-right">Status</span>
               </div>
-              <ul className="divide-y divide-biz-line">
-                {shown.map((p) => {
+            }
+            rows={payments.map((p) => {
                   const standing = paymentStanding(p, now);
                   const href = subjectHref(p);
                   const subject = href ? (
@@ -145,8 +139,8 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                   );
                   const amount = formatCents(p.amount_cents, p.currency);
                   const status = <Pill tone={TONES[standing]}>{paymentStandingLabel(standing)}</Pill>;
-                  return (
-                    <li key={p.id}>
+                  const node = (
+                    <>
                       {/* Phones: what and how much, then when, the reference and how it stands. */}
                       <div className="flex flex-col gap-1.5 px-5 py-4 md:hidden">
                         <div className="flex items-baseline justify-between gap-3">
@@ -179,12 +173,11 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                         <span className="text-right text-[15px] font-semibold tabular-nums text-biz-ink">{amount}</span>
                         <span className="text-right">{status}</span>
                       </div>
-                    </li>
+                    </>
                   );
+                  return { key: p.id, filters: ["all", standing], node };
                 })}
-              </ul>
-            </Panel>
-          )}
+          />
         </>
       )}
     </div>

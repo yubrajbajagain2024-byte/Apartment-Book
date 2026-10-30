@@ -62,7 +62,7 @@ export function DashboardView({
 
   return (
     <div className="flex flex-col gap-8">
-      <header className="ab-fade-in flex flex-wrap items-end justify-between gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-[13px] font-medium text-biz-ink-3">Overview · Good to see you, {firstName}</p>
           <h1 className="mt-1 flex flex-wrap items-center gap-3 text-[32px] font-semibold tracking-[-0.025em] text-biz-ink">

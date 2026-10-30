@@ -9,11 +9,11 @@ import {
   listAds,
   listBusinessPayments,
   listConversations,
-  listTeam,
   paymentTotals,
   standingOf,
   teamRoleAllows,
 } from "@apartment-book/shared";
+import { portalTeam } from "@/lib/business/data";
 import { getPortalSession, portalPath } from "@/lib/business/portal";
 import { getSiteUrl } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
@@ -53,7 +53,7 @@ export default async function DashboardPage() {
     getAnalyticsOverview(supabase, business.id, 30).catch(() => null),
     listAds(supabase, business.id).catch(() => []),
     canReply ? listConversations(supabase, user.id).catch(() => []) : Promise.resolve([]),
-    listTeam(supabase, business.id).catch(() => []),
+    portalTeam(business.id),
     billing ? listBusinessPayments(supabase, business.id).catch(() => null) : Promise.resolve(null),
   ]);
   const allInquiries = canReply ? businessConversations(conversations, business.id, new Set(team.map((m) => m.user_id))) : [];
