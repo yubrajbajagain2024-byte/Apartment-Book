@@ -497,6 +497,24 @@ body {
 }
 
 /* The business portal's sidebar slides in from the left edge on tablets and phones. */
+/*
+ * An unopened Snap's tiny preview drifts slowly under its frosted pane, as if something moved behind it (the app's
+ * DriftingPreview): a few pixels over and a touch larger, then back. Not with reduced motion.
+ */
+@keyframes ab-snap-drift {
+  from {
+    transform: translate(-6px, 4px);
+  }
+  to {
+    transform: translate(6px, -4px) scale(1.06);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ab-snap-drift {
+    animation: ab-snap-drift 7s ease-in-out infinite alternate;
+  }
+}
+
 @keyframes ab-drawer-in {
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }

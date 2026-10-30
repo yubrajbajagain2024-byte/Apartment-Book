@@ -30,7 +30,8 @@ current", rules 2 and 3).
 | `viewer-polish` | Sunil | The app's viewer: the zoom at Instagram's measured speed, no blur under the words (no migration) | merged (PR #63) | this table and docs/status.md (one PR) |
 | `buzz-media-viewer` | Sunil | Buzz's photos and video in the app's full-screen viewer, as an anonymous page (no migration) | merged (PR #64) | this table and docs/status.md (one PR) |
 | `buzz-viewer-feed` | Sunil | The Buzz viewer goes on up and down through the Buzz list's buzzes with media (no migration) | merged (PR #65) | this table and docs/status.md (one PR) |
-| `buzz-thread-redesign` | Sunil | The Buzz thread laid out like Reddit's: actions at the right, subtle lines that fold their branch, a button to the next conversation (no migration) | pushed, **no PR yet** (from `main` at PR #65) | this table and docs/status.md (one PR) |
+| `buzz-thread-redesign` | Sunil | The Buzz thread laid out like Reddit's: actions at the right, subtle lines that fold their branch, a button to the next conversation (no migration) | merged (PR #66) | this table and docs/status.md (one PR) |
+| `snap-preview-frost` | Sunil | Snap previews in chats: a lighter frost, a slow drift while unopened (no migration) | pushed, **no PR yet** (from `main` at PR #66) | this table and docs/status.md (one PR) |
 | `claude/claude-md-documentation-0b8750` | — | leftover worktree branch of a 2026-10-26 AI session | no commits of its own; left untouched until the owner says otherwise | — |
 
 **Safe to delete once their owner agrees**, because `main` has all their work (what is left on them
