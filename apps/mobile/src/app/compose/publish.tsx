@@ -18,7 +18,7 @@ import { useShareSheet } from "@/components/share-sheet";
 import { Button } from "@/components/ui";
 import { useReduceMotion } from "@/lib/accessibility";
 import { deleteDraft, saveDraft } from "@/lib/compose-drafts";
-import { clock, dropUploads, ensureUpload, saveToDevice, useUploads, withCover } from "@/lib/compose-media";
+import { clock, dropUploads, ensureStoryUpload, ensureUpload, saveToDevice, useUploads, withCover } from "@/lib/compose-media";
 import { useCloseCompose } from "@/lib/compose-nav";
 import { compose, roomFor, useCompose, type ComposeMedia, isListing } from "@/lib/compose-store";
 import { alertWithHaptic, hapticSuccess } from "@/lib/haptics";
@@ -160,8 +160,9 @@ export default function PublishScreen() {
   }
 
   /**
-   * To your story instead of (or as well as, with a second tap) the feed: each photo and video becomes a story with the
-   * audience chosen above, for 24 hours (migration 58). Posts and reels keep their own path: nothing here changes them.
+   * To your story instead of the feed: each photo and video becomes a story with the audience chosen above, for 24 hours
+   * (migration 58), a photo moved to your stories folder first (ensureStoryUpload, migration 59). Posts and reels keep
+   * their own path: nothing here changes them.
    */
   async function postStory() {
     if (!user || busy) return;
@@ -170,7 +171,7 @@ export default function PublishScreen() {
     const chosen = now.audience ?? startingAudience(campusId);
     setBusy("story");
     try {
-      const done = await Promise.all(now.media.map((m) => ensureUpload(m, user.id)));
+      const done = await Promise.all(now.media.map((m) => ensureStoryUpload(m, user.id)));
       const viewerIds = chosen === "selected" ? now.viewers.map((v) => v.id) : [];
       const universityId = chosen === "campus" ? campusId : undefined;
       for (let i = 0; i < done.length; i++) {

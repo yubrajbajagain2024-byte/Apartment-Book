@@ -1,7 +1,8 @@
 import { MAX_IMAGE_SIZE_BYTES, STORAGE_BUCKET } from "../constants";
 import type { Client } from "../types/models";
 
-export type UploadKind = "apartments" | "items" | "roommates" | "avatars" | "messages" | "posts" | "buzz";
+/** Each kind is a folder of the uploads bucket: <kind>/<uploader>/… (Buzz's: buzz/anon/…). "stories" is kept to its owner (migration 59). */
+export type UploadKind = "apartments" | "items" | "roommates" | "avatars" | "messages" | "posts" | "buzz" | "stories";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"]);
 
@@ -74,12 +75,31 @@ export async function uploadImage(
   return supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-/** Remove a previously uploaded image by its public URL (only works for your own files). */
-export async function deleteImageByUrl(supabase: Client, publicUrl: string): Promise<void> {
+/** The path in the uploads bucket of one of its public URLs, or null for any other address. */
+function uploadPathOf(publicUrl: string): string | null {
   const marker = `/object/public/${STORAGE_BUCKET}/`;
   const index = publicUrl.indexOf(marker);
-  if (index === -1) return;
-  const path = decodeURIComponent(publicUrl.slice(index + marker.length));
+  return index === -1 ? null : decodeURIComponent(publicUrl.slice(index + marker.length));
+}
+
+/** Remove a previously uploaded image by its public URL (only works for your own files). */
+export async function deleteImageByUrl(supabase: Client, publicUrl: string): Promise<void> {
+  const path = uploadPathOf(publicUrl);
+  if (!path) return;
   const { error } = await supabase.storage.from(STORAGE_BUCKET).remove([path]);
   if (error) throw error;
+}
+
+/**
+ * Moves one of your uploads into another of your folders under the same name (posts/<you>/x.jpg to stories/<you>/x.jpg)
+ * and returns its new public URL: one request, no second upload. Storage allows it for your own folders only.
+ */
+export async function moveUpload(supabase: Client, publicUrl: string, kind: UploadKind, userId: string): Promise<string> {
+  const from = uploadPathOf(publicUrl);
+  const name = from?.split("/").pop();
+  if (!from || !name) throw new Error("That file is not an upload.");
+  const to = `${kind}/${userId}/${name}`;
+  const { error } = await supabase.storage.from(STORAGE_BUCKET).move(from, to);
+  if (error) throw error;
+  return supabase.storage.from(STORAGE_BUCKET).getPublicUrl(to).data.publicUrl;
 }

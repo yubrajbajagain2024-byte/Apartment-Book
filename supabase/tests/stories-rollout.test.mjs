@@ -1,16 +1,18 @@
-// Migration 58 (Stories) applied to production on its own, ahead of the Business v2 release, as production took it on
-// 2026-10-30, rehearsed offline: a database in production's state before it (production's migration order, the
-// migrations applied outside this repo, 47 applied although 44 and 46 were not, none of 49 to 57), then 58 alone, as the
-// next migration; stories shared and read through the API roles under every audience. Then the rest of the release (44, 46, 49 to 57) applied after it,
-// in file order, as `npm run db:setup` will, with stories still working. Then 58's own rollback, which must leave exactly
-// the schema of a database that never had it; then 58 again. The staging counterpart, through the real Supabase stack,
-// is supabase/tests/staging/stories.mjs.
+// Stories applied to production on their own, ahead of the Business v2 release: migration 58 (the stories, as production
+// took it on 2026-10-30) and then 59 (their photos and videos), rehearsed offline. A database in production's state
+// before them (production's migration order, the migrations applied outside this repo, 47 applied although 44 and 46
+// were not, none of 49 to 57); 58 alone, as the next migration; stories shared and read through the API roles under
+// every audience; then 59 alone, and the same again. Then the rest of the release (44, 46, 49 to 57) applied after them,
+// in file order, as `npm run db:setup` will, with stories still working. Then 59's and 58's own rollbacks, which must
+// leave exactly the schema of a database that never had them; then both again. The staging counterpart, through the
+// real Supabase stack, is supabase/tests/staging/stories.mjs.
 import { boot, read, expectOk, expectError, done } from "./harness.mjs";
 import { catalog, diffCatalogs } from "./catalog.mjs";
 
 const STORIES = "20261110000100_stories.sql";
-const ROLLBACK = "rollbacks/20261110000100_stories.down.sql";
-// The release 58 goes ahead of, in file order.
+const MEDIA = "20261112000100_story_media.sql";
+const ROLLBACKS = ["rollbacks/20261112000100_story_media.down.sql", "rollbacks/20261110000100_stories.down.sql"];
+// The release 58 and 59 go ahead of, in file order.
 const REST = [
   "20261103000300_discover.sql",
   "20261104000100_discover_audience.sql",
@@ -26,7 +28,7 @@ const REST = [
 ];
 const check = (cond, message) => { if (!cond) throw new Error(message); };
 
-const { db, mk, as, asAnon } = await boot({ live: true, skip: [...REST, STORIES] });
+const { db, mk, as, asAnon } = await boot({ live: true, skip: [...REST, STORIES, MEDIA] });
 const one = async (p) => (await p).rows[0];
 const rows = async (p) => (await p).rows;
 const has = async (sql) => Boolean((await one(db.query(sql))).ok);
@@ -51,7 +53,14 @@ const follow = (a, b) => as(a, () => db.query("insert into public.follows (follo
 await follow(FAY, ANN); await follow(ANN, FAY);
 await as(BO, () => db.query("insert into public.blocks (blocker_id, blocked_id) values ($1, $2)", [BO, ANN]));
 
-const share = (uid, audience, extra = {}) => as(uid, () => one(db.query("insert into public.stories (author_id, kind, image_url, image_meta, audience) values ($1, 'photo', $2, '{\"width\":1080,\"height\":1920}', $3) returning *", [uid, `https://x.example/${audience}.jpg`, audience])));
+// A story as the app shares one: the photo uploaded to the author's stories folder first (Storage records the uploader),
+// then the row with its public address, which 59 checks and 58 takes as it is.
+let uploads = 0;
+const share = async (uid, audience) => {
+  const name = `stories/${uid}/${++uploads}-photo.jpg`;
+  await db.query("insert into storage.objects (bucket_id, name, owner, owner_id) values ('uploads', $1, $2::uuid, $3)", [name, uid, uid]);
+  return as(uid, () => one(db.query("insert into public.stories (author_id, kind, image_url, image_meta, audience) values ($1, 'photo', $2, '{\"width\":1080,\"height\":1920}', $3) returning *", [uid, `https://proj.supabase.co/storage/v1/object/public/uploads/${name}`, audience])));
+};
 const sees = async (who, id) => (await as(who, () => rows(db.query("select id from public.stories where id = $1", [id])))).length === 1;
 const seen = (who, id) => as(who, () => one(db.query("select public.mark_story_seen($1) as added", [id]))).then((r) => r.added);
 const everyone = { ANN, CARA, OLI, FAY, PIA, BO };
@@ -89,25 +98,29 @@ async function storiesWork(round) {
 
 await storiesWork("58 alone");
 
-// --- The rest of the release lands after 58 ---------------------------------------------------------------------------------
-for (const f of REST) await expectOk(`after 58: ${f} applies`, () => db.exec(read(`migrations/${f}`)));
-await expectOk("after the release: Discover ranks (44 + 46), ads exist (50), hours are checked (57), and 58's objects are untouched", async () => {
+await expectOk("59 applies on its own after 58, and re-runs cleanly", async () => { await db.exec(read(`migrations/${MEDIA}`)); await db.exec(read(`migrations/${MEDIA}`)); });
+await expectError("with 59, a photo from anywhere but the author's stories folder is refused", () => as(ANN, () => db.query("insert into public.stories (author_id, kind, image_url) values ($1, 'photo', 'https://x.example/p.jpg')", [ANN])), "Upload the photo to your story first");
+await storiesWork("58 and 59");
+
+// --- The rest of the release lands after 58 and 59 --------------------------------------------------------------------------
+for (const f of REST) await expectOk(`after 58 and 59: ${f} applies`, () => db.exec(read(`migrations/${f}`)));
+await expectOk("after the release: Discover ranks (44 + 46), ads exist (50), hours are checked (57), and 58's and 59's objects are untouched", async () => {
   await db.query("select public.discover_refresh()");
-  check(await has("select to_regclass('public.ads') is not null and to_regprocedure('public.stories_sweep(timestamptz)') is not null as ok"), "50 or 58 missing");
+  check(await has("select to_regclass('public.ads') is not null and to_regprocedure('public.stories_sweep(timestamptz)') is not null and to_regprocedure('public.story_photo_ok(text, uuid)') is not null as ok"), "50, 58 or 59 missing");
   check(await has("select exists (select 1 from pg_constraint where conname = 'businesses_hours_check') as ok"), "57 missing");
-  check(await has("select exists (select 1 from pg_policies where tablename = 'stories' and policyname = 'stories_select') as ok"), "58's policy missing");
+  check(await has("select exists (select 1 from pg_policies where tablename = 'stories' and policyname = 'stories_select') and exists (select 1 from pg_trigger where tgname = 'stories_after_delete') as ok"), "58's policy or 59's trigger missing");
 });
 await storiesWork("after the release");
 
-// --- 58's rollback on its own, with the release in place --------------------------------------------------------------------
-await expectOk("58's rollback alone leaves exactly the schema of a database that never had 58 (the release still applied)", async () => {
-  await db.exec(read(ROLLBACK));
-  const reference = await boot({ live: true, skip: [STORIES] });
+// --- 59's and 58's rollbacks on their own, with the release in place --------------------------------------------------------
+await expectOk("59's rollback and then 58's leave exactly the schema of a database that never had them (the release still applied)", async () => {
+  for (const r of ROLLBACKS) await db.exec(read(r));
+  const reference = await boot({ live: true, skip: [STORIES, MEDIA] });
   const changed = diffCatalogs(await catalog(async (q) => (await reference.db.query(q)).rows), await catalog(async (q) => (await db.query(q)).rows));
   await reference.db.close();
   check(changed.length === 0, changed.join("; "));
 });
-await expectOk("58 applies again afterwards", () => db.exec(read(`migrations/${STORIES}`)));
-await storiesWork("58 re-applied");
+await expectOk("58 and 59 apply again afterwards", async () => { await db.exec(read(`migrations/${STORIES}`)); await db.exec(read(`migrations/${MEDIA}`)); });
+await storiesWork("58 and 59 re-applied");
 
-done("STORIES AHEAD OF THE RELEASE (58 AFTER 48, THEN 44, 46, 49 TO 57)");
+done("STORIES AHEAD OF THE RELEASE (58 AND 59 AFTER 48, THEN 44, 46, 49 TO 57)");
