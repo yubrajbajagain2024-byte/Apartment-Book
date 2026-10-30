@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Buzz, BuzzReply } from "@apartment-book/shared";
 import { noteBuzzReadError } from "@/lib/buzz-actions";
 import { putBuzzItems } from "@/lib/buzz-store";
+import type { BuzzViewerPages } from "@/lib/reel-viewer";
 
 /** One page as a list loads it: its rows (ids, and whatever a row needs besides), the items behind them, what follows. */
 export type BuzzListPage<R extends { id: string }> = { rows: R[]; items: readonly (Buzz | BuzzReply)[]; nextOffset: number | null; rankAt?: string | null };
@@ -139,6 +140,28 @@ export function useBuzzList<R extends { id: string }>({
     }
   }, [loadingMore]);
 
+  /**
+   * The list as the full-screen viewer goes on through it (see BuzzViewerList): its rows as loaded now, then its next
+   * pages from where it has got to, ranked as it ranks them (Hot's `rankAt`). They go to the item store, not into the
+   * list: the list behind the viewer stays exactly as it was, and so does where it is scrolled to.
+   */
+  const viewerPages = useCallback((): BuzzViewerPages => {
+    const s = stateRef.current;
+    const load = loadRef.current;
+    const rankAt = s.rankAt;
+    let offset = s.nextOffset;
+    return {
+      ids: s.rows.map((r) => r.id),
+      next: async () => {
+        if (offset === null) return { ids: [], done: true };
+        const page = await load(offset, rankAt);
+        putBuzzItems(page.items);
+        offset = page.nextOffset;
+        return { ids: page.rows.map((r) => r.id), done: offset === null };
+      },
+    };
+  }, []);
+
   const remove = useCallback((id: string) => {
     setState((s) => (s.rows.some((r) => r.id === id) ? { ...s, rows: s.rows.filter((r) => r.id !== id) } : s));
   }, []);
@@ -156,5 +179,6 @@ export function useBuzzList<R extends { id: string }>({
     reloadQuietly,
     loadMore,
     remove,
+    viewerPages,
   };
 }

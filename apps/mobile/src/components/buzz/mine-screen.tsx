@@ -14,6 +14,7 @@ import { BuzzActionsHost } from "./item-menu";
 import { BuzzToastHost } from "./toast";
 import { EmptyState, ErrorState, GUTTER, MaskGlyph, P, PageHeader, T } from "./ui";
 import { useBuzzList, type BuzzListPage } from "./use-buzz-list";
+import { BuzzViewerList } from "./media";
 
 /*
  * My buzzes (UniVerse's MinePage): the private list of your own threads and replies, served only to you, with the
@@ -98,83 +99,85 @@ function Mine({ onBack }: { onBack: () => void }) {
   );
 
   return (
-    <BuzzActionsHost>
-      <View style={styles.screen}>
-        <StatusBar style="light" />
-        <PageHeader
-          title={BUZZ_MINE_COPY.title}
-          subtitle={karma !== null ? BUZZ_MINE_COPY.karma(karma) : BUZZ_MINE_COPY.private}
-          onBack={onBack}
-          below={
-            <View style={styles.tabs} accessibilityRole="tablist">
-              {TABS.map((t) => {
-                const on = t.value === kind;
-                return (
-                  <Pressable
-                    key={t.value}
-                    onPress={() => {
-                      if (on) return;
-                      hapticSelect();
-                      setKind(t.value);
-                    }}
-                    accessibilityRole="tab"
-                    accessibilityState={{ selected: on }}
-                    accessibilityLabel={t.label}
-                    style={styles.tab}
-                  >
-                    <Text style={[T.headline, { color: on ? P.ink : P.ink3 }]}>{t.label}</Text>
-                    <View style={[styles.underline, on && styles.underlineOn]} />
-                  </Pressable>
-                );
-              })}
-            </View>
-          }
-        />
-        {content ? (
-          <View style={styles.flex}>
-            {note}
-            {content}
-          </View>
-        ) : (
-          <FlatList
-            data={list.rows}
-            keyExtractor={(r) => r.id}
-            renderItem={({ item }) => <MineRow row={item} kind={kind} />}
-            ItemSeparatorComponent={() => <View style={{ height: CARD_GAP }} />}
-            ListHeaderComponent={note}
-            contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
-            indicatorStyle="white"
-            onEndReached={() => void list.loadMore()}
-            onEndReachedThreshold={0.8}
-            ListFooterComponent={
-              list.loadingMore ? (
-                <View style={[styles.cards, { paddingTop: CARD_GAP }]}>
-                  <BuzzCardSkeleton />
-                </View>
-              ) : list.ended ? (
-                <View style={styles.end}>
-                  <Text style={[T.caption, { color: P.ink4 }]}>{BUZZ_MINE_COPY.end}</Text>
-                </View>
-              ) : undefined
-            }
-            refreshControl={
-              <RefreshControl
-                refreshing={list.refreshing}
-                onRefresh={refreshWithHaptic(() => {
-                  list.refresh();
-                  loadKarma();
+    <BuzzViewerList.Provider value={list.viewerPages}>
+      <BuzzActionsHost>
+        <View style={styles.screen}>
+          <StatusBar style="light" />
+          <PageHeader
+            title={BUZZ_MINE_COPY.title}
+            subtitle={karma !== null ? BUZZ_MINE_COPY.karma(karma) : BUZZ_MINE_COPY.private}
+            onBack={onBack}
+            below={
+              <View style={styles.tabs} accessibilityRole="tablist">
+                {TABS.map((t) => {
+                  const on = t.value === kind;
+                  return (
+                    <Pressable
+                      key={t.value}
+                      onPress={() => {
+                        if (on) return;
+                        hapticSelect();
+                        setKind(t.value);
+                      }}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: on }}
+                      accessibilityLabel={t.label}
+                      style={styles.tab}
+                    >
+                      <Text style={[T.headline, { color: on ? P.ink : P.ink3 }]}>{t.label}</Text>
+                      <View style={[styles.underline, on && styles.underlineOn]} />
+                    </Pressable>
+                  );
                 })}
-                tintColor={P.accent}
-                colors={[P.accent]}
-                progressBackgroundColor={P.surface2}
-              />
+              </View>
             }
           />
-        )}
-        <BuzzToastHost bottom={insets.bottom + 24} enabled={focused} />
-      </View>
-      <BuzzComposer visible={composerOpen} onClose={() => setComposerOpen(false)} />
-    </BuzzActionsHost>
+          {content ? (
+            <View style={styles.flex}>
+              {note}
+              {content}
+            </View>
+          ) : (
+            <FlatList
+              data={list.rows}
+              keyExtractor={(r) => r.id}
+              renderItem={({ item }) => <MineRow row={item} kind={kind} />}
+              ItemSeparatorComponent={() => <View style={{ height: CARD_GAP }} />}
+              ListHeaderComponent={note}
+              contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+              indicatorStyle="white"
+              onEndReached={() => void list.loadMore()}
+              onEndReachedThreshold={0.8}
+              ListFooterComponent={
+                list.loadingMore ? (
+                  <View style={[styles.cards, { paddingTop: CARD_GAP }]}>
+                    <BuzzCardSkeleton />
+                  </View>
+                ) : list.ended ? (
+                  <View style={styles.end}>
+                    <Text style={[T.caption, { color: P.ink4 }]}>{BUZZ_MINE_COPY.end}</Text>
+                  </View>
+                ) : undefined
+              }
+              refreshControl={
+                <RefreshControl
+                  refreshing={list.refreshing}
+                  onRefresh={refreshWithHaptic(() => {
+                    list.refresh();
+                    loadKarma();
+                  })}
+                  tintColor={P.accent}
+                  colors={[P.accent]}
+                  progressBackgroundColor={P.surface2}
+                />
+              }
+            />
+          )}
+          <BuzzToastHost bottom={insets.bottom + 24} enabled={focused} />
+        </View>
+        <BuzzComposer visible={composerOpen} onClose={() => setComposerOpen(false)} />
+      </BuzzActionsHost>
+    </BuzzViewerList.Provider>
   );
 }
 

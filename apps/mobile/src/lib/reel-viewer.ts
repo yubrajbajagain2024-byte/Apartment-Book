@@ -12,6 +12,7 @@ import {
   muxPosterUrl,
   reelFromFeedPost,
   type Buzz,
+  type BuzzMedia,
   type FeedMedia,
   type FeedPostWithAuthor,
   type ListingVideo,
@@ -19,6 +20,7 @@ import {
   type PostEngagement,
   type Reel,
 } from "@apartment-book/shared";
+import { getBuzzItem, getBuzzState } from "./buzz-store";
 import { supabase } from "./supabase";
 
 /** expo-router does not export its router type: this is what useRouter() hands out. */
@@ -117,12 +119,18 @@ export function viewerItemFromReel(reel: Reel): ViewerItem {
 /** A buzz page's author: nobody. The page shows the buzz's alias, from `buzz`, as the Buzz card does. */
 const ANONYMOUS: Reel["author"] = { id: "", name: "", avatarUrl: null, verified: false };
 
+/** What a buzz shows, on its card and full screen alike: its one video, or else its first four photos. */
+export function buzzMediaShown(media: readonly BuzzMedia[]): BuzzMedia[] {
+  const video = media.find((m) => m.type === "video");
+  return video ? [video] : media.filter((m) => m.type === "image").slice(0, 4);
+}
+
 /**
  * A buzz's photos or its one video as a page, from nothing but what Buzz's serializer sent (photos from the anonymous
  * storage folder, a video by its Mux playback id). Null for a buzz with nothing to show full screen.
  */
 export function viewerItemFromBuzz(buzz: Buzz): ViewerItem | null {
-  const media: FeedMedia[] = buzz.media.map((m) =>
+  const media: FeedMedia[] = buzzMediaShown(buzz.media).map((m) =>
     m.type === "image"
       ? { type: "photo", url: m.url, width: m.width, height: m.height, blur: m.blur }
       : { type: "video", playbackUrl: muxPlaybackUrl(m.playbackId), poster: m.posterUrl ?? muxPosterUrl(m.playbackId), width: m.width, height: m.height, durationSeconds: m.durationSeconds },
@@ -146,6 +154,46 @@ export function viewerItemFromBuzz(buzz: Buzz): ViewerItem | null {
     media,
     video: null,
     buzz,
+  };
+}
+
+/**
+ * A Buzz list's buzzes as the viewer goes on through them (BuzzViewerList in components/buzz/media.tsx): the ids its
+ * rows hold now (buzzes, and in My buzzes replies, which have no page), and its next pages from where it has got to.
+ */
+export type BuzzViewerPages = { ids: string[]; next: () => Promise<{ ids: string[]; done: boolean }> };
+
+/**
+ * A page for the buzz with this id as Buzz's store holds it, or null: a reply, a buzz with nothing to show full screen,
+ * one not active, or one the community folded (unless it is your own or you opened it), as its card would not show it.
+ */
+export function buzzViewerEntry(id: string): ViewerEntry | null {
+  const item = getBuzzItem(id);
+  if (!item || item.kind !== "buzz" || item.status !== "active") return null;
+  if (item.collapsed && !item.isMine && !getBuzzState().revealed[item.id]) return null;
+  const page = viewerItemFromBuzz(item);
+  return page ? entryOf(page) : null;
+}
+
+/** At most this many of a Buzz list's pages are read for one batch: Buzz is mostly words, buzzes with media far apart. */
+const BUZZ_SCAN_PAGES = 4;
+
+/**
+ * What follows a Buzz list's pages in the viewer: its next pages, buzzes with nothing to show full screen passed over.
+ * A batch that finds none in BUZZ_SCAN_PAGES pages ends the viewer's list there (an empty batch is the end).
+ */
+export function buzzAfter(next: BuzzViewerPages["next"], seen: Set<string>): () => Promise<ViewerEntry[]> {
+  let done = false;
+  return async () => {
+    for (let scanned = 0; !done && scanned < BUZZ_SCAN_PAGES; scanned++) {
+      const page = await next();
+      done = page.done;
+      const fresh = page.ids.filter((id) => !seen.has(id));
+      fresh.forEach((id) => seen.add(id));
+      const entries = fresh.map(buzzViewerEntry).filter((e): e is ViewerEntry => e !== null);
+      if (entries.length > 0) return entries;
+    }
+    return [];
   };
 }
 

@@ -88,9 +88,9 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   [branches/business-hours.md](branches/business-hours.md).
 - **The full-screen viewer in the app**: no "Add comment…" bar, the tab bar kept in view, the rail nearer the right
   edge (PR #61); closing from a later reel shrinks into the post it was opened from (PR #62); the zoom at Instagram's
-  speed and no blur under the words (PR #63); Buzz's photos and video in the same viewer, anonymously (branch
-  `buzz-media-viewer`, no PR yet). All reach testers only with an EAS update (owner's approval); none has been timed on
-  a device.
+  speed and no blur under the words (PR #63); Buzz's photos and video in the same viewer, anonymously (PR #64); swiping
+  up and down through the Buzz list's buzzes with media (branch `buzz-viewer-feed`, no PR yet). All reach testers only
+  with an EAS update (owner's approval); none has been timed on a device.
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
   website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
   (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).
