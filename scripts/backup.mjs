@@ -3,7 +3,7 @@
  * A read-only backup of a Supabase project through the Management API, for "take a backup before a production
  * migration" (supabase/CLAUDE.md). It only reads: the project is not changed in any way.
  *
- *   SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=<ref> node scripts/backup.mjs <label>
+ *   SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=<ref> node scripts/backup.mjs <label> [--full]
  *   → ~/CampConnect-backups/<UTC date>-<label>/ (or BACKUP_DIR), readable by the owner only:
  *     schema.json          every function's definition, table, column, constraint, index, trigger, policy, view,
  *                          grant, extension, pg_cron job and storage bucket, and the migrations applied
@@ -11,11 +11,17 @@
  *     auth-users.json      the accounts (no password hashes: nothing in a release changes them)
  *     storage-objects.json the records of the stored files (the files themselves stay in Storage)
  *     manifest.json        when, which project, row counts, and the SHA-256 of every file
+ *   and, with --full, what a restore needs as well (scripts/restore.mjs puts it all back into a project):
+ *     auth/users.json, auth/identities.json, auth/mfa_factors.json   the accounts whole, password hashes included
+ *     files/<bucket>/<path>                                           every stored file, private buckets included
  *
  * It refuses to write into a folder that already exists, so an earlier backup is never overwritten.
  *
- * It is a snapshot to compare row counts and to recover individual rows by hand, not a way to restore the database:
- * before a migration, also take a backup that restores (Supabase's daily backup, or a CLI dump: supabase/CLAUDE.md).
+ * Without --full it is a snapshot to compare row counts and to recover individual rows by hand. With --full it is the
+ * backup that restores (scripts/restore.mjs, rehearsed on staging): the schema comes from this repo's migrations, the
+ * rows, the accounts and the files from the folder. A full backup holds students' data and the means to sign in as
+ * them: it stays on the owner's Mac (0600), is never committed, and is deleted when no longer needed. Supabase's own
+ * daily backups (Pro plan) remain the better path when the organisation has them.
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -24,9 +30,10 @@ import path from "node:path";
 
 const token = process.env.SUPABASE_ACCESS_TOKEN;
 const ref = process.env.SUPABASE_PROJECT_REF;
-const label = process.argv[2];
+const FULL = process.argv.includes("--full");
+const label = process.argv.slice(2).find((a) => !a.startsWith("--"));
 if (!token || !ref || !label || !/^[a-z0-9-]+$/.test(label)) {
-  console.error("Usage: SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=<ref> node scripts/backup.mjs <label (a-z, 0-9, -)>");
+  console.error("Usage: SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=<ref> node scripts/backup.mjs <label (a-z, 0-9, -)> [--full]");
   process.exit(1);
 }
 
@@ -53,6 +60,7 @@ fs.mkdirSync(path.join(dir, "data"), { recursive: true, mode: 0o700 });
 const sums = {};
 function save(file, value) {
   const text = JSON.stringify(value, null, 1);
+  fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true, mode: 0o700 });
   fs.writeFileSync(path.join(dir, file), text, { mode: 0o600 });
   sums[file] = crypto.createHash("sha256").update(text).digest("hex");
 }
@@ -112,6 +120,35 @@ const objects = (await sql(`select coalesce(jsonb_agg(jsonb_build_object('id', i
 save("storage-objects.json", objects);
 console.log(`  ✓ ${accounts.length} accounts, ${objects.length} storage objects`);
 
-const manifest = { taken_at: new Date().toISOString(), project: ref, project_name: project.name, tables: counts, accounts: accounts.length, storage_objects: objects.length, sha256: sums };
+// --full: the accounts whole and every file, read with the project's service key (the Storage API serves private buckets to it).
+let files = 0;
+if (FULL) {
+  for (const t of ["users", "identities", "mfa_factors"]) {
+    const rows = [];
+    for (let offset = 0; ; offset += PAGE) {
+      const page = (await sql(`select coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb) as rows from (select * from auth.${t} order by created_at, id limit ${PAGE} offset ${offset}) t`))[0].rows;
+      rows.push(...page);
+      if (page.length < PAGE) break;
+    }
+    save(`auth/${t}.json`, rows);
+  }
+  const keys = await api("GET", `/v1/projects/${ref}/api-keys?reveal=true`);
+  const service = keys.find((k) => k.name === "service_role")?.api_key;
+  if (!service) throw new Error("no service_role key: the files cannot be read");
+  for (const o of objects) {
+    if (!o.name || o.name.endsWith("/")) continue;
+    const res = await fetch(`https://${ref}.supabase.co/storage/v1/object/${o.bucket_id}/${o.name.split("/").map(encodeURIComponent).join("/")}`, { headers: { Authorization: `Bearer ${service}`, apikey: service } });
+    if (!res.ok) throw new Error(`file ${o.bucket_id}/${o.name} → ${res.status}`);
+    const bytes = Buffer.from(await res.arrayBuffer());
+    const file = path.join("files", o.bucket_id, o.name);
+    fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(dir, file), bytes, { mode: 0o600 });
+    sums[file] = crypto.createHash("sha256").update(bytes).digest("hex");
+    files++;
+  }
+  console.log(`  ✓ full: the accounts whole, ${files} files`);
+}
+
+const manifest = { taken_at: new Date().toISOString(), project: ref, project_name: project.name, full: FULL, tables: counts, accounts: accounts.length, storage_objects: objects.length, files, sha256: sums };
 fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify(manifest, null, 1), { mode: 0o600 });
 console.log(`  ✓ manifest.json (${Object.keys(sums).length} files). Done: ${dir}`);

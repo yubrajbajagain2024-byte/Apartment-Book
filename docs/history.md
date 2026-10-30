@@ -65,6 +65,13 @@ open work is in [status.md](status.md).
   the staging rehearsal and backup tooling, the production checklist) merged into `main`. None of
   49 to 56 is on production.
 
+- 2026-10-30 21:03 UTC: PRs #70 (`stories-live`) and #71 (`stories-media`) merged into `main` by the owner; the
+  website redeployed without a change of its own.
+
+- 2026-10-30 20:50 UTC: `SUPABASE_SERVICE_ROLE_KEY` removed from Vercel's **Preview** environment (Production keeps
+  it): a preview build of any branch no longer holds the production service key. Previews cannot run the Buzz write
+  API or finish Mux uploads; nothing used them for that. The key itself was not rotated.
+
 - 2026-10-30 20:30 UTC: **migration 59 (a story's photo and video) applied to production on its own**, after 58 and
   ahead of the Business v2 release, with the owner's approval: story photos in `uploads/stories/<author>/`, read through
   the API by their owner alone; photos and videos accepted only from the author's own uploads; a story's photo deleted

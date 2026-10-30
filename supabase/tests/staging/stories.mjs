@@ -1,20 +1,21 @@
-// Stories (migrations 58 and 59) on the staging project, through the real Supabase stack the app uses: Auth sessions,
+// Stories (migrations 58, 59 and 60) on the staging project, through the real Supabase stack the app uses: Auth sessions,
 // the REST API (PostgREST's embeds by foreign-key name, the policies, the functions), Storage (the move into the stories
 // folder, who may list it, the file deleted with its story through pg_net) and pg_cron. Never runs against production:
 // it refuses production's ref and any project not named as staging.
 //
 //   SUPABASE_ACCESS_TOKEN=… STAGING_SUPABASE_REF=<ref> node supabase/tests/staging/stories.mjs [--restore]
 //
-// Applies 58 and then 59 when staging does not have them yet (each file, then its public._migrations row, as db:setup
+// Applies 58, 59 and then 60 when staging does not have them yet (each file, then its public._migrations row, as db:setup
 // records them; the earlier pending migrations are left alone, as production's own apply ahead of the release leaves
 // them). When staging's Vault lacks the project URL and service key purge_snaps() uses (production has them), it keeps
 // staging's own there, as db:setup's token mode does, so the file deletion runs for real. Then six students (confirmed
 // txstate.edu accounts made by the admin API, no email sent) do what the app does: a photo uploaded to posts/ and moved
 // into the stories folder, a story under each audience, a video story, the tray's read with its embeds, views, the
 // picked people, a delete; every refusal the database owes (signed out, updates, the wrong author, the block, a second
-// view, more than 50 picked, a photo from another folder, someone else's video). The sweep and its schedule are checked
+// view, more than 50 picked, a photo from another folder, someone else's video); with 60, no upload folder lists for
+// anyone but its owner, and a post takes only its author's own photos and deletes them when it goes. The sweep and its schedule are checked
 // as the service. Everything made is deleted at the end and every table's row count compared with the start. With
-// --restore, 59 and 58 are rolled back afterwards (their rollback files and the removal of their _migrations rows).
+// --restore, 60, 59 and 58 are rolled back afterwards (their rollback files and the removal of their _migrations rows).
 import fs from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 
@@ -27,7 +28,7 @@ if (REF === PRODUCTION) throw new Error("This test writes, deletes and may roll 
 
 const ROOT = new URL("../../../", import.meta.url);
 const read = (rel) => fs.readFileSync(new URL(rel, ROOT), "utf8");
-const MIGRATIONS = ["20261110000100_stories.sql", "20261112000100_story_media.sql"];
+const MIGRATIONS = ["20261110000100_stories.sql", "20261112000100_story_media.sql", "20261112000200_upload_folders.sql"];
 // The tray's read, as packages/shared/src/queries/stories.ts sends it.
 const STORY_SELECT = "id, author_id, kind, image_url, image_meta, video, audience, created_at, expires_at, author:profiles!stories_author_id_fkey(id, full_name, avatar_url), views:story_views(viewer_id)";
 
@@ -91,13 +92,16 @@ for (const m of MIGRATIONS) {
 }
 await sql("notify pgrst, 'reload schema'");
 await sleep(4000); // PostgREST reloads its schema cache; the first requests below need the new tables in it.
-await check("the objects are there: three tables, the functions, both triggers, five policies, the sweep every ten minutes", async () => {
+await check("the objects are there: three tables, the functions, the triggers, five policies, the sweep every ten minutes, the owner-only read rule", async () => {
   const [h] = await sql(`select to_regclass('public.stories') is not null as stories, to_regclass('public.story_viewers') is not null as viewers, to_regclass('public.story_views') is not null as views,
     to_regprocedure('public.can_see_story(uuid, uuid, text, uuid)') is not null as can_see, to_regprocedure('public.set_story_viewers(uuid, uuid[])') is not null as pick, to_regprocedure('public.mark_story_seen(uuid)') is not null as seen,
     to_regprocedure('public.stories_sweep(timestamptz)') is not null as sweep, to_regprocedure('public.story_photo_ok(text, uuid)') is not null as photo_ok,
     exists (select 1 from pg_trigger where tgname = 'stories_before_insert') as before_insert, exists (select 1 from pg_trigger where tgname = 'stories_after_delete') as after_delete,
     (select count(*)::int from pg_policies where tablename in ('stories', 'story_viewers', 'story_views')) = 5 as policies,
-    exists (select 1 from cron.job where jobname = 'stories-sweep' and schedule = '*/10 * * * *') as cron`);
+    exists (select 1 from cron.job where jobname = 'stories-sweep' and schedule = '*/10 * * * *') as cron,
+    to_regprocedure('public.own_upload_ok(text, uuid, text)') is not null as own_upload_ok,
+    exists (select 1 from pg_trigger where tgname = 'feed_posts_photos_before_write') and exists (select 1 from pg_trigger where tgname = 'feed_posts_photos_after_change') as post_triggers,
+    exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'uploads_read_own') and not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'uploads_public_read') as read_rule`);
   expect(Object.values(h).every((v) => v === true), JSON.stringify(h));
 });
 if (!(await val("select count(*)::int from vault.secrets where name in ('snaps_project_url', 'snaps_service_key')"))) {
@@ -158,6 +162,24 @@ try {
     expect(own.some((f) => f.name === `st-${run}-1.png`) && other.length === 0 && outside.length === 0, `own ${own.length}, other ${other.length}, anon ${outside.length}`);
     expect((await fetch(photo.url)).status === 200, "the public address does not load");
     await refused(cara.api.storage.from("uploads").upload(`stories/${ann.id}/intruder.png`, png, { contentType: "image/png" }), "row-level security|403|Unauthorized");
+  });
+  await check("with 60, a person's posts folder lists for them alone too (not another student, not signed out), and its addresses still load", async () => {
+    const ahead = await photoAhead(ann, 7);
+    const own = await must(ann.api.storage.from("uploads").list(`posts/${ann.id}`));
+    const other = await must(cara.api.storage.from("uploads").list(`posts/${ann.id}`));
+    const outside = await must(anon.storage.from("uploads").list(`posts/${ann.id}`));
+    expect(own.some((f) => f.name === `st-${run}-7.png`) && other.length === 0 && outside.length === 0, `own ${own.length}, other ${other.length}, anon ${outside.length}`);
+    expect((await fetch(ann.api.storage.from("uploads").getPublicUrl(ahead).data.publicUrl)).status === 200, "the public address does not load");
+  });
+  await check("a post takes only photos from its author's posts folder, and deletes them from Storage when it goes (pg_net)", async () => {
+    const path = await photoAhead(ann, 8);
+    const url = ann.api.storage.from("uploads").getPublicUrl(path).data.publicUrl;
+    const p = await must(ann.api.from("feed_posts").insert({ author_id: ann.id, kind: "post", body: `st ${run}`, university_id: txstate, images: [url], image_meta: [{ url, width: 1, height: 1, blur: null }] }).select("id, images").single());
+    expect(p.images[0] === url, JSON.stringify(p));
+    await refused(ann.api.from("feed_posts").insert({ author_id: ann.id, kind: "post", body: "x", university_id: txstate, images: [photo.url] }), "Upload the photo to your post first");
+    await refused(ann.api.from("feed_posts").insert({ author_id: ann.id, kind: "post", body: "x", university_id: txstate, images: [url.replace(URL_, "https://tracker.example")] }), "Upload the photo to your post first");
+    await must(ann.api.from("feed_posts").delete().eq("id", p.id));
+    expect(await gone(path), "the post's photo is still in Storage 20 seconds after the post was deleted");
   });
   const share = (who, audience, extra = {}) => must(who.api.from("stories").insert({ author_id: who.id, kind: "photo", image_url: photo.url, image_meta: { width: 1, height: 1, blur: null }, audience, ...extra }).select("id, author_id, university_id, created_at, expires_at").single());
   const stories = {};
@@ -270,12 +292,12 @@ try {
 }
 
 if (RESTORE) {
-  await check("59 and 58 rolled back, newest first (production's state before them)", async () => {
+  await check("60, 59 and 58 rolled back, newest first (production's state before them)", async () => {
     for (const m of [...MIGRATIONS].reverse()) {
       await sql(read(`supabase/rollbacks/${m.replace(/\.sql$/, ".down.sql")}`));
       await sql(`delete from public._migrations where name = ${lit(m)}`);
     }
-    const left = await sql("select relname as name from pg_class where relname in ('stories', 'story_viewers', 'story_views') union all select proname from pg_proc where proname in ('can_see_story', 'can_see_story_as', 'set_story_viewers', 'mark_story_seen', 'stories_sweep', 'stories_before_insert', 'stories_after_delete', 'story_photo_ok') union all select jobname from cron.job where jobname = 'stories-sweep'");
+    const left = await sql("select relname as name from pg_class where relname in ('stories', 'story_viewers', 'story_views') union all select proname from pg_proc where proname in ('can_see_story', 'can_see_story_as', 'set_story_viewers', 'mark_story_seen', 'stories_sweep', 'stories_before_insert', 'stories_after_delete', 'story_photo_ok', 'own_upload_ok', 'feed_posts_photos_before_write', 'feed_posts_photos_after_change') union all select jobname from cron.job where jobname = 'stories-sweep'");
     expect(left.length === 0, `left behind: ${left.map((r) => r.name).join(", ")}`);
   });
 }
