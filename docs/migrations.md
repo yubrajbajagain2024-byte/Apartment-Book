@@ -34,7 +34,7 @@ The README's statement that 41 and 42 are not live is out of date.
 | 54 | `20261108000300_buzz_categories.sql` (merged in PR #50): an optional category on a buzz (`buzz_posts.category`, a fixed list), read by `buzz_v2_create` and shown by `buzz_root_json` | ❌ **not applied** |
 | 55 | `20261109000000_media_server_fields.sql` (merged in PR #51; its fix on `business-v2`): a video's processing details are written by the server only; 30 new videos a day per person; ready videos 10 minutes at most | ❌ **not applied** |
 | 56 | `20261109000100_business_hardening.sql` (merged in PR #51; its fixes on `business-v2`): Business v2 hardening after an independent review: ads show the reviewed copy of what they promote and pause when it changes, every ad screened for Fair Housing, ad photos from this project's storage, chats visible to a business once the student writes, blocks stop chats, server-set dates, payments kept, stricter event counting | ❌ **not applied** |
-| 57 | `20261110000000_business_hours.sql` (on `business-hours`, not merged): a business's opening hours, `businesses.hours` (time zone, weekly ranges, special dates), checked by `businesses_hours_check`, public with the profile; 49's audit of profile edits records them. Needs only 39 (and 49 for the audit); the website and the app work without it (no hours shown, none offered) | ❌ **not applied** |
+| 57 | `20261110000000_business_hours.sql` (merged in PR #59, 2026-10-29): a business's opening hours, `businesses.hours` (time zone, weekly ranges, special dates), checked by `businesses_hours_check`, public with the profile; 49's audit of profile edits records them. Needs only 39 (and 49 for the audit); the website and the app work without it (no hours shown, none offered) | ❌ **not applied** |
 | (18) | `20261103100200_staff_invite_email.sql`: **file only on `step-admin`** (in neither `supabase/migrations/` nor `supabase/applied-outside-repo/` here) | ✅ applied |
 
 **What the gaps cost today:** without 44, Discover falls back to newest posts and people. `main`
@@ -61,7 +61,7 @@ list, with the rollbacks, is "Production deployment checklist" in
    2026-10-28), so Pro's daily backups or a Supabase CLI dump, plus `scripts/backup.mjs` for row
    counts. Then check with `verify.mjs --live --except …` that production is still in the state that
    was rehearsed.
-3. Run `db:setup` once from `main`: 44, 46 and 49 to 56, and 57 once `business-hours` is merged (it is in the
+3. Run `db:setup` once from `main`: 44, 46 and 49 to 57 (57 on `main` since PR #59; it is in the
    rehearsal's and the offline rollout's release since 2026-10-29).
 
 Applying 55 under the older video routes would leave new uploads "processing". Applying 49 and 50
@@ -69,7 +69,7 @@ without 55 and 56 would let ads rely on unchecked video details: run them togeth
 `SUPABASE_SERVICE_ROLE_KEY` on the website (Buzz already does). The run is rehearsed offline
 (`supabase/tests/production-rollout.test.mjs`) and on staging on 2026-10-28
 (`supabase/tests/staging/release-rehearsal.mjs`): applied in order while students used the API,
-the release's own rollback (57 when merged, 56, 55, 50, 49, with Buzz's 51 to 54 left as they are, every Buzz
+the release's own rollback (57, 56, 55, 50, 49, with Buzz's 51 to 54 left as they are, every Buzz
 object and row compared), applied again, and every rollback in reverse. 56's rollback restores the
 versions of 39's, 49's and 50's functions it replaced. 49's and 50's restore the functions they
 replaced verbatim; 50's refuses while an ad that promoted no listing or post has a recorded payment.

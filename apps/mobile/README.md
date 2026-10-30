@@ -182,18 +182,21 @@ TikTok style (`src/components/home/reel-item.tsx`). A video fills the screen (`p
 trimmed a little at the sides on a phone taller than 9:16; a square or landscape one whole, as wide as a 9:16 canvas, over
 a subtle, dimmed blur of itself. A photo is never stretched or cropped (`photoLayout`): it sits whole and as wide as the
 screen at the top, under the top row, on the theme's own colour (white in light, black in dark), which stays free below it
-for the name, the words and the comment bar, all in the theme's ink; a photo too tall to leave that space (9:16, a phone
+for the name and the words, all in the theme's ink; a photo too tall to leave that space (9:16, a phone
 screenshot) is shown full screen on black like a video instead. Over every page, one top row with Back at the left and the
 Campus | Global toggle in the middle (for reels and For you, while the toggle is shown); the creator's name, the words and the heart, comments, share,
-save and "…" rail sit at the bottom (as on the Reels page), over a video's shades and gradual frost
-(`src/components/progressive-blur.tsx`: expo-blur through a gradient mask, left out on a build without them), and under
-them an "Add comment…" bar on every page opens the comments sheet straight into typing. Share opens the same share sheet
+save and "…" rail sit at the bottom (as on the Reels page, the rail a little nearer the right edge: `railRight`), over a
+video's shades and gradual frost (`src/components/progressive-blur.tsx`: expo-blur through a gradient mask, left out on a
+build without them). Opened over the tabs, the viewer keeps the app's tab bar in view under them: it draws a copy of the
+tabs' own bar in the same place (`TabBarMirror` in `src/components/floating-tab-bar.tsx`); the tab it was opened from
+closes it like Back, another switches tabs at once. Opened from a profile, a chat, Saved or a link, there is no bar. There
+is no comment bar: the rail's Comments (a tour's Inbox) opens the comments or the chat. Share opens the same share sheet
 as the feeds (send to friends, or "Share to…" the system share sheet with the page's link: `/posts/<id>` for posts and
 posted reels, `/apartments/<id>` or `/roommates/<id>` for listing tours); the viewer mounts its own `ShareSheetProvider`,
 since iOS presents a sheet from the screen on top and the root layout's one cannot appear over this modal screen. On a photo's page each button of
 the rail is white where it sits over the photo (a crisp dark edge on its strokes, no shading behind it, keeps it readable on
 a white wall) and in the
-theme's ink where it sits on the page below; the top row, the status bar and the comment bar follow the page under them,
+theme's ink where it sits on the page below; the top row and the status bar follow the page under them,
 switching as a page's edge passes, and an opened description brings the page's colour up behind it. A tap pauses a video: a play button appears in the middle with the sound
 button just above it, both fading away again the moment it plays (the sound button keeps it paused). A post with several
 photos or videos swipes sideways on its page, with dots on a line of their own under the top row (its colours changing
@@ -436,7 +439,7 @@ Roommate posts have no public comments, anywhere: someone looking for a roommate
 (under the words when there are none), the same one as in the Roommates feed: the heart with its count, Share, the outlined Inbox
 pill that opens a private chat with the poster (your own post's opens your Inbox) and the bookmark at the far right; every listing
 detail, the poster card with Message, and the menu (Save, Share, Report) stay. A roommate video tour in Reels has an Inbox button on
-its rail in place of the comments one, and a "Message Maya…" bar in place of "Add comment…"; the chat opens with a first message
+its rail in place of the comments one; the chat opens with a first message
 about the post. `hasPublicComments()` in `packages/shared` decides it for the app and the website; Marketplace items have none either
 (the seller is reached through Inbox or Message), while posts, reels, apartments and Buzz keep their threads.
 

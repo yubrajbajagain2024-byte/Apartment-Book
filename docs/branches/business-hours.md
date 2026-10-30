@@ -1,7 +1,7 @@
 # business-hours
 
-- **Owner:** Sunil. **As of 2026-10-29:** branched from `main` at PR #58 (`46533e3`); pushed, no PR yet. Written by an
-  AI session.
+- **Owner:** Sunil. **As of 2026-10-30:** branched from `main` at PR #58 (`46533e3`); merged as PR #59 (2026-10-29
+  07:18 UTC) and deployed (Vercel, 07:19 UTC). Written by an AI session.
 - **Purpose:** the owner's brief: the business's name and photo at the top of the portal's sidebar open a preview of
   exactly how its public profile appears to students; a clickable link to the business's website on that profile;
   and opening hours in the profile settings (each day's opening and closing times, closed days, special holiday
@@ -56,7 +56,6 @@ baseline, and `verify.mjs --live` finds the same schema as production.
 
 ## Pending
 
-1. Open the PR, review and merge. Merging deploys the website; it works without 57.
-2. Apply 57 on production with the release (owner's approval; docs/migrations.md).
-3. Publish the app's part with an EAS update (owner's approval).
-4. Once merged and deleted, a line in docs/history.md and this file removed.
+1. Apply 57 on production with the release (owner's approval; docs/migrations.md). Until then no hours show or can be set.
+2. Publish the app's part with an EAS update (owner's approval).
+3. Delete the branch (the owner's call), then a line under "Retired branches" in docs/history.md and this file removed.
