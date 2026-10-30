@@ -1,10 +1,10 @@
-import { memo, useContext, useRef } from "react";
+import { createContext, memo, useContext, useRef } from "react";
 import { Pressable, StyleSheet, View, type StyleProp, type ViewInstance, type ViewStyle } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { muxPosterUrl, type Buzz, type BuzzMedia } from "@apartment-book/shared";
 import { Icon } from "@/components/icon";
-import { entryOf, measureOrigin, openViewer, viewerItemFromBuzz } from "@/lib/reel-viewer";
+import { buzzAfter, buzzViewerEntry, entryOf, measureOrigin, openViewer, viewerItemFromBuzz, type BuzzViewerPages, type ViewerEntry, type ViewerSource } from "@/lib/reel-viewer";
 import { OpeningBandContext } from "@/lib/viewer-chrome";
 import { P, R } from "./ui";
 
@@ -12,6 +12,13 @@ type Photo = Extract<BuzzMedia, { type: "image" }>;
 type Video = Extract<BuzzMedia, { type: "video" }>;
 
 const GAP = 2;
+
+/**
+ * The Buzz list a buzz's media opens from (the feed, search, My buzzes: useBuzzList's `viewerPages`), so the viewer goes
+ * on through it with a swipe up, and back up it with a swipe down: its buzzes with something to show full screen, as
+ * loaded, then its next pages. Without one (a thread's own screen) the viewer shows the one buzz.
+ */
+export const BuzzViewerList = createContext<(() => BuzzViewerPages) | null>(null);
 
 /** A picture keeps its own shape, between 3:4 and 16:9 (UniVerse's aspectOf). */
 function aspectOf(m: { width: number | null; height: number | null }, fallback: number): number {
@@ -22,14 +29,16 @@ function aspectOf(m: { width: number | null; height: number | null }, fallback: 
 /**
  * A buzz's photos or its one video (UniVerse's BuzzMediaView): up to four photos in the 1 / 2 / 3 / 4 layouts, or one
  * video's still with a play button. A tap opens them in the app's full-screen viewer, as Orbit and Reels do: the tapped
- * tile grows to the screen, a sideways swipe moves between the photos with the finger, a swipe back (or Back) shrinks the
- * page into the tile of the photo on screen, and the list behind stays exactly where it was. The page is anonymous (see
+ * tile grows to the screen, a sideways swipe moves between the photos with the finger, a swipe up or down moves to the
+ * next or the last buzz of the list with media (BuzzViewerList), a swipe back (or Back) shrinks the page into the tile of
+ * the photo on screen (from another buzz, fading into it), and the list behind stays exactly where it was. The page is anonymous (see
  * viewerItemFromBuzz): the alias, the words and Buzz's own votes, replies and share, never a name or a profile.
  * `repliesBehind`: shown on the thread's own screen, whose replies the viewer then closes back onto.
  */
 export const BuzzMediaView = memo(function BuzzMediaView({ buzz, repliesBehind = false, style }: { buzz: Buzz; repliesBehind?: boolean; style?: StyleProp<ViewStyle> }) {
   const router = useRouter();
   const openingBand = useContext(OpeningBandContext);
+  const listPages = useContext(BuzzViewerList);
   /** Each tile as laid out, to measure where the viewer opens from and lands. */
   const tiles = useRef<(ViewInstance | null)[]>([]);
   const media = buzz.media;
@@ -47,12 +56,28 @@ export const BuzzMediaView = memo(function BuzzMediaView({ buzz, repliesBehind =
    * one; under a floating bar (Home's Buzz page) only the part of a tile between the bars is opened from (OpeningBand).
    */
   async function open(index: number) {
-    const item = viewerItemFromBuzz({ ...buzz, media: shown });
+    const item = viewerItemFromBuzz(buzz);
     if (!item) return;
+    const tapped = entryOf(item, index);
+    // The list around it, read now (what it has loaded, where it has got to): the buzzes before it a swipe down away,
+    // those after it and the list's next pages a swipe up. A buzz's own thread screen has no list: the one page.
+    let entries: ViewerEntry[] = [tapped];
+    let at = 0;
+    let then: ViewerSource["then"] = "end";
+    const pages = repliesBehind ? null : (listPages?.() ?? null);
+    if (pages) {
+      const around = pages.ids.map((id) => (id === buzz.id ? tapped : buzzViewerEntry(id))).filter((e): e is ViewerEntry => e !== null);
+      const i = around.indexOf(tapped);
+      if (i >= 0) {
+        entries = around;
+        at = i;
+        then = { more: buzzAfter(pages.next, new Set(pages.ids)) };
+      }
+    }
     const band = openingBand?.();
     const measured = await Promise.all(shown.map((_, i) => measureOrigin(tiles.current[i] ?? null, radius)));
     const origins = measured.map((m) => (m && band ? { ...m, clip: band } : m));
-    openViewer(router, { entries: [entryOf(item, index)], index: 0, then: "end", origin: origins[index], origins: n > 1 ? origins : undefined, repliesBehind });
+    openViewer(router, { entries, index: at, then, origin: origins[index], origins: n > 1 ? origins : undefined, repliesBehind });
   }
 
   if (video) {

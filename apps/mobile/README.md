@@ -242,8 +242,12 @@ into the Reels feed (only reels, page by page, the other campus choice keeping t
 from the new choice); a post in For you goes on down For you, its next pages loading as needed; a square in a profile grid
 (Posts, Reels, Saved, Liked) goes on through that grid; a saved post through your saved posts; a post's own screen and a
 post shared in a chat go on into the Reels feed. Words-only posts and listings keep their own screens. A buzz's photos or
-video open here too, as a page of their own with nothing after it (`viewerItemFromBuzz`): the tapped tile grows to the
-screen, a sideways swipe moves between its photos, and closing lands on the tile of the photo on screen (`origins`). The
+video open here too (`viewerItemFromBuzz`): the tapped tile grows to the screen, a sideways swipe moves between its
+photos, and closing lands on the tile of the photo on screen (`origins`). From a Buzz list (the feed, search, My
+buzzes) a swipe up or down moves through that list's buzzes with media, as loaded, then its next pages from where it has
+got to, with its own ranking (`BuzzViewerList` and useBuzzList's `viewerPages`, `buzzAfter`), into Buzz's store but not
+into the list, which stays where it was; folded and inactive buzzes, words-only ones and replies are passed over. From a
+buzz's own thread screen it is the one buzz. The
 page is anonymous: its author is nobody, it shows the thread's alias and the words as the Buzz card does (no profile, no
 links out of the words), and its rail is Buzz's own, wired to the same store and actions as the card (votes, replies on
 the thread's screen, Share with the thread's link only); no post function takes its id (`sourceType` "buzz" is not a

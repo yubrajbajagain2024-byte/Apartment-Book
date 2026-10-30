@@ -28,7 +28,8 @@ current", rules 2 and 3).
 | `reel-viewer-actions` | Sunil | The app's full-screen viewer: no comment bar, the tab bar kept in view, the rail nearer the right edge (no migration) | merged (PR #61) | this table and docs/status.md (one PR) |
 | `viewer-close-transition` | Sunil | The app's viewer closes into the post it was opened from from any page, fading from a later reel (no migration) | merged (PR #62) | this table and docs/status.md (one PR) |
 | `viewer-polish` | Sunil | The app's viewer: the zoom at Instagram's measured speed, no blur under the words (no migration) | merged (PR #63) | this table and docs/status.md (one PR) |
-| `buzz-media-viewer` | Sunil | Buzz's photos and video in the app's full-screen viewer, as an anonymous page (no migration) | pushed, **no PR yet** (from `main` at PR #63) | this table and docs/status.md (one PR) |
+| `buzz-media-viewer` | Sunil | Buzz's photos and video in the app's full-screen viewer, as an anonymous page (no migration) | merged (PR #64) | this table and docs/status.md (one PR) |
+| `buzz-viewer-feed` | Sunil | The Buzz viewer goes on up and down through the Buzz list's buzzes with media (no migration) | pushed, **no PR yet** (from `main` at PR #64) | this table and docs/status.md (one PR) |
 | `claude/claude-md-documentation-0b8750` | — | leftover worktree branch of a 2026-10-26 AI session | no commits of its own; left untouched until the owner says otherwise | — |
 
 **Safe to delete once their owner agrees**, because `main` has all their work (what is left on them
