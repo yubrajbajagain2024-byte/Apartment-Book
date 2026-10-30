@@ -7,7 +7,8 @@ migration's production status is in [docs/migrations.md](../docs/migrations.md).
 
 - Closed to the API entirely, read only through `security definer` functions: `user_activity`, the
   `buzz_*` tables, `snaps`, `staff*`, `account_restrictions`, `media_jobs`.
-  `anonymous_listing_owners` is readable by the poster alone. Buzz anonymity depends on only the
+  `anonymous_listing_owners` is readable by the poster alone. In the `uploads` bucket, `buzz/` and
+  (since migration 59) `stories/` are read through the API by their owners only. Buzz anonymity depends on only the
   `buzz_v2_*` functions deciding what leaves the database.
 - **Since migration 22, `profiles` and `notifications` are granted column by column.** A migration
   that adds a column to either must also

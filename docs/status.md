@@ -113,8 +113,12 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   Selected people story, both with exactly 24 hours (a read-only count of production; deleting one on the device and
   the 24-hour expiry not yet watched there). `stories-live` adds: the viewer's
   bar waits for the photo or video and stops while a video buffers, the next photo loads ahead, expired stories leave
-  an open tray, and Home's pull to refresh reloads the tray. Testers' builds get Stories with an EAS update (owner's
-  approval). App only (the website shows no stories yet).
+  an open tray, and Home's pull to refresh reloads the tray. `stories-media` adds **migration 59** (not on production,
+  applied on staging): a story's photo moves into `uploads/stories/<author>/`, which only its owner reads through the
+  API; the database takes a photo from there only and a video only from the author's own uploads, and deletes the
+  photo when the story goes (deleted, expired within ten minutes, or its account gone). Stories shared before 59 keep
+  their photo where it was. Testers' builds get Stories with an EAS update (owner's approval). App only (the website
+  shows no stories yet).
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
   website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
   (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).
