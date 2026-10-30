@@ -2,14 +2,10 @@ import "server-only";
 import type { Metadata } from "next";
 import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
-import { getStaffRole, roleOf, type Client } from "@apartment-book/shared";
+import { getStaffRole, type Client } from "@apartment-book/shared";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { staffRpc, toStaffError } from "./rpc";
-import type {
-  AdCounts, AdRate, AdsAnalytics, AnalyticsOverview, BusinessCounts, BusinessOpsOverview, ConsoleAd, ConsoleAdRow, ConsoleBusiness, ConsoleBusinessRow,
-  ConsolePage, PaymentsPage, RevenueAnalytics,
-} from "./ops-types";
 import type {
   AuditRow, ModerationMetrics, QueueCounts, QueueView, RulePackState, StaffAppeal, StaffPage, StaffQueueItem, StaffQueueItemDetail, StaffRole,
   StaffUserDetail,
@@ -99,60 +95,3 @@ export function requireUuid(id: string): string {
   if (!UUID.test(id)) notFound();
   return id;
 }
-
-// --- Analytics and Business (migration 59) ----------------------------------------------------------------------------
-
-/** An admin of the staff (two-factor session included); moderators and everyone else get Next's notFound(). */
-export async function requireStaffAdmin(): Promise<StaffViewer> {
-  const me = await requireStaff();
-  if (me.role !== "admin") notFound();
-  return me;
-}
-
-/**
- * Whether this staff admin may run businesses and ads too: Business v2's review functions, which the Business section
- * reuses, also ask for the UniBuzz admin role on the account (profiles.role, granted by the database owner).
- */
-export const hasBusinessRole = cache(async (): Promise<boolean> => roleOf(await getCurrentProfile()) === "admin");
-
-/** A staff function's answer, or null where the database does not have the function yet (a migration not applied). */
-export async function maybeDeployed<T>(work: Promise<T>): Promise<T | null> {
-  try {
-    return await work;
-  } catch (e) {
-    if (toStaffError(e).code === "not_deployed") return null;
-    throw e;
-  }
-}
-
-export const fetchAnalyticsOverview = (days: number, universityId: string | null) =>
-  staffFetch<AnalyticsOverview>("console_analytics_overview", { p_days: days, p_university: universityId });
-export const fetchAdsAnalytics = (days: number, universityId: string | null) =>
-  staffFetch<AdsAnalytics>("console_analytics_ads", { p_days: days, p_university: universityId });
-export const fetchRevenueAnalytics = (days: number) => staffFetch<RevenueAnalytics>("console_analytics_revenue", { p_days: days });
-
-export const fetchBusinessOpsOverview = cache(() => staffFetch<BusinessOpsOverview>("console_business_overview"));
-
-/**
- * The Business tab's badge: ads in review, businesses whose owner confirmed and who wait for review, and open reports.
- * Null for anyone who cannot run businesses, or where migration 59 is not applied. It never ends the request (no
- * notFound() or redirect()): the tabs render whatever it says.
- */
-export const fetchBusinessBadge = cache(async (): Promise<number | null> => {
-  if ((await viewerRole()) !== "admin" || !(await hasBusinessRole())) return null;
-  try {
-    const o = await staffRpc<BusinessOpsOverview>(await createClient(), "console_business_overview");
-    return o.ads.inReview + o.businesses.pendingConfirmed + o.reports.open;
-  } catch {
-    return null;
-  }
-});
-export const fetchConsoleBusinesses = (q: string, status: string | null, offset: number, limit: number) =>
-  staffFetch<ConsolePage<ConsoleBusinessRow, BusinessCounts>>("console_businesses", { p_q: q || null, p_status: status, p_limit: limit, p_offset: offset });
-export const fetchConsoleBusiness = (id: string) => staffFetch<ConsoleBusiness>("console_business", { p_id: id });
-export const fetchConsoleAds = (status: string, q: string, businessId: string | null, offset: number, limit: number) =>
-  staffFetch<ConsolePage<ConsoleAdRow, AdCounts>>("console_ads", { p_status: status, p_q: q || null, p_business: businessId, p_limit: limit, p_offset: offset });
-export const fetchConsoleAd = (id: string) => staffFetch<ConsoleAd>("console_ad", { p_id: id });
-export const fetchConsolePayments = (days: number | null, status: string | null, q: string, offset: number, limit: number) =>
-  staffFetch<PaymentsPage>("console_payments", { p_days: days, p_status: status, p_q: q || null, p_limit: limit, p_offset: offset });
-export const fetchAdRates = () => staffFetch<AdRate[]>("console_ad_rates");

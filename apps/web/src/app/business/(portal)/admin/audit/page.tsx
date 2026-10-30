@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { ScrollText } from "lucide-react";
-import { getBusinessAudit } from "@apartment-book/shared";
-import { auditActionLabel, auditDetailLine } from "@/lib/business/audit-format";
+import { getBusinessAudit, type BusinessAuditRow } from "@apartment-book/shared";
 import { requireAdmin } from "@/lib/business/portal";
 import { createClient } from "@/lib/supabase/server";
 import { firstParam } from "@/lib/utils";
@@ -9,6 +8,18 @@ import { PortalLink } from "@/components/business/portal-base";
 import { BizLink, EmptyPanel, PageHeader, Panel, Pill } from "@/components/business/ui";
 
 export const metadata: Metadata = { title: "Audit log" };
+
+/** "invite_created" → "Invite created". */
+function actionLabel(action: string): string {
+  const text = action.replace(/_/g, " ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function detailLine(row: BusinessAuditRow): string {
+  const d = (row.detail ?? {}) as Record<string, unknown>;
+  const parts = [d.name, d.title, d.email, d.role ? `as ${d.role}` : null, d.from && d.to ? `${d.from} → ${d.to}` : null, d.reason, d.note, d.payment_reference ? `ref ${d.payment_reference}` : null, Array.isArray(d.fields) ? `changed ${d.fields.join(", ")}` : null];
+  return parts.filter((p) => typeof p === "string" && p).join(" · ");
+}
 
 /** Who did what to which business: reviews, team changes, posts, ads and payments. Append-only in the database. */
 export default async function AdminAuditPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
@@ -42,8 +53,8 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
                     <span className="text-biz-ink-2">{r.actor_name}</span> {r.actor_kind !== "team" ? <Pill tone={r.actor_kind === "admin" ? "accent" : "neutral"}>{r.actor_kind === "admin" ? "UniBuzz team" : "Automatic"}</Pill> : null}
                   </td>
                   <td className="px-3 py-3">
-                    <span className="font-medium text-biz-ink">{auditActionLabel(r.action)}</span>
-                    {auditDetailLine(r.detail) ? <span className="block text-biz-ink-3">{auditDetailLine(r.detail)}</span> : null}
+                    <span className="font-medium text-biz-ink">{actionLabel(r.action)}</span>
+                    {detailLine(r) ? <span className="block text-biz-ink-3">{detailLine(r)}</span> : null}
                   </td>
                 </tr>
               ))}

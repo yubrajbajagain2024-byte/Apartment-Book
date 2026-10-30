@@ -35,7 +35,7 @@ const businessCalls = (biz) => [
 ];
 const INTERNAL = [
   "public.console_require_business_admin()", "public.platform_activity_snapshot()",
-  "public.console_recognized_cents(now(), now())", "public.console_campus_json(null)", "public.console_ad_quote(null::uuid)",
+  "public.console_recognized_cents(now(), now())", "public.console_campus_json(null)", "public.console_audit('x.y', null, null, null, null)", "public.console_ad_quote(null::uuid)",
   "public.console_payment_json(null::uuid)", "public.console_ad_row_json(null::uuid)",
   // The pure helpers too: an open day series would let anyone ask for millions of rows.
   "public.console_tz()", "public.console_day_start('2026-01-01')", "public.console_day_series('1000-01-01', '9999-12-31')",
@@ -415,9 +415,9 @@ async function setup(h) {
     const notes = await call(admin, `public.console_add_business_note('${cafe}', 'Called the owner about the March invoice.')`);
     check(notes.length === 1 && notes[0].authorName === "Ann Avery" && notes[0].body.includes("March invoice"), JSON.stringify(notes));
     check((await call(admin, `public.console_business('${cafe}')`)).notes.length === 1, "not in the detail");
-    const a = await sql1("select actor_id, actor_role, target_id from public.audit_log where action = 'business_note'");
+    const a = await sql1("select actor_id, actor_role, target_id from public.audit_log where action = 'business.note'");
     check(a?.actor_id === admin && a.actor_role === "admin" && a.target_id === cafe, JSON.stringify(a));
-    check(Number((await sql1("select count(*) as n from public.business_audit_log where action = 'business_note' or detail::text like '%March invoice%'")).n) === 0, "in the business's log");
+    check(Number((await sql1("select count(*) as n from public.business_audit_log where action = 'business.note' or detail::text like '%March invoice%'")).n) === 0, "in the business's log");
     const own = await as(cafeOwner, () => rows(db.query("select action, detail from public.business_audit($1, 100, null)", [cafe])));
     check(!JSON.stringify(own).includes("March invoice"), "the business reads the note");
   });
@@ -532,7 +532,7 @@ async function setup(h) {
     check((await sql1("select count(*) as n from public.business_audit_log where action = 'payment_recorded'")).n == 1, "not on the log");
   });
   await expectOk("the note on a further payment is the team's: in the staff console's log, never in what the business reads", async () => {
-    const staff = await sql1("select reason, metadata from public.audit_log where action = 'ad_payment_recorded'");
+    const staff = await sql1("select reason, metadata from public.audit_log where action = 'ad.payment_recorded'");
     check(staff?.reason === "Internal: owner disputes, likely chargeback" && staff.metadata.reference === "INV-78", JSON.stringify(staff));
     const own = await as(cafeOwner, () => rows(db.query("select detail from public.business_audit($1)", [cafe])));
     check(own.length > 0 && !JSON.stringify(own).includes("chargeback"), "the business can read the team's note");
@@ -620,7 +620,7 @@ async function setup(h) {
     await call(admin, "public.console_set_ad_rate('reels', null, 0)");
     const q = (await call(admin, `public.console_ad('${two}')`)).quote;
     check(q.cents === null && JSON.stringify(q.missing) === '["reels"]', JSON.stringify(q));
-    const log = await rows(db.query("select target_id, metadata from public.audit_log where action = 'ad_rate_set' order by seq"));
+    const log = await rows(db.query("select target_id, metadata from public.audit_log where action = 'ad_rate.set' order by seq"));
     check(log.length === 3 && log[2].target_id === "reels" && log[2].metadata.to === null && log[2].metadata.from.dailyCents === 300, JSON.stringify(log));
   });
   await expectError("a rate is not negative", () => call(admin, "public.console_set_ad_rate('for_you', -1, 0)"), "ts:validation_failed:");
@@ -675,7 +675,7 @@ async function setup(h) {
 // =====================================================================================================================
 {
   const t = await setup(await boot({ live: true }));
-  const { db, call, admin, student, staffTable, makeStaff } = t;
+  const { db, call, sql1, rows, admin, student, staffTable, makeStaff } = t;
   await expectOk("production's schema: the staff list is CampConnect Admin's public.staff", async () => check(staffTable === "staff", staffTable));
   const owner = await student("olive.owner@txstate.edu", "Olive Owner");
   await db.query("select public.grant_role($1, 'admin')", [owner]);
@@ -706,6 +706,14 @@ async function setup(h) {
     await call(benched, ANALYTICS[0]);
     await db.query("insert into public.account_restrictions (user_id, reason) values ($1, 'Lost laptop, under review')", [benched]);
     for (const expr of [ANALYTICS[0], businessCalls(cafe)[1]]) check((await call(benched, expr).then(() => "allowed", (e) => e.message)).includes("ts:not_found:"), expr);
+  });
+  await expectOk("the team's own records go to CampConnect Admin's log there (staff_audit_log, with the actor's email), not the console's", async () => {
+    await call(admin, `public.console_add_business_note('${cafe}', 'Spoke to the owner about the renewal.')`);
+    await call(admin, "public.console_set_ad_rate('reels', 900, 0)");
+    const logged = await rows(db.query("select action, actor_email, target_type, details from public.staff_audit_log where action in ('business.note', 'ad_rate.set') order by id"));
+    check(logged.length === 2 && logged.every((r) => r.actor_email) && logged[0].action === "business.note" && logged[1].details.to?.dailyCents === 900, JSON.stringify(logged));
+    check(Number((await sql1("select count(*) as n from public.audit_log where action in ('business.note', 'ad_rate.set')")).n) === 0, "also in the console's log");
+    await db.query("delete from public.ad_rates");
   });
   await expectOk("the numbers work on production's schema too", async () => {
     const o = await call(admin, "public.console_analytics_overview(7, null)");

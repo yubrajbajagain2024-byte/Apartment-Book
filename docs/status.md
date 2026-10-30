@@ -89,16 +89,14 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   hours (preview and Website button work). Passed on staging with the release and in production's state (2026-10-29).
   The app's part reaches students only with an EAS update (owner's approval). See
   [branches/business-hours.md](branches/business-hours.md).
-- **Analytics and Business for the UniBuzz team** (branch `admin-analytics-business`, draft PR, not to be merged as it
-  is, as of 2026-10-30): built as two new sections of the website's `/admin` console for admins of the staff with a
-  second factor; **before production they move into CampConnect Admin (`apps/admin`)**, off the student website (owner's
-  decision, 2026-10-30).
-  Analytics: growth, active and engaged students, engagement, ad delivery, the review queue and revenue, live, with
-  CSV exports. Business: advertisers (review, Verified Partner, suspension, accounts, internal notes), campaigns (review
-  with the payment, drafting for a business, schedule and budget, pause, performance), payments (further payments,
-  voiding, the ledger), a rate card, students' reports and the business audit log. **Migration 59**, not applied
-  anywhere: until it is, both sections say they need it. Offline tests pass (43 suites); not yet tried on staging as a
-  staff member with a second factor. See [branches/admin-analytics-business.md](branches/admin-analytics-business.md).
+- **Analytics and Business for the UniBuzz team** (branch `admin-analytics-business`, draft PR #60, as of 2026-10-30):
+  two new sections of **CampConnect Admin** (`apps/admin`) for owners and admins of the staff in a two-factor session.
+  Analytics: growth, active and engaged students, engagement, ad delivery, the review queue and revenue, live, with CSV
+  exports. Business: advertisers, campaigns (review with the payment, drafting, schedule and budget, pause), payments,
+  a rate card, students' reports and the business audit log. The branch also brings the admin app itself to `main`
+  from `step-admin` (without its migrations); the student website and the app are unchanged. **Migration 59**, not
+  applied anywhere: until it is, both sections say they need it. Offline tests and `npm run check` pass; not yet run on
+  staging as staff with a second factor. See [branches/admin-analytics-business.md](branches/admin-analytics-business.md).
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
   website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
   (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).

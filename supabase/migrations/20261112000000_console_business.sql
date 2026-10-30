@@ -46,8 +46,8 @@
 --     the amount (console_ad_quote). There is still no payment provider.
 --   * Records: what the business may read (an ad drafted, rescheduled, a payment recorded or voided) goes to its
 --     business_audit_log and notifications, as Business v2's own reviews do (without the reviewer's name, migration
---     56); what is the team's alone (notes, rate changes, the note on a further payment) goes to the staff console's
---     audit_log. Buzz is counted by when students could see it, never by when it was written.
+--     56); what is the team's alone (notes, rate changes, the note on a further payment) goes to the team's own log:
+--     CampConnect Admin's staff_audit_log where it exists, the staff console's audit_log otherwise (console_audit). Buzz is counted by when students could see it, never by when it was written.
 --   * New tables (ad_rates, business_admin_notes, platform_activity_daily) have row-level security on and no grants:
 --     only these functions read or write them.
 --
@@ -137,6 +137,28 @@ begin
     perform public.ts_fail('not_found', 'No such campus.');
   end if;
   return v;
+end;
+$$;
+
+-- The team's own record of what it did here (notes, rate changes, the note on a further payment): CampConnect Admin's
+-- log (staff_audit_log through staff_log(), applied to production outside this folder) where it exists, as
+-- ts_role_of() takes its staff list; the staff console's audit_log (migration 41) on a database built from this repo
+-- alone. Never the business's log.
+create or replace function public.console_audit(p_action text, p_target_type text, p_target_id text, p_note text, p_details jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_details jsonb := case when jsonb_typeof(p_details) = 'object' then p_details else '{}'::jsonb end;
+begin
+  if to_regprocedure('public.staff_log(text,text,text,jsonb)') is not null then
+    execute 'select public.staff_log($1, $2, $3, $4)'
+      using p_action, p_target_type, p_target_id, v_details || case when p_note is null then '{}'::jsonb else jsonb_build_object('note', p_note) end;
+  else
+    perform public.ts_audit(auth.uid(), 'admin', p_action, p_target_type, p_target_id, null, null, null, p_note, v_details);
+  end if;
 end;
 $$;
 
@@ -807,7 +829,7 @@ begin
     on conflict (placement) do update set daily_cents = excluded.daily_cents, minimum_cents = excluded.minimum_cents,
       updated_at = excluded.updated_at, updated_by = excluded.updated_by;
   end if;
-  perform public.ts_audit(v_me, 'admin', 'ad_rate_set', 'ad_rate', p_placement, null, null, null, null,
+  perform public.console_audit('ad_rate.set', 'ad_rate', p_placement, null,
     jsonb_build_object('from', v_old, 'to', case when p_daily_cents is null then null
       else jsonb_build_object('dailyCents', p_daily_cents, 'minimumCents', coalesce(p_minimum_cents, 0)) end));
   return public.console_ad_rates();
@@ -1177,7 +1199,7 @@ begin
   returning id into v_id;
   perform public.business_audit_write(a.business_id, 'admin', 'payment_recorded', 'payment', v_id,
     jsonb_build_object('ad_id', a.id, 'name', a.name, 'amount_cents', p_amount_cents, 'currency', v_currency, 'payment_reference', v_reference));
-  perform public.ts_audit(auth.uid(), 'admin', 'ad_payment_recorded', 'payment', v_id::text, null, null, null, v_note,
+  perform public.console_audit('ad.payment_recorded', 'payment', v_id::text, v_note,
     jsonb_build_object('adId', a.id, 'businessId', a.business_id, 'amountCents', p_amount_cents, 'currency', v_currency, 'reference', v_reference));
   perform public.business_notify_team(a.business_id, 'ad', 'Payment recorded',
     format('A payment for "%s" is on record: %s.', a.name, v_reference), '/billing/' || v_id,
@@ -1460,7 +1482,7 @@ begin
     perform public.ts_fail('validation_failed', 'A note is 2 to 2,000 characters.');
   end if;
   insert into public.business_admin_notes (business_id, author_id, body) values (p_business, v_me, v_body) returning id into v_id;
-  perform public.ts_audit(v_me, 'admin', 'business_note', 'business', p_business::text, null, null, null, null, jsonb_build_object('noteId', v_id));
+  perform public.console_audit('business.note', 'business', p_business::text, null, jsonb_build_object('noteId', v_id));
   return (select coalesce(jsonb_agg(jsonb_build_object('id', n.id, 'body', n.body, 'authorName', p.full_name, 'createdAt', public.ts_ms(n.created_at))
             order by n.created_at desc), '[]'::jsonb)
           from public.business_admin_notes n left join public.profiles p on p.id = n.author_id where n.business_id = p_business);
@@ -1494,6 +1516,7 @@ select public.platform_activity_snapshot();
 -- Internal: the database's own functions only.
 revoke all on function public.console_require_business_admin() from public, anon, authenticated;
 revoke all on function public.console_campus_json(uuid) from public, anon, authenticated;
+revoke all on function public.console_audit(text, text, text, text, jsonb) from public, anon, authenticated;
 revoke all on function public.platform_activity_snapshot(timestamptz) from public, anon, authenticated;
 revoke all on function public.console_recognized_cents(timestamptz, timestamptz) from public, anon, authenticated;
 revoke all on function public.console_ad_quote(uuid) from public, anon, authenticated;

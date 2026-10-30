@@ -48,6 +48,7 @@ drop function if exists public.console_analytics_ads(integer, uuid);
 drop function if exists public.console_analytics_overview(integer, uuid);
 drop function if exists public.platform_activity_snapshot(timestamptz);
 drop function if exists public.console_campus_json(uuid);
+drop function if exists public.console_audit(text, text, text, text, jsonb);
 drop function if exists public.console_like(text);
 drop function if exists public.console_days(integer);
 drop function if exists public.console_day_series(date, date);

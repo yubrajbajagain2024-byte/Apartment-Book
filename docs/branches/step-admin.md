@@ -28,6 +28,12 @@
 
 ## Current state
 
+- **2026-10-30:** `admin-analytics-business` (draft PR #60) brings `apps/admin` and its shared code to `main`, without
+  this branch's migrations, scripts other than `deploy-admin.mjs`, tests, website changes or README section, so that
+  the new Analytics and Business sections live in the admin app (the owner's decision). That answers question 4 (yes)
+  and leaves 1 to 3 and 5 as they were; what it brought and left is listed in
+  [admin-analytics-business.md](admin-analytics-business.md).
+
 - Pushed as a backup and for review. **The merge plan says: do not merge before its questions are
   answered.** No answers recorded as of 2026-10-27.
 
