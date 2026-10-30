@@ -11,6 +11,7 @@ import {
   muxPlaybackUrl,
   muxPosterUrl,
   reelFromFeedPost,
+  type Buzz,
   type FeedMedia,
   type FeedPostWithAuthor,
   type ListingVideo,
@@ -24,13 +25,17 @@ import { supabase } from "./supabase";
 type Router = ReturnType<typeof useRouter>;
 
 /**
- * One page of the full-screen viewer (app/reels/[id].tsx): a reel (a posted reel or a listing's video tour, one video), or
- * a post with its photos and videos, which the page swipes through sideways. Author, words, counts and saved are a
- * Reel's, so every page has the same rail: like, comments, share, save, the profile and "…". (Buzz's anonymous media
- * opens in its own viewer, see components/buzz/media.tsx: nothing of Buzz comes here.)
+ * One page of the full-screen viewer (app/reels/[id].tsx): a reel (a posted reel or a listing's video tour, one video), a
+ * post with its photos and videos, which the page swipes through sideways, or a buzz's photos or video (`buzz`). Author,
+ * words, counts and saved are a Reel's, so every post page has the same rail: like, comments, share, save, the profile
+ * and "…". A buzz page is anonymous: its author is nobody (ANONYMOUS), and ReelItem draws Buzz's own alias, words and
+ * rail (votes, replies, share) from `buzz`, as the Buzz card does; no post function ever gets its id (sourceType "buzz"
+ * is not a post's, so the compiler refuses one).
  */
 export type ViewerItem = Omit<Reel, "video" | "sourceType"> & {
-  sourceType: Reel["sourceType"];
+  sourceType: Reel["sourceType"] | "buzz";
+  /** The buzz this page shows the media of, exactly as Buzz's serializer sent it (nothing that names its author). */
+  buzz?: Buzz;
   /** A reel or an ordinary post; listing tours count as reels. */
   kind: "reel" | "post";
   /** What the page shows, in the post's own order (videos, then photos): a reel's one video. */
@@ -68,6 +73,13 @@ export type ViewerSource = {
   index: number;
   /** Where the tapped picture sits on screen: the viewer zooms open from it, and back into it on the way out. */
   origin?: ViewerOrigin;
+  /**
+   * Each slide's own picture on screen, for the page opened on, where the feed shows them side by side (a buzz's grid of
+   * photos): closing on another photo lands on that photo's tile, not the one tapped. `origin` where none is given.
+   */
+  origins?: (ViewerOrigin | undefined)[];
+  /** Opened from a buzz's own thread screen: its replies are right behind the viewer, which closes onto them. */
+  repliesBehind?: boolean;
   then: "reels" | "end" | { more: () => Promise<ViewerEntry[]>; rescope?: (universityId: string | undefined, seen: Set<string>) => () => Promise<ViewerEntry[]> };
 };
 
@@ -100,6 +112,41 @@ export function viewerThumb(media: FeedMedia[]): string | null {
 
 export function viewerItemFromReel(reel: Reel): ViewerItem {
   return { ...reel, kind: "reel", media: [videoMedia(reel.video)] };
+}
+
+/** A buzz page's author: nobody. The page shows the buzz's alias, from `buzz`, as the Buzz card does. */
+const ANONYMOUS: Reel["author"] = { id: "", name: "", avatarUrl: null, verified: false };
+
+/**
+ * A buzz's photos or its one video as a page, from nothing but what Buzz's serializer sent (photos from the anonymous
+ * storage folder, a video by its Mux playback id). Null for a buzz with nothing to show full screen.
+ */
+export function viewerItemFromBuzz(buzz: Buzz): ViewerItem | null {
+  const media: FeedMedia[] = buzz.media.map((m) =>
+    m.type === "image"
+      ? { type: "photo", url: m.url, width: m.width, height: m.height, blur: m.blur }
+      : { type: "video", playbackUrl: muxPlaybackUrl(m.playbackId), poster: m.posterUrl ?? muxPosterUrl(m.playbackId), width: m.width, height: m.height, durationSeconds: m.durationSeconds },
+  );
+  if (media.length === 0) return null;
+  return {
+    sourceType: "buzz",
+    sourceId: buzz.id,
+    author: ANONYMOUS,
+    title: buzz.title || null,
+    caption: buzz.text,
+    link: null,
+    commentsOff: false,
+    audience: "global",
+    createdAt: new Date(buzz.createdAt).toISOString(),
+    likes: 0,
+    comments: buzz.replyCount,
+    likedByMe: false,
+    savedByMe: false,
+    kind: "post",
+    media,
+    video: null,
+    buzz,
+  };
 }
 
 /** A Reel (from the Reels feed) or a page already built: the page. */

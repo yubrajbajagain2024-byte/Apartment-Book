@@ -327,8 +327,9 @@ export default function ReelViewerScreen() {
 
   const onPatch = useCallback((key: string, patch: Partial<Reel>) => {
     setEntries((prev) => (prev ? prev.map((e) => (e.key === key && e.item ? { ...e, item: { ...e.item, ...patch } } : e)) : prev));
-    // The row this page was opened from, and its own screen, follow along.
+    // The row this page was opened from, and its own screen, follow along. A buzz's votes live in Buzz's own store.
     const [type, targetId] = splitKey(key);
+    if (type === "buzz") return;
     emitPostEngagement(type as PostTargetType, targetId, { likes: patch.likes, comments: patch.comments, likedByMe: patch.likedByMe, saved: patch.savedByMe });
   }, []);
   const onRemoved = useCallback((key: string) => {
@@ -348,7 +349,8 @@ export default function ReelViewerScreen() {
   }, []);
   const onOpenComments = useCallback((item: ViewerItem) => setCommentsKey(viewerKey(item)), []);
   const commentsItem = commentsKey ? (entries?.find((e) => e.key === commentsKey)?.item ?? null) : null;
-  const commentsReel = useMemo(() => (commentsItem ? { sourceType: commentsItem.sourceType, sourceId: commentsItem.sourceId, author: commentsItem.author, comments: commentsItem.comments, commentsOff: commentsItem.commentsOff } : null), [commentsItem]);
+  // Only ever a post's: a buzz's replies are on its thread's screen (see openReplies).
+  const commentsReel = useMemo(() => (commentsItem && commentsItem.sourceType !== "buzz" ? { sourceType: commentsItem.sourceType, sourceId: commentsItem.sourceId, author: commentsItem.author, comments: commentsItem.comments, commentsOff: commentsItem.commentsOff } : null), [commentsItem]);
   const onCommentCount = useCallback(
     (delta: number) => {
       if (!commentsKey || !commentsItem) return;
@@ -376,8 +378,18 @@ export default function ReelViewerScreen() {
   }).current;
 
   const leave = useCallback(() => (router.canGoBack() ? router.back() : router.replace("/(tabs)")), [router]);
-  /** A page's comments, in the sheet over the page. */
-  const openReplies = onOpenComments;
+  /**
+   * A page's comments: a post's in the sheet over the page; a buzz's replies on its thread's own screen, pushed over the
+   * viewer (Back comes back here), or, opened from that very screen, right behind it, so the viewer closes onto them.
+   */
+  const openReplies = useCallback(
+    (item: ViewerItem) => {
+      if (!item.buzz) return onOpenComments(item);
+      if (handed?.repliesBehind) return leave();
+      router.push({ pathname: "/buzz/[id]", params: { id: item.buzz.threadId } });
+    },
+    [onOpenComments, handed, leave, router],
+  );
 
   // The top row: Back and the toggle, under the status bar. A page's own content (a photo) starts below it.
   const rowTop = insets.top + TOP_GAP;
@@ -440,7 +452,8 @@ export default function ReelViewerScreen() {
    */
   const reduceMotion = useReduceMotion();
   const { width: screenW, height: screenH } = useWindowDimensions();
-  const [origin] = useState<ViewerOrigin | null>(() => handed?.origin ?? null);
+  const [tapped] = useState<ViewerOrigin | null>(() => handed?.origin ?? null);
+  const [origins] = useState(() => handed?.origins ?? null);
   const fallback = useMemo<ViewerOrigin>(() => ({ x: screenW * 0.06, y: screenH * 0.06, width: screenW * 0.88, height: screenH * 0.88, radius: 28 }), [screenW, screenH]);
   /**
    * The picture on the tapped page that grows out of the tapped one, in page points: a photo sits in its own shape (at
@@ -452,6 +465,11 @@ export default function ReelViewerScreen() {
   const startEntry = (startKey ? entries?.find((e) => e.key === startKey) : entries?.[startIndex]) ?? null;
   const startItem = startEntry?.item ?? null;
   const startSlide = startEntry ? (shown[startEntry.key]?.slide ?? startEntry.slide ?? 0) : 0;
+  /**
+   * Where the zoom opens from and lands: the tapped picture, or, where the feed shows the page's photos side by side (a
+   * buzz's grid), the tile of the photo on screen now, so closing on the third photo lands on the third tile.
+   */
+  const origin = origins?.[startSlide] ?? tapped;
   const focus = useMemo(() => {
     const m = startItem?.media[startSlide];
     if (startItem && m?.type === "video") {

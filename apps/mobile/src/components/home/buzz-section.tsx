@@ -20,7 +20,6 @@ import { BuzzComposer } from "@/components/buzz/composer";
 import { BuzzFab } from "@/components/buzz/fab";
 import { BuzzGatePanel, BuzzSignedOutPanel, useBuzzGate } from "@/components/buzz/gate";
 import { BuzzActionsHost } from "@/components/buzz/item-menu";
-import { BuzzMediaActive } from "@/components/buzz/media";
 import { BuzzToastHost } from "@/components/buzz/toast";
 import { Chip, EmptyState, ErrorState, GUTTER, HERO_SOFT_GRADIENT, P, PButton, PIconButton, R, Segmented, T } from "@/components/buzz/ui";
 import { useBuzzList, type BuzzListPage } from "@/components/buzz/use-buzz-list";
@@ -325,65 +324,63 @@ function Feed({ active, topInset }: { active: boolean; topInset: number }) {
   ) : null;
 
   return (
-    <BuzzMediaActive.Provider value={active && focused}>
-      <BuzzActionsHost>
-        <View style={styles.flex}>
-          <AnimatedFlatList
-            ref={listRef}
-            data={list.status === "ready" ? rows : []}
-            keyExtractor={(r) => r.id}
-            renderItem={({ item }) => <CardRow id={item.id} />}
-            ItemSeparatorComponent={Separator}
-            ListHeaderComponent={header}
-            ListEmptyComponent={empty}
-            ListFooterComponent={footer ?? undefined}
-            onEndReached={() => {
-              if (!list.moreError) void list.loadMore();
+    <BuzzActionsHost>
+      <View style={styles.flex}>
+        <AnimatedFlatList
+          ref={listRef}
+          data={list.status === "ready" ? rows : []}
+          keyExtractor={(r) => r.id}
+          renderItem={({ item }) => <CardRow id={item.id} />}
+          ItemSeparatorComponent={Separator}
+          ListHeaderComponent={header}
+          ListEmptyComponent={empty}
+          ListFooterComponent={footer ?? undefined}
+          onEndReached={() => {
+            if (!list.moreError) void list.loadMore();
+          }}
+          onEndReachedThreshold={0.8}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          onScrollEndDrag={noteRest}
+          onMomentumScrollEnd={noteRest}
+          contentContainerStyle={{ paddingTop: ios ? 0 : insetTop, paddingBottom: tabBar + 96 }}
+          contentInset={ios ? { top: insetTop } : undefined}
+          contentOffset={ios ? { x: 0, y: -insetTop } : undefined}
+          scrollIndicatorInsets={ios ? { top: insetTop } : undefined}
+          automaticallyAdjustContentInsets={false}
+          keyboardShouldPersistTaps="handled"
+          indicatorStyle="white"
+          windowSize={9}
+          maxToRenderPerBatch={6}
+          initialNumToRender={6}
+          refreshControl={<RefreshControl refreshing={list.refreshing} onRefresh={refreshWithHaptic(list.refresh)} tintColor={P.accent} colors={[P.accent]} progressBackgroundColor={P.surface2} progressViewOffset={ios ? undefined : insetTop} />}
+        />
+        {/* The filter bar, under Home's bar: it slides up beneath it as the feed scrolls down. */}
+        <Animated.View onLayout={onFilterLayout} style={[styles.filterBar, { top: topInset, transform: [{ translateY: barY }] }]}>
+          <Pressable
+            onPress={() => {
+              buzzState.setSearch({ scope });
+              router.push("/buzz/search" as never);
             }}
-            onEndReachedThreshold={0.8}
-            onScroll={onScroll}
-            scrollEventThrottle={16}
-            onScrollEndDrag={noteRest}
-            onMomentumScrollEnd={noteRest}
-            contentContainerStyle={{ paddingTop: ios ? 0 : insetTop, paddingBottom: tabBar + 96 }}
-            contentInset={ios ? { top: insetTop } : undefined}
-            contentOffset={ios ? { x: 0, y: -insetTop } : undefined}
-            scrollIndicatorInsets={ios ? { top: insetTop } : undefined}
-            automaticallyAdjustContentInsets={false}
-            keyboardShouldPersistTaps="handled"
-            indicatorStyle="white"
-            windowSize={9}
-            maxToRenderPerBatch={6}
-            initialNumToRender={6}
-            refreshControl={<RefreshControl refreshing={list.refreshing} onRefresh={refreshWithHaptic(list.refresh)} tintColor={P.accent} colors={[P.accent]} progressBackgroundColor={P.surface2} progressViewOffset={ios ? undefined : insetTop} />}
-          />
-          {/* The filter bar, under Home's bar: it slides up beneath it as the feed scrolls down. */}
-          <Animated.View onLayout={onFilterLayout} style={[styles.filterBar, { top: topInset, transform: [{ translateY: barY }] }]}>
-            <Pressable
-              onPress={() => {
-                buzzState.setSearch({ scope });
-                router.push("/buzz/search" as never);
-              }}
-              accessibilityRole="search"
-              accessibilityLabel={BUZZ_FEED_COPY.searchPlaceholder(where)}
-              style={({ pressed }) => [styles.searchPill, pressed && { opacity: 0.85 }]}
-            >
-              <Icon name="search" size={18} color={P.ink3} />
-              <Text style={[T.body, styles.flex, { color: P.ink3 }]} numberOfLines={1}>
-                {BUZZ_FEED_COPY.searchPlaceholder(where)}
-              </Text>
-            </Pressable>
-            <View style={styles.filters}>
-              <Segmented<BuzzFeedSort> label="Sort" value={sort} options={BUZZ_SORT_OPTIONS} onChange={(v) => buzzState.setSort(v)} />
-              <Segmented<BuzzScope> label="Feed scope" value={scope} options={SCOPES} onChange={chooseScope} />
-            </View>
-          </Animated.View>
-          <BuzzFab onPress={() => openComposer()} bottom={tabBar + 12} translateY={fabY} />
-          <BuzzToastHost bottom={tabBar + 84} enabled={active && focused} />
-        </View>
-        <BuzzComposer visible={composerOpen} onClose={() => setComposerOpen(false)} onAnswered={(threadId, replyId) => openThread(router, threadId, replyId)} />
-      </BuzzActionsHost>
-    </BuzzMediaActive.Provider>
+            accessibilityRole="search"
+            accessibilityLabel={BUZZ_FEED_COPY.searchPlaceholder(where)}
+            style={({ pressed }) => [styles.searchPill, pressed && { opacity: 0.85 }]}
+          >
+            <Icon name="search" size={18} color={P.ink3} />
+            <Text style={[T.body, styles.flex, { color: P.ink3 }]} numberOfLines={1}>
+              {BUZZ_FEED_COPY.searchPlaceholder(where)}
+            </Text>
+          </Pressable>
+          <View style={styles.filters}>
+            <Segmented<BuzzFeedSort> label="Sort" value={sort} options={BUZZ_SORT_OPTIONS} onChange={(v) => buzzState.setSort(v)} />
+            <Segmented<BuzzScope> label="Feed scope" value={scope} options={SCOPES} onChange={chooseScope} />
+          </View>
+        </Animated.View>
+        <BuzzFab onPress={() => openComposer()} bottom={tabBar + 12} translateY={fabY} />
+        <BuzzToastHost bottom={tabBar + 84} enabled={active && focused} />
+      </View>
+      <BuzzComposer visible={composerOpen} onClose={() => setComposerOpen(false)} onAnswered={(threadId, replyId) => openThread(router, threadId, replyId)} />
+    </BuzzActionsHost>
   );
 }
 

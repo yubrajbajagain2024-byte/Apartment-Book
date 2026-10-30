@@ -57,7 +57,7 @@ export const BuzzCard = memo(function BuzzCard({ buzz, linkToThread = true }: { 
       ) : (
         <BuzzContent buzz={buzz} clamp={linkToThread} />
       )}
-      <BuzzMediaView media={buzz.media} />
+      <BuzzMediaView buzz={buzz} />
       {buzz.poll ? <PollView threadId={buzz.threadId} poll={buzz.poll} isMine={buzz.isMine} disabled={buzz.status !== "active"} /> : null}
       {buzz.supportLink ? <SupportLink /> : null}
       {linkToThread && buzz.topReply ? <TopReply reply={buzz.topReply} onPress={() => openThread(router, buzz.threadId, buzz.topReply?.id)} /> : null}

@@ -13,7 +13,6 @@ import { supabase } from "@/lib/supabase";
 import { BuzzCardById, BuzzCardSkeleton, CARD_GAP } from "./card";
 import { GatedBuzzScreen } from "./gated";
 import { BuzzActionsHost } from "./item-menu";
-import { BuzzMediaActive } from "./media";
 import { BuzzToastHost } from "./toast";
 import { Chip, EmptyState, ErrorState, GUTTER, P, PageHeader, PIconButton, R, Segmented, T } from "./ui";
 import { useBuzzList, type BuzzListPage } from "./use-buzz-list";
@@ -123,77 +122,75 @@ function Search({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <BuzzMediaActive.Provider value={focused}>
-      <BuzzActionsHost>
-        <View style={styles.screen}>
-          <StatusBar style="light" />
-          <PageHeader
-            title={BUZZ_SEARCH_COPY.title}
-            onBack={onBack}
-            below={
-              <View style={styles.below}>
-                <View style={[styles.box, inputFocused && styles.boxFocused]}>
-                  <Icon name="search" size={18} color={P.ink3} />
-                  <TextInput
-                    ref={inputRef}
-                    value={search.q}
-                    onChangeText={(v) => buzzState.setSearch({ q: v })}
-                    placeholder={`Search ${where} buzz`}
-                    placeholderTextColor={P.ink4}
-                    keyboardAppearance="dark"
-                    returnKeyType="search"
-                    autoCorrect={false}
-                    autoCapitalize="none"
-                    maxLength={BUZZ_LIMITS.search}
-                    onFocus={() => setInputFocused(true)}
-                    onBlur={() => setInputFocused(false)}
-                    onSubmitEditing={() => inputRef.current?.blur()}
-                    style={[T.body, styles.input]}
-                    accessibilityLabel="Search buzzes"
-                  />
-                  {search.q ? <PIconButton icon="close" label="Clear search" onPress={() => buzzState.setSearch({ q: "" })} variant="filled" size={28} iconSize={14} /> : null}
-                </View>
-                <View style={styles.filters}>
-                  <Segmented label="Sort results" value={search.sort} options={BUZZ_SEARCH_SORTS} onChange={(sort) => buzzState.setSearch({ sort })} />
-                  <Segmented<BuzzScope> label="Feed scope" value={search.scope} options={SCOPES} onChange={(scope) => buzzState.setSearch({ scope })} />
-                </View>
+    <BuzzActionsHost>
+      <View style={styles.screen}>
+        <StatusBar style="light" />
+        <PageHeader
+          title={BUZZ_SEARCH_COPY.title}
+          onBack={onBack}
+          below={
+            <View style={styles.below}>
+              <View style={[styles.box, inputFocused && styles.boxFocused]}>
+                <Icon name="search" size={18} color={P.ink3} />
+                <TextInput
+                  ref={inputRef}
+                  value={search.q}
+                  onChangeText={(v) => buzzState.setSearch({ q: v })}
+                  placeholder={`Search ${where} buzz`}
+                  placeholderTextColor={P.ink4}
+                  keyboardAppearance="dark"
+                  returnKeyType="search"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  maxLength={BUZZ_LIMITS.search}
+                  onFocus={() => setInputFocused(true)}
+                  onBlur={() => setInputFocused(false)}
+                  onSubmitEditing={() => inputRef.current?.blur()}
+                  style={[T.body, styles.input]}
+                  accessibilityLabel="Search buzzes"
+                />
+                {search.q ? <PIconButton icon="close" label="Clear search" onPress={() => buzzState.setSearch({ q: "" })} variant="filled" size={28} iconSize={14} /> : null}
               </View>
+              <View style={styles.filters}>
+                <Segmented label="Sort results" value={search.sort} options={BUZZ_SEARCH_SORTS} onChange={(sort) => buzzState.setSearch({ sort })} />
+                <Segmented<BuzzScope> label="Feed scope" value={search.scope} options={SCOPES} onChange={(scope) => buzzState.setSearch({ scope })} />
+              </View>
+            </View>
+          }
+        />
+        {content ?? (
+          <FlatList
+            data={list.rows}
+            keyExtractor={(r) => r.id}
+            renderItem={({ item }) => <ResultRow id={item.id} />}
+            ItemSeparatorComponent={() => <View style={{ height: CARD_GAP }} />}
+            contentContainerStyle={{ paddingTop: 12, paddingBottom: insets.bottom + 32 }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            indicatorStyle="white"
+            onEndReached={() => void list.loadMore()}
+            onEndReachedThreshold={0.8}
+            ListFooterComponent={
+              list.loadingMore ? (
+                <View style={[styles.cards, { paddingTop: CARD_GAP }]}>
+                  <BuzzCardSkeleton />
+                </View>
+              ) : list.ended ? (
+                <View style={styles.end}>
+                  <Text style={[T.caption, { color: P.ink4 }]}>{BUZZ_SEARCH_COPY.end}</Text>
+                </View>
+              ) : list.moreError ? (
+                <Pressable onPress={() => void list.loadMore()} accessibilityRole="button" style={styles.end}>
+                  <Text style={[T.footnote, { color: P.accentInk }]}>Couldn't load more. Tap to try again.</Text>
+                </Pressable>
+              ) : undefined
             }
+            refreshControl={<RefreshControl refreshing={list.refreshing} onRefresh={refreshWithHaptic(list.refresh)} tintColor={P.accent} colors={[P.accent]} progressBackgroundColor={P.surface2} />}
           />
-          {content ?? (
-            <FlatList
-              data={list.rows}
-              keyExtractor={(r) => r.id}
-              renderItem={({ item }) => <ResultRow id={item.id} />}
-              ItemSeparatorComponent={() => <View style={{ height: CARD_GAP }} />}
-              contentContainerStyle={{ paddingTop: 12, paddingBottom: insets.bottom + 32 }}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-              indicatorStyle="white"
-              onEndReached={() => void list.loadMore()}
-              onEndReachedThreshold={0.8}
-              ListFooterComponent={
-                list.loadingMore ? (
-                  <View style={[styles.cards, { paddingTop: CARD_GAP }]}>
-                    <BuzzCardSkeleton />
-                  </View>
-                ) : list.ended ? (
-                  <View style={styles.end}>
-                    <Text style={[T.caption, { color: P.ink4 }]}>{BUZZ_SEARCH_COPY.end}</Text>
-                  </View>
-                ) : list.moreError ? (
-                  <Pressable onPress={() => void list.loadMore()} accessibilityRole="button" style={styles.end}>
-                    <Text style={[T.footnote, { color: P.accentInk }]}>Couldn't load more. Tap to try again.</Text>
-                  </Pressable>
-                ) : undefined
-              }
-              refreshControl={<RefreshControl refreshing={list.refreshing} onRefresh={refreshWithHaptic(list.refresh)} tintColor={P.accent} colors={[P.accent]} progressBackgroundColor={P.surface2} />}
-            />
-          )}
-          <BuzzToastHost bottom={insets.bottom + 24} enabled={focused} />
-        </View>
-      </BuzzActionsHost>
-    </BuzzMediaActive.Provider>
+        )}
+        <BuzzToastHost bottom={insets.bottom + 24} enabled={focused} />
+      </View>
+    </BuzzActionsHost>
   );
 }
 

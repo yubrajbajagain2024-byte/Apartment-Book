@@ -241,8 +241,13 @@ Chats | Groups, the profile's section tabs or the inbox's All | Unread | Request
 into the Reels feed (only reels, page by page, the other campus choice keeping the page on screen while what follows comes
 from the new choice); a post in For you goes on down For you, its next pages loading as needed; a square in a profile grid
 (Posts, Reels, Saved, Liked) goes on through that grid; a saved post through your saved posts; a post's own screen and a
-post shared in a chat go on into the Reels feed. Words-only posts and listings keep their own screens. Buzz never comes
-here: its anonymous photos open in the plain media viewer and its one video plays in place (see Buzz below). The source
+post shared in a chat go on into the Reels feed. Words-only posts and listings keep their own screens. A buzz's photos or
+video open here too, as a page of their own with nothing after it (`viewerItemFromBuzz`): the tapped tile grows to the
+screen, a sideways swipe moves between its photos, and closing lands on the tile of the photo on screen (`origins`). The
+page is anonymous: its author is nobody, it shows the thread's alias and the words as the Buzz card does (no profile, no
+links out of the words), and its rail is Buzz's own, wired to the same store and actions as the card (votes, replies on
+the thread's screen, Share with the thread's link only); no post function takes its id (`sourceType` "buzz" is not a
+post's, and the post menu, likes, saves, reports and double tap stop at once for it). The source
 hands its pages over (`src/lib/reel-viewer.ts`), so the viewer opens at once with the
 row's counts (a grid square, which knows only the post's id, loads its post as it comes near, its picture standing in,
 the same view all along, until the loaded page has drawn its own: no black frame between the two), and
@@ -488,8 +493,8 @@ Buzz, so nothing on the Buzz page shows who is looking) and the Buzz label carri
   anonymously" and, once anyone has answered on that feed, "See all N answers" (its thread, which Hot then leaves out of
   the list below; "No answers yet. Be the first." before that); small campuses get a note; an empty campus Hot feed moves to Global with a banner (cold start). Cards show
   the alias (an emoji in a dashed ring of its colour, never a photo), "You · Anon X" on your own, the campus on Global,
-  your own items' review status, the title and words (six lines, Show more), 1–4 photos (a tap opens them full screen) or
-  one video (plays in place with the system controls), a poll (results once you vote), the support link, "Top reply" (the
+  your own items' review status, the title and words (six lines, Show more), 1–4 photos or one video (a tap opens them in
+  the full-screen viewer, anonymously: see the viewer above), a poll (results once you vote), the support link, "Top reply" (the
   thread's most upvoted reply, two lines, a tap opening the thread at it: it unfolds to it, scrolls there and lights it
   up a moment), and the vote pill (optimistic, tap again to undo, coral down), replies and share. A top reply needs 3
   upvotes (`BUZZ_TOP_REPLY_MIN_UPVOTES`) and more up than down; it is never a reply that touched on self-harm, a hidden
