@@ -49,6 +49,7 @@ const RELEASE = [
   "20261109000000_media_server_fields.sql",
   "20261109000100_business_hardening.sql",
   "20261110000000_business_hours.sql",
+  "20261110000100_stories.sql",
 ];
 const BUSINESS = ["20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql", "20261110000000_business_hours.sql"];
 const MIGRATIONS = fs.readdirSync(new URL("supabase/migrations/", ROOT)).filter((f) => f.endsWith(".sql")).sort();

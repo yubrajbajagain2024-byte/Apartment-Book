@@ -20,6 +20,7 @@ import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { CaughtUp } from "./caught-up";
 import { useCreateMenu } from "./create-menu";
 import { InstaPost } from "./insta-post";
+import { StoriesTray } from "./stories-tray";
 import { SponsoredCard } from "@/components/ads/sponsored-card";
 import { isAdRow, useAdImpressions, useFeedAds, type AdRow } from "@/lib/use-feed-ads";
 import { markReelsStale } from "./reels-section";
@@ -288,11 +289,15 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
         // Room under the last post for the floating bottom bar.
         contentContainerStyle={{ paddingBottom: 96 + tabBar, paddingTop: inset.paddingTop }}
         ListHeaderComponent={
-          error && items.length > 0 ? (
-            <View style={styles.banner}>
-              <ErrorBanner message={error} onRetry={refresh} />
-            </View>
-          ) : undefined
+          <View>
+            {/* Stories under the tabs, as on Instagram's home: they scroll away with the feed. */}
+            <StoriesTray active={active} />
+            {error && items.length > 0 ? (
+              <View style={styles.banner}>
+                <ErrorBanner message={error} onRetry={refresh} />
+              </View>
+            ) : null}
+          </View>
         }
         CellRendererComponent={appearCells}
         {...WINDOW}

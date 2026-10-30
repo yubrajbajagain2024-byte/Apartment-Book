@@ -1150,6 +1150,24 @@ export type Database = {
         Update: { post_id?: string; user_id?: string; created_at?: string };
         Relationships: [];
       };
+      stories: {
+        Row: { id: string; author_id: string; university_id: string | null; kind: string; image_url: string | null; image_meta: Json | null; video: Json | null; audience: string; created_at: string; expires_at: string };
+        Insert: { id?: string; author_id: string; university_id?: string | null; kind: string; image_url?: string | null; image_meta?: Json | null; video?: Json | null; audience?: string; created_at?: string; expires_at?: string };
+        Update: { id?: string; author_id?: string; university_id?: string | null; kind?: string; image_url?: string | null; image_meta?: Json | null; video?: Json | null; audience?: string; created_at?: string; expires_at?: string };
+        Relationships: [];
+      };
+      story_viewers: {
+        Row: { story_id: string; user_id: string; created_at: string };
+        Insert: { story_id: string; user_id: string; created_at?: string };
+        Update: { story_id?: string; user_id?: string; created_at?: string };
+        Relationships: [];
+      };
+      story_views: {
+        Row: { story_id: string; viewer_id: string; created_at: string };
+        Insert: { story_id: string; viewer_id: string; created_at?: string };
+        Update: { story_id?: string; viewer_id?: string; created_at?: string };
+        Relationships: [];
+      };
       feed_posts: {
         Row: {
           id: string;
@@ -1820,6 +1838,18 @@ export type Database = {
     Functions: {
       set_post_viewers: {
         Args: { p_post_id: string; p_user_ids: string[] };
+        Returns: number;
+      };
+      set_story_viewers: {
+        Args: { p_story_id: string; p_user_ids: string[] };
+        Returns: number;
+      };
+      mark_story_seen: {
+        Args: { p_story_id: string };
+        Returns: boolean;
+      };
+      stories_sweep: {
+        Args: { p_now?: string };
         Returns: number;
       };
       start_listing_inquiry: {

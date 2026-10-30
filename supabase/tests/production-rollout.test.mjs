@@ -22,6 +22,7 @@ const PENDING = [
   "20261109000000_media_server_fields.sql",
   "20261109000100_business_hardening.sql",
   "20261110000000_business_hours.sql",
+  "20261110000100_stories.sql",
 ];
 // The release's rollback: the business migrations (57 included), newest first. Buzz's 51 to 54 stay.
 const BUSINESS = ["20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql", "20261110000000_business_hours.sql"];
@@ -158,4 +159,4 @@ await expectOk("after every rollback: v1 again (staff, the listing Sponsored thr
 
 await applyAll("second rollout");
 
-done("PRODUCTION ROLLOUT (44, 46, 49 TO 57 AFTER 47)");
+done("PRODUCTION ROLLOUT (44, 46, 49 TO 58 AFTER 47)");

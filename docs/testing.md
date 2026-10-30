@@ -7,9 +7,9 @@ write a database suite: [supabase/CLAUDE.md](../supabase/CLAUDE.md); app checks:
 
 | Suite | Command | Needs | Last result |
 | --- | --- | --- | --- |
-| `packages/shared` units (20 files) | `npm run test:shared` | Node ≥ 22.18 | ✅ 213/213, 2026-10-29 on `business-hours` (198 on `business-inbox`, 184 on `main` at PR #52) |
+| `packages/shared` units (20 files) | `npm run test:shared` | Node ≥ 22.18 | ✅ 217/217, 2026-10-30 on `stories` (new `stories.test.mjs`); 213 on `business-hours` |
 | `packages/moderation` units (6 files) | `npm run test:moderation` | nothing | ✅ 429/429, 2026-10-28 on `business-v2` with `main` merged in, and on `ankur/dev` at `89737e4` |
-| Database: migrations, RLS, functions (42 suites, including the production rollout rehearsal) | `npm run db:test` | nothing (PGlite, ~5 min) | ✅ 42 suites, 1561 checks, 0 failures, 2026-10-29 on `business-hours` (with migration 57 in the release); 41 suites, 1521 checks on `business-v2`, 2026-10-28 (after the second independent review's fixes); 38 suites, 1419 checks on `ankur/dev` at `89737e4` |
+| Database: migrations, RLS, functions (43 suites, including the production rollout rehearsal) | `npm run db:test` | nothing (PGlite, ~5 min) | ✅ 43 suites, 1586 checks, 0 failures, 2026-10-30 on `stories` (new `stories.test.mjs`, 58 in the release); 42 suites, 1561 checks on `business-hours`, 2026-10-29; 41 suites, 1521 checks on `business-v2`, 2026-10-28 (after the second independent review's fixes); 38 suites, 1419 checks on `ankur/dev` at `89737e4` |
 | Typecheck + lint + build | `npm run check` | nothing | ✅ 6/6 tasks, 2026-10-28 on `business-inbox` and on `business-sidebar`; 6/6 on `business-v2` before PR #52; not recorded on `main` |
 | Live end-to-end (writes temporary users and data, then deletes them) | `npm run db:check` | `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, the owner's approval | not run 2026-10-27 |
 | Schema diff against production | `node supabase/applied-outside-repo/verify.mjs --live` | `SUPABASE_ACCESS_TOKEN` (`SUPABASE_PROJECT_REF` for another project) | production, read-only, 2026-10-28, with `--except` the 10 pending files: matches except `step-admin` migration 18's staff-invite objects (20 differences, known); staging: ✅ matches production's model before and after the release rehearsals |

@@ -64,6 +64,8 @@ function ThemedStack() {
             To (snap/index); a Snap in a chat opens once, full screen (snap/[id]). Both fade in and out on their own. */}
         <Stack.Screen name="snap/index" options={{ headerShown: false, presentation: "transparentModal", animation: "none", gestureEnabled: false, contentStyle: { backgroundColor: "transparent" } }} />
         <Stack.Screen name="snap/[id]" options={{ headerShown: false, presentation: "transparentModal", animation: "none", gestureEnabled: false, contentStyle: { backgroundColor: "transparent" } }} />
+        {/* Stories, the same way: over Home, fading in and out on their own, closed by a pull down (app/stories/[id]). */}
+        <Stack.Screen name="stories/[id]" options={{ headerShown: false, presentation: "transparentModal", animation: "none", gestureEnabled: false, contentStyle: { backgroundColor: "transparent" } }} />
         <Stack.Screen name="buzz/[id]" options={{ headerShown: false, contentStyle: buzzContent }} />
         <Stack.Screen name="buzz/search" options={{ headerShown: false, contentStyle: buzzContent }} />
         <Stack.Screen name="buzz/mine" options={{ headerShown: false, contentStyle: buzzContent }} />
