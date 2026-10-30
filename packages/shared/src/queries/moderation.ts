@@ -68,7 +68,8 @@ export async function isBlocked(supabase: Client, userId: string, otherId: strin
   return data !== null;
 }
 
-const UPLOAD_KINDS = ["apartments", "items", "roommates", "avatars", "messages"] as const;
+// Posts' and stories' photos also go with their rows (migrations 59 and 60); listing them here covers a database without that.
+const UPLOAD_KINDS = ["apartments", "items", "roommates", "avatars", "messages", "posts", "stories"] as const;
 
 /** Best-effort removal of every file the user uploaded (their own folders only, per storage policies). */
 async function removeMyUploads(supabase: Client, userId: string): Promise<void> {

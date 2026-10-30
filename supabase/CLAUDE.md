@@ -7,8 +7,9 @@ migration's production status is in [docs/migrations.md](../docs/migrations.md).
 
 - Closed to the API entirely, read only through `security definer` functions: `user_activity`, the
   `buzz_*` tables, `snaps`, `staff*`, `account_restrictions`, `media_jobs`.
-  `anonymous_listing_owners` is readable by the poster alone. In the `uploads` bucket, `buzz/` and
-  (since migration 59) `stories/` are read through the API by their owners only. Buzz anonymity depends on only the
+  `anonymous_listing_owners` is readable by the poster alone. In the `uploads` bucket (public: an
+  address serves to anyone who has it), a file is read and listed through the API by its uploader
+  only (migration 60); a post's and a story's photos must be their author's own uploads. Buzz anonymity depends on only the
   `buzz_v2_*` functions deciding what leaves the database.
 - **Since migration 22, `profiles` and `notifications` are granted column by column.** A migration
   that adds a column to either must also
@@ -79,13 +80,15 @@ Supabase's `auth` and `storage` schemas.
   `notify pgrst, 'reload schema'` when it adds functions. To roll one back, the same with its
   `rollbacks/` file and `delete from public._migrations where name = '<file name>'`, newest first
   (the SQL editor runs a pasted script as one transaction).
-- Before a production migration, have a backup you can restore: Supabase's daily backup (Pro plan;
-  production was on the Free plan, with none, on 2026-10-28) or a dump with the Supabase CLI
-  (`supabase db dump --db-url … -f roles.sql --role-only`, then `-f schema.sql`, then
-  `-f data.sql --use-copy --data-only`; it needs Docker). Also take the JSON snapshot for row counts
-  (`~/CampConnect-backups/<date>-before-migration-<n>/` on the owner's Mac):
-  `SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=… node scripts/backup.mjs before-migration-<n>`.
-  The JSON alone is not a restore path.
+- Before a production migration, take a backup that restores:
+  `SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=… node scripts/backup.mjs before-migration-<n> --full`
+  (`~/CampConnect-backups/<date>-before-migration-<n>/` on the owner's Mac, 0600: rows, accounts with
+  their password hashes, every file; never committed). It restores with
+  `SUPABASE_PROJECT_REF=<ref> node scripts/restore.mjs <folder> --yes` into a project that has the
+  same migrations (it refuses production unless `RESTORE_INTO_PRODUCTION=1`); the pair is rehearsed by
+  `tests/staging/restore-rehearsal.mjs`. Without `--full` the folder is a row-count snapshot only. A
+  daily full backup runs from the owner's Mac (`scripts/backup-daily.sh`, launchd). Supabase's own
+  backups (Pro plan) are better when the plan allows; a CLI dump needs Docker, which the Mac lacks.
   After it, check the objects it created and record it in docs/migrations.md with a docs-only PR.
 - `applied-outside-repo/` holds the four migrations production received from `step-admin` on
   2026-10-25. **Read its README before touching the live database.**

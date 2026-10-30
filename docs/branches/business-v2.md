@@ -305,21 +305,25 @@ release is **44, 46 and 49 to 57**, eleven files.
 
 **Gates, before release day (none changes production):**
 - [x] This branch's fourth-round PR (fixes to 55 and 56, tests, tooling, docs) merged: PR #52, 2026-10-28 19:03 UTC.
-- [ ] **A restorable backup is possible.** Production has none (Free plan; 0 backups on 2026-10-30). One of, preferably both:
+- [x] **A restorable backup is possible** (2026-10-30): this repo's own, `scripts/backup.mjs <label> --full` and
+  `scripts/restore.mjs`, rehearsed on staging (`supabase/tests/staging/restore-rehearsal.mjs`, 5/5), a daily one from
+  the owner's Mac (`scripts/backup-daily.sh`, launchd). Supabase's own are still better when the plan allows; of the
+  earlier options, one of, preferably both:
   - Pro plan for the CampConnect organization (USD 25 a month): Supabase's daily backups, restorable from the
     dashboard. Check one exists (read-only): `GET /v1/projects/<ref>/database/backups` lists it.
   - A logical dump with the Supabase CLI, which needs Docker running (or `pg_dump` 17 for the same three dumps):
     `supabase db dump --db-url "$SUPABASE_DB_URL" -f roles.sql --role-only`, then `-f schema.sql`, then
     `-f data.sql --use-copy --data-only`, with the session-pooler URL (port 5432). Neither tool is on the owner's Mac
     as of 2026-10-28.
-- [ ] Decide whether Preview deployments keep the production service key (any branch's preview build gets it);
-      otherwise scope it to Production.
+- [x] Preview deployments no longer hold the production service key (removed from Vercel's Preview environment on
+      2026-10-30; Production keeps it).
 - [ ] Pick a quiet hour (a business reply sent in the second 49 commits can fail once; a retry works).
 
 **Release day, in this order:**
-1. **Backups, before any change:** the logical dump above (keep it with the owner, it holds students' data), and the
-   JSON snapshot for row counts: `SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=<prod ref> node scripts/backup.mjs
-   before-business-v2`. Note the current Vercel production deployment.
+1. **Backups, before any change:** `SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=<prod ref> node scripts/backup.mjs
+   before-business-v2 --full` (rows, accounts with their password hashes, files: it restores with `scripts/restore.mjs`;
+   it holds students' data, so it stays on the owner's Mac), and the logical dump above when the tools for it exist.
+   Note the current Vercel production deployment.
 2. **State check (read-only):** `SUPABASE_ACCESS_TOKEN=… node supabase/applied-outside-repo/verify.mjs --live
    --except 20261103000300_discover.sql,20261104000100_discover_audience.sql,20261107000000_business_teams.sql,20261107000100_business_ads.sql,20261108000000_buzz_reply_tree.sql,20261108000100_buzz_top_reply.sql,20261108000200_buzz_prompt_threads.sql,20261108000300_buzz_categories.sql,20261109000000_media_server_fields.sql,20261109000100_business_hardening.sql,20261110000000_business_hours.sql`.
    Expected: 20 differences, all staff-invite objects (`step-admin` 18). Anything else: stop.
@@ -351,10 +355,12 @@ release is **44, 46 and 49 to 57**, eleven files.
     label); 49's removes analysts from teams and makes editors and admins staff.
 - **Website only:** Vercel's instant rollback. Going back before #51 also needs 55 rolled back first (older video
   routes cannot finish uploads with it).
-- **Data loss:** restore the step-1 dump into a new Supabase project (`psql --single-transaction --variable
-  ON_ERROR_STOP=1 --file roles.sql --file schema.sql --command 'SET session_replication_role = replica' --file
-  data.sql --dbname "<new project's URL>"`) and repoint the apps, or, on Pro, restore the daily backup from the
-  dashboard (the whole project goes back to that time). The JSON snapshot alone is not a restore path.
+- **Data loss:** into a project with this repo's schema (`npm run db:setup` from the same commit; the live one, or a
+  new one the apps are then pointed at): `SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=<ref> RESTORE_INTO_PRODUCTION=1
+  node scripts/restore.mjs ~/CampConnect-backups/<the step-1 folder> --yes` (rehearsed on staging, 2026-10-30). Or the
+  logical dump (`psql --single-transaction --variable ON_ERROR_STOP=1 --file roles.sql --file schema.sql --command
+  'SET session_replication_role = replica' --file data.sql --dbname "<URL>"`), or, on Pro, the daily backup from the
+  dashboard (the whole project goes back to that time). A backup taken without `--full` is not a restore path.
 
 ## Decisions (also in docs/decisions.md)
 

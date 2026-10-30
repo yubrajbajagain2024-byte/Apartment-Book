@@ -1,18 +1,22 @@
 // Stories applied to production on their own, ahead of the Business v2 release: migration 58 (the stories, as production
-// took it on 2026-10-30) and then 59 (their photos and videos), rehearsed offline. A database in production's state
+// took it on 2026-10-30), 59 (their photos and videos, the same day) and 60 (every upload folder its owner's to list,
+// a post's photos from and with the post), rehearsed offline. A database in production's state
 // before them (production's migration order, the migrations applied outside this repo, 47 applied although 44 and 46
 // were not, none of 49 to 57); 58 alone, as the next migration; stories shared and read through the API roles under
-// every audience; then 59 alone, and the same again. Then the rest of the release (44, 46, 49 to 57) applied after them,
-// in file order, as `npm run db:setup` will, with stories still working. Then 59's and 58's own rollbacks, which must
-// leave exactly the schema of a database that never had them; then both again. The staging counterpart, through the
+// every audience; then 59 alone, and the same again; then 60. Then the rest of the release (44, 46, 49 to 57) applied
+// after them, in file order, as `npm run db:setup` will, with stories still working and the folders still closed. Then
+// 60's, 59's and 58's own rollbacks, which must leave exactly the schema of a database that never had them; then all
+// three again. The staging counterpart, through the
 // real Supabase stack, is supabase/tests/staging/stories.mjs.
 import { boot, read, expectOk, expectError, done } from "./harness.mjs";
 import { catalog, diffCatalogs } from "./catalog.mjs";
 
 const STORIES = "20261110000100_stories.sql";
 const MEDIA = "20261112000100_story_media.sql";
-const ROLLBACKS = ["rollbacks/20261112000100_story_media.down.sql", "rollbacks/20261110000100_stories.down.sql"];
-// The release 58 and 59 go ahead of, in file order.
+const FOLDERS = "20261112000200_upload_folders.sql";
+const STORIES_SET = [STORIES, MEDIA, FOLDERS];
+const ROLLBACKS = ["rollbacks/20261112000200_upload_folders.down.sql", "rollbacks/20261112000100_story_media.down.sql", "rollbacks/20261110000100_stories.down.sql"];
+// The release 58, 59 and 60 go ahead of, in file order.
 const REST = [
   "20261103000300_discover.sql",
   "20261104000100_discover_audience.sql",
@@ -28,7 +32,7 @@ const REST = [
 ];
 const check = (cond, message) => { if (!cond) throw new Error(message); };
 
-const { db, mk, as, asAnon } = await boot({ live: true, skip: [...REST, STORIES, MEDIA] });
+const { db, mk, as, asAnon } = await boot({ live: true, skip: [...REST, ...STORIES_SET] });
 const one = async (p) => (await p).rows[0];
 const rows = async (p) => (await p).rows;
 const has = async (sql) => Boolean((await one(db.query(sql))).ok);
@@ -102,9 +106,20 @@ await expectOk("59 applies on its own after 58, and re-runs cleanly", async () =
 await expectError("with 59, a photo from anywhere but the author's stories folder is refused", () => as(ANN, () => db.query("insert into public.stories (author_id, kind, image_url) values ($1, 'photo', 'https://x.example/p.jpg')", [ANN])), "Upload the photo to your story first");
 await storiesWork("58 and 59");
 
-// --- The rest of the release lands after 58 and 59 --------------------------------------------------------------------------
-for (const f of REST) await expectOk(`after 58 and 59: ${f} applies`, () => db.exec(read(`migrations/${f}`)));
-await expectOk("after the release: Discover ranks (44 + 46), ads exist (50), hours are checked (57), and 58's and 59's objects are untouched", async () => {
+await expectOk("60 applies on its own after 59, and re-runs cleanly", async () => { await db.exec(read(`migrations/${FOLDERS}`)); await db.exec(read(`migrations/${FOLDERS}`)); });
+const folderClosed = async () => (await asAnon(() => rows(db.query("select name from storage.objects where bucket_id = 'uploads' and name like $1", [`stories/${ANN}/%`])))).length === 0;
+await expectOk("with 60, signed out, no upload folder lists; a post's photo must come from the author's posts folder", async () => {
+  check(await folderClosed(), "a folder listed signed out");
+  let refused = false;
+  try { await as(ANN, () => db.query("insert into public.feed_posts (author_id, kind, body, images) values ($1, 'post', 'x', $2)", [ANN, ["https://x.example/p.jpg"]])); } catch (e) { refused = e.message.includes("Upload the photo to your post first"); }
+  check(refused, "a post took a photo from elsewhere");
+});
+await storiesWork("58, 59 and 60");
+
+// --- The rest of the release lands after 58, 59 and 60 ----------------------------------------------------------------------
+for (const f of REST) await expectOk(`after 58, 59 and 60: ${f} applies`, () => db.exec(read(`migrations/${f}`)));
+await expectOk("after the release: Discover ranks (44 + 46), ads exist (50), hours are checked (57), 58's and 59's objects are untouched, and the folders are still closed (60)", async () => {
+  check(await folderClosed(), "the release reopened an upload folder");
   await db.query("select public.discover_refresh()");
   check(await has("select to_regclass('public.ads') is not null and to_regprocedure('public.stories_sweep(timestamptz)') is not null and to_regprocedure('public.story_photo_ok(text, uuid)') is not null as ok"), "50, 58 or 59 missing");
   check(await has("select exists (select 1 from pg_constraint where conname = 'businesses_hours_check') as ok"), "57 missing");
@@ -112,15 +127,15 @@ await expectOk("after the release: Discover ranks (44 + 46), ads exist (50), hou
 });
 await storiesWork("after the release");
 
-// --- 59's and 58's rollbacks on their own, with the release in place --------------------------------------------------------
-await expectOk("59's rollback and then 58's leave exactly the schema of a database that never had them (the release still applied)", async () => {
+// --- 60's, 59's and 58's rollbacks on their own, with the release in place ----------------------------------------------------
+await expectOk("60's, 59's and 58's rollbacks leave exactly the schema of a database that never had them (the release still applied)", async () => {
   for (const r of ROLLBACKS) await db.exec(read(r));
-  const reference = await boot({ live: true, skip: [STORIES, MEDIA] });
+  const reference = await boot({ live: true, skip: STORIES_SET });
   const changed = diffCatalogs(await catalog(async (q) => (await reference.db.query(q)).rows), await catalog(async (q) => (await db.query(q)).rows));
   await reference.db.close();
   check(changed.length === 0, changed.join("; "));
 });
-await expectOk("58 and 59 apply again afterwards", async () => { await db.exec(read(`migrations/${STORIES}`)); await db.exec(read(`migrations/${MEDIA}`)); });
-await storiesWork("58 and 59 re-applied");
+await expectOk("58, 59 and 60 apply again afterwards", async () => { for (const f of STORIES_SET) await db.exec(read(`migrations/${f}`)); });
+await storiesWork("58, 59 and 60 re-applied");
 
-done("STORIES AHEAD OF THE RELEASE (58 AND 59 AFTER 48, THEN 44, 46, 49 TO 57)");
+done("STORIES AHEAD OF THE RELEASE (58, 59 AND 60 AFTER 48, THEN 44, 46, 49 TO 57)");
