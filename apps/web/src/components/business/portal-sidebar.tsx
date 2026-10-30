@@ -7,8 +7,8 @@ import { businessSignOutAction } from "@/lib/actions/business";
 import type { PortalTheme } from "@/lib/business/theme";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
-import { UnreadBadge } from "@/components/layout/unread-badge";
-import { PortalLink, usePortalPathname } from "./portal-base";
+import { useInboxUnread } from "./inbox-live";
+import { IntentLink, PortalLink, usePortalPathname } from "./portal-base";
 import { ThemeSwitch } from "./theme-switch";
 
 type Item = { href: string; label: string; icon: LucideIcon; match: string[] };
@@ -168,7 +168,7 @@ function SidebarBody({ user, business, isAdmin, unread, notifications, theme, pa
           {main.map(({ key, item }) => (
             <li key={key}>
               <SideLink item={item} active={isActive(pathname, item)}>
-                {key === "inbox" ? <UnreadBadge initial={unread} userId={user.id} className="static ml-auto h-5 min-w-5 bg-biz-side-mark text-[11px] text-biz-side ring-0" /> : null}
+                {key === "inbox" ? <InboxBadge initial={unread} /> : null}
               </SideLink>
             </li>
           ))}
@@ -192,10 +192,25 @@ function SidebarBody({ user, business, isAdmin, unread, notifications, theme, pa
   );
 }
 
+/**
+ * The Inbox's unread count, from the shell's one live count (inbox-live.ts; the alerts keep it current as messages
+ * arrive and chats are read). The server's number until the first count; nothing when there is nothing unread.
+ */
+function InboxBadge({ initial }: { initial: number }) {
+  const count = useInboxUnread(initial);
+  if (count <= 0) return null;
+  return (
+    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-biz-side-mark px-1 text-[11px] font-bold text-biz-side" data-testid="inbox-badge">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
+/** A section's link: prefetched in full as soon as the pointer, focus or a finger reaches it, so the page opens at once. */
 function SideLink({ item, active, children }: { item: Item; active: boolean; children?: React.ReactNode }) {
   const Icon = item.icon;
   return (
-    <PortalLink
+    <IntentLink
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={cn(
@@ -207,7 +222,7 @@ function SideLink({ item, active, children }: { item: Item; active: boolean; chi
       <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-biz-side-ink" : "text-biz-side-ink-3 group-hover:text-biz-side-ink-2")} strokeWidth={1.75} aria-hidden="true" />
       <span className="truncate">{item.label}</span>
       {children}
-    </PortalLink>
+    </IntentLink>
   );
 }
 

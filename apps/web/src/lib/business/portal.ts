@@ -1,9 +1,7 @@
 import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { User } from "@supabase/supabase-js";
-import { canUsePortal, getMyBusiness, isBusinessRole, roleOf, standingOf, teamRoleAllows, type BusinessCapability, type BusinessStanding, type MyBusiness, type ProfileWithUniversity, type UserRole } from "@apartment-book/shared";
-import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
+import { canUsePortal, getMyBusiness, getProfile, isBusinessRole, roleOf, standingOf, teamRoleAllows, type BusinessCapability, type BusinessStanding, type MyBusiness, type ProfileWithUniversity, type UserRole } from "@apartment-book/shared";
 import { getBusinessHost, getBusinessSiteUrl, getSiteUrl } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { joinPortal, PORTAL_PREFIX } from "./paths";
@@ -28,23 +26,45 @@ export function portalCallbackUrl(nextPortalPath = "/"): string {
   return `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(joinPortal(PORTAL_PREFIX, nextPortalPath))}`;
 }
 
+/** The signed-in person as the portal needs them: the token's subject and the address it was issued to. */
+export type PortalUser = { id: string; email: string | null };
+
 export type PortalSession = {
-  user: User;
+  user: PortalUser;
   profile: ProfileWithUniversity;
   role: UserRole;
   /** The business and the person's place on its team; null for an admin, or a business account no longer on a team. */
   membership: MyBusiness | null;
 };
 
-/** The signed-in person as the portal sees them, or null. Cached per request. */
+/**
+ * Whose session this request carries, from the access token's claims. The token's signature is checked here, against
+ * the project's public signing keys (fetched once and kept for ten minutes), instead of asking the Auth server on every
+ * request as getUser() does: a portal page no longer waits for that round trip. The database trusts the same signature
+ * for every query it answers, so nothing is open here that is closed there. An expired token is refreshed first, as
+ * before (the proxy does it for the page; this is the fallback). Cached per request.
+ */
+export const getPortalUser = cache(async (): Promise<PortalUser | null> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (error || !claims || typeof claims.sub !== "string" || !claims.sub) return null;
+  return { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null };
+});
+
+/**
+ * The signed-in person as the portal sees them, or null. The profile and the business are read together, as
+ * my_business() answers from the session alone (null for a student, or the UniBuzz team without a business), so neither
+ * waits for the other. Cached per request.
+ */
 export const getPortalSession = cache(async (): Promise<PortalSession | null> => {
-  const user = await getCurrentUser();
+  const user = await getPortalUser();
   if (!user) return null;
-  const profile = await getCurrentProfile();
+  const supabase = await createClient();
+  const [profile, business] = await Promise.all([getProfile(supabase, user.id), getMyBusiness(supabase).catch(() => null)]);
   if (!profile) return null;
   const role = roleOf(profile);
-  const membership = isBusinessRole(role) ? await getMyBusiness(await createClient()).catch(() => null) : null;
-  return { user, profile, role, membership };
+  return { user, profile, role, membership: isBusinessRole(role) ? business : null };
 });
 
 /** Signed in, whatever the role: the portal layout decides what a student or an unattached account sees. */

@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { Bell, LogOut } from "lucide-react";
-import { countUnreadPortalNotifications, standingOf, teamRoleAllows, teamRoleLabel } from "@apartment-book/shared";
+import { standingOf, teamRoleAllows, teamRoleLabel } from "@apartment-book/shared";
 import { businessSignOutAction, markPortalNotificationsReadAction } from "@/lib/actions/business";
+import { portalUnreadNotifications } from "@/lib/business/data";
 import { requirePortalSession } from "@/lib/business/portal";
 import { PORTAL_THEME_COOKIE, portalThemeOf } from "@/lib/business/theme";
-import { createClient } from "@/lib/supabase/server";
 import { Avatar } from "@/components/ui/avatar";
 import { MessageAlertsSetting } from "@/components/business/message-alerts";
 import { SettingsTabs } from "@/components/business/section-tabs";
@@ -21,7 +21,7 @@ export const metadata: Metadata = { title: "Account · Settings" };
 export default async function AccountPage() {
   const session = await requirePortalSession("/settings/account");
   const { user, profile, membership } = session;
-  const [unread, jar] = await Promise.all([membership ? countUnreadPortalNotifications(await createClient()).catch(() => 0) : Promise.resolve(0), cookies()]);
+  const [unread, jar] = await Promise.all([membership ? portalUnreadNotifications() : Promise.resolve(0), cookies()]);
   const name = profile.full_name || user.email?.split("@")[0] || "You";
 
   return (

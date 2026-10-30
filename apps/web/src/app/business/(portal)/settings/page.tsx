@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { BadgeCheck, Bell, ChevronRight, Store, UserRound, Users, type LucideIcon } from "lucide-react";
-import { businessCategoryLabel, countUnreadPortalNotifications, listInvites, listTeam, standingOf, teamRoleAllows, teamRoleLabel } from "@apartment-book/shared";
+import { businessCategoryLabel, listInvites, standingOf, teamRoleAllows, teamRoleLabel } from "@apartment-book/shared";
+import { portalTeam, portalUnreadNotifications } from "@/lib/business/data";
 import { requireBusiness } from "@/lib/business/portal";
 import { createClient } from "@/lib/supabase/server";
 import { PortalLink } from "@/components/business/portal-base";
@@ -20,9 +21,9 @@ export default async function SettingsPage() {
   const manages = teamRoleAllows(membership.role, "manage_team");
   const teamOpen = standing !== "rejected";
   const [team, invites, unread] = await Promise.all([
-    teamOpen ? listTeam(supabase, business.id).catch(() => []) : Promise.resolve([]),
+    teamOpen ? portalTeam(business.id) : Promise.resolve([]),
     teamOpen && manages ? listInvites(supabase, business.id).catch(() => []) : Promise.resolve([]),
-    countUnreadPortalNotifications(supabase).catch(() => 0),
+    portalUnreadNotifications(),
   ]);
 
   return (
