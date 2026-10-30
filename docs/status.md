@@ -91,9 +91,11 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   speed and no blur under the words (PR #63); Buzz's photos and video in the same viewer, anonymously (PR #64); swiping
   up and down through the Buzz list's buzzes with media (PR #65). All reach testers only with an EAS update (owner's
   approval); none has been timed on a device.
-- **The Buzz thread, laid out like Reddit's** (branch `buzz-thread-redesign`, no PR yet): larger replies with their
-  actions at the right, subtle thread lines that fold their branch when tapped, a band between conversations, a button
-  to the next one. App only; reaches testers with an EAS update (owner's approval). Not seen on a device.
+- **The Buzz thread, laid out like Reddit's** (PR #66): larger replies with their actions at the right, subtle thread
+  lines that fold their branch when tapped, a band between conversations, a button to the next one. App only; reaches
+  testers with an EAS update (owner's approval). Not seen on a device.
+- **Snap previews in chats** (branch `snap-preview-frost`, no PR yet): a lighter frost and a slow drift while unopened,
+  in the app and on the website. The preview itself is unchanged (32 pixels). Not seen on a device.
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
   website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
   (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).

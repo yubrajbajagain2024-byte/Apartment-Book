@@ -214,11 +214,15 @@ function SnapCard({ snap, mine }: { snap: MessageSnap; mine: boolean }) {
             src={snap.preview}
             alt=""
             aria-hidden="true"
-            className="absolute inset-0 h-full w-full scale-110 object-cover blur-[4px]"
+            className={cn(
+              "absolute inset-0 h-full w-full scale-110 object-cover blur-[3px]",
+              // Unopened, it drifts slowly under the glass, as in the app (still with reduced motion).
+              fresh && "ab-snap-drift",
+            )}
           />
-          {/* A pane of frosted glass over it, as in the app: the colours and shapes show softly through, no detail. */}
-          <span className="absolute inset-0 rounded-2xl bg-white/[0.06] ring-1 ring-inset ring-white/20 backdrop-blur-[6px]" />
-          <span className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-black/15" />
+          {/* A light pane of frosted glass over it, as in the app: colours and vague shapes show through, no detail. */}
+          <span className="absolute inset-0 rounded-2xl bg-white/[0.05] ring-1 ring-inset ring-white/20 backdrop-blur-[4px]" />
+          <span className="absolute inset-0 bg-gradient-to-b from-white/[0.08] via-transparent to-black/10" />
           <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-4 text-center text-white">
             <span className="rounded-full bg-black/45 px-4 py-1.5 text-sm font-semibold">
               {label}
