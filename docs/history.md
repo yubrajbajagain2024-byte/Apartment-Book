@@ -47,10 +47,11 @@ open work is in [status.md](status.md).
   folders and the full backup, the business portal made instant).
 - **2026-10-31:** branch `events`: the app's bar becomes Home, Explore, Messages, Events, Profile,
   and the Discover tab becomes the search screen behind a magnifier beside the bell; migration 61
-  (Events) is written and applied on staging, not on production.
+  (Events) is written and applied on staging, not on production. PR #74 merges it at 03:43 UTC
+  (deployed; 61 still not applied). Sunil and Ankur may merge their own pull requests from then on
+  ([decisions.md](decisions.md)).
 
-## The AI documentation PR #74 merges it at 03:43 UTC (deployed; 61 still not applied). Sunil and
-  Ankur may merge their own pull requests from then on ([decisions.md](decisions.md)).
+## The AI documentation
 - 2026-10-26: an AI session drafts a `CLAUDE.md` in the worktree branch
   `claude/claude-md-documentation-0b8750` (never committed).
 - 2026-10-27: every branch gets a `CLAUDE.md` with shared sections and a branch-specific §9; `main`'s
