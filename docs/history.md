@@ -52,6 +52,7 @@ open work is in [status.md](status.md).
   ([decisions.md](decisions.md)).
 
 ## The AI documentation
+
 - 2026-10-26: an AI session drafts a `CLAUDE.md` in the worktree branch
   `claude/claude-md-documentation-0b8750` (never committed).
 - 2026-10-27: every branch gets a `CLAUDE.md` with shared sections and a branch-specific §9; `main`'s
