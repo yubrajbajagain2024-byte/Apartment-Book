@@ -1,5 +1,5 @@
 /**
- * Pure helpers for the staff console's Analytics and Business sections (migration 59): reading money the team types,
+ * Pure helpers for the staff console's Analytics and Business sections (migration 62): reading money the team types,
  * period-over-period change, Central-time scheduling fields, and the CSV exports (click rates and compact counts are clickRate() in business.ts and
  * compactCount() in format.ts). No I/O: safe on the server, in the browser and in tests.
  */

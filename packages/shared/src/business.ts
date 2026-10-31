@@ -269,6 +269,73 @@ export function inquiryMatches(
   return inquiry.kind === filter;
 }
 
+/** A message as Realtime delivers it to the inbox (the columns the list needs). */
+export type InboxMessageEvent = { conversation_id: string; sender_id: string | null; created_at: string; content?: string | null; image_url?: string | null; attachments?: unknown; shared_post?: unknown };
+
+/** One row of the inbox's list, as far as a message or a read receipt changes it. */
+export type InboxRow = {
+  conversation: Pick<ConversationSummary, "id" | "lastMessageAt" | "lastMessagePreview" | "unreadCount">;
+  needsReply: boolean;
+  lastBy: string | null;
+};
+
+const timeOf = (iso: string | null | undefined) => (iso ? new Date(iso).getTime() : 0);
+
+/**
+ * The inbox's list after a message, applied in the browser without asking the server: the chat moves to the top with
+ * the message as its preview; who wrote it decides "Needs reply" (a student) and "You:" or the teammate's first name;
+ * and the unread count grows for anyone else's message unless that chat is open on screen (opening it marks it read).
+ * `team` maps every member's id, the viewer's included, to their first name. Null when the chat is not in the list yet
+ * (a student's first message): then only the server knows what it is about. A message older than the chat's newest
+ * (one delivered late) changes nothing.
+ */
+export function inboxAfterMessage<T extends InboxRow>(rows: T[], message: InboxMessageEvent, me: { userId: string; team: ReadonlyMap<string, string>; openConversationId: string | null }): T[] | null {
+  const index = rows.findIndex((r) => r.conversation.id === message.conversation_id);
+  if (index < 0) return null;
+  const row = rows[index];
+  const c = row.conversation;
+  if (c.lastMessageAt && timeOf(message.created_at) < timeOf(c.lastMessageAt)) return rows;
+  const mine = message.sender_id === me.userId;
+  const teammate = Boolean(message.sender_id && me.team.has(message.sender_id));
+  const next: T = {
+    ...row,
+    conversation: {
+      ...c,
+      lastMessageAt: message.created_at,
+      lastMessagePreview: inquiryMessagePreview(message),
+      unreadCount: mine || message.conversation_id === me.openConversationId ? c.unreadCount : c.unreadCount + 1,
+    },
+    needsReply: !mine && !teammate && Boolean(message.sender_id),
+    lastBy: mine ? "You" : teammate ? (me.team.get(message.sender_id as string) ?? null) : null,
+  };
+  return [next, ...rows.slice(0, index), ...rows.slice(index + 1)];
+}
+
+/**
+ * The inbox's list after the viewer's own membership row changed (they read the chat, here or on another device): its
+ * unread count is 0 once they have read up to its newest message. Any other change to the row (delivery times) leaves
+ * the list as it is.
+ */
+export function inboxAfterRead<T extends InboxRow>(rows: T[], membership: { conversation_id: string; last_read_at: string | null }): T[] {
+  const index = rows.findIndex((r) => r.conversation.id === membership.conversation_id);
+  if (index < 0) return rows;
+  const row = rows[index];
+  if (row.conversation.unreadCount === 0 || timeOf(membership.last_read_at) < timeOf(row.conversation.lastMessageAt)) return rows;
+  const next: T = { ...row, conversation: { ...row.conversation, unreadCount: 0 } };
+  return [...rows.slice(0, index), next, ...rows.slice(index + 1)];
+}
+
+/**
+ * Whether the inbox's list, rendered by the server, already reflects the newest message the portal saw arrive while
+ * open (inbox-live.ts). False when it does not: the list is from before that message and should be read again. With
+ * no message seen there is nothing to check.
+ */
+export function inboxReflects(rows: readonly InboxRow[], last: { conversationId: string; createdAt: string } | null): boolean {
+  if (!last) return true;
+  const row = rows.find((r) => r.conversation.id === last.conversationId);
+  return Boolean(row) && timeOf(row?.conversation.lastMessageAt) >= timeOf(last.createdAt);
+}
+
 // --- Billing --------------------------------------------------------------------------------------------------------
 
 /** How a payment stands: running now, not started, over, or cancelled by the UniBuzz team. */

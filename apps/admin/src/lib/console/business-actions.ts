@@ -1,7 +1,7 @@
 "use server";
 
 /**
- * The Business section's writes (migration 59, and Business v2's own review functions, which it reuses). Each one first
+ * The Business section's writes (migration 62, and Business v2's own review functions, which it reuses). Each one first
  * checks the rule for running businesses: an owner or admin of the staff (requireStaffAction), in a session signed in
  * with a second factor, with the UniBuzz admin role on the account. The database checks the caller again on every call
  * (console_*: ts_require_admin and the role; Business v2's: is_admin()) and writes the audit rows; these wrappers only

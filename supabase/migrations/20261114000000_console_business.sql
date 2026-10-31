@@ -1,8 +1,8 @@
 -- =============================================================================
--- UniBuzz - migration 59: the staff console's Analytics and Business sections (CampConnect Admin on the website)
+-- UniBuzz - migration 62: the staff console's Analytics and Business sections (CampConnect Admin on the website)
 -- Follows 20261110000000_business_hours.sql (57). Needs 39 (businesses, payments), 41 (the staff console's checks and
 -- audit log), 49 and 56 (the business audit log and team notices) and 50 (ads, events): db:setup applies them first,
--- in file order. Rollback: supabase/rollbacks/20261112000000_console_business.down.sql. Safe to run more than once.
+-- in file order. Rollback: supabase/rollbacks/20261114000000_console_business.down.sql. Safe to run more than once.
 --
 --   * Who may call: every console_analytics_* function asks what every admin-only console function asks
 --     (ts_require_admin: an admin of the staff, not suspended, in a session signed in with a second factor on an

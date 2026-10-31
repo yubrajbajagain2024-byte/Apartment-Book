@@ -6,8 +6,10 @@
  * audit row in the same transaction. These wrappers only shape the input and the answer.
  */
 import { revalidatePath } from "next/cache";
+import { syncEventFeeds, type FeedSyncSummary } from "@/lib/events-server/sync";
 import { createClient } from "@/lib/supabase/server";
 import { staffRpc, toStaffError } from "./rpc";
+import { requireStaff } from "./server";
 import type { BlindLiftResult, BulkActionId, BulkActionResult, RulePackState, StaffActionId, StaffAppeal, StaffQueueItemDetail, StaffUserDetail, UnmaskReasonCode, UnmaskResponse } from "./types";
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; code: string; error: string };
@@ -129,4 +131,70 @@ export async function decideAppealAction(input: { id: string; outcome: "upheld" 
 
 export async function setRulePackAction(input: { id: string; enabled: boolean; note?: string }): Promise<ActionResult<RulePackState>> {
   return run<RulePackState>("console_set_rule_pack", { p_id: str(input.id, 64), p_enabled: input.enabled === true, p_note: str(input.note ?? "", 500) || null });
+}
+
+// --- Events (migration 61): the console's part of the Events tab -------------------------------------------------------
+
+export async function setEventStatusAction(input: { id: string; status: "scheduled" | "cancelled" | "hidden"; note?: string }): Promise<ActionResult<{ id: string; status: string }>> {
+  return run("events_console_set_event", { p_event: str(input.id, 64), p_status: str(input.status, 20), p_note: str(input.note ?? "", 2000) || null }, "/admin/events");
+}
+
+export async function setOrganizationAction(input: { id: string; verified?: boolean | null; status?: "active" | "hidden" | null; note?: string }): Promise<ActionResult<{ id: string; verified: boolean; status: string }>> {
+  return run(
+    "events_console_set_organization",
+    { p_org: str(input.id, 64), p_verified: typeof input.verified === "boolean" ? input.verified : null, p_status: input.status ? str(input.status, 20) : null, p_note: str(input.note ?? "", 2000) || null },
+    "/admin/events",
+  );
+}
+
+export interface EventFeedInput {
+  id?: string | null;
+  universityId: string;
+  organizationId?: string | null;
+  name: string;
+  url: string;
+  kind: "ics" | "rss";
+  enabled: boolean;
+  defaultCategory: string;
+}
+
+/** Add or change a calendar feed (admins; the database checks the rest and audits it). */
+export async function saveEventFeedAction(input: EventFeedInput): Promise<ActionResult<{ id: string }>> {
+  return run(
+    "events_console_feed_save",
+    {
+      p_feed: {
+        id: str(input.id ?? "", 64) || null,
+        university_id: str(input.universityId, 64),
+        organization_id: str(input.organizationId ?? "", 64) || null,
+        name: str(input.name, 80),
+        url: str(input.url, 2000),
+        kind: str(input.kind, 10),
+        enabled: input.enabled === true,
+        default_category: str(input.defaultCategory, 20),
+      },
+    },
+    "/admin/events",
+  );
+}
+
+export async function deleteEventFeedAction(id: string): Promise<ActionResult<{ id: string; events: number }>> {
+  return run("events_console_feed_delete", { p_id: str(id, 64) }, "/admin/events");
+}
+
+/**
+ * "Sync now" for one feed or every enabled one: the same code the daily cron runs, started by a staff member. Staff
+ * only (requireStaff answers non-staff "not found", as the page itself does); the service role does the writing.
+ */
+export async function syncEventFeedsAction(feedId?: string): Promise<ActionResult<FeedSyncSummary[]>> {
+  try {
+    await requireStaff();
+    const data = await syncEventFeeds({ feedId: feedId && /^[0-9a-f-]{36}$/i.test(feedId) ? feedId : undefined });
+    revalidatePath("/admin/events", "layout");
+    revalidatePath("/events", "layout");
+    return { ok: true, data };
+  } catch (e) {
+    const err = toStaffError(e);
+    return { ok: false, code: err.code === "unknown" ? "sync_failed" : err.code, error: err.message };
+  }
 }

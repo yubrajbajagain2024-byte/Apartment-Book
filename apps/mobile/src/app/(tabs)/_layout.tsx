@@ -19,9 +19,9 @@ import { Icon, useBounceOn, type IconName } from "@/components/icon";
  */
 const ICONS: Record<string, { on: IconName; off: IconName; sfOn: SFSymbol; sfOff: SFSymbol }> = {
   index: { on: "home", off: "home-outline", sfOn: "house.fill", sfOff: "house" },
-  // The magnifying glass has no filled form: on screen it is drawn heavier, as Instagram's search tab is.
-  discover: { on: "search", off: "search-outline", sfOn: "magnifyingglass", sfOff: "magnifyingglass" },
   housing: { on: "compass", off: "compass-outline", sfOn: "safari.fill", sfOff: "safari" },
+  // The calendar has no filled form: on screen it is drawn heavier, as the system's Calendar is in its own bars.
+  events: { on: "calendar", off: "calendar-outline", sfOn: "calendar", sfOff: "calendar" },
   messages: { on: "chatbubble", off: "chatbubble-outline", sfOn: "message.fill", sfOff: "message" },
   profile: { on: "person-circle", off: "person-circle-outline", sfOn: "person.crop.circle.fill", sfOff: "person.crop.circle" },
 };
@@ -60,8 +60,9 @@ function ProfileTabIcon({ focused, color, size }: { focused: boolean; color: Col
 }
 
 /**
- * Home | Discover | Messages | Explore (Housing | Roommate | Marketplace) | Profile, Instagram's order with Discover
- * (search, and what is popular on every campus) second. Creating starts from Home: Orbit's floating "+", Upload in the
+ * Home | Explore (Housing | Roommate | Marketplace) | Messages | Events | Profile: the campus's tools second, its calendar
+ * fourth. Search is not a tab: the magnifier beside the bell in Home's top bar opens app/search.tsx (people, topics,
+ * posts and what is popular on every campus). Creating starts from Home: Orbit's floating "+", Upload in the
  * menu under your photo, and the "+" over Reels open the live camera (SNAP | POST | REEL | BUZZ, see app/compose). The
  * bar is FloatingTabBar: a rounded glass pill floating over the tabs' content (see lib/tab-bar.ts for its size and the
  * room each tab keeps clear under it) with a capsule that slides to the tab on screen.
@@ -86,12 +87,12 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: "Home", headerShown: false, tabBarIcon: icon("index") }} />
-      {/* Discover draws its own top bar: the search box (people, topics and posts on every campus). */}
-      <Tabs.Screen name="discover" options={{ title: "Discover", headerShown: false, tabBarIcon: icon("discover") }} />
+      {/* Explore (housing.tsx, the route name old links use) draws its own top bar ("Find", then Housing | Roommate | Marketplace, the search box for the page on screen and the pills). */}
+      <Tabs.Screen name="housing" options={{ title: "Explore", headerShown: false, tabBarIcon: icon("housing") }} />
       {/* Messages draws its own top bar: the new-message pencil, the "Messages" title, Chats | Requests and the search. */}
       <Tabs.Screen name="messages" options={{ title: "Messages", headerShown: false, tabBarBadge: unread > 0 ? (unread > 99 ? "99+" : unread) : undefined, tabBarIcon: icon("messages") }} />
-      {/* Explore (housing.tsx) draws its own top bar ("Find", then Housing | Roommate | Marketplace, the search box for the page on screen and the pills). */}
-      <Tabs.Screen name="housing" options={{ title: "Explore", headerShown: false, tabBarIcon: icon("housing") }} />
+      {/* Events draws its own top bar ("Events", then For you | All events, the search box and the date and category pills). */}
+      <Tabs.Screen name="events" options={{ title: "Events", headerShown: false, tabBarIcon: icon("events") }} />
       {/* Profile draws its own top bar (Find friends, your name, the menu), like TikTok. */}
       <Tabs.Screen name="profile" options={{ title: "Profile", headerShown: false, tabBarIcon: (p) => <ProfileTabIcon {...p} /> }} />
     </Tabs>

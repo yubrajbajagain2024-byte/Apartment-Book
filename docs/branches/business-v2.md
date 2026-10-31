@@ -277,60 +277,90 @@ the website pointed at staging (`apps/web/e2e/release-smoke.mjs`, every page of 
   p95 720 ms, max 2.5 s), the release's rollback twice with Buzz unchanged, restored to production's state. Website
   e2e 17/17 (the seed now shows Leo's likes: since migration 37 likes are private by default).
 
-## Production deployment checklist (final, 2026-10-28)
+## Production deployment checklist (final, 2026-10-28; reviewed 2026-10-30)
 
 Each production step needs the owner's explicit approval. `main` has PR #51 (the website part, live since 07:06 UTC)
-and PR #52 (the fixes above, 19:03 UTC): the migrations on `main` are the corrected ones.
+and PR #52 (the fixes above, 19:03 UTC): the migrations on `main` are the corrected ones. Since then 57 (business
+hours, PR #59) joined the release, and 58 (Stories) went live on its own on 2026-10-30, so it is not part of it: the
+release is **44, 46 and 49 to 57**, eleven files.
+
+**Review of 2026-10-30 (nothing applied to production):**
+- Production is in the rehearsed state: `verify.mjs --live --except` the eleven files shows only the 20 staff-invite
+  differences (read-only, after 58).
+- Rehearsed again on staging, in production's state with Stories applied ahead of the release, two full cycles: 10/10
+  before; applied in file order under student and staffer traffic, 0 failed requests of 250 and 259 (p95 307 and 250
+  ms); 25/25 after; the attack probe 46/46; Stories' own staging probe 17/17 with the release applied; the release's
+  rollback, then 10/10 v1 checks with every Buzz object and row unchanged; re-applied (0 failed requests of 174), 25/25
+  and 46/46 again; restored to production's state (schema as at baseline, row counts too). Offline:
+  `production-rollout.test.mjs` and `stories-rollout.test.mjs` (the release after Stories) pass.
+- **The rollback has a manual step once any ad without a listing or deal has a recorded payment:** 50's rollback
+  refuses (by design: v1 has nowhere to keep such a payment). On staging the after-release check makes such a payment,
+  and the rollback stopped at 50 after 57, 56 and 55 had gone; deleting those payments and running the rollback again
+  finished it. In production: export them from the step-1 backups, refund or end those ads, delete the payments on
+  purpose, then roll back 50 and 49.
+- The website's Production environment on Vercel has `SUPABASE_SERVICE_ROLE_KEY` (55 needs it); `MUX_WEBHOOK_SECRET`
+  is not set there, so video uploads finish by polling, as today. Names read with `vercel env ls`, values not.
+- Still open: the backup gate (Free plan, **0 backups**, no point-in-time recovery, read-only check; no Docker,
+  `pg_dump` or `psql` on the owner's Mac for a dump) and the Preview gate (Preview has `SUPABASE_SERVICE_ROLE_KEY`).
 
 **Gates, before release day (none changes production):**
 - [x] This branch's fourth-round PR (fixes to 55 and 56, tests, tooling, docs) merged: PR #52, 2026-10-28 19:03 UTC.
-- [ ] **A restorable backup is possible.** Production has none today (Free plan). One of, preferably both:
+- [x] **A restorable backup is possible** (2026-10-30): this repo's own, `scripts/backup.mjs <label> --full` and
+  `scripts/restore.mjs`, rehearsed on staging (`supabase/tests/staging/restore-rehearsal.mjs`, 5/5), a daily one from
+  the owner's Mac (`scripts/backup-daily.sh`, launchd). Supabase's own are still better when the plan allows; of the
+  earlier options, one of, preferably both:
   - Pro plan for the CampConnect organization (USD 25 a month): Supabase's daily backups, restorable from the
     dashboard. Check one exists (read-only): `GET /v1/projects/<ref>/database/backups` lists it.
   - A logical dump with the Supabase CLI, which needs Docker running (or `pg_dump` 17 for the same three dumps):
     `supabase db dump --db-url "$SUPABASE_DB_URL" -f roles.sql --role-only`, then `-f schema.sql`, then
     `-f data.sql --use-copy --data-only`, with the session-pooler URL (port 5432). Neither tool is on the owner's Mac
     as of 2026-10-28.
-- [ ] Decide whether Preview deployments keep the production service key (any branch's preview build gets it);
-      otherwise scope it to Production.
+- [x] Preview deployments no longer hold the production service key (removed from Vercel's Preview environment on
+      2026-10-30; Production keeps it).
 - [ ] Pick a quiet hour (a business reply sent in the second 49 commits can fail once; a retry works).
 
 **Release day, in this order:**
-1. **Backups, before any change:** the logical dump above (keep it with the owner, it holds students' data), and the
-   JSON snapshot for row counts: `SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=<prod ref> node scripts/backup.mjs
-   before-business-v2`. Note the current Vercel production deployment.
+1. **Backups, before any change:** `SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=<prod ref> node scripts/backup.mjs
+   before-business-v2 --full` (rows, accounts with their password hashes, files: it restores with `scripts/restore.mjs`;
+   it holds students' data, so it stays on the owner's Mac), and the logical dump above when the tools for it exist.
+   Note the current Vercel production deployment.
 2. **State check (read-only):** `SUPABASE_ACCESS_TOKEN=… node supabase/applied-outside-repo/verify.mjs --live
-   --except 20261103000300_discover.sql,20261104000100_discover_audience.sql,20261107000000_business_teams.sql,20261107000100_business_ads.sql,20261108000000_buzz_reply_tree.sql,20261108000100_buzz_top_reply.sql,20261108000200_buzz_prompt_threads.sql,20261108000300_buzz_categories.sql,20261109000000_media_server_fields.sql,20261109000100_business_hardening.sql`.
+   --except 20261103000300_discover.sql,20261104000100_discover_audience.sql,20261107000000_business_teams.sql,20261107000100_business_ads.sql,20261108000000_buzz_reply_tree.sql,20261108000100_buzz_top_reply.sql,20261108000200_buzz_prompt_threads.sql,20261108000300_buzz_categories.sql,20261109000000_media_server_fields.sql,20261109000100_business_hardening.sql,20261110000000_business_hours.sql`.
    Expected: 20 differences, all staff-invite objects (`step-admin` 18). Anything else: stop.
 3. **Migrate:** from an up-to-date `main`, `SUPABASE_DB_URL=… npm run db:setup` (database-URL mode only, never token
-   mode or `supabase db push`). It applies 44, 46, 49, 50, 51 to 54, 55, 56 in file order, each in its own
+   mode or `supabase db push`). It applies 44, 46, 49, 50, 51 to 54, 55, 56, 57 in file order, each in its own
    transaction, and stops at the first failure (earlier ones stay applied; stop and assess).
 4. **Verify:** `notify pgrst, 'reload schema'`; `verify.mjs --live` with no `--except` (expected: the same 20
    staff-invite differences only); read-only SQL: every v1 promotion became an ad (`select status, count(*) from
    public.ads group by 1`), `select count(*) from public.listing_promotions where ad_id is null` is 0, the `ads-sweep`
-   job is in `cron.job`, and storage has `uploads_live_ad_update` and `uploads_live_ad_delete`.
+   job is in `cron.job`, storage has `uploads_live_ad_update` and `uploads_live_ad_delete`, and
+   `businesses_hours_check` exists (57).
 5. **Smoke test, as the rehearsal did (browse; no test data on production):** signed out: Home, Log in; a student:
    Home (For You, Buzz, Reels), Explore Housing, a listing, a business profile, Messages and an inquiry chat, Saved;
    a business owner: the portal's Dashboard, Ads, Ads → New (no submit), Analytics, Inbox, Team; the UniBuzz team:
-   Business admin Ads, Reports, Audit. Then a student's ordinary write (a message to a friend) still works.
+   Business admin Ads, Reports, Audit. Then a student's ordinary write (a message to a friend) still works, and the
+   app's story tray still loads.
 6. **App:** `eas update` from `apps/mobile`, then the app's flows by hand (Maestro was not run). Builds in students'
    hands keep working before the update (the v1 portal script passes after the release).
-7. A docs-only PR marks 44, 46 and 49 to 56 applied in docs/migrations.md.
+7. A docs-only PR marks 44, 46 and 49 to 57 applied in docs/migrations.md.
 
 **Rollback (each step needs approval):**
 - **The release alone, Buzz kept:** in the SQL editor, one script per migration, newest first: the `rollbacks/` file
-  of 56, then 55, 50, 49, each followed by `delete from public._migrations where name = '<file>.sql';` (one script is
-  one transaction). Buzz's 51 to 54 and Discover's 44 and 46 stay. Rehearsed offline and twice on staging.
+  of 57, then 56, 55, 50, 49, each followed by `delete from public._migrations where name = '<file>.sql';` (one script is
+  one transaction). Buzz's 51 to 54 and Discover's 44 and 46 stay; so do Stories. Rehearsed offline and on staging
+  (again on 2026-10-30, with the manual step below).
   - 56 refuses while payments of deleted businesses or ads exist, and 50 while payments of ads that promoted no listing
     or post exist: export those payments (they are in the step-1 backups), then delete them on purpose.
   - 50's rollback cancels the payments of ads not running at that moment (their listings lose the v1 Sponsored
     label); 49's removes analysts from teams and makes editors and admins staff.
 - **Website only:** Vercel's instant rollback. Going back before #51 also needs 55 rolled back first (older video
   routes cannot finish uploads with it).
-- **Data loss:** restore the step-1 dump into a new Supabase project (`psql --single-transaction --variable
-  ON_ERROR_STOP=1 --file roles.sql --file schema.sql --command 'SET session_replication_role = replica' --file
-  data.sql --dbname "<new project's URL>"`) and repoint the apps, or, on Pro, restore the daily backup from the
-  dashboard (the whole project goes back to that time). The JSON snapshot alone is not a restore path.
+- **Data loss:** into a project with this repo's schema (`npm run db:setup` from the same commit; the live one, or a
+  new one the apps are then pointed at): `SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=<ref> RESTORE_INTO_PRODUCTION=1
+  node scripts/restore.mjs ~/CampConnect-backups/<the step-1 folder> --yes` (rehearsed on staging, 2026-10-30). Or the
+  logical dump (`psql --single-transaction --variable ON_ERROR_STOP=1 --file roles.sql --file schema.sql --command
+  'SET session_replication_role = replica' --file data.sql --dbname "<URL>"`), or, on Pro, the daily backup from the
+  dashboard (the whole project goes back to that time). A backup taken without `--full` is not a restore path.
 
 ## Decisions (also in docs/decisions.md)
 

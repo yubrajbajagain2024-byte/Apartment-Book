@@ -1,4 +1,4 @@
-// Migration 59 (the staff console's Analytics and Business sections) against PGlite:
+// Migration 62 (the staff console's Analytics and Business sections) against PGlite:
 //   * who may call: admins of the staff with a second factor; the Business functions also need the UniBuzz admin role;
 //     everyone else 'not found', staff without the second factor 'mfa_required'; the internal helpers are closed to
 //     the API; on this repo's schema and on production's (CampConnect Admin's public.staff, suspensions);
@@ -13,8 +13,8 @@
 //   * the rate card and the quote; re-running the migration; the rollback's refusal and a clean undo and redo.
 import { boot, read, expectOk, expectError, done } from "./harness.mjs";
 
-const MIGRATION = "migrations/20261112000000_console_business.sql";
-const ROLLBACK = "rollbacks/20261112000000_console_business.down.sql";
+const MIGRATION = "migrations/20261114000000_console_business.sql";
+const ROLLBACK = "rollbacks/20261114000000_console_business.down.sql";
 const MFA = { aal: "aal2" };
 const HOUR = 3600_000;
 const DAY = 24 * HOUR;

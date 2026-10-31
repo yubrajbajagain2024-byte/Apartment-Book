@@ -42,6 +42,14 @@ open work is in [status.md](status.md).
   longer holds a Buzz for review); PR #42 adds the root `CLAUDE.md`; PRs #43 and #44 are opened
   from two merged branches and conflict with `main`; PR #45 restructures the AI documentation into
   one shared `CLAUDE.md` plus `docs/`; PRs #46 and #47 are opened from two more merged branches.
+- **2026-10-30:** migrations 58, 59 and 60 reach production on their own, ahead of the Business v2
+  release (19:30, 20:30 and 21:46 UTC); PRs #69 to #73 merge (Stories, their media, the upload
+  folders and the full backup, the business portal made instant).
+- **2026-10-31:** branch `events`: the app's bar becomes Home, Explore, Messages, Events, Profile,
+  and the Discover tab becomes the search screen behind a magnifier beside the bell; migration 61
+  (Events) is written and applied on staging, not on production. PR #74 merges it at 03:43 UTC
+  (deployed; 61 still not applied). Sunil and Ankur may merge their own pull requests from then on
+  ([decisions.md](decisions.md)).
 
 ## The AI documentation
 
@@ -64,6 +72,41 @@ open work is in [status.md](status.md).
 - 2026-10-28 19:03 UTC: PR #52 (`business-v2`'s third and fourth rounds: the fixes to 50, 55 and 56,
   the staging rehearsal and backup tooling, the production checklist) merged into `main`. None of
   49 to 56 is on production.
+
+- 2026-10-30 21:46 UTC: **migration 60 (every upload folder its owner's to list; a post's photos from and with the
+  post) applied to production on its own**, after 58 and 59, with the owner's approval: the first full backup
+  (`2026-10-30-before-migration-60`: rows, accounts with their password hashes, 101 files, restorable with
+  `scripts/restore.mjs`) and a read-only `verify.mjs --live` first. Signed out, listing any folder of the uploads bucket
+  now returns nothing; public addresses still serve. The restore tool was rehearsed on staging the same day (5/5).
+
+- 2026-10-30 21:03 UTC: PRs #70 (`stories-live`) and #71 (`stories-media`) merged into `main` by the owner; the
+  website redeployed without a change of its own.
+
+- 2026-10-30 20:50 UTC: `SUPABASE_SERVICE_ROLE_KEY` removed from Vercel's **Preview** environment (Production keeps
+  it): a preview build of any branch no longer holds the production service key. Previews cannot run the Buzz write
+  API or finish Mux uploads; nothing used them for that. The key itself was not rotated.
+
+- 2026-10-30 20:30 UTC: **migration 59 (a story's photo and video) applied to production on its own**, after 58 and
+  ahead of the Business v2 release, with the owner's approval: story photos in `uploads/stories/<author>/`, read through
+  the API by their owner alone; photos and videos accepted only from the author's own uploads; a story's photo deleted
+  with the story; the sweep at expiry, every ten minutes. JSON backup `2026-10-30-before-migration-59` and a read-only
+  `verify.mjs --live` first. The two stories shared before it keep their photos in `posts/` until they expire.
+
+- 2026-10-30 19:30 UTC: **migration 58 (Stories) applied to production on its own**, ahead of the Business v2
+  release (44, 46 and 49 to 57 stay pending): the file as one query through the Management API, then its
+  `_migrations` row, after the JSON backup `2026-10-30-before-migration-58` and a read-only `verify.mjs --live`
+  showing production in the rehearsed state. Rehearsed the same day offline (`stories-rollout.test.mjs`: 58 after
+  48, then the release after it, then 58's rollback alone) and on staging through the real API
+  (`staging/stories.mjs`, 12/12; 58 stays on staging). PR #69 (`stories`) had merged at 17:26 UTC with the app's
+  Stories and the migration; the app in Expo Go had shown "Not available yet" until the apply.
+
+- 2026-10-29 07:18 UTC: PR #59 (`business-hours`: the public profile's preview from the sidebar, the Website button,
+  opening hours; migration 57, not on production) merged into `main`; Vercel's production deployment finished at
+  07:19 UTC.
+
+- 2026-10-25: `4294c2f` gave the app's full-screen viewer the app's tab bar in place of its "Add comment…" bar; the
+  merge `8951d46` (main into `business-portal-prelaunch`) the same night kept the older viewer and undid it, without
+  anyone noticing until 2026-10-30, when `reel-viewer-actions` restored it (`floating-tab-bar.tsx` had kept its half).
 
 - 2026-10-29 06:14 UTC: PR #58 (`business-inbox-pending`: the Inbox below Overview for a business awaiting review
   too; no migration) merged into `main`; Vercel's production deployment finished at 06:16 UTC.

@@ -64,6 +64,8 @@ function ThemedStack() {
             To (snap/index); a Snap in a chat opens once, full screen (snap/[id]). Both fade in and out on their own. */}
         <Stack.Screen name="snap/index" options={{ headerShown: false, presentation: "transparentModal", animation: "none", gestureEnabled: false, contentStyle: { backgroundColor: "transparent" } }} />
         <Stack.Screen name="snap/[id]" options={{ headerShown: false, presentation: "transparentModal", animation: "none", gestureEnabled: false, contentStyle: { backgroundColor: "transparent" } }} />
+        {/* Stories, the same way: over Home, fading in and out on their own, closed by a pull down (app/stories/[id]). */}
+        <Stack.Screen name="stories/[id]" options={{ headerShown: false, presentation: "transparentModal", animation: "none", gestureEnabled: false, contentStyle: { backgroundColor: "transparent" } }} />
         <Stack.Screen name="buzz/[id]" options={{ headerShown: false, contentStyle: buzzContent }} />
         <Stack.Screen name="buzz/search" options={{ headerShown: false, contentStyle: buzzContent }} />
         <Stack.Screen name="buzz/mine" options={{ headerShown: false, contentStyle: buzzContent }} />
@@ -75,6 +77,17 @@ function ThemedStack() {
         <Stack.Screen name="messages/info/[id]" options={{ title: "Chat info" }} />
         <Stack.Screen name="messages/search/[id]" options={{ title: "Search" }} />
         <Stack.Screen name="find-people" options={{ title: "Search" }} />
+        {/* The search screen (people, topics, posts, what is popular) draws its own bar; opened from the magnifier beside the bell. */}
+        <Stack.Screen name="search" options={{ headerShown: false }} />
+        <Stack.Screen name="events/[id]" options={{ title: "Event" }} />
+        <Stack.Screen name="events/saved" options={{ title: "Saved events" }} />
+        <Stack.Screen name="events/interests" options={{ title: "Interests", presentation: "modal" }} />
+        <Stack.Screen name="events/new" options={{ title: "New event" }} />
+        <Stack.Screen name="events/edit/[id]" options={{ title: "Edit event" }} />
+        <Stack.Screen name="organizations/[id]" options={{ title: "Organization" }} />
+        <Stack.Screen name="organizations/new" options={{ title: "New organization" }} />
+        <Stack.Screen name="organizations/edit/[id]" options={{ title: "Edit organization" }} />
+        <Stack.Screen name="organizations/members/[id]" options={{ title: "Members" }} />
         <Stack.Screen name="topics/[tag]" options={{ title: "Topic" }} />
         <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
         {/* A profile draws its own floating bar (Back over the cover, the menu or More), so the cover can run under the status bar. */}

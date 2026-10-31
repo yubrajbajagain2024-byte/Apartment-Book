@@ -9,9 +9,10 @@ import { Icon } from "@/components/icon";
 export const HEADER_ACTION_SIZE = 36;
 
 /**
- * The top-right corner of Home: the Notifications bell, which opens the notifications screen, with a badge of how many
- * are unread while signed in (search is the Discover tab). `color` lets Home paint it white over the Reels page (with
- * `iconStyle`'s shadow); `inHeader` adds the right margin a native header does not give its headerRight.
+ * The top-right corner of Home: the magnifier, which opens the search screen (app/search.tsx: people, topics, posts and
+ * what is popular on every campus), then the Notifications bell, which opens the notifications screen with a badge of
+ * how many are unread while signed in. `color` lets Home paint them white over the Reels page (with `iconStyle`'s
+ * shadow); `inHeader` adds the right margin a native header does not give its headerRight.
  */
 export function HeaderActions({ color, inHeader = false, iconStyle }: { color?: string; inHeader?: boolean; iconStyle?: StyleProp<TextStyle> }) {
   const colors = useColors();
@@ -20,6 +21,9 @@ export function HeaderActions({ color, inHeader = false, iconStyle }: { color?: 
   const unread = useUnreadNotifications(user?.id ?? null);
   return (
     <View style={[styles.row, inHeader && styles.inHeader]}>
+      <Pressable onPress={() => router.push("/search" as never)} hitSlop={6} accessibilityRole="button" accessibilityLabel="Search" accessibilityHint="People, topics, posts and what is popular" style={styles.button}>
+        <Icon name="search-outline" sf="magnifyingglass" size={25} color={color ?? colors.text} style={iconStyle} />
+      </Pressable>
       <Pressable onPress={() => router.push("/notifications")} hitSlop={6} accessibilityRole="button" accessibilityLabel={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"} style={styles.button}>
         <Icon name="notifications-outline" size={26} color={color ?? colors.text} style={iconStyle} />
         {unread > 0 ? (
@@ -35,7 +39,7 @@ export function HeaderActions({ color, inHeader = false, iconStyle }: { color?: 
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center" },
+  row: { flexDirection: "row", alignItems: "center", gap: 4 },
   button: { width: HEADER_ACTION_SIZE, height: HEADER_ACTION_SIZE, alignItems: "center", justifyContent: "center" },
   inHeader: { marginRight: 8 },
   // The same badge as the bottom bar's, on the bell's top-right corner.

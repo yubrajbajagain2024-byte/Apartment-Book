@@ -119,7 +119,7 @@ sign in with `apartmentbook://dev-login?email=…&password=…` once that dialog
 
 ## Home and the tabs
 
-The bottom bar is Home, Discover, Messages, Explore, Profile: five tabs in Instagram's order (Profile is your own photo
+The bottom bar is Home, Explore, Messages, Events, Profile: five tabs (Profile is your own photo
 in a circle, ringed while the tab is on screen; the person icon signed out). There is no "+" in the bar: creating starts
 from Home: Orbit's floating "+", the menu under your photo (Upload) and the "+" over Reels open the create sheet (Post /
 Reel / Buzz / Snap). It floats over the content as a rounded
@@ -131,7 +131,7 @@ so it stretches a touch in flight and settles as it lands. The new tab's symbol 
 to its plain look with no bounce, and the tabs make room for the capsule, GroupMe style, on a critically damped spring
 (`src/components/floating-tab-bar.tsx`, on Reanimated); every tab's list and floating button keeps `tabBarInset` clear
 under it. (FloatingTabBar can still hold an action in the middle, `action`, which the capsule passes behind but never
-stops on; the app's bar has none.) Search is the Discover tab (below); the people search the share sheet's Find people
+stops on; the app's bar has none.) Search is the magnifier beside the bell in Home's top bar, which opens `src/app/search.tsx` (below); the people search the share sheet's Find people
 and a profile's Find friends push is `src/app/find-people.tsx`. The Notifications bell in the top-right corner of Home's floating top bar opens every
 notification the database keeps for you (`src/app/notifications.tsx`: likes, comments and replies, follows,
 saves of your listings, places near campus, newest first; new messages and Snaps stay in Messages, with its unread
@@ -167,13 +167,15 @@ band between them (`OpeningBand`, from a JS copy of the collapsing bar's positio
 a video is lined up on the whole of its picture (`wholeVideo`: drawn whole, past the page's sides where it
 fills a phone taller than 9:16, and trimmed by the page, a carousel's slide or the zoom's opening), so the opening starts on
 exactly the feed's crop at the feed's size (the feed trims a vertical video's top and bottom, the viewer its sides) and lands
-back on it; and a video's shades and frost come and go with the words and the rail, never over the bare picture. A
+back on it; and a video's shades come and go with the words and the rail, never over the bare picture. A
 sideways swipe, either way, goes back too, under the finger (`usePageSwipe` in `src/lib/viewer-swipe.ts`): the page
 follows it, shrinking and rounding its corners as the screen it was opened from shows through, its words and buttons
-fading away; let go past about a third of the way, or with a flick, and it carries on, the page it was opened on shrinking
-into the post it came from, still exactly where it was (the feed keeps its scroll position, and a carousel post's row has
-followed the viewer to the photo on screen, `emitPostSlide`), any other page sliding on out and fading; let go sooner and
-it springs back. A post's photos keep their own sideways swipes: only past its first or last photo, or from the left edge,
+fading away; let go past about a third of the way, or with a flick, and it carries on, shrinking into the post it came
+from, still exactly where it was (the feed keeps its scroll position and its video plays on, and a carousel post's row has
+followed the viewer to the photo on screen, `emitPostSlide`): from the page it opened on, the feed's own picture takes
+over as it lands; from any other (a later reel), it fades into that picture on the way (`CROSS_FADE`), as Instagram's
+does, and Back does the same. Only a viewer opened from a link, with no post behind it, sends the page sliding on out and
+fading. Let go sooner and it springs back. A post's photos keep their own sideways swipes: only past its first or last photo, or from the left edge,
 does a swipe pull the page back. The viewer is a modal screen, outside the view in which the gesture library cancels React
 Native's touches, so the page's taps check `swipedJustNow` themselves: a touch that ended a swipe never pauses, likes or
 opens anything. Feed and viewer videos skip Live Text on a paused frame (`allowsVideoFrameAnalysis={false}`): its button
@@ -182,18 +184,21 @@ TikTok style (`src/components/home/reel-item.tsx`). A video fills the screen (`p
 trimmed a little at the sides on a phone taller than 9:16; a square or landscape one whole, as wide as a 9:16 canvas, over
 a subtle, dimmed blur of itself. A photo is never stretched or cropped (`photoLayout`): it sits whole and as wide as the
 screen at the top, under the top row, on the theme's own colour (white in light, black in dark), which stays free below it
-for the name, the words and the comment bar, all in the theme's ink; a photo too tall to leave that space (9:16, a phone
+for the name and the words, all in the theme's ink; a photo too tall to leave that space (9:16, a phone
 screenshot) is shown full screen on black like a video instead. Over every page, one top row with Back at the left and the
 Campus | Global toggle in the middle (for reels and For you, while the toggle is shown); the creator's name, the words and the heart, comments, share,
-save and "…" rail sit at the bottom (as on the Reels page), over a video's shades and gradual frost
-(`src/components/progressive-blur.tsx`: expo-blur through a gradient mask, left out on a build without them), and under
-them an "Add comment…" bar on every page opens the comments sheet straight into typing. Share opens the same share sheet
+save and "…" rail sit at the bottom (as on the Reels page, the rail a little nearer the right edge: `railRight`), over a
+video's shades (gradients only, as Instagram's: a blur under the words was re-drawn every frame the video played or the
+page zoomed, and dropped frames). Opened over the tabs, the viewer keeps the app's tab bar in view under them: it draws a copy of the
+tabs' own bar in the same place (`TabBarMirror` in `src/components/floating-tab-bar.tsx`); the tab it was opened from
+closes it like Back, another switches tabs at once. Opened from a profile, a chat, Saved or a link, there is no bar. There
+is no comment bar: the rail's Comments (a tour's Inbox) opens the comments or the chat. Share opens the same share sheet
 as the feeds (send to friends, or "Share to…" the system share sheet with the page's link: `/posts/<id>` for posts and
 posted reels, `/apartments/<id>` or `/roommates/<id>` for listing tours); the viewer mounts its own `ShareSheetProvider`,
 since iOS presents a sheet from the screen on top and the root layout's one cannot appear over this modal screen. On a photo's page each button of
 the rail is white where it sits over the photo (a crisp dark edge on its strokes, no shading behind it, keeps it readable on
 a white wall) and in the
-theme's ink where it sits on the page below; the top row, the status bar and the comment bar follow the page under them,
+theme's ink where it sits on the page below; the top row and the status bar follow the page under them,
 switching as a page's edge passes, and an opened description brings the page's colour up behind it. A tap pauses a video: a play button appears in the middle with the sound
 button just above it, both fading away again the moment it plays (the sound button keeps it paused). A post with several
 photos or videos swipes sideways on its page, with dots on a line of their own under the top row (its colours changing
@@ -228,7 +233,7 @@ had got to (`startAt`: the feed's poster, then the still from that moment, cover
 goes on from wherever the viewer leaves it (`emitPostSlide` with a time) rather than starting again. Saved fills the
 bookmark in the rail's own colour. Swiping between pages never blinks: two pages ahead (and one behind) are laid out
 with their videos loaded and waiting (from the moment the zoom open has finished: until then only the page opened on
-has its player, frost and pictures, since a large photo or poster is decoded and resized on the main thread as it
+has its player and pictures, since a large photo or poster is decoded and resized on the main thread as it
 arrives, which made the zoom drop frames; profiled with Instruments), a video's still is its very first frame (Mux `time=0`) so the player takes over
 without a jump, and in dark mode the top row keeps one style over photos and videos alike. The bottom tab bar plays no
 haptic, and neither do Home's For you | Buzz | Reels, Explore's Housing | Roommate | Marketplace and its "+", Messages'
@@ -236,8 +241,17 @@ Chats | Groups, the profile's section tabs or the inbox's All | Unread | Request
 into the Reels feed (only reels, page by page, the other campus choice keeping the page on screen while what follows comes
 from the new choice); a post in For you goes on down For you, its next pages loading as needed; a square in a profile grid
 (Posts, Reels, Saved, Liked) goes on through that grid; a saved post through your saved posts; a post's own screen and a
-post shared in a chat go on into the Reels feed. Words-only posts and listings keep their own screens. Buzz never comes
-here: its anonymous photos open in the plain media viewer and its one video plays in place (see Buzz below). The source
+post shared in a chat go on into the Reels feed. Words-only posts and listings keep their own screens. A buzz's photos or
+video open here too (`viewerItemFromBuzz`): the tapped tile grows to the screen, a sideways swipe moves between its
+photos, and closing lands on the tile of the photo on screen (`origins`). From a Buzz list (the feed, search, My
+buzzes) a swipe up or down moves through that list's buzzes with media, as loaded, then its next pages from where it has
+got to, with its own ranking (`BuzzViewerList` and useBuzzList's `viewerPages`, `buzzAfter`), into Buzz's store but not
+into the list, which stays where it was; folded and inactive buzzes, words-only ones and replies are passed over. From a
+buzz's own thread screen it is the one buzz. The
+page is anonymous: its author is nobody, it shows the thread's alias and the words as the Buzz card does (no profile, no
+links out of the words), and its rail is Buzz's own, wired to the same store and actions as the card (votes, replies on
+the thread's screen, Share with the thread's link only); no post function takes its id (`sourceType` "buzz" is not a
+post's, and the post menu, likes, saves, reports and double tap stop at once for it). The source
 hands its pages over (`src/lib/reel-viewer.ts`), so the viewer opens at once with the
 row's counts (a grid square, which knows only the post's id, loads its post as it comes near, its picture standing in,
 the same view all along, until the loaded page has drawn its own: no black frame between the two), and
@@ -421,7 +435,7 @@ screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.de
 ```bash
 cd apps/mobile
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts (the test account and Leo follow each other, so Leo is a friend to share with; Maya lists CS 3358 and MATH 3398 for this semester, visible to everyone); prints the login, writes e2e/.sim-state.json
-e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you (no Campus | Global toggle signed out), swipes to Buzz, opens Notifications from the bell in Home's top-right corner (signed out: the log-in prompt), Discover (bottom tab: the search box over the grid), Messages (bottom tab), Explore (Housing, Roommate, swipe back, Marketplace), Profile (several flows at once is fine)
+e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you (no Campus | Global toggle signed out), swipes to Buzz, opens Notifications from the bell in Home's top-right corner (signed out: the log-in prompt), Events (bottom tab: For you | All events), Messages (bottom tab), Explore (Housing, Roommate, swipe back, Marketplace), Profile (several flows at once is fine)
 EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # your own profile (adds CS 1428 under Classes and removes it, Saved says only you can see it), then likes, comments (write, heart, reply, delete from the hold menu), shares the top post with Leo and finds the card in your chat with him (Messages), votes, replies, the Campus | Global toggle under the labels (skipped while it is hidden), follows and unfollows Maya (her Classes tab shows CS 3358, her Listings tab her apartment), opens your own Followers (Leo) and Maya's Mutual friends (none: Leo follows her one way), as the seeded account
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed-thread.mjs   # nested replies and votes for 03-buzz-thread.yaml (Buzz v2 writes are service-role only)
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards
@@ -436,13 +450,14 @@ Roommate posts have no public comments, anywhere: someone looking for a roommate
 (under the words when there are none), the same one as in the Roommates feed: the heart with its count, Share, the outlined Inbox
 pill that opens a private chat with the poster (your own post's opens your Inbox) and the bookmark at the far right; every listing
 detail, the poster card with Message, and the menu (Save, Share, Report) stay. A roommate video tour in Reels has an Inbox button on
-its rail in place of the comments one, and a "Message Maya…" bar in place of "Add comment…"; the chat opens with a first message
+its rail in place of the comments one; the chat opens with a first message
 about the post. `hasPublicComments()` in `packages/shared` decides it for the app and the website; Marketplace items have none either
 (the seller is reached through Inbox or Message), while posts, reels, apartments and Buzz keep their threads.
 
-## Discover
+## Search
 
-The second tab (`src/app/(tabs)/discover.tsx`) is Instagram's search tab for every campus at once. The box at the top
+The search screen (`src/app/search.tsx`, opened from the magnifier beside the bell in Home's top bar; it was the
+Discover tab until Events took that place in the bar) is Instagram's search for every campus at once. The box at the top
 finds people (any university: `searchPeople`), topics (#tags, by their start) and posts (the start of each word typed),
 under Top | Accounts | Topics | Posts (`src/components/discover/discover-search.tsx`); a tag typed in full always offers
 its page. With the box empty it shows what is popular: trending topics, then the posts and reels with the most going on
@@ -458,9 +473,37 @@ scores every post and reel of the last 90 days (likes, comments and views agains
 (recent use, weighted by engagement and by how many different people use it) and every student account (followers, new
 followers, engagement on recent posts) every 10 minutes (pg_cron), and the readers (`discover_feed`, `discover_accounts`,
 `discover_topics`, `discover_topic_posts`, the searches) run as the caller, so blocks, posts hidden by moderators,
-suspended accounts and business sessions stay out exactly as everywhere else. Before migration 44 the tab still works:
+suspended accounts and business sessions stay out exactly as everywhere else. Before migration 44 the screen still works:
 the grid is the newest posts and reels, the suggestions the newest people, and topics are empty
 (`packages/shared/src/queries/discover.ts`).
+
+## Events
+
+The fourth tab (`src/app/(tabs)/events.tsx`) is the campus's calendar: the big "Events" title with Saved at its right,
+For you | All events above a pager (Explore's layout: the labels, the inbox-style search box and one row of pills slide
+up under the title as a page scrolls), and the floating "+" to publish. The pills narrow both pages: when (Upcoming,
+Today, This week, Weekend: `eventDateRange` in packages/shared, on the campus's clock), a hairline, then the categories
+(`EVENT_CATEGORIES`). **For you** (`src/components/events/for-you-events-section.tsx`) ranks the campus's upcoming
+events for the person (`rankEvents`: picked interests, the categories they keep saving and opening, the organizations
+they follow, how soon, how many others saved it; signed out, soonest and most saved first), asks what they are into
+the first time (the chips save `event_interests` and re-rank at once) and suggests organizations to follow while they
+follow few. **All events** (`all-events-section.tsx`) is time order under day headings ("Today", "Tomorrow", "Thu,
+Nov 12"), a page at a time. Each row (`event-card.tsx`) is the picture or the category's glyph, the title, when, where,
+who is holding it and the category, with the bookmark; cancelled events stay, greyed and marked. An event's page
+(`src/app/events/[id].tsx`) adds the organization with a Follow pill, Save | Share | Directions, the registration link
+as the one big button and, for the organization's members, Edit, Cancel and Delete. Saved events are
+`src/app/events/saved.tsx` and a group on Saved; interests `src/app/events/interests.tsx`.
+
+Events come from two places (migration 61, `supabase/migrations/20261113000000_events.sql`): the university's own
+ICS and RSS calendars, which staff add in the website's console and the website syncs (`event_feeds`, source `feed`),
+and verified clubs, student organizations and departments (`organizations`), whose members publish their own
+(`src/app/events/new.tsx`, `edit/[id].tsx`, the form in `src/components/events/event-form.tsx`). Any student creates
+an organization (`src/app/organizations/new.tsx`) and owns it; until staff verify it, its events are `pending` and show
+to its members alone. An organization's page (`src/app/organizations/[id].tsx`) has its events, its people, Follow,
+and for owners Edit and Members (`members/[id].tsx`: add by name, make owner or editor, remove; the database keeps one
+owner). The saved and followed sets are read once and flipped optimistically for the whole app
+(`src/lib/event-saves-store.ts`, `organization-follows-store.ts`, built on `id-set-store.ts`); times are shown on the
+campus's clock (`src/lib/campus-time-zone.ts`, `universities.timezone`). Sharing sends the website's `/events/<id>`.
 
 ## Buzz
 
@@ -483,8 +526,8 @@ Buzz, so nothing on the Buzz page shows who is looking) and the Buzz label carri
   anonymously" and, once anyone has answered on that feed, "See all N answers" (its thread, which Hot then leaves out of
   the list below; "No answers yet. Be the first." before that); small campuses get a note; an empty campus Hot feed moves to Global with a banner (cold start). Cards show
   the alias (an emoji in a dashed ring of its colour, never a photo), "You · Anon X" on your own, the campus on Global,
-  your own items' review status, the title and words (six lines, Show more), 1–4 photos (a tap opens them full screen) or
-  one video (plays in place with the system controls), a poll (results once you vote), the support link, "Top reply" (the
+  your own items' review status, the title and words (six lines, Show more), 1–4 photos or one video (a tap opens them in
+  the full-screen viewer, anonymously: see the viewer above), a poll (results once you vote), the support link, "Top reply" (the
   thread's most upvoted reply, two lines, a tap opening the thread at it: it unfolds to it, scrolls there and lights it
   up a moment), and the vote pill (optimistic, tap again to undo, coral down), replies and share. A top reply needs 3
   upvotes (`BUZZ_TOP_REPLY_MIN_UPVOTES`) and more up than down; it is never a reply that touched on self-harm, a hidden
@@ -507,11 +550,16 @@ Buzz, so nothing on the Buzz page shows who is looking) and the Buzz label carri
   (`supabase/migrations/20261108000200_buzz_prompt_threads.sql`); on a database without it an answer is its own buzz. While
   the account cannot post, "Muted until … · Details" stands in for the actions. A blocked text gets the engine's sheet
   (Edit, the guidelines, and support resources where they apply); a held one says it is with the safety team.
-- **Thread.** The root large, then the conversation as a tree, like Reddit's: every reply under the one it answers, at
-  any depth, joined to it by a thread line in the colour of that anon, so a back-and-forth reads top to bottom like a
-  story. Best (the default; the choice holds for the session), New or Old orders each level. A tap on a reply's header
-  folds it and everything under it ("+N"); past three replies under a top-level one (two deeper) the rest wait behind
-  "N more replies", and past six levels "Continue this thread" shows that branch on its own ("All replies" goes back).
+- **Thread.** The root large, then the conversation as a tree, laid out like Reddit's: every reply under the one it
+  answers, one step in, at any depth, with its alias mark, its words across the row (17 pt) and one quiet line of
+  actions at its right (the menu, Reply, the votes on nothing). A subtle grey-green line runs down from each reply below
+  its words, curving into the marks of its replies, so who answers whom reads at a glance; each conversation under the
+  buzz is set apart by a band. Best (the default; the choice holds for the session), New or Old orders each level. A tap
+  on a reply's header folds it and everything under it ("+N ⌄"); so does a tap on any thread line, which folds the reply
+  that line belongs to and brings it back into view if it was scrolled past. Past three replies under a top-level one
+  (two deeper) the rest wait behind "N more replies ⌄", and past six levels "Continue this thread" shows that branch on
+  its own ("All replies" goes back). A round ⌄ button at the bottom right goes to the next conversation under the buzz
+  (from the top, to the first).
   Replies that arrived since you last opened the thread carry a lime dot and "N new" goes to the first (when you last
   looked is kept on the phone only, `src/lib/buzz-seen.ts`). Folds, placeholders, the reply bar ("You're anonymous",
   the "replying to" chip, 500 characters, send) or the locked line. The nesting comes from `treeParentId`

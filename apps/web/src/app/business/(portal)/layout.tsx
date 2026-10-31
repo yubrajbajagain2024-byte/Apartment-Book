@@ -1,14 +1,15 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { Briefcase, LogOut } from "lucide-react";
-import { APP_NAME, BUSINESS_PORTAL_NAME, countUnreadPortalNotifications, getTotalUnread, isBusinessRole, listTeam, standingOf, teamRoleAllows } from "@apartment-book/shared";
+import { APP_NAME, BUSINESS_PORTAL_NAME, isBusinessRole, standingOf, teamRoleAllows } from "@apartment-book/shared";
 import { businessSignOutAction } from "@/lib/actions/business";
+import { portalTeam, portalUnreadMessages, portalUnreadNotifications } from "@/lib/business/data";
 import { getPortalSession, portalPath } from "@/lib/business/portal";
 import { PORTAL_THEME_COOKIE, portalThemeOf } from "@/lib/business/theme";
 import { getSiteUrl } from "@/lib/env";
-import { createClient } from "@/lib/supabase/server";
 import { InboxAlerts } from "@/components/business/message-alerts";
 import { PortalSidebar } from "@/components/business/portal-sidebar";
+import { RefreshOnReturn } from "@/components/business/refresh-on-return";
 import { StatusBanner } from "@/components/business/status-banner";
 import { bizButton } from "@/components/business/ui";
 
@@ -66,16 +67,17 @@ export default async function PortalLayout({ children }: { children: React.React
       </main>
     );
   }
-  const supabase = await createClient();
   const canReply = Boolean(membership && standing === "approved" && teamRoleAllows(membership.role, "reply"));
+  // Read together, and once per request however many parts of the page ask (lib/business/data.ts).
   const [unread, notifications, jar, team] = await Promise.all([
-    canReply ? getTotalUnread(supabase).catch(() => 0) : Promise.resolve(0),
-    membership ? countUnreadPortalNotifications(supabase).catch(() => 0) : Promise.resolve(0),
+    canReply ? portalUnreadMessages() : Promise.resolve(0),
+    membership ? portalUnreadNotifications() : Promise.resolve(0),
     cookies(),
-    canReply && membership ? listTeam(supabase, membership.business.id).catch(() => []) : Promise.resolve([]),
+    canReply && membership ? portalTeam(membership.business.id) : Promise.resolve([]),
   ]);
   return (
     <>
+      <RefreshOnReturn />
       <PortalSidebar
         user={{ id: user.id, name: profile.full_name || user.email?.split("@")[0] || "You", avatarUrl: profile.avatar_url }}
         business={membership ? { name: membership.business.name, logoUrl: membership.business.logo_url, role: membership.role, standing: standing ?? "pending" } : null}
@@ -85,7 +87,7 @@ export default async function PortalLayout({ children }: { children: React.React
         theme={portalThemeOf(jar.get(PORTAL_THEME_COOKIE)?.value)}
       />
       {/* New messages from students, on every page, for those who answer them. */}
-      {canReply ? <InboxAlerts userId={user.id} teamIds={team.map((m) => m.user_id)} /> : null}
+      {canReply ? <InboxAlerts userId={user.id} teamIds={team.map((m) => m.user_id)} initialUnread={unread} /> : null}
       <div className="flex flex-1 flex-col lg:pl-[var(--biz-sidebar-width)] print:pl-0">
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-6 sm:px-6 lg:px-10 lg:pt-10">
           {membership ? <StatusBanner business={membership.business} /> : null}

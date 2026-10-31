@@ -408,6 +408,50 @@ body {
   background-size: 200% 100%;
 }
 
+/*
+ * The window around a dark portal: what shows past the page's edge when it is pulled (overscroll) and the document's
+ * scrollbar follow the portal's theme instead of the student site's light grey, so nothing light flashes at the edges.
+ */
+html:has([data-surface="business"][data-theme="dark"]) {
+  color-scheme: dark;
+}
+body:has([data-surface="business"][data-theme="dark"]) {
+  background: #000000;
+}
+@media (prefers-color-scheme: dark) {
+  html:has([data-surface="business"]:not([data-theme="light"])) {
+    color-scheme: dark;
+  }
+  body:has([data-surface="business"]:not([data-theme="light"])) {
+    background: #000000;
+  }
+}
+
+/*
+ * How a portal page arrives. biz-page-in (the (portal) template): a short fade in place, no movement, once per page.
+ * biz-loading (the portal's loading states): invisible for the first 160 ms, then a fade; a page ready sooner, as a
+ * prefetched or a warm one is, never flashes a skeleton, and one that takes a moment shows it without a jump.
+ */
+@keyframes biz-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.biz-page-in {
+  animation: biz-fade-in 200ms ease-out both;
+}
+.biz-loading {
+  opacity: 0;
+  animation: biz-fade-in 220ms ease-out 160ms forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .biz-page-in {
+    animation: none;
+  }
+  .biz-loading {
+    animation-duration: 1ms;
+  }
+}
+
 /* Thin scrollbars for the chat panes */
 .scrollbar-thin {
   scrollbar-width: thin;
@@ -497,6 +541,24 @@ body {
 }
 
 /* The business portal's sidebar slides in from the left edge on tablets and phones. */
+/*
+ * An unopened Snap's tiny preview drifts slowly under its frosted pane, as if something moved behind it (the app's
+ * DriftingPreview): a few pixels over and a touch larger, then back. Not with reduced motion.
+ */
+@keyframes ab-snap-drift {
+  from {
+    transform: translate(-6px, 4px);
+  }
+  to {
+    transform: translate(6px, -4px) scale(1.06);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ab-snap-drift {
+    animation: ab-snap-drift 7s ease-in-out infinite alternate;
+  }
+}
+
 @keyframes ab-drawer-in {
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }

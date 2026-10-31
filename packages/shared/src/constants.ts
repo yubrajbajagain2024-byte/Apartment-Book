@@ -235,6 +235,52 @@ export const FOR_YOU_PAGE = { posts: 6, reels: 2 } as const;
  * page keeps its own address (/apartments, /roommates, /marketplace), so listing links, filters and saved searches are
  * unchanged.
  */
+/**
+ * The kinds of event the Events tab sorts by (events.category, migration 61), in the order the category pills show
+ * them. The sync guesses one from a calendar's own words (categoryFromText); members pick one when they publish.
+ */
+export const EVENT_CATEGORIES = [
+  { value: "academic", label: "Academic" },
+  { value: "career", label: "Career" },
+  { value: "social", label: "Social" },
+  { value: "sports", label: "Sports" },
+  { value: "music", label: "Music" },
+  { value: "arts", label: "Arts" },
+  { value: "tech", label: "Tech" },
+  { value: "wellness", label: "Wellness" },
+  { value: "cultural", label: "Cultural" },
+  { value: "service", label: "Service" },
+  { value: "faith", label: "Faith" },
+  { value: "other", label: "Other" },
+] as const;
+export type EventCategory = (typeof EVENT_CATEGORIES)[number]["value"];
+export const EVENT_CATEGORY_VALUES = EVENT_CATEGORIES.map((c) => c.value) as [EventCategory, ...EventCategory[]];
+/** Who may publish events: a student club, a student organization, or a university department (organizations.kind). */
+export const ORGANIZATION_KINDS = [
+  { value: "club", label: "Student club" },
+  { value: "organization", label: "Student organization" },
+  { value: "department", label: "University department" },
+] as const;
+export type OrganizationKind = (typeof ORGANIZATION_KINDS)[number]["value"];
+export const ORGANIZATION_KIND_VALUES = ORGANIZATION_KINDS.map((k) => k.value) as [OrganizationKind, ...OrganizationKind[]];
+/** The Events tab's two pages: the ranked page, then everything in time order. */
+export const EVENT_SECTIONS = [
+  { value: "foryou", label: "For you" },
+  { value: "all", label: "All events" },
+] as const;
+export type EventSection = (typeof EVENT_SECTIONS)[number]["value"];
+export const EVENT_TITLE_MAX = 160;
+export const EVENT_DESCRIPTION_MAX = 5000;
+export const EVENT_LOCATION_MAX = 200;
+export const ORGANIZATION_NAME_MAX = 80;
+export const ORGANIZATION_DESCRIPTION_MAX = 1000;
+/** Events per page of the All list; For you ranks this many upcoming events at once. */
+export const EVENTS_PAGE_SIZE = 40;
+export const FOR_YOU_EVENTS_POOL = 200;
+/** How far ahead a feed sync takes events, and how far back it still updates them (an event that ran yesterday may be marked cancelled today). */
+export const EVENT_SYNC_DAYS_AHEAD = 120;
+export const EVENT_SYNC_DAYS_BACK = 1;
+
 export const HOUSING_SECTIONS = [
   { value: "apartments", label: "Housing" },
   { value: "roommates", label: "Roommate" },

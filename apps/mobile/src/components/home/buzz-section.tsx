@@ -20,7 +20,6 @@ import { BuzzComposer } from "@/components/buzz/composer";
 import { BuzzFab } from "@/components/buzz/fab";
 import { BuzzGatePanel, BuzzSignedOutPanel, useBuzzGate } from "@/components/buzz/gate";
 import { BuzzActionsHost } from "@/components/buzz/item-menu";
-import { BuzzMediaActive } from "@/components/buzz/media";
 import { BuzzToastHost } from "@/components/buzz/toast";
 import { Chip, EmptyState, ErrorState, GUTTER, HERO_SOFT_GRADIENT, P, PButton, PIconButton, R, Segmented, T } from "@/components/buzz/ui";
 import { useBuzzList, type BuzzListPage } from "@/components/buzz/use-buzz-list";
@@ -32,6 +31,7 @@ import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useTabBarInset } from "@/lib/tab-bar";
 import { useTabReselect } from "@/lib/tab-reselect";
+import { BuzzViewerList } from "@/components/buzz/media";
 
 /*
  * Home → Buzz (UniVerse's BuzzPane, design §7.2, SPEC §5.3), in Phosphor whatever the app's theme.
@@ -325,7 +325,7 @@ function Feed({ active, topInset }: { active: boolean; topInset: number }) {
   ) : null;
 
   return (
-    <BuzzMediaActive.Provider value={active && focused}>
+    <BuzzViewerList.Provider value={list.viewerPages}>
       <BuzzActionsHost>
         <View style={styles.flex}>
           <AnimatedFlatList
@@ -383,7 +383,7 @@ function Feed({ active, topInset }: { active: boolean; topInset: number }) {
         </View>
         <BuzzComposer visible={composerOpen} onClose={() => setComposerOpen(false)} onAnswered={(threadId, replyId) => openThread(router, threadId, replyId)} />
       </BuzzActionsHost>
-    </BuzzMediaActive.Provider>
+    </BuzzViewerList.Provider>
   );
 }
 

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { businessConversations, getInquiryDetails, inquiryNeedsReply, listConversations, listTeam, standingOf, teamRoleAllows } from "@apartment-book/shared";
+import { businessConversations, getInquiryDetails, inquiryNeedsReply, listConversations, standingOf, teamRoleAllows } from "@apartment-book/shared";
+import { portalTeam } from "@/lib/business/data";
 import { getPortalBase, portalPath, requireBusiness } from "@/lib/business/portal";
 import { joinPortal } from "@/lib/business/paths";
 import { createClient } from "@/lib/supabase/server";
@@ -21,7 +22,7 @@ export default async function InboxLayout({ children }: { children: React.ReactN
   if (!teamRoleAllows(membership.role, "reply")) redirect(await portalPath("/"));
   if (standingOf(membership.business) !== "approved") return <InboxPending businessName={membership.business.name} />;
   const supabase = await createClient();
-  const [conversations, team, base] = await Promise.all([listConversations(supabase, user.id), listTeam(supabase, membership.business.id), getPortalBase()]);
+  const [conversations, team, base] = await Promise.all([listConversations(supabase, user.id), portalTeam(membership.business.id), getPortalBase()]);
   const teamIds = new Set(team.map((m) => m.user_id));
   // A chat with no message yet is a student who tapped "Message" and has not written. Migration 56 hides it in the
   // database; leaving it out here keeps the inbox the same on a database without 56.
@@ -45,7 +46,11 @@ export default async function InboxLayout({ children }: { children: React.ReactN
       value={{ base: joinPortal(base, "/inbox"), newChat: null, profile: null, audience: "business", emptyText: "No inquiries yet. Students message you from your profile, posts, listings and ads; every one lands here." }}
     >
       {/* Beside the sidebar on wide screens; under the portal's top bar (and with no tab bar) on smaller ones. */}
-      <MessagesShell list={<InquiryList items={items} />} className="lg:left-[var(--biz-sidebar-width)] lg:top-0" bottomBar={false}>
+      <MessagesShell
+        list={<InquiryList items={items} userId={user.id} team={team.map((m) => ({ id: m.user_id, firstName: firstNames.get(m.user_id) ?? "A teammate" }))} />}
+        className="lg:left-[var(--biz-sidebar-width)] lg:top-0"
+        bottomBar={false}
+      >
         {children}
       </MessagesShell>
     </MessagesPathsProvider>

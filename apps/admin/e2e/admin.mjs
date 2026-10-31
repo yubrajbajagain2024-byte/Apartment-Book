@@ -4,7 +4,7 @@
 // Optional accounts (their checks are skipped with a note when unset):
 //   ADMIN_E2E_EMAIL + ADMIN_E2E_PASSWORD   a staff account; ADMIN_E2E_TOTP_SECRET is its authenticator key (base32) for the 2FA step.
 //                                          An owner or admin also gets Analytics and Business (migration 59) checked: every view
-//                                          renders, or says it needs migration 59 or the admin role; a moderator must not see them.
+//                                          renders, or says it needs migration 62 or the admin role; a moderator must not see them.
 //   E2E_USER_EMAIL + E2E_USER_PASSWORD     an ordinary (non-staff) account, which must land on /no-access
 //   VERCEL_BYPASS                          bypass secret when Vercel Deployment Protection guards the deployment
 import fs from "node:fs";
@@ -68,9 +68,12 @@ try {
     });
   } else note("non-staff check skipped: set E2E_USER_EMAIL and E2E_USER_PASSWORD (an ordinary account)");
   if (process.env.ADMIN_E2E_EMAIL && process.env.ADMIN_E2E_PASSWORD) {
-    await step("staff login lands on /security first: two-factor authentication before anything else", async () => {
+    await step("staff login lands on the Security page first: two-factor authentication before anything else", async () => {
       await login(D, process.env.ADMIN_E2E_EMAIL, process.env.ADMIN_E2E_PASSWORD, "/reports");
-      await D.waitForURL((u) => u.pathname === "/security"); await D.getByText(/two-factor/i).first().waitFor();
+      // The proxy sends the signed-in session to /security. Since Next 16.4 the address bar can keep the page asked for
+      // while the Security page is what renders (the redirect is followed inside the navigation), so wait for the page, not the URL.
+      await D.getByText(/two-factor/i).first().waitFor();
+      if (await D.getByRole("heading", { name: "Reports", exact: true }).count()) throw new Error("the Reports page rendered before the second factor");
       await D.screenshot({ path: SHOTS + "admin-03-security.png" });
     });
     if (process.env.ADMIN_E2E_TOTP_SECRET) {
@@ -79,7 +82,8 @@ try {
         const code = D.locator("input[name='code']"); if (!(await code.count())) throw new Error("no code field on /security: has this account set up an authenticator yet?");
         const left = 30 - (Math.floor(Date.now() / 1000) % 30); if (left < 4) await D.waitForTimeout(left * 1000 + 300);
         await code.fill(totp(process.env.ADMIN_E2E_TOTP_SECRET)); await code.press("Enter");
-        await D.waitForURL((u) => u.pathname === "/reports"); await D.screenshot({ path: SHOTS + "admin-04-reports.png" });
+        // The code's verification sets the aal2 session cookie and the action redirects to the page asked for: wait for that page.
+        await D.getByRole("heading", { name: "Reports", exact: true }).first().waitFor(); await D.screenshot({ path: SHOTS + "admin-04-reports.png" });
         const pages = [["/", "Overview"], ["/users", "Users"], ["/flagged", "Flagged"], ["/content", "Content"], ["/media", "Media"], ["/staff", "Staff"], ["/audit", "Audit log"]];
         for (const [path, heading] of pages) { await D.goto(BASE + path); await D.getByRole("heading", { name: heading, exact: true }).first().waitFor(); await D.screenshot({ path: SHOTS + `admin-05${path.replace(/\//g, "-") || "-overview"}.png` }); }
       });
@@ -96,7 +100,8 @@ try {
           const res = await D.goto(BASE + path); await D.waitForLoadState("networkidle");
           const text = await D.locator("main").innerText();
           if (!res || res.status() >= 400 || /Something went wrong|Application error/.test(text)) throw new Error(`${path}: ${res?.status()} ${text.slice(0, 120)}`);
-          if (!/needs migration 59|need the UniBuzz admin role|Platform|Overview|Advertisers|Campaigns|Payments|Rate card|reports|Nothing logged yet|When/.test(text)) throw new Error(`${path}: unexpected page ${text.slice(0, 160)}`);
+          if (new URL(D.url()).pathname === "/security" || /two-factor code/i.test(text)) throw new Error(`${path}: sent back to the Security page (the aal2 session was lost)`);
+          if (!/needs migration 62|need the UniBuzz admin role|Platform|Overview|Advertisers|Campaigns|Payments|Rate card|reports|Nothing logged yet|When/.test(text)) throw new Error(`${path}: unexpected page ${text.slice(0, 160)}`);
           await D.screenshot({ path: SHOTS + `admin-06${path.replace(/[/?=&]/g, "-")}.png`, fullPage: true });
         }
         const first = D.locator("a[href^='/business/campaigns/']").first();

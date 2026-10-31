@@ -26,8 +26,8 @@ export default async function BusinessLayout({ children }: { children: ReactNode
     return (
       <EmptyBox
         icon={Database}
-        title="Business needs migration 59"
-        description="This database does not have the Business functions yet (20261112000000_console_business.sql, which needs Business v2's migrations before it). Until then the business portal's own admin pages are the way to review businesses and ads."
+        title="Business needs migration 62"
+        description="This database does not have the Business functions yet (20261114000000_console_business.sql, which needs Business v2's migrations before it). Until then the business portal's own admin pages are the way to review businesses and ads."
       />
     );
   }

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, PixelRatio, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent, type ListViewToken } from "react-native";
+import { ActivityIndicator, FlatList, PixelRatio, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent, type ListViewToken } from "react-native";
 import { Image } from "expo-image";
-import { useIsFocused, useLocalSearchParams, usePreventRemove, useRouter } from "expo-router";
+import { useIsFocused, useLocalSearchParams, useNavigation, usePreventRemove, useRouter } from "expo-router";
 import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, { Easing, runOnJS, useAnimatedReaction, useAnimatedStyle, useDerivedValue, useSharedValue, withDelay, withSpring, withTiming, type SharedValue } from "react-native-reanimated";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getFeedPost, getOrCreateDirectConversation, getPostEngagement, hasPublicComments, isSaved, listingChatPrefill, listReels, REELS_PAGE_SIZE, type PostEngagement, type PostTargetType, type Reel } from "@apartment-book/shared";
+import { getFeedPost, getPostEngagement, isSaved, listReels, REELS_PAGE_SIZE, type PostEngagement, type PostTargetType, type Reel } from "@apartment-book/shared";
 import { campusSegments, ScopeToggle, type ScopeSegment } from "@/components/home/home-top-tabs";
 import { ReelCommentsSheet } from "@/components/home/reel-comments-sheet";
 import { ShareSheetProvider } from "@/components/share-sheet";
@@ -28,6 +28,8 @@ import { auroraGradient, textStyle } from "@/lib/theme";
 import { makeStyles, useAppTheme, useColors } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
 import { GlassIconButton } from "@/components/glass";
+import { FloatingTabBar, useTabBarMirror } from "@/components/floating-tab-bar";
+import { tabBarInset } from "@/lib/tab-bar";
 
 /** Breathing room between the status bar and the top row, as on Home's bar. */
 const TOP_GAP = 8;
@@ -36,20 +38,31 @@ const ROW = 44;
 /** The sound button ReelItem draws: a 36pt disc, 10pt under the inset it is given. */
 const MUTE_SIZE = 36;
 const MUTE_OFFSET = 10;
-/** The "Add comment…" bar at the bottom of every page: the pill's height, the gap above it, and the least it keeps from the screen's bottom edge. */
-const COMMENT_BAR = 48;
-const COMMENT_BAR_GAP = 10;
-const COMMENT_BAR_BOTTOM = 12;
+/**
+ * The room a page keeps at its bottom for the name, the words and the rail to sit above: as high as they sat over the
+ * "Add comment…" bar the viewer used to have (the least it kept from the screen's bottom edge, then 58pt), so they did
+ * not move when the bar went. Where the app's tab bar is drawn instead, they keep at least BAR_CLEAR over it (on a
+ * phone with a home indicator the room above is already exactly that).
+ */
+const BOTTOM_MIN = 12;
+const BOTTOM_ROOM = 58;
+const BAR_CLEAR = 4;
+/** The rail's inset from the screen's right edge here (ReelItem's railRight): a little nearer the edge than in the Reels tab. */
+const RAIL_RIGHT = 2;
 /** How many pages ahead (and one behind) a post known only by its id is loaded. */
 const LOAD_AHEAD = 3;
-/** The zoom open: critically damped (it never overshoots the screen's edges), about 0.4s. */
-const ZOOM_IN = { damping: 32, stiffness: 270, mass: 1, overshootClamping: true };
+/**
+ * The zoom open: critically damped (it never overshoots the screen's edges), to the screen in about a fifth of a second
+ * and at rest by a quarter, as Instagram's (measured frame by frame in the owner's recording: full screen 0.15 to 0.2s
+ * after the tapped post starts to grow).
+ */
+const ZOOM_IN = { damping: 46, stiffness: 520, mass: 1, overshootClamping: true };
 /**
  * The zoom closed: quick off the mark and braking evenly all the way down, so it stops on the picture it came from in the
  * frame it seems to arrive. A curve with a long soft tail (iOS's 0.32, 0.72, 0, 1) leaves the page creeping the last few
  * points for a fifth of a second, where its scaled copy of the picture shows softer than the feed's own and shimmers.
  */
-const ZOOM_OUT_MS = 300;
+const ZOOM_OUT_MS = 240;
 const ZOOM_OUT_CURVE = [0.3, 0.7, 0.45, 1] as const;
 /**
  * Closing onto the tapped picture, the page fades out over the feed's own during the zoom's last HAND_OVER_MS, as it
@@ -60,6 +73,12 @@ const ZOOM_OUT_CURVE = [0.3, 0.7, 0.45, 1] as const;
 const HAND_OVER_MS = 50;
 /** Most of the fade comes last, where the two pictures are a pixel or less apart: no ghost of one beside the other. */
 const HAND_OVER = { duration: HAND_OVER_MS, easing: Easing.in(Easing.cubic) };
+/**
+ * Closing from another page than the one it opened on (a later reel), the page shrinks into the post it was opened from
+ * all the same, as Instagram's does, and fades out on the way, quickly at first: the feed's own picture of that post
+ * shows through it and has taken over well before it lands, so the two never sit one over the other.
+ */
+const CROSS_FADE = { duration: Math.round(ZOOM_OUT_MS * 0.75), easing: Easing.out(Easing.quad) };
 /** Device pixels per point: the opening's edges sit on whole pixels (see frameStyle). */
 const PIXEL = PixelRatio.get();
 
@@ -114,7 +133,9 @@ function splitKey(key: string): [string, string] {
  * Reels feed is running (the same choice as Home's, see useHomeScope: picking the other one keeps the page on screen and
  * the ones already seen, and the reels after it come from the new choice) and a video's sound button at the right. At
  * the bottom, the creator's name, the words and the rail (like, comments, share, save, "…") that ReelItem draws for every
- * page, and under them an "Add comment…" bar that opens the comments straight into typing. Likes, saves and comments
+ * page, nearer the right edge than in the Reels tab, and under them the app's own tab bar, still there and still working,
+ * when the viewer was opened over the tabs (see selectTab). The rail's Comments (or a tour's Inbox) opens the comments
+ * and messages; there is no comment bar. Likes, saves and comments
  * made here reach the row the viewer was opened from (emitPostEngagement), and a post deleted here leaves the feeds too.
  * Handed-over pages show at once; a post known only by its id (a profile square, a chat card) loads as it comes near,
  * its picture standing in meanwhile; opened from a link, the post is fetched first.
@@ -177,8 +198,6 @@ export default function ReelViewerScreen() {
   /** 1 while the page on screen is the one the viewer opened on: read by the swipe close on the UI thread. */
   const onStartPage = useSharedValue(1);
   const [commentsKey, setCommentsKey] = useState<string | null>(null);
-  /** The comments were opened from the "Add comment…" bar: the sheet comes up with the keyboard. */
-  const [commentsTyping, setCommentsTyping] = useState(false);
   const listRef = useRef<FlatList<ViewerEntry>>(null);
   /** The slide each page is on (a post's photos and videos) and what it sits on, as its page reports them. */
   const [shown, setShown] = useState<Record<string, { slide: number; surface: ViewerSurface }>>({});
@@ -308,8 +327,9 @@ export default function ReelViewerScreen() {
 
   const onPatch = useCallback((key: string, patch: Partial<Reel>) => {
     setEntries((prev) => (prev ? prev.map((e) => (e.key === key && e.item ? { ...e, item: { ...e.item, ...patch } } : e)) : prev));
-    // The row this page was opened from, and its own screen, follow along.
+    // The row this page was opened from, and its own screen, follow along. A buzz's votes live in Buzz's own store.
     const [type, targetId] = splitKey(key);
+    if (type === "buzz") return;
     emitPostEngagement(type as PostTargetType, targetId, { likes: patch.likes, comments: patch.comments, likedByMe: patch.likedByMe, saved: patch.savedByMe });
   }, []);
   const onRemoved = useCallback((key: string) => {
@@ -327,12 +347,10 @@ export default function ReelViewerScreen() {
       markReelsStale();
     }
   }, []);
-  const onOpenComments = useCallback((item: ViewerItem, typing = false) => {
-    setCommentsTyping(typing);
-    setCommentsKey(viewerKey(item));
-  }, []);
+  const onOpenComments = useCallback((item: ViewerItem) => setCommentsKey(viewerKey(item)), []);
   const commentsItem = commentsKey ? (entries?.find((e) => e.key === commentsKey)?.item ?? null) : null;
-  const commentsReel = useMemo(() => (commentsItem ? { sourceType: commentsItem.sourceType, sourceId: commentsItem.sourceId, author: commentsItem.author, comments: commentsItem.comments, commentsOff: commentsItem.commentsOff } : null), [commentsItem]);
+  // Only ever a post's: a buzz's replies are on its thread's screen (see openReplies).
+  const commentsReel = useMemo(() => (commentsItem && commentsItem.sourceType !== "buzz" ? { sourceType: commentsItem.sourceType, sourceId: commentsItem.sourceId, author: commentsItem.author, comments: commentsItem.comments, commentsOff: commentsItem.commentsOff } : null), [commentsItem]);
   const onCommentCount = useCallback(
     (delta: number) => {
       if (!commentsKey || !commentsItem) return;
@@ -360,33 +378,44 @@ export default function ReelViewerScreen() {
   }).current;
 
   const leave = useCallback(() => (router.canGoBack() ? router.back() : router.replace("/(tabs)")), [router]);
-  /** A page's comments, in the sheet over the page. */
-  const openReplies = onOpenComments;
-
   /**
-   * The bar under a roommate tour, which has no public comments: a private chat with its poster, opening with a first
-   * message about the post (your own tour's bar opens your Inbox).
+   * A page's comments: a post's in the sheet over the page; a buzz's replies on its thread's own screen, pushed over the
+   * viewer (Back comes back here), or, opened from that very screen, right behind it, so the viewer closes onto them.
    */
-  const messagePoster = useCallback(
-    async (item: ViewerItem) => {
-      if (!user) return router.push("/(auth)/login");
-      if (item.author.id === user.id) return router.push("/messages");
-      try {
-        const id = await getOrCreateDirectConversation(supabase, item.author.id);
-        router.push({ pathname: "/messages/[id]", params: { id, prefill: listingChatPrefill(item.author.name, item.title), targetType: "roommate", targetId: item.sourceId } });
-      } catch (e) {
-        Alert.alert("Message", errorText(e, "Could not start the chat. Try again."));
-      }
+  const openReplies = useCallback(
+    (item: ViewerItem) => {
+      if (!item.buzz) return onOpenComments(item);
+      if (handed?.repliesBehind) return leave();
+      router.push({ pathname: "/buzz/[id]", params: { id: item.buzz.threadId } });
     },
-    [user, router],
+    [onOpenComments, handed, leave, router],
   );
 
   // The top row: Back and the toggle, under the status bar. A page's own content (a photo) starts below it.
   const rowTop = insets.top + TOP_GAP;
   const contentTop = rowTop + ROW;
-  // The comment bar's pill sits this far up from the screen's bottom edge; the name and the rail stay above the bar.
-  const barBottom = Math.max(insets.bottom, COMMENT_BAR_BOTTOM);
-  const barHeight = barBottom + COMMENT_BAR + COMMENT_BAR_GAP;
+  /**
+   * The app's tab bar stays in view when the viewer is open over the tabs: the screen right under it is the tabs (not a
+   * chat, a profile or a link opened cold, which have no bar), and the tabs' bar is there to copy (see TabBarMirror).
+   */
+  const navigation = useNavigation();
+  /** Whether a route in the root stack is this viewer. */
+  const isThisViewer = useCallback((r: { name: string; params?: object }) => r.name === "reels/[id]" && (r.params as { id?: string } | undefined)?.id === id, [id]);
+  const [beneath] = useState(() => {
+    const root = navigation.getState();
+    if (!root) return { tabs: false, key: null };
+    let here = -1;
+    for (let i = root.routes.length - 1; i >= 0 && here < 0; i--) if (isThisViewer(root.routes[i]!)) here = i;
+    // As the viewer first renders, its own route is not in the stack yet: the screen on top then is the one under it.
+    const route = here >= 0 ? root.routes[here - 1] : root.routes[root.index];
+    // The tabs' bar is known by its first tab's route key (see useTabBarMirror).
+    return { tabs: route?.name === "(tabs)", key: route?.state?.routes[0]?.key ?? null };
+  });
+  const tabMirror = useTabBarMirror(beneath.key);
+  const tabBar = beneath.tabs ? tabMirror : null;
+  // The name and the rail sit this far up from the screen's bottom edge, where they always have (see BOTTOM_ROOM), and
+  // clear of the tab bar when it is drawn.
+  const barHeight = Math.max(Math.max(insets.bottom, BOTTOM_MIN) + BOTTOM_ROOM, tabBar ? tabBarInset(insets) + BAR_CLEAR : 0);
   /**
    * What a page shows now: a photo on the theme's own colour ("page"), or a video, a photo as tall as the screen or a
    * page still loading ("media"). As its page reports it, or, before it has, as its slide's recorded shape says.
@@ -423,7 +452,8 @@ export default function ReelViewerScreen() {
    */
   const reduceMotion = useReduceMotion();
   const { width: screenW, height: screenH } = useWindowDimensions();
-  const [origin] = useState<ViewerOrigin | null>(() => handed?.origin ?? null);
+  const [tapped] = useState<ViewerOrigin | null>(() => handed?.origin ?? null);
+  const [origins] = useState(() => handed?.origins ?? null);
   const fallback = useMemo<ViewerOrigin>(() => ({ x: screenW * 0.06, y: screenH * 0.06, width: screenW * 0.88, height: screenH * 0.88, radius: 28 }), [screenW, screenH]);
   /**
    * The picture on the tapped page that grows out of the tapped one, in page points: a photo sits in its own shape (at
@@ -435,6 +465,11 @@ export default function ReelViewerScreen() {
   const startEntry = (startKey ? entries?.find((e) => e.key === startKey) : entries?.[startIndex]) ?? null;
   const startItem = startEntry?.item ?? null;
   const startSlide = startEntry ? (shown[startEntry.key]?.slide ?? startEntry.slide ?? 0) : 0;
+  /**
+   * Where the zoom opens from and lands: the tapped picture, or, where the feed shows the page's photos side by side (a
+   * buzz's grid), the tile of the photo on screen now, so closing on the third photo lands on the third tile.
+   */
+  const origin = origins?.[startSlide] ?? tapped;
   const focus = useMemo(() => {
     const m = startItem?.media[startSlide];
     if (startItem && m?.type === "video") {
@@ -474,7 +509,7 @@ export default function ReelViewerScreen() {
   /** The viewer has started to close (see ViewerClosingContext). */
   const [closingNow, setClosingNow] = useState(false);
   /**
-   * The zoom open has finished. Until then only the page opened on has its player and frost: the pages around it get
+   * The zoom open has finished. Until then only the page opened on has its player: the pages around it get
    * theirs once it has opened, so the first frames draw quickly and the zoom starts (and runs) unhurried.
    */
   const [opened, setOpened] = useState(reduceMotion);
@@ -514,7 +549,7 @@ export default function ReelViewerScreen() {
       zoomUI.value = 0;
       runOnJS(zoomOpened)();
     });
-    chrome.value = withDelay(170, withTiming(1, { duration: 200 }));
+    chrome.value = withDelay(110, withTiming(1, { duration: 160 }));
   }, [seen, open, chrome, zoomUI, zoomOpened]);
   useEffect(() => {
     if (reduceMotion) return;
@@ -660,7 +695,11 @@ export default function ReelViewerScreen() {
     requestAnimationFrame(() => requestAnimationFrame(() => go()));
   }, []);
 
-  /** Zooms closed (into the tapped picture when that page is still the one on screen), then runs `done`. */
+  /**
+   * Zooms closed, then runs `done`: into the tapped picture, from the page it opened on (the feed's own picture takes over
+   * in the last moment) or from any other (fading into it as it goes, see CROSS_FADE); opened from a link, with no picture
+   * to go back to, it shrinks and fades where it is.
+   */
   const closing = useRef(false);
   /** The same, set on whichever thread a close starts: the swipe's starts on the UI thread (see swipeClose). */
   const closingUI = useSharedValue(0);
@@ -682,7 +721,7 @@ export default function ReelViewerScreen() {
       }
       zoomUI.value = 1;
       const home = origin !== null && isStartAt(visibleRef.current);
-      toOrigin.value = home ? 1 : 0;
+      toOrigin.value = origin !== null ? 1 : 0;
       chrome.value = withTiming(0, { duration: 110 });
       drag.value = withTiming(0, { duration: ZOOM_OUT_MS });
       open.value = withTiming(0, { duration: ZOOM_OUT_MS, easing: Easing.bezier(...ZOOM_OUT_CURVE) }, (finished) => {
@@ -690,8 +729,10 @@ export default function ReelViewerScreen() {
         seen.value = 0;
         runOnJS(land)();
       });
-      // Onto the tapped picture, the feed's own takes over in the last moment (anywhere else the page fades out as it goes).
+      // From the page it opened on, the feed's own picture takes over in the last moment; from another, the page fades
+      // into it as it goes (with no picture to go back to, the page fades as it shrinks: frameStyle).
       if (home) seen.value = withDelay(ZOOM_OUT_MS - HAND_OVER_MS, withTiming(0, HAND_OVER));
+      else if (origin !== null) seen.value = withTiming(0, CROSS_FADE);
     },
     [reduceMotion, origin, isStartAt, toOrigin, chrome, drag, open, seen, zoomUI, handBack, afterLanding],
   );
@@ -737,9 +778,11 @@ export default function ReelViewerScreen() {
   const hasOrigin = origin !== null;
   /**
    * The swipe back (see usePageSwipe): the modal has no system back swipe, so each page pulls itself sideways with the
-   * finger, either way. Let go past the point of no return, it goes on from where the finger left it: the page it was
-   * opened on shrinks back into the post it was opened from, which is right where it was in the feed; any other page goes
-   * on out the way it was swiped, fading; then the viewer really leaves. A worklet, run by the swipe on the UI thread the
+   * finger, either way. Let go past the point of no return, it goes on from where the finger left it and shrinks back into
+   * the post it was opened from, which is right where it was in the feed: from the page it opened on, the feed's picture
+   * takes over as it lands; from any other (a later reel), it fades into that picture on the way, as Instagram's does.
+   * Opened from a link, with no post to go back to, the page goes on out the way it was swiped, fading. Then the viewer
+   * really leaves. A worklet, run by the swipe on the UI thread the
    * moment the finger lets go, so the page carries on with no pause whatever the JS thread is doing; only what JS has to
    * do waits for it.
    */
@@ -757,21 +800,56 @@ export default function ReelViewerScreen() {
       }
       zoomUI.value = 1;
       const home = hasOrigin && onStartPage.value === 1;
-      toOrigin.value = home ? 1 : 0;
+      toOrigin.value = hasOrigin ? 1 : 0;
       chrome.value = withTiming(0, { duration: 110 });
       const easing = Easing.bezier(...ZOOM_OUT_CURVE);
       const away = Math.sign(drag.value || velocityX || 1) * screenW;
-      drag.value = withTiming(home ? 0 : away, { duration: ZOOM_OUT_MS, easing });
+      drag.value = withTiming(hasOrigin ? 0 : away, { duration: ZOOM_OUT_MS, easing });
       open.value = withTiming(0, { duration: ZOOM_OUT_MS, easing }, (finished) => {
         if (!finished) return;
         seen.value = 0;
         runOnJS(swipeLeave)();
       });
       if (home) seen.value = withDelay(ZOOM_OUT_MS - HAND_OVER_MS, withTiming(0, HAND_OVER));
+      else if (hasOrigin) seen.value = withTiming(0, CROSS_FADE);
     },
     [closingUI, swipeClosing, reduceMotion, seen, zoomUI, swipeLeave, hasOrigin, onStartPage, toOrigin, chrome, drag, screenW, open],
   );
   const swipeBack = useMemo<ViewerSwipe>(() => ({ drag, close: swipeClose }), [drag, swipeClose]);
+
+  /**
+   * A tab on the bar at the bottom. The tab the viewer was opened over leaves the way Back does, zooming closed onto the
+   * post it came from. Another tab is there at once, as the bar switches tabs anywhere else: that tab comes up under the
+   * viewer, and the viewer goes without its zoom (the post it came from is on the other tab now). The video it borrowed
+   * goes back to its feed as the viewer unmounts, and the feed, no longer on screen, pauses it.
+   */
+  const selectTab = useCallback(
+    (routeKey: string, isCurrent: boolean) => {
+      if (isCurrent) return leave();
+      if (!tabBar || closing.current || leaving.current) return;
+      closing.current = true;
+      closingUI.value = 1;
+      zoomStarted.current = true;
+      leaving.current = true;
+      setClosingNow(true);
+      seen.value = 0;
+      open.value = 0;
+      chrome.value = 0;
+      setHoldRemoval(false);
+      releaseRemoval();
+      tabBar.props.navigateToTab(routeKey);
+      // Switching the tab can take the viewer off the stack with it (the tabs come back into focus); if it is still
+      // there a frame later, it goes the ordinary way.
+      requestAnimationFrame(() => {
+        try {
+          if (navigation.getState()?.routes.some(isThisViewer)) leave();
+        } catch {
+          // Gone already.
+        }
+      });
+    },
+    [tabBar, leave, closingUI, seen, open, chrome, releaseRemoval, navigation, isThisViewer],
+  );
 
   // Campus (when the person has a university) and Global; one choice alone is no toggle. Only the campus is chosen here:
   // Following belongs to Posts and is left as it is. Only for the Reels feed and For you: a list (a profile's posts) is what it is.
@@ -787,7 +865,7 @@ export default function ReelViewerScreen() {
   const muteInset = rowTop + (ROW - MUTE_SIZE) / 2 - MUTE_OFFSET;
 
   // Everything the pages read besides their own entry: a change re-renders them.
-  const listExtra = useMemo(() => ({ visible, focused, opened, closingNow, drawnPages, height, width, muteInset, contentTop, barBottom, shown }), [visible, focused, opened, closingNow, drawnPages, height, width, muteInset, contentTop, barBottom, shown]);
+  const listExtra = useMemo(() => ({ visible, focused, opened, closingNow, drawnPages, height, width, muteInset, contentTop, barHeight, shown }), [visible, focused, opened, closingNow, drawnPages, height, width, muteInset, contentTop, barHeight, shown]);
   /** The top row and the status bar take the colours of the page under them; the screen behind, those of the page on screen. */
   const topOnPage = surfaceAt(under) === "page";
   /**
@@ -822,6 +900,7 @@ export default function ReelViewerScreen() {
                     topInset={muteInset}
                     contentTop={contentTop}
                     bottomInset={barHeight}
+                    railRight={RAIL_RIGHT}
                     near={index === visible || (opened && index - visible >= -1 && index - visible <= 2)}
                     playing={focused && index === visible && !(closingNow && !isStartAt(index))}
                     onPatch={onPatch}
@@ -836,34 +915,6 @@ export default function ReelViewerScreen() {
                     standIn={stoodIn.current.has(entry.key) ? (entry.thumb ?? undefined) : undefined}
                     pictures={opened || index === visible}
                   />
-                  {/* "Add comment…" under the name and the rail, like Instagram's: a tap opens the comments with the keyboard up.
-                      Dark glass over a video; on a photo's page, the theme's own text field. A roommate tour has no public
-                      comments, so its bar is a private message to the poster instead. A post whose author turned comments
-                      off has no bar: a quiet line says so in its place, which the words above keep their room for. */}
-                  <Animated.View key="comment" pointerEvents="box-none" style={[styles.commentBar, { bottom: barBottom }, chromeStyle]}>
-                    {!hasPublicComments(entry.item.sourceType) ? (
-                      <Pressable
-                        onPress={() => void messagePoster(entry.item!)}
-                        style={({ pressed }) => [styles.commentInput, styles.messageInput, surfaceAt(index) === "page" && styles.commentInputPage, pressed && { opacity: 0.8 }]}
-                        accessibilityRole="button"
-                        accessibilityLabel={entry.item.author.id === user?.id ? "Inbox" : `Message ${entry.item.author.name.split(" ")[0]}`}
-                        accessibilityHint={entry.item.author.id === user?.id ? "Opens your messages" : "Opens a private chat about this post"}
-                      >
-                        <Icon name="chatbubble-ellipses-outline" size={18} color={surfaceAt(index) === "page" ? colors.faint : colors.onMediaMuted} />
-                        <Text style={[styles.commentPlaceholder, surfaceAt(index) === "page" && styles.commentPlaceholderPage]} numberOfLines={1}>
-                          {entry.item.author.id === user?.id ? "Open your Inbox" : `Message ${entry.item.author.name.split(" ")[0]}…`}
-                        </Text>
-                      </Pressable>
-                    ) : entry.item.commentsOff ? (
-                      <View style={styles.commentsOff}>
-                        <Text style={[styles.commentsOffText, surfaceAt(index) === "page" && styles.commentsOffTextPage]}>Comments are turned off</Text>
-                      </View>
-                    ) : (
-                      <Pressable onPress={() => openReplies(entry.item!, true)} style={({ pressed }) => [styles.commentInput, surfaceAt(index) === "page" && styles.commentInputPage, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Add comment" accessibilityHint="Opens the comments, ready to type">
-                        <Text style={[styles.commentPlaceholder, surfaceAt(index) === "page" && styles.commentPlaceholderPage]}>Add comment…</Text>
-                      </Pressable>
-                    )}
-                  </Animated.View>
                 </>
               ) : null}
               {standing ? <PendingPage key="stand-in" entry={entry} width={width} height={height} over={Boolean(entry.item)} pictures={opened || index === visible} onShown={isStartAt(index) ? onStartShown : undefined} giveWay={() => onPageDrawn(entry.key)} /> : null}
@@ -975,7 +1026,7 @@ export default function ReelViewerScreen() {
         </View>
       ) : null}
 
-      <ReelCommentsSheet reel={commentsReel} focusComposer={commentsTyping} onClose={() => setCommentsKey(null)} onCountChange={onCommentCount} />
+      <ReelCommentsSheet reel={commentsReel} onClose={() => setCommentsKey(null)} onCountChange={onCommentCount} />
     </View>
     </ViewerClockContext.Provider>
     </ViewerSwipeContext.Provider>
@@ -984,6 +1035,9 @@ export default function ReelViewerScreen() {
     </ViewerChromeContext.Provider>
         </Animated.View>
       </Animated.View>
+      {/* The app's tab bar, where it always is: drawn over the page rather than in it, so it stays put through the zoom
+          and the swipe back, exactly over the tabs' own bar underneath (see selectTab for what its tabs do here). */}
+      {tabBar ? <FloatingTabBar {...tabBar.props} action={tabBar.action} onSelect={selectTab} /> : null}
     </ShareSheetProvider>
     </GestureHandlerRootView>
   );
@@ -1059,18 +1113,6 @@ const useStyles = makeStyles((colors) => ({
   // The toggle is centred on the screen; Back keeps to the left edge, level with it.
   row: { height: ROW, alignItems: "center", justifyContent: "center" },
   back: { position: "absolute", left: 12, top: (ROW - 40) / 2 },
-  // A dark, see-through pill in the screen's gutters, the same in both themes since it sits on video.
-  commentBar: { position: "absolute", left: 0, right: 0, paddingHorizontal: 16 },
-  commentInput: { height: COMMENT_BAR, borderRadius: 999, justifyContent: "center", paddingHorizontal: 20, backgroundColor: colors.mediaPill, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.onMediaMuted },
-  commentPlaceholder: { color: colors.onMediaMuted, fontSize: 16 },
-  commentInputPage: { backgroundColor: colors.input, borderColor: colors.border },
-  commentPlaceholderPage: { color: colors.faint },
-  // The same pill as a private message: its icon then the words.
-  messageInput: { flexDirection: "row", alignItems: "center", justifyContent: "flex-start", gap: 9 },
-  // Comments turned off: no pill, only a quiet line where it would be.
-  commentsOff: { height: COMMENT_BAR, alignItems: "center", justifyContent: "center" },
-  commentsOffText: { color: colors.onMediaMuted, fontSize: 14, textShadowColor: colors.mediaTextShadow, textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } },
-  commentsOffTextPage: { color: colors.muted, textShadowColor: "transparent", textShadowRadius: 0 },
   shadow: { textShadowColor: colors.mediaScrim, textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
   foot: { position: "absolute", left: 0, right: 0, alignItems: "center" },
   retry: { backgroundColor: colors.mediaPill, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },

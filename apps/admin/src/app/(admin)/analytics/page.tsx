@@ -139,8 +139,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pa
       {!data ? (
         <EmptyBox
           icon={Database}
-          title="Analytics needs migration 59"
-          description="This database does not have the Analytics functions yet (20261112000000_console_business.sql). They arrive with the next database release; nothing here works without them."
+          title="Analytics needs migration 62"
+          description="This database does not have the Analytics functions yet (20261114000000_console_business.sql). They arrive with the next database release; nothing here works without them."
         />
       ) : view === "overview" ? (
         <Overview a={data as AnalyticsOverview} />

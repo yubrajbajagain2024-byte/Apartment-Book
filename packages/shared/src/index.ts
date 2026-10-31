@@ -16,6 +16,8 @@ export * from "./campus";
 export * from "./business";
 export * from "./business-hours";
 export * from "./ad-ops";
+export * from "./stories";
+export * from "./events";
 export * from "./qr";
 export * from "./discover";
 export * from "./types/database";

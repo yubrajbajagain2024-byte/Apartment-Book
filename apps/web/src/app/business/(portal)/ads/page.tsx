@@ -3,9 +3,10 @@ import { Megaphone, Plus } from "lucide-react";
 import { AD_PLACEMENTS, adDisplayStatus, clickRate, formatCents, getAdStats, listAds, mediaCover, mediaItems, teamRoleAllows, type Ad } from "@apartment-book/shared";
 import { requireBusiness } from "@/lib/business/portal";
 import { createClient } from "@/lib/supabase/server";
-import { cn, firstParam, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { FilteredList, FilterTabs } from "@/components/business/filter-tabs";
 import { PortalLink } from "@/components/business/portal-base";
-import { AdStatusPill, BizLink, EmptyPanel, PageHeader, Panel } from "@/components/business/ui";
+import { AdStatusPill, BizLink, EmptyPanel, PageHeader } from "@/components/business/ui";
 
 export const metadata: Metadata = { title: "Advertisements" };
 
@@ -18,15 +19,25 @@ const FILTERS = [
   { value: "completed", label: "Completed", statuses: ["completed"] },
 ] as const;
 
-/** The Ads Manager's list: every ad with its status as it stands now and its numbers so far. */
-export default async function AdsPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
-  const [{ membership }, params] = await Promise.all([requireBusiness("/ads"), searchParams]);
+const FILTER_VALUES = FILTERS.map((f) => f.value);
+
+/** The filters an ad shows under: all, and the one for its status as it stands now. */
+function filtersOf(ad: Ad): string[] {
+  const status = adDisplayStatus(ad);
+  return FILTERS.filter((f) => !f.statuses || (f.statuses as readonly string[]).includes(status)).map((f) => f.value);
+}
+
+/**
+ * The Ads Manager's list: every ad with its status as it stands now and its numbers so far. The whole list is on the
+ * page; the status filter (?status=) picks from it in the browser, so switching costs no request.
+ */
+export default async function AdsPage() {
+  const { membership } = await requireBusiness("/ads");
   const business = membership.business;
   const supabase = await createClient();
   const [ads, stats] = await Promise.all([listAds(supabase, business.id), getAdStats(supabase, business.id).catch(() => [])]);
   const byId = new Map(stats.map((s) => [s.ad_id, s]));
-  const filter = FILTERS.find((f) => f.value === firstParam(params.status)) ?? FILTERS[0];
-  const shown = filter.statuses ? ads.filter((a) => (filter.statuses as readonly string[]).includes(adDisplayStatus(a))) : ads;
+  const rows = ads.map((ad) => ({ key: ad.id, filters: filtersOf(ad), node: <AdRow ad={ad} stats={byId.get(ad.id) ?? null} /> }));
   const canPublish = teamRoleAllows(membership.role, "publish");
   const newAd = canPublish ? (
     <BizLink href="/ads/new" data-testid="new-ad">
@@ -50,31 +61,14 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
         />
       ) : (
         <>
-          <nav aria-label="Filter ads" className="-mb-2 flex gap-1 overflow-x-auto no-scrollbar">
-            {FILTERS.map((f) => {
-              const count = f.statuses ? ads.filter((a) => (f.statuses as readonly string[]).includes(adDisplayStatus(a))).length : ads.length;
-              const active = f.value === filter.value;
-              return (
-                <PortalLink
-                  key={f.value}
-                  href={f.value === "all" ? "/ads" : `/ads?status=${f.value}`}
-                  aria-current={active ? "page" : undefined}
-                  className={cn("inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-4 text-[13px] font-medium transition-colors", active ? "bg-biz-ink text-biz-surface" : "bg-biz-surface text-biz-ink-2 ring-1 ring-biz-line hover:text-biz-ink")}
-                >
-                  {f.label} <span className={cn("tabular-nums", active ? "opacity-70" : "text-biz-ink-4")}>{count}</span>
-                </PortalLink>
-              );
-            })}
-          </nav>
-          {shown.length === 0 ? (
-            <p className="py-10 text-center text-[15px] text-biz-ink-3">Nothing here.</p>
-          ) : (
-            <Panel className="divide-y divide-biz-line overflow-hidden">
-              {shown.map((ad) => (
-                <AdRow key={ad.id} ad={ad} stats={byId.get(ad.id) ?? null} />
-              ))}
-            </Panel>
-          )}
+          <FilterTabs
+            label="Filter ads"
+            param="status"
+            path="/ads"
+            fallback="all"
+            options={FILTERS.map((f) => ({ value: f.value, label: f.label, count: rows.filter((r) => r.filters.includes(f.value)).length }))}
+          />
+          <FilteredList param="status" values={FILTER_VALUES} fallback="all" rows={rows} emptyText="Nothing here." className="divide-y divide-biz-line overflow-hidden" />
         </>
       )}
     </div>
@@ -88,7 +82,7 @@ function AdRow({ ad, stats }: { ad: Ad; stats: { impressions: number; reach: num
       <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-biz-surface-3">
         {thumb ? (
           // eslint-disable-next-line @next/next/no-img-element -- the business's own upload or the provider's poster
-          <img src={thumb} alt="" className="h-full w-full object-cover" />
+          <img src={thumb} alt="" width={56} height={56} loading="lazy" decoding="async" className="h-full w-full object-cover" />
         ) : (
           <Megaphone className="absolute inset-0 m-auto h-5 w-5 text-biz-ink-4" />
         )}

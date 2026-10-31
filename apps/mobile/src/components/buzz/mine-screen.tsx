@@ -11,10 +11,10 @@ import { BuzzCardById, BuzzCardSkeleton, CARD_GAP, MyReplyCard } from "./card";
 import { BuzzComposer } from "./composer";
 import { GatedBuzzScreen } from "./gated";
 import { BuzzActionsHost } from "./item-menu";
-import { BuzzMediaActive } from "./media";
 import { BuzzToastHost } from "./toast";
 import { EmptyState, ErrorState, GUTTER, MaskGlyph, P, PageHeader, T } from "./ui";
 import { useBuzzList, type BuzzListPage } from "./use-buzz-list";
+import { BuzzViewerList } from "./media";
 
 /*
  * My buzzes (UniVerse's MinePage): the private list of your own threads and replies, served only to you, with the
@@ -99,7 +99,7 @@ function Mine({ onBack }: { onBack: () => void }) {
   );
 
   return (
-    <BuzzMediaActive.Provider value={focused}>
+    <BuzzViewerList.Provider value={list.viewerPages}>
       <BuzzActionsHost>
         <View style={styles.screen}>
           <StatusBar style="light" />
@@ -177,7 +177,7 @@ function Mine({ onBack }: { onBack: () => void }) {
         </View>
         <BuzzComposer visible={composerOpen} onClose={() => setComposerOpen(false)} />
       </BuzzActionsHost>
-    </BuzzMediaActive.Provider>
+    </BuzzViewerList.Provider>
   );
 }
 

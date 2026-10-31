@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentProps } from "react";
@@ -32,4 +32,24 @@ export function usePortalPathname(): string {
 export function PortalLink({ href, ...props }: Omit<ComponentProps<typeof Link>, "href"> & { href: string }) {
   const base = usePortalBase();
   return <Link href={joinPortal(base, href)} {...props} />;
+}
+
+/**
+ * Prefetch a page in full, its data included, the moment someone shows they are about to open it: the pointer over
+ * the link, keyboard focus, or a finger on it. A link merely in view prefetches only up to the page's loading state
+ * (Next's default for pages that read the database), so the server renders nothing for pages nobody opens; once the
+ * intent is shown the whole page is fetched, and the click lands on it with no loading state at all. Spread the result
+ * onto a PortalLink. Next keeps the prefetched page for staleTimes.static (next.config.ts) and fetches it again on the
+ * next intent after that; a server action that changes anything clears it at once.
+ */
+export function useIntentPrefetch(): { prefetch: true | null; onPointerEnter: () => void; onFocus: () => void; onTouchStart: () => void } {
+  const [intent, setIntent] = useState(false);
+  const show = () => setIntent(true);
+  return { prefetch: intent ? true : null, onPointerEnter: show, onFocus: show, onTouchStart: show };
+}
+
+/** A PortalLink that prefetches its page in full on intent (the sidebar, a section's tabs, a period switch). */
+export function IntentLink(props: ComponentProps<typeof PortalLink>) {
+  const intent = useIntentPrefetch();
+  return <PortalLink {...intent} {...props} />;
 }

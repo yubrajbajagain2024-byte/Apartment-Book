@@ -8,6 +8,7 @@
 // It reads the accounts from supabase/tests/staging/.rehearsal.json and changes nothing (it only opens pages).
 import fs from "node:fs";
 import { chromium } from "playwright";
+import { totp } from "../../../supabase/tests/staging/mfa.mjs";
 
 const BASE = process.env.BASE || "http://localhost:3060";
 const PRODUCTION = "dskbzoqreandwwpxiplh";
@@ -15,11 +16,14 @@ const label = process.argv[2] ?? "";
 const state = JSON.parse(fs.readFileSync(new URL("../../../supabase/tests/staging/.rehearsal.json", import.meta.url), "utf8"));
 const A = state.accounts, I = state.ids;
 const ROLES = [
-  { who: "signed out", login: null, pages: ["/", "/login", "/signup", "/business/login", "/privacy", "/guidelines", `/businesses/${I.business}`] },
-  { who: "student", login: ["/login", A.ben], pages: ["/", "/?tab=buzz", "/?tab=reels", "/?tab=posts", "/apartments", `/apartments/${I.apartment}`, `/businesses/${I.business}`, "/deals", "/messages", `/messages/${I.inquiry}`, `/messages/${I.direct}`, "/notifications", "/profile/me", `/profile/${A.cam.id}`, "/saved", "/search?q=river", `/buzz/${I.thread}`, "/settings/profile"] },
+  { who: "signed out", login: null, pages: ["/", "/login", "/signup", "/business/login", "/privacy", "/guidelines", `/businesses/${I.business}`, "/events"] },
+  { who: "student", login: ["/login", A.ben], pages: ["/", "/?tab=buzz", "/?tab=reels", "/?tab=posts", "/apartments", `/apartments/${I.apartment}`, `/businesses/${I.business}`, "/deals", "/messages", `/messages/${I.inquiry}`, `/messages/${I.direct}`, "/notifications", "/profile/me", `/profile/${A.cam.id}`, "/saved", "/search?q=river", `/buzz/${I.thread}`, "/settings/profile", "/events", "/events?view=all&when=week", "/events/saved"] },
   { who: "business owner", login: ["/business/login", A.owner], pages: ["/business", "/business/deals", "/business/deals/new", `/business/deals/${I.deal}/edit`, "/business/listings", `/business/listings/${I.apartment}/edit`, "/business/ads", "/business/ads/new", "/business/inbox", `/business/inbox/${I.inquiry}`, "/business/team", "/business/analytics", "/business/profile", "/business/notifications", "/business/billing", "/business/settings", "/business/settings/verification", "/business/settings/account", "/business/preview"] },
   { who: "business staffer", login: ["/business/login", A.staff], pages: ["/business", "/business/inbox", `/business/inbox/${I.inquiry}`, "/business/deals", "/business/settings", "/business/settings/account", "/business/preview"] },
   { who: "UniBuzz team", login: ["/business/login", A.ops], pages: ["/business/admin", "/business/admin/ads", "/business/admin/reports", "/business/admin/audit"] },
+  // The website's Trust & Safety console: staff signed in with a second factor (the seed gives the admin an authenticator).
+  { who: "UniBuzz staff (website console)", login: ["/login", A.ops], pages: ["/admin", "/admin/rules", "/admin/users", "/admin/appeals", "/admin/audit", "/admin/metrics"] },
+  { who: "moderator (website console)", login: ["/login", A.mod], pages: ["/admin", "/admin/audit"] },
 ];
 
 const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
@@ -42,6 +46,19 @@ for (const role of ROLES) {
     await page.locator("button[type=submit]").first().click();
     await page.waitForURL((url) => !url.pathname.endsWith("/login"), { timeout: 45000 }).catch(() => {});
     if (new URL(page.url()).pathname.endsWith("/login")) { results.push({ who: role.who, path: `${path} (sign in)`, ok: false, why: "still on the login page" }); await ctx.close(); continue; }
+    // Staff with an authenticator pass the second factor on the site's two-factor page, which the staff console requires
+    // before it opens.
+    if (u.totp) {
+      await page.goto(BASE + "/two-factor");
+      const code = page.locator("input[inputmode=numeric]").first();
+      await code.waitFor({ timeout: 45000 });
+      const left = 30 - (Math.floor(Date.now() / 1000) % 30);
+      if (left < 5) await page.waitForTimeout(left * 1000 + 300);
+      await code.fill(totp(u.totp));
+      await page.getByRole("button", { name: "Confirm" }).click();
+      await page.waitForURL((url) => !url.pathname.startsWith("/two-factor"), { timeout: 45000 }).catch(() => {});
+      if (new URL(page.url()).pathname.startsWith("/two-factor")) { results.push({ who: role.who, path: "/two-factor (second factor)", ok: false, why: "still on the two-factor page" }); await ctx.close(); continue; }
+    }
   }
   for (const path of role.pages) {
     errors = [];

@@ -1,5 +1,5 @@
 /**
- * The answers of migration 59's console functions (Analytics and Business), as the database writes them: camelCase
+ * The answers of migration 62's console functions (Analytics and Business), as the database writes them: camelCase
  * keys, epoch-ms times, money in cents. They live here rather than in the hand-written Database types, because these
  * functions return JSON.
  */

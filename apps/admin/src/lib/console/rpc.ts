@@ -1,7 +1,7 @@
 import type { Client } from "@apartment-book/shared";
 
 /**
- * Calling the Analytics and Business functions (migration 59's console_* functions) from CampConnect Admin. They raise
+ * Calling the Analytics and Business functions (migration 62's console_* functions) from CampConnect Admin. They raise
  * 'ts:<code>:<message>' (the codes of migration 41: not_found, forbidden, validation_failed, conflict, mfa_required…);
  * Business v2's own functions, which the Business section reuses, raise plain messages.
  */

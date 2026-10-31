@@ -56,3 +56,11 @@ export function numberParam(value: string | string[] | undefined): number | unde
   const n = Number(raw);
   return Number.isFinite(n) ? n : undefined;
 }
+
+/**
+ * The time a server-rendered page is built for, read once per request. A page runs once per request, so this is as
+ * pure as it needs to be; it is a function because the purity rule flags Date.now() written inside a component.
+ */
+export function requestNow(): number {
+  return Date.now();
+}

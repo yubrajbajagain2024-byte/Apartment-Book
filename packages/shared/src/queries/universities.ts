@@ -6,6 +6,17 @@ export async function listUniversities(supabase: Client): Promise<University[]> 
   return data;
 }
 
+/**
+ * A campus's time zone (migration 61), for showing its events on its own clock; null when the campus is unknown or the
+ * database predates the column (callers then use the device's zone).
+ */
+export async function getUniversityTimeZone(supabase: Client, universityId: string | null | undefined): Promise<string | null> {
+  if (!universityId) return null;
+  const { data, error } = await supabase.from("universities").select("timezone").eq("id", universityId).maybeSingle();
+  if (error || !data) return null;
+  return (data as { timezone?: string | null }).timezone ?? null;
+}
+
 export async function createUniversity(
   supabase: Client,
   input: { name: string; city?: string; country?: string },

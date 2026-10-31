@@ -13,10 +13,10 @@ import { supabase } from "@/lib/supabase";
 import { BuzzCardById, BuzzCardSkeleton, CARD_GAP } from "./card";
 import { GatedBuzzScreen } from "./gated";
 import { BuzzActionsHost } from "./item-menu";
-import { BuzzMediaActive } from "./media";
 import { BuzzToastHost } from "./toast";
 import { Chip, EmptyState, ErrorState, GUTTER, P, PageHeader, PIconButton, R, Segmented, T } from "./ui";
 import { useBuzzList, type BuzzListPage } from "./use-buzz-list";
+import { BuzzViewerList } from "./media";
 
 /*
  * Search Buzz (UniVerse's SearchPage): find buzzes by a word or two in the title or the words, in Campus or Global,
@@ -123,7 +123,7 @@ function Search({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <BuzzMediaActive.Provider value={focused}>
+    <BuzzViewerList.Provider value={list.viewerPages}>
       <BuzzActionsHost>
         <View style={styles.screen}>
           <StatusBar style="light" />
@@ -193,7 +193,7 @@ function Search({ onBack }: { onBack: () => void }) {
           <BuzzToastHost bottom={insets.bottom + 24} enabled={focused} />
         </View>
       </BuzzActionsHost>
-    </BuzzMediaActive.Provider>
+    </BuzzViewerList.Provider>
   );
 }
 

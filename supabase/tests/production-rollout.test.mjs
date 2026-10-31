@@ -1,8 +1,8 @@
-// The production rollout, rehearsed offline: a database in production's state as of 2026-10-28 (production's migration
-// order, the migrations applied outside this repo, 47 applied on 2026-10-27 although 44 and 46 were not), with v1
-// business data in it; then what `npm run db:setup` would apply (44, 46, 49, 50, Buzz's 51 to 54, 55, 56, 57 and the
-// console's 59: 44 and 46 after 47, as production will), with checks after.
-// Then the release's own rollback, the business migrations only (59, 57, 56, 55, 50, 49; 59's functions read 50's tables,
+// The production rollout, rehearsed offline: a database in production's state as of 2026-10-30 (production's migration
+// order, the migrations applied outside this repo, 47 applied on 2026-10-27 although 44 and 46 were not, 58 applied on
+// its own on 2026-10-30, and 59 after it, alone too), with v1 business data in it; then what `npm run db:setup` would apply (44, 46, 49, 50, Buzz's
+// 51 to 54, 55, 56, 57 and the console's 62: 44 and 46 after 47 and 58, as production will), with checks after.
+// Then the release's own rollback, the business migrations only (62, 57, 56, 55, 50, 49; 62's functions read 50's tables,
 // so it goes first): every Buzz object and Buzz row stays
 // exactly as it was, Buzz still works, and the schema matches a database that never had the business migrations. Then
 // the business migrations again; then every rollback in reverse order; then all of them again. The staging rehearsal
@@ -11,6 +11,9 @@ import { boot, read, expectOk, done } from "./harness.mjs";
 import { BUZZ_GUIDELINES_VERSION, BUZZ_CATEGORIES } from "../../packages/shared/src/buzz/constants.ts";
 import { catalog, diffCatalogs, isBuzz, BUZZ_DATA_SQL, DATA_HELPER_SQL, DROP_DATA_HELPER_SQL } from "./catalog.mjs";
 
+// 61 (Events) goes to production on its own, ahead of this release, like 58 to 60 did (events-rollout.test.mjs): it is
+// left out here so the database starts in production's state as it is.
+const AHEAD = ["20261113000000_events.sql"];
 const PENDING = [
   "20261103000300_discover.sql",
   "20261104000100_discover_audience.sql",
@@ -23,12 +26,12 @@ const PENDING = [
   "20261109000000_media_server_fields.sql",
   "20261109000100_business_hardening.sql",
   "20261110000000_business_hours.sql",
-  "20261112000000_console_business.sql",
+  "20261114000000_console_business.sql",
 ];
-// The release's rollback: the business migrations (57 and the console's 59 included), newest first. Buzz's 51 to 54 stay.
-const BUSINESS = ["20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql", "20261110000000_business_hours.sql", "20261112000000_console_business.sql"];
+// The release's rollback: the business migrations (57 and the console's 62 included), newest first. Buzz's 51 to 54 stay.
+const BUSINESS = ["20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql", "20261110000000_business_hours.sql", "20261114000000_console_business.sql"];
 const BUSINESS_ROLLBACKS = [...BUSINESS].reverse().map((f) => `rollbacks/${f.replace(/\.sql$/, ".down.sql")}`);
-const { db, mk, as, asService } = await boot({ live: true, skip: PENDING });
+const { db, mk, as, asService } = await boot({ live: true, skip: [...PENDING, ...AHEAD] });
 const one = async (p) => (await p).rows[0];
 const signUp = async (email, meta) => (await db.query("insert into auth.users (email, raw_user_meta_data) values ($1, $2) returning id", [email, JSON.stringify(meta)])).rows[0].id;
 const confirm = (id) => db.query("update auth.users set email_confirmed_at = now() where id = $1", [id]);
@@ -55,10 +58,11 @@ await as(ben, () => db.query("insert into public.feed_posts (author_id, kind, bo
 const sponsored = async () => (await one(db.query("select public.listing_sponsored(a) as ok from public.apartments a where id = $1", [apt]))).ok;
 const staffRole = async () => (await one(db.query("select role from public.business_members where user_id = $1", [staff]))).role;
 
-await expectOk("before: production's state (47 applied, 44 and 46 not), v1 rules in force (staff on the team, the listing Sponsored)", async () => {
+await expectOk("before: production's state (47 and 58 applied, 44 and 46 not), v1 rules in force (staff on the team, the listing Sponsored)", async () => {
   if ((await staffRole()) !== "staff" || !(await sponsored())) throw new Error("v1 data not as expected");
   if (await has("select to_regclass('public.ads') is not null as ok")) throw new Error("ads already there");
   if (!(await has("select exists (select 1 from information_schema.columns where table_name = 'roommate_posts' and column_name = 'is_anonymous') as ok"))) throw new Error("47 is not applied");
+  if (!(await has("select to_regclass('public.stories') is not null as ok"))) throw new Error("58 is not applied");
 });
 
 async function applyAll(round, files = PENDING) {
@@ -134,7 +138,7 @@ await expectOk("after the release rollback: v1 business rules again (staff, the 
   if (!refused) throw new Error("a business opened a chat");
 });
 await expectOk("after the release rollback: the schema is exactly that of a database that never had 49, 50, 55 or 56 (44, 46, 47 and 51 to 54 only)", async () => {
-  const reference = await boot({ live: true, skip: BUSINESS });
+  const reference = await boot({ live: true, skip: [...BUSINESS, ...AHEAD] });
   const changed = diffCatalogs(await catalog(async (q) => (await reference.db.query(q)).rows), await catalog(async (q) => (await db.query(q)).rows));
   await reference.db.close();
   if (changed.length) throw new Error(changed.join("; "));
@@ -160,4 +164,4 @@ await expectOk("after every rollback: v1 again (staff, the listing Sponsored thr
 
 await applyAll("second rollout");
 
-done("PRODUCTION ROLLOUT (44, 46, 49 TO 57 AND 59 AFTER 47)");
+done("PRODUCTION ROLLOUT (44, 46, 49 TO 57 AND 62 AFTER 47 AND 58 TO 60)");

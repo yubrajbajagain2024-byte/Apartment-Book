@@ -39,7 +39,7 @@ export async function consoleFetch<T>(fn: string, args: Record<string, unknown> 
   }
 }
 
-/** A console function's answer, or null where the database does not have it yet (migration 59 not applied). */
+/** A console function's answer, or null where the database does not have it yet (migration 62 not applied). */
 export async function maybeDeployed<T>(work: Promise<T>): Promise<T | null> {
   try {
     return await work;

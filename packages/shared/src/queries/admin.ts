@@ -159,7 +159,7 @@ const AUDIT_ACTION_LABELS = new Map<string, string>([
   ["invite.expired", "Expired invitation not accepted"],
   ["security.mfa_enrolled", "Two-factor authentication turned on"],
   ["security.mfa_removed", "Two-factor authentication turned off"],
-  // Business (migration 59): the team's own records; the business's actions are in the Business section's audit log.
+  // Business (migration 62): the team's own records; the business's actions are in the Business section's audit log.
   ["business.note", "Note added to a business"],
   ["ad_rate.set", "Rate card changed"],
   ["ad.payment_recorded", "Further ad payment recorded"],

@@ -4,7 +4,7 @@ import { Stack, useNavigation, useRouter } from "expo-router";
 import { Image } from "expo-image";
 import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { DEFAULT_POST_AUDIENCE, POST_TITLE_MAX, captionParts, createFeedPost, createReel, feedPostSchema, postDetailsAvailable, reelSchema, sharedPostFromFeedPost, startingAudience, verifiedCampus, type FeedPostWithAuthor, type ListingVideo, type PhotoMeta } from "@apartment-book/shared";
+import { DEFAULT_POST_AUDIENCE, POST_TITLE_MAX, captionParts, createFeedPost, createReel, createStory, isMissingRelation, feedPostSchema, postDetailsAvailable, reelSchema, sharedPostFromFeedPost, startingAudience, verifiedCampus, type FeedPostWithAuthor, type ListingVideo, type PhotoMeta } from "@apartment-book/shared";
 import { CaptionSuggestions, tokenAt, type CaptionToken } from "@/components/compose/caption-suggestions";
 import { CoverPicker } from "@/components/compose/cover-picker";
 import { DraftsButton } from "@/components/compose/drafts-button";
@@ -18,11 +18,12 @@ import { useShareSheet } from "@/components/share-sheet";
 import { Button } from "@/components/ui";
 import { useReduceMotion } from "@/lib/accessibility";
 import { deleteDraft, saveDraft } from "@/lib/compose-drafts";
-import { clock, dropUploads, ensureUpload, saveToDevice, useUploads, withCover } from "@/lib/compose-media";
+import { clock, dropUploads, ensureStoryUpload, ensureUpload, saveToDevice, useUploads, withCover } from "@/lib/compose-media";
 import { useCloseCompose } from "@/lib/compose-nav";
-import { compose, roomFor, useCompose, type ComposeMedia } from "@/lib/compose-store";
+import { compose, roomFor, useCompose, type ComposeMedia, isListing } from "@/lib/compose-store";
 import { alertWithHaptic, hapticSuccess } from "@/lib/haptics";
 import { openHomeSection } from "@/lib/home-section";
+import { markStoriesStale } from "@/lib/stories-store";
 import { linkLabel } from "@/lib/post-details";
 import { markForYouStale, markPostsStale } from "@/lib/posts-events";
 import { useSession } from "@/lib/session";
@@ -59,7 +60,7 @@ export default function PublishScreen() {
   const [detailsOk, setDetailsOk] = useState<boolean | null>(null);
   const [cursor, setCursor] = useState(0);
   const [captionFocused, setCaptionFocused] = useState(false);
-  const [busy, setBusy] = useState<"post" | "draft" | null>(null);
+  const [busy, setBusy] = useState<"post" | "story" | "draft" | null>(null);
   const caption = useRef<TextInputInstance>(null);
   const noun = s.mode === "reel" ? "reel" : "post";
   const max = s.mode === "reel" ? CAPTION_MAX.reel : CAPTION_MAX.post;
@@ -154,6 +155,42 @@ export default function PublishScreen() {
       closeCompose();
     } catch (e) {
       alertWithHaptic("error", "Couldn't save the draft", e instanceof Error ? e.message : "Please try again.");
+      setBusy(null);
+    }
+  }
+
+  /**
+   * To your story instead of the feed: each photo and video becomes a story with the audience chosen above, for 24 hours
+   * (migration 58), a photo moved to your stories folder first (ensureStoryUpload, migration 59). Posts and reels keep
+   * their own path: nothing here changes them.
+   */
+  async function postStory() {
+    if (!user || busy) return;
+    const now = compose.get();
+    if (isListing(now.mode)) return;
+    const chosen = now.audience ?? startingAudience(campusId);
+    setBusy("story");
+    try {
+      const done = await Promise.all(now.media.map((m) => ensureStoryUpload(m, user.id)));
+      const viewerIds = chosen === "selected" ? now.viewers.map((v) => v.id) : [];
+      const universityId = chosen === "campus" ? campusId : undefined;
+      for (let i = 0; i < done.length; i++) {
+        const d = done[i]!;
+        await createStory(supabase, user.id, d.kind === "photo" ? { photo: d.photo, audience: chosen, viewerIds, universityId } : { video: withCover(d.video, now.media[i]!.coverTime), audience: chosen, viewerIds, universityId });
+      }
+      hapticSuccess();
+      markStoriesStale();
+      if (now.saveToDevice) void saveToDevice(now.media);
+      if (now.draftId) void deleteDraft(user.id, now.draftId);
+      dropUploads();
+      compose.start(now.mode);
+      closeCompose();
+      // Home, on Orbit, where the new story is first in the tray.
+      openHomeSection("foryou");
+      router.navigate("/(tabs)");
+    } catch (e) {
+      if (isMissingRelation(e)) Alert.alert("Not available yet", "Stories arrive with the next update of the server. Your photos and videos can still go out as a post.");
+      else alertWithHaptic("error", "Couldn't share your story", e instanceof Error ? e.message : "Please try again.");
       setBusy(null);
     }
   }
@@ -331,6 +368,9 @@ export default function PublishScreen() {
 
       <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <DraftsButton busy={busy === "draft"} disabled={busy !== null} onPress={() => void saveAsDraft()} />
+        {isListing(s.mode) ? null : (
+          <Button title={busy === "story" ? "Sharing…" : "Your story"} variant="secondary" icon={busy === "story" ? undefined : "radio-button-on-outline"} size="large" loading={false} disabled={busy !== null || s.media.length === 0} onPress={() => void postStory()} accessibilityHint="Shares it to your story for 24 hours, to the audience chosen above" />
+        )}
         <View style={{ flex: 1 }}>
           <Button title={postLabel} icon={busy === "post" ? undefined : "arrow-up-circle"} size="large" loading={false} disabled={busy !== null || s.media.length === 0} onPress={() => void post()} accessibilityHint={failed ? "An upload failed; posting tries it again" : undefined} />
         </View>

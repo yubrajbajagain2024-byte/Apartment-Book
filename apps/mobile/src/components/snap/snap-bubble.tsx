@@ -1,12 +1,14 @@
+import { useEffect } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
+import Reanimated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
 import { GlassView } from "expo-glass-effect";
 import { requireOptionalNativeModule } from "expo";
 import { formatMessageTime, snapActivityLabel, snapLatestActivity, snapState, snapStatusText, snapWasDeleted, type MessageSnap } from "@apartment-book/shared";
 import { GlassBackdrop, LIQUID_GLASS } from "@/components/glass";
 import { Icon, type IconName } from "@/components/icon";
-import { useReduceTransparency } from "@/lib/accessibility";
+import { useReduceMotion, useReduceTransparency } from "@/lib/accessibility";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -26,18 +28,54 @@ const MARK = 58;
 /** A Snap that is over takes this much of a waiting one's width, its shape kept. */
 const QUIET_SCALE = 0.7;
 /**
- * How much the tiny preview is softened under the glass: enough to smooth its 32 pixels into soft colour and shape. The
- * preview is so small that no detail survives being drawn at this size, blur or not; the glass does the frosting.
+ * How much the tiny preview is softened under the glass: just enough to melt its 32 pixels into soft colour and shape,
+ * so what shows through reads as light, colour and the outline of something, never as a picture. The preview is so
+ * small that no detail survives being drawn at this size, blur or not; the glass does the frosting.
  */
-const SOFT_BLUR = 3;
-/** With Reduce Transparency there is no glass pane, so the preview itself is blurred as far as before. */
-const HEAVY_BLUR = 30;
+const SOFT_BLUR = 2;
+/** Where no glass pane is drawn (Android, Reduce Transparency), the preview itself carries the frost. */
+const HEAVY_BLUR = 18;
+/** The thin system blur that stands in for Liquid Glass before iOS 26: light, so the colours come through it. */
+const PANE_BLUR = 12;
+/**
+ * An unopened Snap's preview drifts under the glass, slowly and endlessly, as if something were moving behind it: a
+ * little larger and a few points over, then back, DRIFT_MS each way. Opened Snaps are still.
+ */
+const DRIFT_MS = 7000;
+const DRIFT_SCALE = 0.07;
+const DRIFT_X = 6;
+const DRIFT_Y = 4;
+
+/** The preview, drifting while `moving` (and not with Reduce Motion), on the UI thread. */
+function DriftingPreview({ uri, blur, moving }: { uri: string; blur: number; moving: boolean }) {
+  const styles = useStyles();
+  const reduceMotion = useReduceMotion();
+  const t = useSharedValue(0);
+  const drift = moving && !reduceMotion;
+  useEffect(() => {
+    if (!drift) {
+      cancelAnimation(t);
+      t.value = withTiming(0, { duration: 300 });
+      return;
+    }
+    t.value = withRepeat(withTiming(1, { duration: DRIFT_MS, easing: Easing.inOut(Easing.sin) }), -1, true);
+    return () => cancelAnimation(t);
+  }, [drift, t]);
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: DRIFT_X * (2 * t.value - 1) }, { translateY: -DRIFT_Y * (2 * t.value - 1) }, { scale: 1 + DRIFT_SCALE * t.value }],
+  }));
+  return (
+    <Reanimated.View pointerEvents="none" style={[styles.preview, style]}>
+      <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={blur} transition={0} accessibilityIgnoresInvertColors />
+    </Reanimated.View>
+  );
+}
 
 /**
  * A Snap in a chat: the same large bubble as a sent photo, at the Snap's own shape, never the Snap itself. Its preview
- * (the 32-pixel JPEG made on the phone when it was taken, from the photo or the video's first frame) sits under a
- * semi-transparent pane of frosted glass, Liquid Glass on iOS 26 and a thin system blur elsewhere, so its colours and
- * shapes show softly through and nothing can be made out. While it waits, "Tap to view" (its recipient: one tap opens it
+ * (the 32-pixel JPEG made on the phone when it was taken, from the photo or the video's first frame) sits under a light
+ * pane of frosted glass, Liquid Glass on iOS 26 and a thin system blur elsewhere, so its colours and vague shapes show
+ * through, drifting slowly while it waits to be opened, and nothing can be made out. While it waits, "Tap to view" (its recipient: one tap opens it
  * full screen, once) or "Delivered" (its sender) sits on a glass mark in the middle; once opened it keeps the same
  * frosted preview at seven tenths of the size, with "Opened". Expired, deleted or gone, the preview is off the message,
  * so a plain dark surface carries the status (as for a Snap sent from an app too old to make a preview). Under the
@@ -99,10 +137,10 @@ export function SnapBubble({
       >
         {snap.preview ? (
           <>
-            {/* The tiny picture, softened: its colours and shapes, nothing to make out. */}
-            <Image source={{ uri: snap.preview }} style={styles.preview} contentFit="cover" blurRadius={pane === "none" ? HEAVY_BLUR : SOFT_BLUR} transition={0} accessibilityIgnoresInvertColors />
+            {/* The tiny picture, softened: its colours and shapes, nothing to make out; drifting while it waits. */}
+            <DriftingPreview uri={snap.preview} blur={pane === "none" ? HEAVY_BLUR : SOFT_BLUR} moving={fresh} />
             {pane === "glass" ? <GlassView pointerEvents="none" style={StyleSheet.absoluteFill} glassEffectStyle="clear" colorScheme="dark" /> : null}
-            {pane === "blur" ? <BlurView pointerEvents="none" intensity={22} tint="systemUltraThinMaterialDark" style={StyleSheet.absoluteFill} /> : null}
+            {pane === "blur" ? <BlurView pointerEvents="none" intensity={PANE_BLUR} tint="systemUltraThinMaterialDark" style={StyleSheet.absoluteFill} /> : null}
             {/* Light catching the top of the pane, and the faintest veil so the white words keep their contrast. */}
             <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.sheen]} />
           </>
@@ -149,9 +187,11 @@ const useStyles = makeStyles((colors) => ({
   columnMine: { alignItems: "flex-end" },
   columnTheirs: { alignItems: "flex-start" },
   bubble: { borderRadius: RADIUS, borderCurve: "continuous", overflow: "hidden", backgroundColor: colors.mediaBg },
-  // A little larger than the bubble, so the softened edge falls outside it.
-  preview: { position: "absolute", top: -8, left: -8, right: -8, bottom: -8 },
-  sheen: { experimental_backgroundImage: "linear-gradient(to bottom, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.03) 32%, rgba(0,0,0,0.06) 60%, rgba(0,0,0,0.16) 100%)" },
+  // A little larger than the bubble, so the softened edge (and the drift) falls outside it.
+  preview: { position: "absolute", top: -12, left: -12, right: -12, bottom: -12 },
+  // Light catching the top of the pane and a breath of shade at the bottom for the white words: light enough that the
+  // colours underneath stay alive.
+  sheen: { experimental_backgroundImage: "linear-gradient(to bottom, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.02) 32%, rgba(0,0,0,0.03) 60%, rgba(0,0,0,0.12) 100%)" },
   // The pane's rim: a hairline of light around the bubble, as on Apple's glass.
   edge: { borderRadius: RADIUS, borderCurve: "continuous", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.22)" },
   // No preview to show: a neutral dark surface, the same in both themes (white words sit on it).

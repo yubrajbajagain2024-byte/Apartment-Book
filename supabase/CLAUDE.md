@@ -6,8 +6,12 @@ migration's production status is in [docs/migrations.md](../docs/migrations.md).
 ## Access rules
 
 - Closed to the API entirely, read only through `security definer` functions: `user_activity`, the
-  `buzz_*` tables, `snaps`, `staff*`, `account_restrictions`, `media_jobs`.
-  `anonymous_listing_owners` is readable by the poster alone. Buzz anonymity depends on only the
+  `buzz_*` tables, `snaps`, `staff*`, `account_restrictions`, `media_jobs`, `event_feeds` (staff
+  read and write them through `events_console_*`; the website's sync uses the service role).
+  `event_engagement` is written by `record_event_click()` alone and read by its own student.
+  `anonymous_listing_owners` is readable by the poster alone. In the `uploads` bucket (public: an
+  address serves to anyone who has it), a file is read and listed through the API by its uploader
+  only (migration 60); a post's and a story's photos must be their author's own uploads. Buzz anonymity depends on only the
   `buzz_v2_*` functions deciding what leaves the database.
 - **Since migration 22, `profiles` and `notifications` are granted column by column.** A migration
   that adds a column to either must also
@@ -44,12 +48,17 @@ Supabase's `auth` and `storage` schemas.
 - `mk(email, name)` makes a confirmed user; `as(uid, fn, { aal: "aal2" })` runs as a user after
   two-factor sign-in (it adds a verified factor); `asAnon`, `asService`; `expectOk`, `expectError`,
   `done`.
+- `as()` sets the role on the one connection: never run two of them at once (`Promise.all`), or each
+  sees the other's user. Loop instead.
 - `reopen()`: the same database on a new connection. A custom setting (`app.…`) that a migration or
   a function set stays defined, as `''`, in the session that set it, but reads as null on the API's
   fresh connections: test code that depends on one there.
 - `tests/staging/` needs a real Supabase project, the staging one (`STAGING_SUPABASE_REF`; the scripts
-  refuse production): `business-portal.mjs`, and `release-rehearsal.mjs`, which rehearses a release
-  step by step (see its header).
+  refuse production): `business-portal.mjs`; `stories.mjs`, Stories through Auth, the REST API and
+  Storage; `events.mjs`, Events through the same (it applies 61 on staging when missing); and
+  `release-rehearsal.mjs`, which rehearses a release step by step (see its header) and expects every
+  migration that went live ahead of the release (58 to 61) to be applied on staging first.
+  Staging's `media_jobs` grows on its own: leave it out of row-count comparisons.
 
 ## Production
 
@@ -65,18 +74,33 @@ Supabase's `auth` and `storage` schemas.
     URL to `SITE_URL`, which defaults to `http://localhost:3000`**, breaking production's sign-in
     emails. Only for a fresh or local project, or with the real `SITE_URL` (and
     `BUSINESS_SITE_URL`) plus `SKIP_ENV=1`.
+  - `DRY_RUN=1` lists what it would apply and changes nothing: run it first. Each migration runs in
+    its own transaction with its `_migrations` row. A pending file older than a row already applied
+    (out of order) is refused unless `ALLOW_OUT_OF_ORDER=1`: production's Business v2 release needs
+    that flag, since 44 and 46 are older than 47 and 58 to 60, which went live before them.
+- Staging is one project shared by everyone's sessions: read `public._migrations` and the row
+  counts before a rehearsal, expect another session's migrations and rows to appear while yours
+  runs, and remove only the rows your own run made.
+- A migration that needs only what production already has may go live ahead of a pending release,
+  alone (58 to 60 did, 2026-10-30; 61 is written to): rehearse it offline on production's state
+  (`boot({ live: true, skip })`, as `tests/stories-rollout.test.mjs` and `tests/events-rollout.test.mjs`
+  do) and on staging, apply it as below, then take it out of the release lists (`PENDING` in
+  `tests/production-rollout.test.mjs`, `RELEASE` in `tests/staging/release-rehearsal.mjs`) and out of
+  the `AHEAD` skips in the rollout suites.
 - To apply one migration alone, run the file in one transaction together with
   `insert into public._migrations (name) values ('<file name>')`, then
   `notify pgrst, 'reload schema'` when it adds functions. To roll one back, the same with its
   `rollbacks/` file and `delete from public._migrations where name = '<file name>'`, newest first
   (the SQL editor runs a pasted script as one transaction).
-- Before a production migration, have a backup you can restore: Supabase's daily backup (Pro plan;
-  production was on the Free plan, with none, on 2026-10-28) or a dump with the Supabase CLI
-  (`supabase db dump --db-url … -f roles.sql --role-only`, then `-f schema.sql`, then
-  `-f data.sql --use-copy --data-only`; it needs Docker). Also take the JSON snapshot for row counts
-  (`~/CampConnect-backups/<date>-before-migration-<n>/` on the owner's Mac):
-  `SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=… node scripts/backup.mjs before-migration-<n>`.
-  The JSON alone is not a restore path.
+- Before a production migration, take a backup that restores:
+  `SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=… node scripts/backup.mjs before-migration-<n> --full`
+  (`~/CampConnect-backups/<date>-before-migration-<n>/` on the owner's Mac, 0600: rows, accounts with
+  their password hashes, every file; never committed). It restores with
+  `SUPABASE_PROJECT_REF=<ref> node scripts/restore.mjs <folder> --yes` into a project that has the
+  same migrations (it refuses production unless `RESTORE_INTO_PRODUCTION=1`); the pair is rehearsed by
+  `tests/staging/restore-rehearsal.mjs`. Without `--full` the folder is a row-count snapshot only. A
+  daily full backup runs from the owner's Mac (`scripts/backup-daily.sh`, launchd). Supabase's own
+  backups (Pro plan) are better when the plan allows; a CLI dump needs Docker, which the Mac lacks.
   After it, check the objects it created and record it in docs/migrations.md with a docs-only PR.
 - `applied-outside-repo/` holds the four migrations production received from `step-admin` on
   2026-10-25. **Read its README before touching the live database.**

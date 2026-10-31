@@ -20,11 +20,13 @@ import { useEngagement, usePostPreviews } from "@/lib/use-engagement";
 import { CaughtUp } from "./caught-up";
 import { useCreateMenu } from "./create-menu";
 import { InstaPost } from "./insta-post";
+import { StoriesTray } from "./stories-tray";
 import { SponsoredCard } from "@/components/ads/sponsored-card";
 import { isAdRow, useAdImpressions, useFeedAds, type AdRow } from "@/lib/use-feed-ads";
 import { markReelsStale } from "./reels-section";
 import { useTabReselect } from "@/lib/tab-reselect";
 import { refreshWithHaptic } from "@/lib/haptics";
+import { refreshStories } from "@/lib/stories-store";
 
 /** The list's key: posts and reels share one table, so the id alone tells rows apart. */
 const keyOf = (post: ForYouItem) => post.id;
@@ -154,7 +156,9 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
   const refresh = useCallback(() => {
     setRefreshing(true);
     void load("replace");
-  }, [load]);
+    // The story tray above the list reloads with it.
+    if (userId) void refreshStories(userId);
+  }, [load, userId]);
 
   const fetchMore = useCallback(() => {
     if (loading || refreshing || loadingMore || !hasMore || items.length === 0) return;
@@ -288,11 +292,15 @@ export function ForYouSection({ active, topInset, onScroll }: { active: boolean;
         // Room under the last post for the floating bottom bar.
         contentContainerStyle={{ paddingBottom: 96 + tabBar, paddingTop: inset.paddingTop }}
         ListHeaderComponent={
-          error && items.length > 0 ? (
-            <View style={styles.banner}>
-              <ErrorBanner message={error} onRetry={refresh} />
-            </View>
-          ) : undefined
+          <View>
+            {/* Stories under the tabs, as on Instagram's home: they scroll away with the feed. */}
+            <StoriesTray active={active} />
+            {error && items.length > 0 ? (
+              <View style={styles.banner}>
+                <ErrorBanner message={error} onRetry={refresh} />
+              </View>
+            ) : null}
+          </View>
         }
         CellRendererComponent={appearCells}
         {...WINDOW}

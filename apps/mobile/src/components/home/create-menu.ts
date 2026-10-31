@@ -7,7 +7,7 @@ import { useSession } from "@/lib/session";
  * SNAP, REEL and BUZZ (an anonymous thread, written right on the stage) sit beside POST along its bottom, and Upload
  * opens the library (`upload`: straight onto it). Signed out it goes to the login screen instead. Shared by Orbit's
  * floating "+" and Upload in the menu under your photo (ProfileMenuSheet); the "+" Home's top bar shows over the Reels
- * video opens the camera on REEL (the bottom bar has no "+": Discover is there).
+ * video opens the camera on REEL (the bottom bar has no "+").
  */
 export function useCreateMenu(): (opts?: unknown) => void {
   const router = useRouter();

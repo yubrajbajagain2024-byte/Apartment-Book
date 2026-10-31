@@ -1,6 +1,6 @@
 # Branches
 
-Every branch at a glance, **as of 2026-10-27**. GitHub: `yubrajbajagain2024-byte/UniBuzz`
+Every branch at a glance, **as of 2026-10-31**. GitHub: `yubrajbajagain2024-byte/UniBuzz`
 (public); default branch `main`; work lands through pull requests (PRs #1 – #47 so far). One file
 per branch holds the details, tips and counts included: `<branch name>.md`, with a slash in the
 name as a folder. The rules for these files are in the root CLAUDE.md ("Documentation: keep it
@@ -24,8 +24,22 @@ current", rules 2 and 3).
 | `business-sidebar` | Sunil | The business portal's sidebar: Overview, Advertisements, Inbox, Products & Services, Analytics, Billing, Settings (no migration) | merged (PR #56, 2026-10-29 03:34 UTC); nothing left on it | [business-sidebar.md](business-sidebar.md) |
 | `business-inbox` | Sunil | The business Inbox, directly below Overview: Instagram-style list, filters, alerts, inquiry context (no migration) | merged (PR #57, 2026-10-29 04:06 UTC; its later commit is on `business-inbox-pending`) | [business-inbox.md](business-inbox.md) |
 | `business-inbox-pending` | Sunil | The Inbox for a business awaiting review: below Overview, saying it opens on approval (no migration) | merged (PR #58, 2026-10-29 06:14 UTC) | [business-inbox-pending.md](business-inbox-pending.md) |
-| `business-hours` | Sunil | The public profile's preview from the sidebar, a Website button, and opening hours with "open now" (migration 57) | merged (PR #59, by 2026-10-29; 57 not on production) | [business-hours.md](business-hours.md) |
-| `admin-analytics-business` | Yubraj | CampConnect Admin's Analytics and Business sections (growth, active and engaged students, ad delivery, revenue; advertisers, campaigns, payments, pricing, reports; migration 59), and the admin app itself brought from `step-admin` | draft PR #60, not merged (from `main` at PR #59) | [admin-analytics-business.md](admin-analytics-business.md) |
+| `business-hours` | Sunil | The public profile's preview from the sidebar, a Website button, and opening hours with "open now" (migration 57) | merged (PR #59, 2026-10-29 07:18 UTC); 57 not on production | [business-hours.md](business-hours.md) |
+| `reel-viewer-actions` | Sunil | The app's full-screen viewer: no comment bar, the tab bar kept in view, the rail nearer the right edge (no migration) | merged (PR #61) | this table and docs/status.md (one PR) |
+| `viewer-close-transition` | Sunil | The app's viewer closes into the post it was opened from from any page, fading from a later reel (no migration) | merged (PR #62) | this table and docs/status.md (one PR) |
+| `viewer-polish` | Sunil | The app's viewer: the zoom at Instagram's measured speed, no blur under the words (no migration) | merged (PR #63) | this table and docs/status.md (one PR) |
+| `buzz-media-viewer` | Sunil | Buzz's photos and video in the app's full-screen viewer, as an anonymous page (no migration) | merged (PR #64) | this table and docs/status.md (one PR) |
+| `buzz-viewer-feed` | Sunil | The Buzz viewer goes on up and down through the Buzz list's buzzes with media (no migration) | merged (PR #65) | this table and docs/status.md (one PR) |
+| `buzz-thread-redesign` | Sunil | The Buzz thread laid out like Reddit's: actions at the right, subtle lines that fold their branch, a button to the next conversation (no migration) | merged (PR #66) | this table and docs/status.md (one PR) |
+| `snap-preview-frost` | Sunil | Snap previews in chats: a lighter frost, a slow drift while unopened (no migration) | merged (PR #67) | this table and docs/status.md (one PR) |
+| `camera-post-reel` | Sunil | One camera for POST and REEL, BUZZ | POST | REEL | SNAP, no reload on switching (no migration) | merged (PR #68) | this table and docs/status.md (one PR) |
+| `stories` | Sunil | Stories: the tray under Home's tabs, the viewer, "Your story" on the publish screen; migration 58 | merged (PR #69, 2026-10-30 17:26 UTC); 58 on production since 2026-10-30 19:30 UTC | this table and docs/status.md (one PR) |
+| `stories-live` | Sunil | Migration 58 to production on its own, ahead of the release: its offline rehearsal, its staging probe, 58 out of the release lists; the viewer waits for the picture, expired stories leave an open tray, pull to refresh reloads it; the Business v2 review of 2026-10-30; CLAUDE.md (no new migration) | merged (PR #70, 2026-10-30 21:02 UTC) | — |
+| `stories-media` | Sunil | A story's photo in its own folder, checked and deleted with the story; video stories from the author's own uploads (migration 59, live 2026-10-30 20:30 UTC); the app moves the photo there | merged (PR #71, 2026-10-30 21:03 UTC) | — |
+| `post-media-privacy` | Sunil | Every upload folder listed by its owner alone; a post's photos from, and with, the post (migration 60); the full backup and restore tools (`scripts/backup.mjs --full`, `scripts/restore.mjs`, their staging rehearsal, the daily launchd backup) | merged (PR #72, 2026-10-30) | docs/history.md |
+| `business-performance` | Sunil | The business portal made instant: local token verification, parallel and deduplicated reads, prefetch on intent, delayed skeletons, filters without a request, one live channel, a self-updating Inbox list (no migration) | merged (PR #73, 2026-10-30); browser timings await a staging run | [business-performance.md](business-performance.md) |
+| `events` | Sunil | Home, Explore, Messages, Events, Profile; the Events tab, event pages, organizations that students create and staff verify, the university's ICS and RSS feeds synced by the website, the console's Events section (migration 61: on staging since 2026-10-31, not on production) | merged (PR #74, 2026-10-31 03:43 UTC); 61 not on production | [events.md](events.md) |
+| `admin-analytics-business` | Yubraj | CampConnect Admin's Analytics and Business sections (growth, active and engaged students, ad delivery, revenue; advertisers, campaigns, payments, pricing, reports; migration 62), and the admin app itself brought from `step-admin` | draft PR #60, not merged (`main` merged in up to PR #75, 2026-10-31; rehearsed on staging 2026-10-30) | [admin-analytics-business.md](admin-analytics-business.md) |
 | `claude/claude-md-documentation-0b8750` | — | leftover worktree branch of a 2026-10-26 AI session | no commits of its own; left untouched until the owner says otherwise | — |
 
 **Safe to delete once their owner agrees**, because `main` has all their work (what is left on them
