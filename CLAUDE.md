@@ -9,8 +9,8 @@ notes live in [docs/](docs/README.md).
 
 More specific instructions load when you work in these folders:
 [apps/mobile/CLAUDE.md](apps/mobile/CLAUDE.md), [supabase/CLAUDE.md](supabase/CLAUDE.md), and
-`apps/web/CLAUDE.md`, an import of `apps/web/AGENTS.md`: the Next.js 16 rules that `next dev`
-writes itself. Leave those two alone.
+`apps/web/CLAUDE.md` and `apps/admin/CLAUDE.md`, imports of their `AGENTS.md`: the Next.js 16 rules
+that `next dev` writes itself. Leave those alone.
 
 ## The project
 
@@ -25,8 +25,9 @@ State University. Sign-up is limited to the email domains on the `universities` 
   identity, navigation or wording outside Explore.
 - **Three surfaces, one Supabase project:** UniBuzz for students (Next.js website and Expo app);
   UniBuzz Business at `/business` (its own host once `NEXT_PUBLIC_BUSINESS_SITE_URL` is set), where
-  businesses never start conversations; CampConnect Admin for staff (the website's `/admin`
-  console, and a separate staff app whose state is in docs/branches/README.md).
+  businesses never start conversations; CampConnect Admin for staff: the separate staff app
+  (`apps/admin`, where the advertising business is run) and, until the two are reconciled, the
+  website's `/admin` Trust & Safety console.
 - **Legacy names stay.** The product was *CampConnect* until 2026-10-26; the staff app keeps the
   name *CampConnect Admin*. *Apartment Book*, the first name, survives only in identifiers:
   `@apartment-book/shared`, `@apartment-book/moderation`, the root package `apartment-book`, the
@@ -54,6 +55,9 @@ apps/web/src/
   lib/             actions/ (server actions), supabase/ (clients), buzz-server/ and events-server/
                    (server-only), staff/, business/, mux.ts, env.ts   proxy.ts: auth guard + the portal's host
 apps/web/e2e/      Playwright: home-feed.mjs, release-smoke.mjs (every page of each role), business-sidebar.mjs
+apps/admin/src/    CampConnect Admin, the staff app (port 3001; its own Vercel project, deployed by hand):
+                   overview, reports, flagged, content, users, media, staff, audit, security,
+                   analytics, business (lib/console/: their access checks, fetchers and actions)
 apps/mobile/       Expo app (expo-router): apps/mobile/CLAUDE.md
 packages/shared/   everything that is not UI: types/ (incl. database.ts), schemas/ (zod), queries/
                    (every read and write), buzz/, trust-safety/, events/ (calendar parsers, the sync
@@ -73,6 +77,7 @@ How each feature works: [README.md](README.md) and [docs/technical-reference.md]
 ```bash
 npm install                 # once, at the repo root
 npm run dev                 # every app; npm run dev -w web for the website (-- -p 3060 for a port)
+npm run dev:admin           # CampConnect Admin alone, on port 3001
 npm run check               # typecheck + lint + build: run before you call work done
 npm run typecheck           # or lint, or build: the same steps one at a time
 npm run test:shared         # packages/shared unit tests, offline
@@ -120,7 +125,8 @@ App, device and EAS commands: [apps/mobile/CLAUDE.md](apps/mobile/CLAUDE.md).
   their approval (owners: [docs/branches/README.md](docs/branches/README.md)). Never rewrite
   commits that are already pushed.
 - **Every production write needs the owner's explicit approval**: a migration, a role grant, an EAS
-  publish, a script that writes to the live project, and a manual deploy
+  publish, a script that writes to the live project, an admin-app deploy (`npm run deploy:admin`;
+  `apps/admin` is not connected to Git), and a manual deploy
   (`vercel deploy --prod --yes --archive=tgz` from the repo root ships the local tree).
 - Never chain `cd` with `;` in front of a command that writes files; use `&&` or absolute paths
   (a failed `cd` once let EAS write a stray `app.json` at the repo root).

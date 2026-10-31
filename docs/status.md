@@ -91,10 +91,10 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
      (read-only check, 2026-10-28), so Pro's daily backups or a CLI dump.
   2. Release day: back up (a CLI dump, and `scripts/backup.mjs`), then check production is in the
      rehearsed state (`verify.mjs --live --except …`).
-  3. Run `db:setup` once from `main`: 44, 46 and 49 to 57 (57 on `main` since PR #59; 47 and 58 to 60 are applied). Then `verify.mjs --live`
+  3. Run `db:setup` once from `main`: 44, 46 and 49 to 57 (57 on `main` since PR #59; 47 and 58 to 60 are applied), and 62 once `admin-analytics-business` merges (61 goes alone first, as 58 to 60 did; `ALLOW_OUT_OF_ORDER=1`, since 44 and 46 are older than rows already applied). Then `verify.mjs --live`
      and the smoke test.
   4. Publish the app update.
-  If it must be undone, the release's rollback is 57, 56, 55, 50 and 49 only: Buzz's 51 to 54 stay. Once an ad
+  If it must be undone, the release's rollback is 62 (once merged; its functions read 50's tables, so it goes first), 57, 56, 55, 50 and 49 only: Buzz's 51 to 54 stay. Once an ad
   without a listing or deal has a recorded payment, 50's rollback first needs those payments refunded and deleted.
   **Reviewed and rehearsed again on 2026-10-30** (two staging cycles, all green); the Preview gate is closed (the
   service key left Vercel's Preview environment on 2026-10-30) and a restorable backup now exists: this repo's full
@@ -139,16 +139,24 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
   people post's photos could be found by listing `posts/<their id>/`), a post takes only its author's own uploads, and
   a post's photos are deleted when the post goes. Testers' builds get Stories with an EAS update (owner's approval).
   App only (the website shows no stories yet).
+- **Analytics and Business for the UniBuzz team** (branch `admin-analytics-business`, draft PR #60, as of 2026-10-30):
+  two new sections of **CampConnect Admin** (`apps/admin`) for owners and admins of the staff in a two-factor session.
+  Analytics: growth, active and engaged students, engagement, ad delivery, the review queue and revenue, live, with CSV
+  exports. Business: advertisers, campaigns (review with the payment, drafting, schedule and budget, pause), payments,
+  a rate card, students' reports and the business audit log. The branch also brings the admin app itself to `main`
+  from `step-admin` (without its migrations); the student website and the app are unchanged. **Migration 59**, not
+  applied anywhere: until it is, both sections say they need it. Offline tests and `npm run check` pass; not yet run on
+  staging as staff with a second factor. See [branches/admin-analytics-business.md](branches/admin-analytics-business.md).
 - **Buzz on the website.** The app has the threaded replies, top replies and prompt threads; the
   website still shows two levels of replies, no top reply, and prompt threads as ordinary buzzes
   (categories it has). See [branches/ankur/dev.md](branches/ankur/dev.md).
 - **Security fix pending.** A security fix for a live part of the database is ready on a local,
   unpushed branch (2026-10-27) and is **not applied to production**. Its details stay out of this
   repository until production is patched, because the repository is public.
-- **Decide and merge `step-admin`.** Its merge plan lists six open questions for Sunil (migration
-  names, who renames production's `_migrations` rows, the fate of `supabase/applied-outside-repo/`,
-  a change to admin checks, branch ownership, who resolves the merge). Also reconcile `main`'s
-  website `/admin` console with `step-admin`'s rule that the website carries no admin routes. See
+- **Decide and merge `step-admin`.** `admin-analytics-business` (draft PR #60) brings its app, scripts, suites,
+  README section and website hunks to `main`'s tree (as of 2026-10-31); what still waits is its migration files'
+  placement, production's `_migrations` rows, migration 18 and the `hidden_at` message types: the owner's questions
+  1 to 3 and 5 of its merge plan. The website keeps its `/admin` console (decided). See
   [branches/step-admin.md](branches/step-admin.md).
 - **Reconcile the Supabase CLI migration history** on production (applied-outside-repo README
   step 5), only after `step-admin` is merged, never with a real `db push`.

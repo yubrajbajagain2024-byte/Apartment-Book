@@ -15,6 +15,7 @@ export * from "./profile";
 export * from "./campus";
 export * from "./business";
 export * from "./business-hours";
+export * from "./ad-ops";
 export * from "./stories";
 export * from "./events";
 export * from "./qr";

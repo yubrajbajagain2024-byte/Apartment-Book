@@ -73,8 +73,14 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
     password: parsed.data.password,
   });
   if (error) {
+    // A suspension from CampConnect Admin sets auth.users.banned_until (its migration 15, live), and Supabase Auth
+    // then refuses the sign-in with "User is banned": say what it means instead of echoing that.
     const friendly =
-      error.message === "Invalid login credentials" ? "Incorrect email or password." : error.message;
+      error.message === "Invalid login credentials"
+        ? "Incorrect email or password."
+        : /banned/i.test(error.message)
+          ? "This account is suspended. Check the notice in your profile or contact support."
+          : error.message;
     return { error: friendly, values };
   }
 

@@ -20,7 +20,9 @@ import {
   POST_AUDIENCE_VALUES,
   POST_KIND_VALUES,
   POST_TITLE_MAX,
+  REPORT_DECISION_VALUES,
   SLEEP_SCHEDULES,
+  STAFF_ROLE_VALUES,
 } from "../constants";
 import { CLOSE_CLOCK, HOURS_TIMEZONE_VALUES, isHoursDate, MAX_HOURS_RANGES, MAX_SPECIAL_HOURS, OPEN_CLOCK } from "../business-hours";
 import {
@@ -501,3 +503,30 @@ export const businessReportSchema = z.object({
   reason: z.enum(REPORT_REASON_VALUES, { error: "Choose a reason" }),
   details: optionalText(1000),
 });
+// Admin section: staff and two-factor authentication
+// ---------------------------------------------------------------------------
+export const staffAddSchema = z.object({ email: z.email({ error: "Enter a valid email address" }).trim().toLowerCase().max(320), role: z.enum(STAFF_ROLE_VALUES, { error: "Choose a role" }) });
+export type StaffAddInput = z.infer<typeof staffAddSchema>;
+/** 6 digits; spaces the user typed are ignored. */
+export const totpCodeSchema = z.object({ code: z.preprocess((v) => (typeof v === "string" ? v.replace(/\s+/g, "") : v), z.string().regex(/^\d{6}$/, "Enter the 6-digit code from your authenticator app")) });
+export type TotpCodeInput = z.infer<typeof totpCodeSchema>;
+
+// ---------------------------------------------------------------------------
+// Admin section: moderation
+// ---------------------------------------------------------------------------
+const emptyStringToUndefined = (v: unknown) => (typeof v === "string" && v.trim() === "" ? undefined : v);
+/** The reason the person sees, 3 to 500 characters: the same rule the database applies. */
+const moderationReason = z.string().trim().min(3, "Give a reason of at least 3 characters").max(500, "Keep the reason under 500 characters");
+/** Suspend an account. expiresAt is an ISO date-time (a datetime-local input's value is accepted too); leave it empty for "until lifted". */
+export const suspendUserSchema = z.object({
+  reason: moderationReason,
+  expiresAt: z.preprocess(emptyStringToUndefined, z.iso.datetime({ offset: true, local: true, error: "Enter a valid end date and time" }).optional()),
+  note: optionalText(2000),
+});
+export type SuspendUserInput = z.infer<typeof suspendUserSchema>;
+export const hideContentSchema = z.object({ reason: moderationReason });
+export type HideContentInput = z.infer<typeof hideContentSchema>;
+export const deleteContentSchema = z.object({ reason: moderationReason });
+export type DeleteContentInput = z.infer<typeof deleteContentSchema>;
+export const resolveReportSchema = z.object({ decision: z.enum(REPORT_DECISION_VALUES, { error: "Choose a decision" }), notes: optionalText(2000) });
+export type ResolveReportInput = z.infer<typeof resolveReportSchema>;

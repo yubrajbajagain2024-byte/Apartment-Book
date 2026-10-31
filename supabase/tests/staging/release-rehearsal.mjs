@@ -1,7 +1,8 @@
-// The Business v2 release (migrations 44, 46 and 49 to 57, with Buzz's 51 to 54 in the same run; production already has 47 and,
-// since 2026-10-30, 58: Stories went live on its own, see supabase/tests/staging/stories.mjs)
-// rehearsed on the staging project, the way production will take it, through the real Supabase stack: Auth sessions, the REST API,
-// Storage, pg_cron. Never runs against production: it refuses production's ref and any project not named as staging.
+// The Business v2 release (migrations 44, 46 and 49 to 57, with Buzz's 51 to 54 in the same run, and 62, CampConnect
+// Admin's Analytics and Business; production already has 47 and, since 2026-10-30, 58 to 60, which went live on their
+// own: see supabase/tests/staging/stories.mjs) rehearsed on the staging project, the way production will take it, through
+// the real Supabase stack: Auth sessions (two-factor sign-in included), the REST API, Storage, pg_cron. Never runs
+// against production: it refuses production's ref and any project not named as staging.
 //
 //   SUPABASE_ACCESS_TOKEN=… STAGING_SUPABASE_REF=<ref> node supabase/tests/staging/release-rehearsal.mjs <step>
 //
@@ -10,15 +11,17 @@
 //             catalog and row counts, for restore and cleanup to compare with.
 //   seed      v1-shaped data through the API: an approved housing business, its promoted listing (a v1 payment), a
 //             staffer, a deal, a student's inquiry chat, a chat between two students, a post, a buzz with replies, a
-//             student's ready video.
-//   check     the checks for the state staging is in: before the release (v1), after it (Business v2), or after the
-//             release's rollback (v1 again, with Buzz's 51 to 54 still applied).
+//             student's ready video. The UniBuzz admin and a moderator are on the staff with an authenticator, as the
+//             staff console and CampConnect Admin require; their sessions pass the second factor.
+//   check     the checks for the state staging is in: before the release (v1), after it (Business v2, and 62's console
+//             when it is applied), or after the release's rollback (v1 again, with Buzz's 51 to 54 still applied).
 //   probe     after `apply`: the ad approval and payment rules attacked through the API (self-approval on fresh
 //             connections, edits after approval, forged payments, team-only and internal functions, other roles).
 //   apply     what `npm run db:setup` does (every pending migration in file order as one query, recorded in
 //             public._migrations, then the seed) while two students and the staffer keep using the API; reports
-//             every request that failed, and when.
-//   rollback  the release's own rollback: 57, 56, 55, 50 and 49, each in one transaction with the removal of its
+//             every request that failed, and when. `apply <file> …` applies only those pending files, for a migration
+//             that goes live alone, ahead of the release (supabase/CLAUDE.md, "to apply one migration alone").
+//   rollback  the release's own rollback: 62, 57, 56, 55, 50 and 49, each in one transaction with the removal of its
 //             _migrations row. Buzz's 51 to 54 are not touched; every Buzz object and row is compared before and after.
 //   restore   every release migration rolled back (production's state again); the catalog is compared with baseline's.
 //   cleanup   deletes every account, file and row the rehearsal made; row counts are compared with baseline's.
@@ -26,6 +29,7 @@
 import fs from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { catalog, diffCatalogs, isBuzz, BUZZ_DATA_SQL, DATA_HELPER_SQL, DROP_DATA_HELPER_SQL } from "../catalog.mjs";
+import { enrolAuthenticator, passSecondFactor } from "./mfa.mjs";
 import { BUZZ_GUIDELINES_VERSION } from "../../../packages/shared/src/buzz/constants.ts";
 
 const PRODUCTION = "dskbzoqreandwwpxiplh";
@@ -50,8 +54,10 @@ const RELEASE = [
   "20261109000000_media_server_fields.sql",
   "20261109000100_business_hardening.sql",
   "20261110000000_business_hours.sql",
+  "20261114000000_console_business.sql",
 ];
-const BUSINESS = ["20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql", "20261110000000_business_hours.sql"];
+// The release's own rollback: the business migrations and the console's 62, newest first.
+const BUSINESS = ["20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql", "20261110000000_business_hours.sql", "20261114000000_console_business.sql"];
 const MIGRATIONS = fs.readdirSync(new URL("supabase/migrations/", ROOT)).filter((f) => f.endsWith(".sql")).sort();
 
 async function mgmt(method, path, body) {
@@ -89,10 +95,12 @@ async function refused(name, fn, pattern) {
 }
 const must = async (p) => { const { data, error } = await p; if (error) throw new Error(`${error.code ?? ""} ${error.message}`); return data; };
 const expect = (cond, message) => { if (!cond) throw new Error(message); };
-async function session(u) {
+/** A signed-in client. An account with an authenticator passes the second factor too (aal2), unless { firstFactorOnly: true }. */
+async function session(u, { firstFactorOnly = false } = {}) {
   const c = createClient(URL_, ANON, opts);
   const { error } = await c.auth.signInWithPassword({ email: u.email, password: u.password });
   if (error) throw new Error(`${u.email}: ${error.message}`);
+  if (u.totp && !firstFactorOnly) await passSecondFactor(c, u.totp);
   return c;
 }
 async function account(key, email, meta) {
@@ -102,6 +110,19 @@ async function account(key, email, meta) {
   state.accounts[key] = { id: data.user.id, email, password };
   save();
   return state.accounts[key];
+}
+/** Puts the account on the staff: CampConnect Admin's public.staff where it exists, Trust & Safety's staff_members otherwise. */
+const staffRole = (uid, role) => sql(`do $$ begin
+  if to_regclass('public.staff') is not null then
+    insert into public.staff (user_id, role) values (${lit(uid)}, ${lit(role)}) on conflict (user_id) do update set role = excluded.role;
+  else
+    insert into public.staff_members (user_id, role) values (${lit(uid)}, ${lit(role)}) on conflict (user_id) do update set role = excluded.role;
+  end if;
+end $$`);
+/** Enrols an authenticator on the account, as the person would at /two-factor or /security, and keeps its key with the account. */
+async function withAuthenticator(key) {
+  state.accounts[key].totp = await enrolAuthenticator(await session(state.accounts[key]), "Rehearsal");
+  save();
 }
 async function buzzState() {
   await sql(DATA_HELPER_SQL);
@@ -136,6 +157,13 @@ if (STEP === "seed") {
   state.ids.txstate = txstate;
   const ops = await account("ops", `rh-ops-${run}@txstate.edu`, { full_name: "Rh Ops" });
   await sql(`select public.grant_role(${lit(ops.id)}, 'admin')`);
+  // The admin is an admin of the staff with an authenticator (the staff console's rule, which 62's console asks too); a
+  // moderator of the staff, for what a moderator must not see.
+  await staffRole(ops.id, "admin");
+  await withAuthenticator("ops");
+  const mod = await account("mod", `rh-mod-${run}@txstate.edu`, { full_name: "Rh Mo" });
+  await staffRole(mod.id, "moderator");
+  await withAuthenticator("mod");
   const ben = await account("ben", `rh-ben-${run}@txstate.edu`, { full_name: "Rh Ben" });
   const cam = await account("cam", `rh-cam-${run}@txstate.edu`, { full_name: "Rh Cam" });
   const owner = await account("owner", `rh-owner-${run}@riverrock-staging.example`, { account_type: "business", full_name: "Rh Rita", business_name: `River Rock ${run}`, business_category: "housing", business_university_id: txstate });
@@ -308,6 +336,34 @@ if (STEP === "check") {
       expect((await val(`select status from public.ads where id = ${lit(I.housingAd)}`)) === "active", "not resumed");
     });
     await check("the ads sweep is scheduled with pg_cron", async () => expect(await val("select exists (select 1 from cron.job where jobname = 'ads-sweep')"), "no ads-sweep job"));
+    // 62: CampConnect Admin's Analytics and Business, as the admin app calls them.
+    if (await val("select to_regclass('public.ad_rates') is not null")) {
+      await check("62: Analytics (overview, ads, revenue), the businesses, the campaigns with the approved ad and its payment, the payments and the rate card answer an admin signed in with a second factor", async () => {
+        const overview = await must(ops.rpc("console_analytics_overview", { p_days: 30, p_university: null }));
+        expect(overview && typeof overview === "object", "no overview");
+        await must(ops.rpc("console_analytics_ads", { p_days: 30, p_university: null }));
+        await must(ops.rpc("console_analytics_revenue", { p_days: 30 }));
+        expect(JSON.stringify(await must(ops.rpc("console_businesses", { p_q: null, p_status: null, p_limit: 30, p_offset: 0 }))).includes(I.business), "the rehearsal's business is not listed");
+        expect(JSON.stringify(await must(ops.rpc("console_ads", { p_status: "all", p_q: null, p_business: I.business, p_limit: 30, p_offset: 0 }))).includes(adId), "the approved ad is not listed");
+        expect(JSON.stringify(await must(ops.rpc("console_ad", { p_id: adId }))).includes(`RH-AD-${run}`), "the ad's payment is not on its page");
+        expect(JSON.stringify(await must(ops.rpc("console_payments", { p_days: null, p_status: null, p_q: `RH-AD-${run}`, p_limit: 50, p_offset: 0 }))).includes(`RH-AD-${run}`), "the payment is not listed");
+        await must(ops.rpc("console_ad_rates"));
+        await must(ops.rpc("console_business_overview"));
+        expect(await val("select exists (select 1 from cron.job where jobname = 'platform-activity')"), "no platform-activity job");
+      });
+      await check("62: a student, a moderator and an admin without the second factor are refused", async () => {
+        for (const [who, c] of [["a student", ben], ["a moderator", await session(A.mod)], ["an admin without the second factor", await session(A.ops, { firstFactorOnly: true })]]) {
+          let why = "";
+          try { await must(c.rpc("console_businesses", { p_q: null, p_status: null, p_limit: 5, p_offset: 0 })); } catch (e) { why = e.message; }
+          expect(/ts:|permission denied|two-factor|authenticator/i.test(why), `${who}: ${why || "allowed"}`);
+        }
+      });
+      await check("62: a note on the business is kept on its page and lands in the staff audit log", async () => {
+        await must(ops.rpc("console_add_business_note", { p_business: I.business, p_body: `Rehearsal note ${run}` }));
+        expect(JSON.stringify(await must(ops.rpc("console_business", { p_id: I.business }))).includes(`Rehearsal note ${run}`), "note missing from the business page");
+        expect(await val(`select exists (select 1 from public.staff_audit_log where actor_id = ${lit(A.ops.id)} and action = 'business.note')`), "no audit row");
+      });
+    }
     await check("Buzz: a buzz takes a category, a nested reply keeps its parent, today's prompt has a thread", async () => {
       const cat = await val("select (regexp_matches(pg_get_constraintdef(oid), '''([a-z_]+)'''))[1] from pg_constraint where conname = 'buzz_posts_category_check'");
       const b = await val(`select (public.buzz_v2_create(${lit(A.cam.id)}, ${lit(JSON.stringify({ text: "Category check (rehearsal)", category: cat }))}::jsonb, 'active', false, null))->>'category'`);
@@ -496,8 +552,11 @@ if (STEP === "probe") {
 if (STEP === "apply") {
   const A = state.accounts, I = state.ids;
   const done = await applied();
-  const pending = MIGRATIONS.filter((f) => !done.has(f));
-  console.log(`  pending, in file order: ${pending.join(", ") || "none"}`);
+  // `apply <file> …` applies only those of the pending files (a migration that goes live alone, ahead of the release).
+  const only = process.argv.slice(3);
+  for (const f of only) if (!MIGRATIONS.includes(f)) throw new Error(`${f} is not a migration file`);
+  const pending = MIGRATIONS.filter((f) => !done.has(f) && (only.length === 0 || only.includes(f)));
+  console.log(`  pending, in file order: ${pending.join(", ") || "none"}${only.length ? " (only the files asked for)" : ""}`);
   const sessions = { ben: await session(A.ben), cam: await session(A.cam), staff: await session(A.staff) };
   let current = "before";
   const log = [];
@@ -620,11 +679,16 @@ if (STEP === "cleanup") {
     if (I.otherBusiness) await sql(`delete from public.businesses where id = ${lit(I.otherBusiness)}`).catch(() => {});
   }
   for (const id of ids) { const { error } = await admin.auth.admin.deleteUser(id); if (error) fail(`delete account ${id}`, error); }
+  // The staff audit log kept what the rehearsal's staff did, and their removal (staff_log_delete): not the rehearsal's to leave behind.
+  if (ids.length) await sql(`delete from public.staff_audit_log where actor_id in (${ids.map(lit).join(", ")}) or target_id in (${ids.map(lit).join(", ")})`).catch(() => {});
   const s = state.baseline?.buzzSecrets;
   if (s) await sql(`update public.buzz_secrets set thread_jitter_seconds = ${s.thread_jitter_seconds}, reply_jitter_seconds = ${s.reply_jitter_seconds}, min_campus_size = ${s.min_campus_size} where id = 1`);
   await check("every table has baseline's row count again (nothing the rehearsal made is left)", async () => {
     const now = await counts();
-    const off = Object.keys({ ...state.baseline.counts, ...now }).filter((t) => state.baseline.counts[t] !== now[t]).map((t) => `${t} ${state.baseline.counts[t]} -> ${now[t]}`);
+    const off = Object.keys(state.baseline.counts).filter((t) => state.baseline.counts[t] !== now[t]).map((t) => `${t} ${state.baseline.counts[t]} -> ${now[t]}`);
+    // Tables the release added are not baseline's: their rows go with `restore` (its own seed rows, like 62's rate card).
+    const extra = Object.keys(now).filter((t) => !(t in state.baseline.counts) && now[t] > 0).map((t) => `${t} ${now[t]}`);
+    if (extra.length) console.log(`  - the release's own tables still here, with rows (restore drops them): ${extra.join(", ")}`);
     expect(off.length === 0, off.join(", "));
   });
 }

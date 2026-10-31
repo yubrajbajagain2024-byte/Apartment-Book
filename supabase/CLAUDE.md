@@ -74,6 +74,13 @@ Supabase's `auth` and `storage` schemas.
     URL to `SITE_URL`, which defaults to `http://localhost:3000`**, breaking production's sign-in
     emails. Only for a fresh or local project, or with the real `SITE_URL` (and
     `BUSINESS_SITE_URL`) plus `SKIP_ENV=1`.
+  - `DRY_RUN=1` lists what it would apply and changes nothing: run it first. Each migration runs in
+    its own transaction with its `_migrations` row. A pending file older than a row already applied
+    (out of order) is refused unless `ALLOW_OUT_OF_ORDER=1`: production's Business v2 release needs
+    that flag, since 44 and 46 are older than 47 and 58 to 60, which went live before them.
+- Staging is one project shared by everyone's sessions: read `public._migrations` and the row
+  counts before a rehearsal, expect another session's migrations and rows to appear while yours
+  runs, and remove only the rows your own run made.
 - A migration that needs only what production already has may go live ahead of a pending release,
   alone (58 to 60 did, 2026-10-30; 61 is written to): rehearse it offline on production's state
   (`boot({ live: true, skip })`, as `tests/stories-rollout.test.mjs` and `tests/events-rollout.test.mjs`

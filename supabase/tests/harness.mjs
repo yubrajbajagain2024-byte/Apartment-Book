@@ -38,6 +38,7 @@ export async function boot(opts = {}) {
     -- Supabase grants new public tables/functions to the API roles by default; migrations that revoke must win.
     alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
     alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
+    alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
     grant all on all tables in schema auth to service_role;`);
   for (const f of fs.readdirSync(path.join(SUPABASE_DIR, "migrations")).sort()) {
     if (opts.upTo && f > opts.upTo) break;

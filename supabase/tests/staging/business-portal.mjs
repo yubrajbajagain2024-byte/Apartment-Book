@@ -8,6 +8,7 @@
 // migrations applied in production's order (with the two in supabase/applied-outside-repo after 36) and the seed.
 // Accounts are made with admin-generated confirmation links, so no email is sent; everything made is deleted at the end.
 import { createClient } from "@supabase/supabase-js";
+import { enrolAuthenticator, passSecondFactor } from "./mfa.mjs";
 
 const PRODUCTION = "dskbzoqreandwwpxiplh";
 const REF = process.env.STAGING_SUPABASE_REF;
@@ -66,10 +67,12 @@ async function confirm(u) {
   const { error } = await c.auth.verifyOtp({ type: "signup", token_hash: u.hashed });
   if (error) throw new Error(error.message);
 }
+/** A signed-in client; an account with an authenticator passes the second factor too (aal2). */
 async function session(u) {
   const c = createClient(URL, ANON, opts);
   const { error } = await c.auth.signInWithPassword({ email: u.email, password: u.password });
   if (error) throw new Error(error.message);
+  if (u.totp) await passSecondFactor(c, u.totp);
   return c;
 }
 const rpc = (c, fn, args) => must(c.rpc(fn, args));
@@ -85,6 +88,13 @@ try {
   const benU = await signUp(`ben.${run}@txstate.edu`, { full_name: "Ben Student" }); await confirm(benU);
   const catU = await signUp(`cat.${run}@txstate.edu`, { full_name: "Cat Student" }); await confirm(catU);
   await sql(`select public.grant_role('${annU.id}', 'admin')`);
+  // The admin is an admin of the staff with an authenticator, as the staff console asks and (from migration 58) the
+  // portal's admin tools too: CampConnect Admin's public.staff where it exists, Trust & Safety's staff_members otherwise.
+  await sql(`do $$ begin
+    if to_regclass('public.staff') is not null then insert into public.staff (user_id, role) values ('${annU.id}', 'admin') on conflict (user_id) do update set role = excluded.role;
+    else insert into public.staff_members (user_id, role) values ('${annU.id}', 'admin') on conflict (user_id) do update set role = excluded.role; end if;
+  end $$`);
+  annU.totp = await enrolAuthenticator(await session(annU), "Staging check");
   const ann = await session(annU), ben = await session(benU), cat = await session(catU);
   await check("students sign up as students; the admin is an admin", async () => {
     if ((await rpc(ben, "my_role")) !== "student" || (await rpc(ann, "my_role")) !== "admin") throw new Error("roles");
@@ -327,6 +337,8 @@ try {
   // Everything this run made: the accounts (their profiles, businesses, listings, chats and the rest cascade) and the upload.
   await sql(`delete from storage.objects where bucket_id = 'uploads' and name like 'apartments/%/${run}.jpg'`).catch(() => {});
   for (const id of made) await admin.auth.admin.deleteUser(id).catch((e) => console.log(`  ! could not delete ${id}: ${e.message}`));
+  // The staff audit log kept the admin's actions and their removal from the staff (staff_log_delete): not this run's to leave behind.
+  if (made.length) await sql(`delete from public.staff_audit_log where actor_id in (${made.map((id) => `'${id}'`).join(",")}) or target_id in (${made.map((id) => `'${id}'`).join(",")})`).catch(() => {});
   const left = await sql(`select count(*)::int as n from public.profiles where id in (${made.map((id) => `'${id}'`).join(",") || "null"})`).catch(() => [{ n: "?" }]);
   console.log(`  cleaned up ${made.length} accounts (${left[0].n} left)`);
 }

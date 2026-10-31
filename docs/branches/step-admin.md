@@ -28,8 +28,22 @@
 
 ## Current state
 
+- **2026-10-30:** `admin-analytics-business` (draft PR #60) brings `apps/admin` and its shared code to `main`, without
+  this branch's migrations, so that the new Analytics and Business sections live in the admin app (the owner's
+  decision). That answers question 4 (yes).
+- **2026-10-31:** the same branch reconciles the rest of this branch with `main` (commit `f532cf8`): the setup script's
+  safeguards (`DRY_RUN`, one transaction per migration, an out-of-order guard with `ALLOW_OUT_OF_ORDER=1`, `ADMIN_URL`,
+  `SKIP_AUTH`, `ADMIN_OWNER_EMAIL`), `scripts/configure-auth-email.mjs`, five PGlite suites adapted to
+  `boot({ live: true })` (admin, admin-dashboard, moderation-support, permissions-audit, launch-checklist), the README's
+  "Admin app" section, the website's suspended-account message and the account-deletion refusal shown in the form.
+  **Still only here:** migration 18 and its suite (`staff-invite-email`), the `hidden_at`/`hidden_reason` message types
+  with their website and app hunks, `no-admin.mjs` and the "no admin on the website" rule (`main` keeps its `/admin`
+  console), `live-order-check.mjs` and `staging-rehearsal.mjs` (superseded by `production-rollout.test.mjs` and
+  `staging/release-rehearsal.mjs`), `apps/web/vercel.json`. Questions 1 to 3 (migration names, the `_migrations` rows,
+  `applied-outside-repo/`) and 5 are still the owner's; nothing moved a migration file. Details:
+  [admin-analytics-business.md](admin-analytics-business.md).
 - Pushed as a backup and for review. **The merge plan says: do not merge before its questions are
-  answered.** No answers recorded as of 2026-10-27.
+  answered.** No answers recorded as of 2026-10-31.
 
 ## Pending
 

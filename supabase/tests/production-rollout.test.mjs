@@ -1,8 +1,9 @@
 // The production rollout, rehearsed offline: a database in production's state as of 2026-10-30 (production's migration
 // order, the migrations applied outside this repo, 47 applied on 2026-10-27 although 44 and 46 were not, 58 applied on
 // its own on 2026-10-30, and 59 after it, alone too), with v1 business data in it; then what `npm run db:setup` would apply (44, 46, 49, 50, Buzz's
-// 51 to 54, 55, 56, 57: 44 and 46 after 47 and 58, as production will), with checks after.
-// Then the release's own rollback, the business migrations only (57, 56, 55, 50, 49): every Buzz object and Buzz row stays
+// 51 to 54, 55, 56, 57 and the console's 62: 44 and 46 after 47 and 58, as production will), with checks after.
+// Then the release's own rollback, the business migrations only (62, 57, 56, 55, 50, 49; 62's functions read 50's tables,
+// so it goes first): every Buzz object and Buzz row stays
 // exactly as it was, Buzz still works, and the schema matches a database that never had the business migrations. Then
 // the business migrations again; then every rollback in reverse order; then all of them again. The staging rehearsal
 // (supabase/tests/staging/release-rehearsal.mjs) does the same on a real project.
@@ -25,9 +26,10 @@ const PENDING = [
   "20261109000000_media_server_fields.sql",
   "20261109000100_business_hardening.sql",
   "20261110000000_business_hours.sql",
+  "20261114000000_console_business.sql",
 ];
-// The release's rollback: the business migrations (57 included), newest first. Buzz's 51 to 54 stay.
-const BUSINESS = ["20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql", "20261110000000_business_hours.sql"];
+// The release's rollback: the business migrations (57 and the console's 62 included), newest first. Buzz's 51 to 54 stay.
+const BUSINESS = ["20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql", "20261110000000_business_hours.sql", "20261114000000_console_business.sql"];
 const BUSINESS_ROLLBACKS = [...BUSINESS].reverse().map((f) => `rollbacks/${f.replace(/\.sql$/, ".down.sql")}`);
 const { db, mk, as, asService } = await boot({ live: true, skip: [...PENDING, ...AHEAD] });
 const one = async (p) => (await p).rows[0];
@@ -162,4 +164,4 @@ await expectOk("after every rollback: v1 again (staff, the listing Sponsored thr
 
 await applyAll("second rollout");
 
-done("PRODUCTION ROLLOUT (44, 46, 49 TO 57 AFTER 47 AND 58)");
+done("PRODUCTION ROLLOUT (44, 46, 49 TO 57 AND 62 AFTER 47 AND 58 TO 60)");
