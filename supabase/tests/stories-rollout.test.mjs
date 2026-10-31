@@ -15,6 +15,8 @@ const STORIES = "20261110000100_stories.sql";
 const MEDIA = "20261112000100_story_media.sql";
 const FOLDERS = "20261112000200_upload_folders.sql";
 const STORIES_SET = [STORIES, MEDIA, FOLDERS];
+// 61 (Events) follows the same path later, on its own (events-rollout.test.mjs); it is not part of this rehearsal.
+const AHEAD = ["20261113000000_events.sql"];
 const ROLLBACKS = ["rollbacks/20261112000200_upload_folders.down.sql", "rollbacks/20261112000100_story_media.down.sql", "rollbacks/20261110000100_stories.down.sql"];
 // The release 58, 59 and 60 go ahead of, in file order.
 const REST = [
@@ -32,7 +34,7 @@ const REST = [
 ];
 const check = (cond, message) => { if (!cond) throw new Error(message); };
 
-const { db, mk, as, asAnon } = await boot({ live: true, skip: [...REST, ...STORIES_SET] });
+const { db, mk, as, asAnon } = await boot({ live: true, skip: [...REST, ...STORIES_SET, ...AHEAD] });
 const one = async (p) => (await p).rows[0];
 const rows = async (p) => (await p).rows;
 const has = async (sql) => Boolean((await one(db.query(sql))).ok);
@@ -130,7 +132,7 @@ await storiesWork("after the release");
 // --- 60's, 59's and 58's rollbacks on their own, with the release in place ----------------------------------------------------
 await expectOk("60's, 59's and 58's rollbacks leave exactly the schema of a database that never had them (the release still applied)", async () => {
   for (const r of ROLLBACKS) await db.exec(read(r));
-  const reference = await boot({ live: true, skip: STORIES_SET });
+  const reference = await boot({ live: true, skip: [...STORIES_SET, ...AHEAD] });
   const changed = diffCatalogs(await catalog(async (q) => (await reference.db.query(q)).rows), await catalog(async (q) => (await db.query(q)).rows));
   await reference.db.close();
   check(changed.length === 0, changed.join("; "));

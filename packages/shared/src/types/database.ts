@@ -25,6 +25,8 @@ export type Database = {
           longitude: number | null;
           email_domain: string | null;
           geog: unknown | null;
+          /** Migration 61: the campus's IANA time zone, for its calendars' local times. Missing on a database before it. */
+          timezone: string;
           created_at: string;
         };
         Insert: {
@@ -35,6 +37,7 @@ export type Database = {
           latitude?: number | null;
           longitude?: number | null;
           email_domain?: string | null;
+          timezone?: string;
           created_at?: string;
         };
         Update: {
@@ -45,6 +48,7 @@ export type Database = {
           latitude?: number | null;
           longitude?: number | null;
           email_domain?: string | null;
+          timezone?: string;
           created_at?: string;
         };
         Relationships: [];
@@ -1168,6 +1172,54 @@ export type Database = {
         Update: { story_id?: string; viewer_id?: string; created_at?: string };
         Relationships: [];
       };
+      organizations: {
+        Row: { id: string; university_id: string; name: string; kind: string; description: string | null; avatar_url: string | null; website: string | null; verified: boolean; verified_at: string | null; verified_by: string | null; status: string; follower_count: number; created_by: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; university_id?: string; name: string; kind?: string; description?: string | null; avatar_url?: string | null; website?: string | null; verified?: boolean; verified_at?: string | null; verified_by?: string | null; status?: string; follower_count?: number; created_by?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; university_id?: string; name?: string; kind?: string; description?: string | null; avatar_url?: string | null; website?: string | null; verified?: boolean; verified_at?: string | null; verified_by?: string | null; status?: string; follower_count?: number; created_by?: string | null; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      organization_members: {
+        Row: { organization_id: string; user_id: string; role: string; created_at: string };
+        Insert: { organization_id: string; user_id: string; role?: string; created_at?: string };
+        Update: { organization_id?: string; user_id?: string; role?: string; created_at?: string };
+        Relationships: [];
+      };
+      organization_follows: {
+        Row: { organization_id: string; user_id: string; created_at: string };
+        Insert: { organization_id: string; user_id: string; created_at?: string };
+        Update: { organization_id?: string; user_id?: string; created_at?: string };
+        Relationships: [];
+      };
+      event_feeds: {
+        Row: { id: string; university_id: string; organization_id: string | null; name: string; url: string; kind: string; enabled: boolean; default_category: string; etag: string | null; last_synced_at: string | null; last_status: string | null; last_error: string | null; items_seen: number; created_by: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; university_id: string; organization_id?: string | null; name: string; url: string; kind: string; enabled?: boolean; default_category?: string; etag?: string | null; last_synced_at?: string | null; last_status?: string | null; last_error?: string | null; items_seen?: number; created_by?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; university_id?: string; organization_id?: string | null; name?: string; url?: string; kind?: string; enabled?: boolean; default_category?: string; etag?: string | null; last_synced_at?: string | null; last_status?: string | null; last_error?: string | null; items_seen?: number; created_by?: string | null; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      events: {
+        Row: { id: string; university_id: string; organization_id: string | null; feed_id: string | null; external_uid: string | null; title: string; description: string | null; starts_at: string; ends_at: string | null; all_day: boolean; location: string | null; category: string; image_url: string | null; registration_url: string | null; source: string; status: string; save_count: number; click_count: number; created_by: string | null; created_at: string; updated_at: string; tsv: unknown; title_key: string };
+        Insert: { id?: string; university_id?: string; organization_id?: string | null; feed_id?: string | null; external_uid?: string | null; title: string; description?: string | null; starts_at: string; ends_at?: string | null; all_day?: boolean; location?: string | null; category?: string; image_url?: string | null; registration_url?: string | null; source: string; status?: string; save_count?: number; click_count?: number; created_by?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; university_id?: string; organization_id?: string | null; feed_id?: string | null; external_uid?: string | null; title?: string; description?: string | null; starts_at?: string; ends_at?: string | null; all_day?: boolean; location?: string | null; category?: string; image_url?: string | null; registration_url?: string | null; source?: string; status?: string; save_count?: number; click_count?: number; created_by?: string | null; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      event_saves: {
+        Row: { event_id: string; user_id: string; created_at: string };
+        Insert: { event_id: string; user_id: string; created_at?: string };
+        Update: { event_id?: string; user_id?: string; created_at?: string };
+        Relationships: [];
+      };
+      event_interests: {
+        Row: { user_id: string; category: string; created_at: string };
+        Insert: { user_id: string; category: string; created_at?: string };
+        Update: { user_id?: string; category?: string; created_at?: string };
+        Relationships: [];
+      };
+      event_engagement: {
+        Row: { event_id: string; user_id: string; kind: string; day: string; created_at: string };
+        Insert: { event_id: string; user_id: string; kind: string; day?: string; created_at?: string };
+        Update: { event_id?: string; user_id?: string; kind?: string; day?: string; created_at?: string };
+        Relationships: [];
+      };
       feed_posts: {
         Row: {
           id: string;
@@ -1851,6 +1903,10 @@ export type Database = {
       stories_sweep: {
         Args: { p_now?: string };
         Returns: number;
+      };
+      record_event_click: {
+        Args: { p_event: string; p_kind?: string };
+        Returns: undefined;
       };
       start_listing_inquiry: {
         Args: { p_target_type: string; p_target_id: string };

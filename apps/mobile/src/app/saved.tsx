@@ -1,8 +1,9 @@
 import { ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { getApartmentsByIds, getFeedPostsByIds, getItemsByIds, getRoommatePostsByIds, getSavedIds, listingMedia, listSaved, timeAgo, type FeedPostWithAuthor } from "@apartment-book/shared";
+import { eventWhen, getApartmentsByIds, getFeedPostsByIds, getItemsByIds, getRoommatePostsByIds, getSavedIds, listingMedia, listSaved, listSavedEvents, timeAgo, type EventSummary, type FeedPostWithAuthor } from "@apartment-book/shared";
 import { ItemTile } from "@/components/item-tile";
 import { Card, EmptyState, Loading } from "@/components/ui";
+import { useCampusTimeZone } from "@/lib/campus-time-zone";
 import { useQuery } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
@@ -10,17 +11,19 @@ import { useColors } from "@/lib/theme-provider";
 import { entryForPost, openViewer, postHasMedia, viewerThumb } from "@/lib/reel-viewer";
 
 export default function SavedScreen() {
-  const { user } = useSession();
+  const { user, profile } = useSession();
   const router = useRouter();
   const colors = useColors();
+  const timeZone = useCampusTimeZone(profile?.university_id);
   const { data, loading } = useQuery(async () => {
     if (!user) return null;
     const saved = await listSaved(supabase, user.id);
     // listSaved groups ids by type; fall back to getSavedIds while it does not return Home-feed posts.
     const postIds = (saved as { post?: string[] }).post ?? [...(await getSavedIds(supabase, user.id, "post").catch(() => new Set<string>()))];
-    const [apartments, roommates, items, posts] = await Promise.all([getApartmentsByIds(supabase, saved.apartment), getRoommatePostsByIds(supabase, saved.roommate), getItemsByIds(supabase, saved.item), getFeedPostsByIds(supabase, postIds).catch(() => [])]);
+    // Saved events live in their own table (migration 61); a database without it has none.
+    const [apartments, roommates, items, posts, events] = await Promise.all([getApartmentsByIds(supabase, saved.apartment), getRoommatePostsByIds(supabase, saved.roommate), getItemsByIds(supabase, saved.item), getFeedPostsByIds(supabase, postIds).catch(() => []), listSavedEvents(supabase, user.id).catch(() => [] as EventSummary[])]);
     posts.sort((a, b) => postIds.indexOf(a.id) - postIds.indexOf(b.id));
-    return { apartments, roommates, items, posts };
+    return { apartments, roommates, items, posts, events };
   }, [user?.id]);
   /**
    * A saved post with a picture opens full screen, with your other saved posts with pictures to swipe through in the
@@ -33,9 +36,15 @@ export default function SavedScreen() {
     openViewer(router, { entries: list.map((x) => entryForPost(x.id, viewerThumb(listingMedia(x.images, x.image_meta, x.videos)))), index, then: "end" });
   }
   if (loading) return <Loading />;
-  if (!data || data.apartments.length + data.roommates.length + data.items.length + data.posts.length === 0) return <EmptyState icon="bookmark-outline" title="Nothing saved yet" body="Use the ••• menu on any post to save it for later." />;
+  if (!data || data.apartments.length + data.roommates.length + data.items.length + data.posts.length + data.events.length === 0) return <EmptyState icon="bookmark-outline" title="Nothing saved yet" body="Use the ••• menu on any post, or the bookmark on an event, to save it for later." />;
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+      {data.events.map((e) => (
+        <Card key={e.id} style={{ padding: 12, gap: 2 }}>
+          <Text onPress={() => router.push({ pathname: "/events/[id]", params: { id: e.id } } as never)} numberOfLines={2} style={{ fontWeight: "700", color: e.status === "cancelled" ? colors.muted : colors.text }}>{e.title}</Text>
+          <Text style={{ color: colors.muted }}>{e.status === "cancelled" ? "Cancelled · " : ""}{eventWhen(e, timeZone, Date.now())}{e.location ? ` · ${e.location}` : ""}</Text>
+        </Card>
+      ))}
       {data.posts.map((p) => {
         // A post's title names it best (migration 44; older rows have none), then the start of its words.
         const text = p.title?.trim() || (p.body?.trim().replace(/\s+/g, " ") ?? "");

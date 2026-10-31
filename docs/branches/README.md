@@ -1,6 +1,6 @@
 # Branches
 
-Every branch at a glance, **as of 2026-10-27**. GitHub: `yubrajbajagain2024-byte/UniBuzz`
+Every branch at a glance, **as of 2026-10-31**. GitHub: `yubrajbajagain2024-byte/UniBuzz`
 (public); default branch `main`; work lands through pull requests (PRs #1 – #47 so far). One file
 per branch holds the details, tips and counts included: `<branch name>.md`, with a slash in the
 name as a folder. The rules for these files are in the root CLAUDE.md ("Documentation: keep it
@@ -36,8 +36,9 @@ current", rules 2 and 3).
 | `stories` | Sunil | Stories: the tray under Home's tabs, the viewer, "Your story" on the publish screen; migration 58 | merged (PR #69, 2026-10-30 17:26 UTC); 58 on production since 2026-10-30 19:30 UTC | this table and docs/status.md (one PR) |
 | `stories-live` | Sunil | Migration 58 to production on its own, ahead of the release: its offline rehearsal, its staging probe, 58 out of the release lists; the viewer waits for the picture, expired stories leave an open tray, pull to refresh reloads it; the Business v2 review of 2026-10-30; CLAUDE.md (no new migration) | merged (PR #70, 2026-10-30 21:02 UTC) | — |
 | `stories-media` | Sunil | A story's photo in its own folder, checked and deleted with the story; video stories from the author's own uploads (migration 59, live 2026-10-30 20:30 UTC); the app moves the photo there | merged (PR #71, 2026-10-30 21:03 UTC) | — |
-| `post-media-privacy` | Sunil | Every upload folder listed by its owner alone; a post's photos from, and with, the post (migration 60); the full backup and restore tools (`scripts/backup.mjs --full`, `scripts/restore.mjs`, their staging rehearsal, the daily launchd backup) | pushed 2026-10-30 after 60 went live (21:46 UTC); PR open | this table, docs/status.md, docs/migrations.md, docs/testing.md, docs/history.md, docs/decisions.md, docs/environment.md (one PR) |
-| `business-performance` | Sunil | The business portal made instant: local token verification, parallel and deduplicated reads, prefetch on intent, delayed skeletons, filters without a request, one live channel, a self-updating Inbox list (no migration) | pushed 2026-10-30; PR to open; browser timings await a staging run | [business-performance.md](business-performance.md) |
+| `post-media-privacy` | Sunil | Every upload folder listed by its owner alone; a post's photos from, and with, the post (migration 60); the full backup and restore tools (`scripts/backup.mjs --full`, `scripts/restore.mjs`, their staging rehearsal, the daily launchd backup) | merged (PR #72, 2026-10-30) | docs/history.md |
+| `business-performance` | Sunil | The business portal made instant: local token verification, parallel and deduplicated reads, prefetch on intent, delayed skeletons, filters without a request, one live channel, a self-updating Inbox list (no migration) | merged (PR #73, 2026-10-30); browser timings await a staging run | [business-performance.md](business-performance.md) |
+| `events` | Sunil | Home, Explore, Messages, Events, Profile; the Events tab, event pages, organizations that students create and staff verify, the university's ICS and RSS feeds synced by the website, the console's Events section (migration 61: on staging since 2026-10-31, not on production) | pushed 2026-10-31; **PR #74 open** | [events.md](events.md) |
 | `claude/claude-md-documentation-0b8750` | — | leftover worktree branch of a 2026-10-26 AI session | no commits of its own; left untouched until the owner says otherwise | — |
 
 **Safe to delete once their owner agrees**, because `main` has all their work (what is left on them

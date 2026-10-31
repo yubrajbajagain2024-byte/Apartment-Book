@@ -25,3 +25,5 @@ export * from "./calls";
 export * from "./business";
 export * from "./mfa";
 export * from "./stories";
+export * from "./events";
+export * from "./event-sync";

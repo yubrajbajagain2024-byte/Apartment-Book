@@ -10,6 +10,9 @@ import { boot, read, expectOk, done } from "./harness.mjs";
 import { BUZZ_GUIDELINES_VERSION, BUZZ_CATEGORIES } from "../../packages/shared/src/buzz/constants.ts";
 import { catalog, diffCatalogs, isBuzz, BUZZ_DATA_SQL, DATA_HELPER_SQL, DROP_DATA_HELPER_SQL } from "./catalog.mjs";
 
+// 61 (Events) goes to production on its own, ahead of this release, like 58 to 60 did (events-rollout.test.mjs): it is
+// left out here so the database starts in production's state as it is.
+const AHEAD = ["20261113000000_events.sql"];
 const PENDING = [
   "20261103000300_discover.sql",
   "20261104000100_discover_audience.sql",
@@ -26,7 +29,7 @@ const PENDING = [
 // The release's rollback: the business migrations (57 included), newest first. Buzz's 51 to 54 stay.
 const BUSINESS = ["20261107000000_business_teams.sql", "20261107000100_business_ads.sql", "20261109000000_media_server_fields.sql", "20261109000100_business_hardening.sql", "20261110000000_business_hours.sql"];
 const BUSINESS_ROLLBACKS = [...BUSINESS].reverse().map((f) => `rollbacks/${f.replace(/\.sql$/, ".down.sql")}`);
-const { db, mk, as, asService } = await boot({ live: true, skip: PENDING });
+const { db, mk, as, asService } = await boot({ live: true, skip: [...PENDING, ...AHEAD] });
 const one = async (p) => (await p).rows[0];
 const signUp = async (email, meta) => (await db.query("insert into auth.users (email, raw_user_meta_data) values ($1, $2) returning id", [email, JSON.stringify(meta)])).rows[0].id;
 const confirm = (id) => db.query("update auth.users set email_confirmed_at = now() where id = $1", [id]);
@@ -133,7 +136,7 @@ await expectOk("after the release rollback: v1 business rules again (staff, the 
   if (!refused) throw new Error("a business opened a chat");
 });
 await expectOk("after the release rollback: the schema is exactly that of a database that never had 49, 50, 55 or 56 (44, 46, 47 and 51 to 54 only)", async () => {
-  const reference = await boot({ live: true, skip: BUSINESS });
+  const reference = await boot({ live: true, skip: [...BUSINESS, ...AHEAD] });
   const changed = diffCatalogs(await catalog(async (q) => (await reference.db.query(q)).rows), await catalog(async (q) => (await db.query(q)).rows));
   await reference.db.close();
   if (changed.length) throw new Error(changed.join("; "));

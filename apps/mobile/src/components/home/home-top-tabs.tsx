@@ -40,10 +40,11 @@ const RING_SIZE = PHOTO + 2 * (PHOTO_GAP + RING);
 /** The square your photo (or, over Reels, the "+") sits in at the left, as the bell does at the right. */
 const SIDE = 44;
 /**
- * The slot on each side of the wordmark, one SIDE square each: the Notifications bell centred on the right (search is the
- * Discover tab), your photo on the left. The same width both sides keeps the wordmark centred on the screen.
+ * The slot on each side of the wordmark: the magnifier and the Notifications bell on the right (two actions, a 4pt gap,
+ * and the bell's inset from the edge), your photo at the left of the left one. The same width both sides keeps the
+ * wordmark centred on the screen.
  */
-const SIDE_SLOT = SIDE;
+const SIDE_SLOT = 2 * HEADER_ACTION_SIZE + 4 + (SIDE - HEADER_ACTION_SIZE) / 2;
 const LABEL_SIZE = 16;
 /** The toggle: each segment this wide, the sliding thumb inset by the pill's padding. */
 const SEGMENT = 108;
@@ -106,8 +107,8 @@ export function campusSegments(profile: { university_id: string | null; universi
 /**
  * Floating top bar of Home, X style, in three rows. Row 1: your photo in a gradient ring on the left, which opens your
  * menu (ProfileMenuSheet: your profile, Upload, Saved, Settings, Community Guidelines, Log out; signed out, log in); the
- * UniBuzz wordmark in the middle (it reads "Following" while that feed shows); on the right the Notifications bell (it
- * opens the notifications screen; its badge counts the unread; search is the Discover tab). Row 2: the Home tabs (Orbit | Buzz | Reels) spread across the row
+ * UniBuzz wordmark in the middle (it reads "Following" while that feed shows); on the right the magnifier (the search
+ * screen) and the Notifications bell (it opens the notifications screen; its badge counts the unread). Row 2: the Home tabs (Orbit | Buzz | Reels) spread across the row
  * with X's sliding underline (violet, as wide as the label) over a hairline. Row 3: the Campus | Global toggle, a small
  * segmented pill whose thumb slides to the choice (see useHomeScope: it scopes For you, Buzz, Posts and Reels alike;
  * Campus is the person's own university, Global every university; "Following" joins it only while Posts has a tab,

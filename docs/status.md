@@ -1,6 +1,6 @@
 # Project status
 
-As of **2026-10-30**. Sources: the code, commit messages, and the owner's deploy notes (read-only
+As of **2026-10-31**. Sources: the code, commit messages, and the owner's deploy notes (read-only
 checks of production). Migration-by-migration status is in [migrations.md](migrations.md); branch
 details in [branches/](branches/README.md). Refer to an item below by its title.
 
@@ -15,7 +15,8 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 - **Create flow (app):** camera first (BUZZ | POST | REEL | SNAP since 2026-10-30, front lens by default), gallery,
   editor, publish with title, link, audience (campus | global | friends | selected) and comments
   switch; roommate posts and Marketplace items made in the same flow, optionally anonymous.
-- **Discover tab:** search plus popular posts, topics and accounts per campus (falls back until 44
+- **Search** (the former Discover tab, a screen behind the magnifier beside the bell since the
+  `events` branch): search plus popular posts, topics and accounts per campus (falls back until 44
   is live).
 - **Buzz v2:** anonymous threads, moderation engine, staff console at `/admin` (41 + 42 live since
   2026-10-26). Since PR #41 (2026-10-27) an emoji no longer holds a Buzz for review. In the app,
@@ -44,6 +45,13 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 
 ## Open work, in priority order
 
+- **Events** (branch `events`, 2026-10-31, PR #74 open; [branches/events.md](branches/events.md)): the bar is
+  Home, Explore, Messages, Events, Profile; the Events tab (For you | All events, date and category pills, search,
+  saved), event pages, organizations that students create and staff verify, the university's ICS and RSS feeds synced
+  by the website, the console's Events section; migration 61, written, rehearsed offline and applied on staging, **not
+  on production**. Reviewed on 2026-10-31 through a staging-backed preview with Texas State's real calendar synced. To
+  ship, each with the owner's approval: a full backup and 61 alone (as 58 to 60 went), `CRON_SECRET` in Vercel's
+  Production environment, the merge, Texas State's calendar feed added in `/admin/events`, an EAS update.
 - **Apply the pending migrations.** One run of `db:setup` from `main` in database-URL mode
   ([supabase/CLAUDE.md](../supabase/CLAUDE.md)), after a backup, applies them in file order: 44 and
   46 together, 49 and 50 (Business v2), 51 to 54 (Buzz), 55 and 56 (Business v2, PR #51), once
