@@ -42,6 +42,8 @@ const APT_PHOTOS = [`${ORIGIN}apartments/${S1}/one.jpg`, `${ORIGIN}apartments/${
 const apt = (await as(S1, () => one(db.query(
   "insert into public.apartments (owner_id, university_id, title, description, price_per_month, address, latitude, longitude, images, videos) values ($1,$2,'Sunny 2BR near campus','Big windows, quiet street',900,'1 College St',29.889,-97.939,$3::text[],$4::jsonb) returning id",
   [S1, TXST, APT_PHOTOS, video(mediaApt, "pbapt1")])))).id;
+// Since migration 60 a post takes only its author's own uploads to posts/<author>/: the reel's cover exists in Storage first.
+await db.query("insert into storage.objects (bucket_id, name, owner, owner_id) values ('uploads', $1, $2::uuid, $3)", [`posts/${S1}/reel-cover.jpg`, S1, S1]);
 const reel = (await as(S1, () => one(db.query("insert into public.feed_posts (author_id, kind, body, images, videos) values ($1,'reel','move-in day',$2::text[],$3::jsonb) returning id", [S1, [`${ORIGIN}posts/${S1}/reel-cover.jpg`], video(mediaReel, "pbreel1")])))).id;
 const post = (await as(S1, () => one(db.query("insert into public.feed_posts (author_id, body) values ($1,'First week on campus!') returning id", [S1])))).id;
 const roommate = (await as(S1, () => one(db.query("insert into public.roommate_posts (author_id, post_type, title, description) values ($1,'has_room','Room in a 2BR','quiet, clean') returning id", [S1])))).id;

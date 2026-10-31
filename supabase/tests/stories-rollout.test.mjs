@@ -31,6 +31,7 @@ const REST = [
   "20261109000000_media_server_fields.sql",
   "20261109000100_business_hardening.sql",
   "20261110000000_business_hours.sql",
+  "20261114000000_console_business.sql",
 ];
 const check = (cond, message) => { if (!cond) throw new Error(message); };
 
