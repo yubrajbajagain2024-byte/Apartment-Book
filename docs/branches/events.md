@@ -1,7 +1,8 @@
 # events
 
-- **Owner:** Sunil. **As of 2026-10-31:** branched from `main` at PR #73 (`05ac276`); not pushed yet. Written by an AI
-  session with two forked sessions (one for the app, one for the website).
+- **Owner:** Sunil. **As of 2026-10-31:** branched from `main` at PR #73 (`05ac276`); pushed (`1192000`), **PR #74 open**
+  (https://github.com/yubrajbajagain2024-byte/UniBuzz/pull/74). Written by an AI session with two forked sessions (one
+  for the app, one for the website).
 - **Purpose:** the owner's brief: the bottom bar becomes Home, Explore, Messages, Events, Profile (Discover's search
   moves to a magnifier beside the bell; Housing, Roommates and the Marketplace stay in Explore; Orbit, Buzz and Reels in
   Home); a dedicated Events section with a compact feed (small optional pictures, title, date, time, place, category),
@@ -47,8 +48,8 @@ See "Events" in [../../README.md](../../README.md#events) for how it works. In s
 
 ## Pending, and next steps
 
-1. The owner reviews the PR; `npm run check`, `npm run test:shared` and `npm run db:test` results are in
-   [../testing.md](../testing.md).
+1. The owner reviews PR #74; `npm run check` (6/6), `npm run test:shared` (238/238) and `npm run db:test` (48 suites,
+   1721 checks) results are in [../testing.md](../testing.md).
 2. Production, each with the owner's approval: a full backup, migration 61 alone (the procedure in
    `supabase/CLAUDE.md`), `CRON_SECRET` set in Vercel's Production environment, the merge (which deploys the website),
    the first feeds added in `/admin/events` (Texas State's calendar addresses), an EAS update so testers get the tab.

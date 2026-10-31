@@ -45,7 +45,7 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 
 ## Open work, in priority order
 
-- **Events** (branch `events`, 2026-10-31, PR to open; [branches/events.md](branches/events.md)): the bar is
+- **Events** (branch `events`, 2026-10-31, PR #74 open; [branches/events.md](branches/events.md)): the bar is
   Home, Explore, Messages, Events, Profile; the Events tab (For you | All events, date and category pills, search,
   saved), event pages, organizations that students create and staff verify, the university's ICS and RSS feeds synced
   by the website, the console's Events section; migration 61, written, rehearsed offline and applied on staging, **not
