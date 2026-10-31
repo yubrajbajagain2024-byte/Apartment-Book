@@ -25,6 +25,18 @@ export function decodeEntities(s: string): string {
   });
 }
 
+/**
+ * A calendar's link as a web address the database accepts (http or https, at most 2000 characters): a bare host
+ * ("infosecurity.txst.edu", as Trumba writes some) gets https://, anything else that is not a web address is dropped.
+ */
+export function webUrl(value: string | null | undefined): string | null {
+  const v = (value ?? "").trim();
+  if (!v || v.length > 2000 || /\s/.test(v)) return null;
+  if (/^https?:\/\/[^/\s]+\.[^/\s]+/i.test(v)) return v;
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(v)) return `https://${v}`;
+  return null;
+}
+
 /** Plain words out of an item's HTML description: tags dropped, breaks and paragraphs kept as line breaks, entities decoded. */
 export function stripHtml(html: string): string {
   return decodeEntities(
@@ -60,6 +72,19 @@ function tagTexts(fragment: string, tag: string): string[] {
     if (v) out.push(v);
   }
   return out;
+}
+
+/** An item's picture: an image <enclosure>, or <media:content> / <media:thumbnail>; https only. */
+function imageOfItem(item: string): string | null {
+  for (const m of item.matchAll(/<(enclosure|media:content|media:thumbnail)\b([^>]*)\/?>/gi)) {
+    const attrs = m[2]!;
+    const url = /\burl\s*=\s*"([^"]+)"/i.exec(attrs)?.[1];
+    const type = /\btype\s*=\s*"([^"]+)"/i.exec(attrs)?.[1] ?? "";
+    const isImage = m[1]!.toLowerCase() === "media:thumbnail" || /^image\//i.test(type) || (m[1]!.toLowerCase() === "media:content" && /\bmedium\s*=\s*"image"/i.test(attrs));
+    const clean = url ? decodeEntities(url).trim() : "";
+    if (isImage && /^https:\/\/[^\s"<>]+$/i.test(clean) && clean.length <= 2000) return clean;
+  }
+  return null;
 }
 
 /** The tags an item may give its start and end in: the RSS 1.0 Events module (ev:), xCal, Dublin Core, then plain names. */
@@ -113,7 +138,8 @@ export function parseRss(xml: string, opts: RssOptions): ParsedEvent[] {
       endsAt: endMs === null ? null : new Date(endMs).toISOString(),
       allDay: start.dateOnly,
       location: tagText(item, "ev:location")?.replace(/\s+/g, " ").slice(0, 200) ?? null,
-      url: link && /^https?:\/\//i.test(link) ? link : null,
+      url: webUrl(link),
+      imageUrl: imageOfItem(item),
       categories: [...tagTexts(item, "category"), ...tagTexts(item, "ev:type")],
       cancelled: /\bcancell?ed\b/i.test(title),
     });

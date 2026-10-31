@@ -17,6 +17,7 @@ export type ExistingFeedEvent = {
   location: string | null;
   category: string;
   registration_url: string | null;
+  image_url: string | null;
   status: string;
 };
 
@@ -34,6 +35,7 @@ export type FeedEventWrite = {
   location: string | null;
   category: EventCategory;
   registration_url: string | null;
+  image_url: string | null;
   source: "feed";
   status: "scheduled" | "cancelled";
 };
@@ -65,13 +67,14 @@ export function planFeedSync(parsed: ParsedEvent[], existing: ExistingFeedEvent[
   const seen = new Set<string>();
   const plan: FeedSyncPlan = { inserts: [], updates: [], cancelIds: [], unchanged: 0 };
   for (const p of parsed) {
-    if (seen.has(p.uid)) continue;
-    seen.add(p.uid);
+    const uid = p.uid.slice(0, 500);
+    if (seen.has(uid)) continue;
+    seen.add(uid);
     const want: FeedEventWrite = {
       university_id: feed.university_id,
       organization_id: feed.organization_id,
       feed_id: feed.id,
-      external_uid: p.uid,
+      external_uid: p.uid.slice(0, 500),
       title: p.title,
       description: p.description,
       starts_at: p.startsAt,
@@ -80,10 +83,11 @@ export function planFeedSync(parsed: ParsedEvent[], existing: ExistingFeedEvent[
       location: p.location,
       category: categoryFromText(p.categories, p.title, fallback),
       registration_url: p.url,
+      image_url: p.imageUrl,
       source: "feed",
       status: p.cancelled ? "cancelled" : "scheduled",
     };
-    const have = byUid.get(p.uid);
+    const have = byUid.get(uid);
     if (!have) {
       plan.inserts.push(want);
       continue;
@@ -97,6 +101,7 @@ export function planFeedSync(parsed: ParsedEvent[], existing: ExistingFeedEvent[
     if (!same(have.location, want.location)) patch.location = want.location;
     if (have.category !== want.category) patch.category = want.category;
     if (!same(have.registration_url, want.registration_url)) patch.registration_url = want.registration_url;
+    if (!same(have.image_url, want.image_url)) patch.image_url = want.image_url;
     if (have.status !== "hidden" && have.status !== want.status) patch.status = want.status;
     if (Object.keys(patch).length > 0) plan.updates.push({ id: have.id, patch });
     else plan.unchanged++;

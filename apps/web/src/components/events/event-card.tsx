@@ -6,6 +6,15 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { EventSaveButton } from "./event-save-button";
 
+/**
+ * Whether a picture is in our own Storage, which next/image may resize (next.config.ts allows only those hosts). A
+ * university calendar's picture (Trumba's, say) loads straight from its host instead: allowing every host would make the
+ * image route an open proxy.
+ */
+export function isStorageImage(url: string): boolean {
+  return /^https:\/\/[^/]+\.supabase\.(co|in)\/storage\/v1\/object\/public\//.test(url);
+}
+
 /** The glyph that stands in for a picture, one per category, on the aurora. */
 export const CATEGORY_ICONS: Record<string, LucideIcon> = {
   academic: GraduationCap,
@@ -35,7 +44,7 @@ export function EventThumb({ event, className, sizes = "96px" }: { event: Pick<E
   const Icon = CATEGORY_ICONS[event.category] ?? CalendarDays;
   return (
     <span className={cn("relative block overflow-hidden rounded-lg bg-brand-600 bg-aurora", className)}>
-      {event.image_url ? <Image src={event.image_url} alt="" fill sizes={sizes} className="object-cover" /> : <Icon className="absolute inset-0 m-auto h-8 w-8 text-white/90" aria-hidden />}
+      {event.image_url ? <Image src={event.image_url} alt="" fill sizes={sizes} unoptimized={!isStorageImage(event.image_url)} className="object-cover" /> : <Icon className="absolute inset-0 m-auto h-8 w-8 text-white/90" aria-hidden />}
     </span>
   );
 }

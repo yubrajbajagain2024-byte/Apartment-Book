@@ -97,6 +97,16 @@ test("rankEvents: an interest, a followed organization and saves lift an event; 
   assert.deepEqual(rankEvents([popular, soonPlain, laterInterest], {}, NOW).map((e) => e.title), plain);
 });
 
+test("rankEvents: an event a calendar repeats (a daily exhibit) shows once, at its best occurrence; another calendar's event of the same name still shows", () => {
+  const daily = [1, 2, 3, 4].map((d) => ev(`2026-11-0${5 + d}T15:00:00Z`, { title: "Wellspring", feed_id: "f1", category: "arts" }));
+  const other = ev("2026-11-08T01:00:00Z", { title: "Wellspring", feed_id: "f2" });
+  const play = ev("2026-11-07T01:00:00Z", { title: "Mean Girls", feed_id: "f1" });
+  const ranked = rankEvents([...daily, other, play], {}, NOW);
+  assert.equal(ranked.filter((e) => e.title === "Wellspring" && e.feed_id === "f1").length, 1);
+  assert.equal(ranked.find((e) => e.title === "Wellspring" && e.feed_id === "f1").id, daily[0].id);
+  assert.equal(ranked.length, 3);
+});
+
 test("rankEvents: one organization does not take the first rows in a row when something else scores nearly as well", () => {
   const club = { id: "club", name: "Robotics", kind: "club", avatar_url: null, verified: true };
   const theirs = [1, 2, 3, 4].map((d) => ev(`2026-11-0${5 + d}T01:00:00Z`, { title: `club ${d}`, organization: club, organization_id: "club" }));

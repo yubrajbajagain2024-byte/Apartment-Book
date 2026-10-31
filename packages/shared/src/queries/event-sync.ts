@@ -25,19 +25,24 @@ export async function listFeedsToSync(admin: Client, opts: { feedId?: string; in
 
 /** A feed's events from `fromIso` on (no upper bound: a row beyond the window must not be inserted twice). */
 export async function listFeedEventsForSync(admin: Client, feedId: string, fromIso: string): Promise<ExistingFeedEvent[]> {
-  const { data, error } = await admin.from("events").select("id, external_uid, title, description, starts_at, ends_at, all_day, location, category, registration_url, status").eq("feed_id", feedId).or(`starts_at.gte.${fromIso},ends_at.gte.${fromIso}`).limit(5000);
+  const { data, error } = await admin.from("events").select("id, external_uid, title, description, starts_at, ends_at, all_day, location, category, registration_url, image_url, status").eq("feed_id", feedId).or(`starts_at.gte.${fromIso},ends_at.gte.${fromIso}`).limit(5000);
   if (error) throw error;
   return (data ?? []).filter((r): r is typeof r & { external_uid: string } => r.external_uid !== null);
 }
 
-export type FeedSyncResult = { inserted: number; updated: number; cancelled: number; duplicates: number };
+/** `skipped`: rows the database refused (a calendar's odd value), left out so the rest still land; `firstError` says why. */
+export type FeedSyncResult = { inserted: number; updated: number; cancelled: number; duplicates: number; skipped: number; firstError: string | null };
 
 /**
  * Applies a plan. Before inserting, an event with the same title at the same moment on the same campus that another
  * feed or an organization already lists is left out: one row per real event, whichever calendar said it first.
  */
 export async function applyFeedSyncPlan(admin: Client, feed: FeedForSync, plan: FeedSyncPlan): Promise<FeedSyncResult> {
-  const result: FeedSyncResult = { inserted: 0, updated: 0, cancelled: 0, duplicates: 0 };
+  const result: FeedSyncResult = { inserted: 0, updated: 0, cancelled: 0, duplicates: 0, skipped: 0, firstError: null };
+  const refused = (message: string) => {
+    result.skipped++;
+    result.firstError ??= message.slice(0, 300);
+  };
   if (plan.inserts.length > 0) {
     const keys = [...new Set(plan.inserts.map((i) => titleKeyOf(i.title)))];
     const starts = [...new Set(plan.inserts.map((i) => i.starts_at))];
@@ -47,15 +52,24 @@ export async function applyFeedSyncPlan(admin: Client, feed: FeedForSync, plan: 
     const fresh = plan.inserts.filter((i) => !taken.has(`${titleKeyOf(i.title)}|${Date.parse(i.starts_at)}`));
     result.duplicates = plan.inserts.length - fresh.length;
     for (let i = 0; i < fresh.length; i += 100) {
-      const { error: e } = await admin.from("events").insert(fresh.slice(i, i + 100));
-      if (e) throw e;
-      result.inserted += Math.min(100, fresh.length - i);
+      const chunk = fresh.slice(i, i + 100);
+      const { error: e } = await admin.from("events").insert(chunk);
+      if (!e) {
+        result.inserted += chunk.length;
+        continue;
+      }
+      // One refused row fails its whole batch: insert the batch row by row, keeping every row the database accepts.
+      for (const row of chunk) {
+        const { error: one } = await admin.from("events").insert(row);
+        if (one) refused(`${row.title}: ${one.message}`);
+        else result.inserted++;
+      }
     }
   }
   for (const u of plan.updates) {
     const { error } = await admin.from("events").update(u.patch).eq("id", u.id);
-    if (error) throw error;
-    result.updated++;
+    if (error) refused(error.message);
+    else result.updated++;
   }
   if (plan.cancelIds.length > 0) {
     const { error } = await admin.from("events").update({ status: "cancelled" }).in("id", plan.cancelIds);

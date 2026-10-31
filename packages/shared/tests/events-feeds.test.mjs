@@ -21,7 +21,7 @@ register(
 );
 
 const { parseIcs, unfoldIcs, unescapeIcsText, parseIcsDuration, resolveTimeZone } = await import("../src/events/ics.ts");
-const { parseRss, stripHtml, decodeEntities } = await import("../src/events/rss.ts");
+const { parseRss, stripHtml, decodeEntities, webUrl } = await import("../src/events/rss.ts");
 const { planFeedSync, titleKeyOf } = await import("../src/events/sync.ts");
 const { wallTimeToUtc, wallTimeOf, startOfDay, isTimeZone } = await import("../src/events/time.ts");
 
@@ -167,27 +167,76 @@ test("rss: items with a start (ev:startdate, dtstart, dc:date) become events; ne
   assert.equal(decodeEntities("&#x2019;&nbsp;&unknown;"), "’ &unknown;");
 });
 
+test("ics from a web calendar (Trumba's shape): HTML entities decoded, HTML descriptions turned to text, the Event Type field as a category, the IMAGE picture", () => {
+  const events = parseIcs(
+    cal(
+      vevent([
+        "UID:t@x",
+        "SUMMARY:Texas State Softball vs Texas A&amp\\;M - Women&#39;s Day",
+        "DTSTART:20261110T230000Z",
+        "LOCATION:Bobcat Softball Stadium &amp\\; Plaza",
+        "DESCRIPTION:Campus Location: Stadium<br>Cost: Free<br><br>Bring a friend &amp\\; cheer.",
+        "CATEGORIES:Texas State University Events",
+        'X-TRUMBA-CUSTOMFIELD;NAME="Event Type";ID=21;TYPE=number:Performance',
+        'X-TRUMBA-CUSTOMFIELD;NAME="Sponsor";ID=46604;TYPE=SingleLine:Athletics Department',
+        "IMAGE;VALUE=URI:https://www.trumba.com/i/abc.jpg",
+        "ATTACH;FMTTYPE=application/pdf:https://x.example/flyer.pdf",
+      ]),
+    ),
+    WINDOW,
+  );
+  assert.equal(events.length, 1);
+  const e = events[0];
+  assert.equal(e.title, "Texas State Softball vs Texas A&M - Women's Day");
+  assert.equal(e.location, "Bobcat Softball Stadium & Plaza");
+  assert.equal(e.description, "Campus Location: Stadium\nCost: Free\nBring a friend & cheer.");
+  assert.deepEqual(e.categories, ["Texas State University Events", "Performance"]);
+  assert.equal(e.imageUrl, "https://www.trumba.com/i/abc.jpg");
+  // An image only over https; a plain link or another file type is not a picture.
+  const plain = parseIcs(cal(vevent(["UID:p@x", "SUMMARY:P", "DTSTART:20261110T230000Z", "IMAGE;VALUE=URI:http://x.example/a.jpg", "ATTACH;FMTTYPE=image/png:https://x.example/b.png"])), WINDOW);
+  assert.equal(plain[0].imageUrl, "https://x.example/b.png");
+});
+
+test("webUrl: a bare host gets https, a web address stays, anything else is dropped (the database accepts only http and https)", () => {
+  assert.equal(webUrl("infosecurity.txst.edu"), "https://infosecurity.txst.edu");
+  assert.equal(webUrl("www.txst.edu/events?id=1"), "https://www.txst.edu/events?id=1");
+  assert.equal(webUrl("https://events.example/a"), "https://events.example/a");
+  assert.equal(webUrl("http://events.example/a"), "http://events.example/a");
+  for (const bad of ["mailto:a@b.c", "javascript:alert(1)", "Call 512-555-0100", "", null, "ftp://x.example/a", "https://"]) assert.equal(webUrl(bad), null, String(bad));
+  const ev = parseIcs(cal(vevent(["UID:u@x", "SUMMARY:U", "DTSTART:20261110T230000Z", "URL:infosecurity.txst.edu"])), WINDOW);
+  assert.equal(ev[0].url, "https://infosecurity.txst.edu");
+});
+
+test("rss: an image enclosure or media:thumbnail is the item's picture", () => {
+  const xml = `<rss xmlns:ev="http://purl.org/rss/1.0/modules/event/" xmlns:media="http://search.yahoo.com/mrss/"><channel>
+    <item><title>A</title><guid>a</guid><ev:startdate>2026-11-12T16:00:00Z</ev:startdate><enclosure url="https://x.example/a.jpg?w=1&amp;h=2" type="image/jpeg" length="1"/></item>
+    <item><title>B</title><guid>b</guid><ev:startdate>2026-11-12T16:00:00Z</ev:startdate><media:thumbnail url="https://x.example/b.png"/></item>
+    <item><title>C</title><guid>c</guid><ev:startdate>2026-11-12T16:00:00Z</ev:startdate><enclosure url="https://x.example/c.mp3" type="audio/mpeg"/></item>
+  </channel></rss>`;
+  assert.deepEqual(parseRss(xml, { windowStart: WINDOW.windowStart, windowEnd: WINDOW.windowEnd }).map((e) => e.imageUrl), ["https://x.example/a.jpg?w=1&h=2", "https://x.example/b.png", null]);
+});
+
 test("sync plan: inserts, column-by-column updates, cancellations by absence, hidden kept, past rows left, duplicates within the feed", () => {
   const feed = { id: "feed-1", university_id: "tx", organization_id: null, default_category: "academic" };
   const now = T("2026-11-01T12:00:00Z");
   const parsed = [
-    { uid: "a", title: "Robot Races", description: "x", startsAt: "2026-11-06T01:00:00.000Z", endsAt: null, allDay: false, location: null, url: null, categories: ["Technology"], cancelled: false },
-    { uid: "b", title: "Study Night (moved)", description: null, startsAt: "2026-12-10T02:00:00.000Z", endsAt: "2026-12-10T05:00:00.000Z", allDay: false, location: "Alkek", url: null, categories: [], cancelled: false },
-    { uid: "c", title: "Hidden one", description: null, startsAt: "2026-11-20T01:00:00.000Z", endsAt: null, allDay: false, location: null, url: null, categories: [], cancelled: true },
-    { uid: "d", title: "Same", description: null, startsAt: "2026-11-21T01:00:00.000Z", endsAt: null, allDay: false, location: null, url: null, categories: [], cancelled: false },
-    { uid: "a", title: "Robot Races duplicate", description: null, startsAt: "2026-11-06T01:00:00.000Z", endsAt: null, allDay: false, location: null, url: null, categories: [], cancelled: false },
+    { uid: "a", title: "Robot Races", description: "x", startsAt: "2026-11-06T01:00:00.000Z", endsAt: null, allDay: false, location: null, url: null, imageUrl: "https://x.example/r.jpg", categories: ["Technology"], cancelled: false },
+    { uid: "b", title: "Study Night (moved)", description: null, startsAt: "2026-12-10T02:00:00.000Z", endsAt: "2026-12-10T05:00:00.000Z", allDay: false, location: "Alkek", url: null, imageUrl: null, categories: [], cancelled: false },
+    { uid: "c", title: "Hidden one", description: null, startsAt: "2026-11-20T01:00:00.000Z", endsAt: null, allDay: false, location: null, url: null, imageUrl: null, categories: [], cancelled: true },
+    { uid: "d", title: "Same", description: null, startsAt: "2026-11-21T01:00:00.000Z", endsAt: null, allDay: false, location: null, url: null, imageUrl: null, categories: [], cancelled: false },
+    { uid: "a", title: "Robot Races duplicate", description: null, startsAt: "2026-11-06T01:00:00.000Z", endsAt: null, allDay: false, location: null, url: null, imageUrl: null, categories: [], cancelled: false },
   ];
   const existing = [
-    { id: "row-b", external_uid: "b", title: "Study Night", description: null, starts_at: "2026-12-10T02:00:00+00:00", ends_at: "2026-12-10T05:00:00+00:00", all_day: false, location: "Alkek", category: "academic", registration_url: null, status: "scheduled" },
-    { id: "row-c", external_uid: "c", title: "Hidden one", description: null, starts_at: "2026-11-20T01:00:00+00:00", ends_at: null, all_day: false, location: null, category: "academic", registration_url: null, status: "hidden" },
-    { id: "row-d", external_uid: "d", title: "Same", description: null, starts_at: "2026-11-21T01:00:00+00:00", ends_at: null, all_day: false, location: null, category: "academic", registration_url: null, status: "scheduled" },
-    { id: "row-gone", external_uid: "gone", title: "Dropped", description: null, starts_at: "2026-11-25T01:00:00+00:00", ends_at: null, all_day: false, location: null, category: "academic", registration_url: null, status: "scheduled" },
-    { id: "row-past", external_uid: "past", title: "Yesterday", description: null, starts_at: "2026-10-31T01:00:00+00:00", ends_at: null, all_day: false, location: null, category: "academic", registration_url: null, status: "scheduled" },
-    { id: "row-already", external_uid: "already", title: "Already cancelled", description: null, starts_at: "2026-11-26T01:00:00+00:00", ends_at: null, all_day: false, location: null, category: "academic", registration_url: null, status: "cancelled" },
+    { id: "row-b", external_uid: "b", title: "Study Night", description: null, starts_at: "2026-12-10T02:00:00+00:00", ends_at: "2026-12-10T05:00:00+00:00", all_day: false, location: "Alkek", category: "academic", registration_url: null, image_url: null, status: "scheduled" },
+    { id: "row-c", external_uid: "c", title: "Hidden one", description: null, starts_at: "2026-11-20T01:00:00+00:00", ends_at: null, all_day: false, location: null, category: "academic", registration_url: null, image_url: null, status: "hidden" },
+    { id: "row-d", external_uid: "d", title: "Same", description: null, starts_at: "2026-11-21T01:00:00+00:00", ends_at: null, all_day: false, location: null, category: "academic", registration_url: null, image_url: null, status: "scheduled" },
+    { id: "row-gone", external_uid: "gone", title: "Dropped", description: null, starts_at: "2026-11-25T01:00:00+00:00", ends_at: null, all_day: false, location: null, category: "academic", registration_url: null, image_url: null, status: "scheduled" },
+    { id: "row-past", external_uid: "past", title: "Yesterday", description: null, starts_at: "2026-10-31T01:00:00+00:00", ends_at: null, all_day: false, location: null, category: "academic", registration_url: null, image_url: null, status: "scheduled" },
+    { id: "row-already", external_uid: "already", title: "Already cancelled", description: null, starts_at: "2026-11-26T01:00:00+00:00", ends_at: null, all_day: false, location: null, category: "academic", registration_url: null, image_url: null, status: "cancelled" },
   ];
   const plan = planFeedSync(parsed, existing, feed, now);
   assert.equal(plan.inserts.length, 1);
-  assert.deepEqual([plan.inserts[0].external_uid, plan.inserts[0].category, plan.inserts[0].source, plan.inserts[0].status], ["a", "tech", "feed", "scheduled"]);
+  assert.deepEqual([plan.inserts[0].external_uid, plan.inserts[0].category, plan.inserts[0].source, plan.inserts[0].status, plan.inserts[0].image_url], ["a", "tech", "feed", "scheduled", "https://x.example/r.jpg"]);
   assert.deepEqual(plan.updates, [{ id: "row-b", patch: { title: "Study Night (moved)" } }]);
   assert.deepEqual(plan.cancelIds, ["row-gone"]);
   assert.equal(plan.unchanged, 2);

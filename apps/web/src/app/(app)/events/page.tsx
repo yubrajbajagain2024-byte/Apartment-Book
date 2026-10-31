@@ -3,7 +3,6 @@ import Link from "next/link";
 import { Bookmark, CalendarX2 } from "lucide-react";
 import {
   EVENT_DATE_FILTERS,
-  EVENT_SECTIONS,
   EVENTS_PAGE_SIZE,
   FOR_YOU_EVENTS_POOL,
   eventDateRange,
@@ -22,7 +21,7 @@ import {
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { firstParam, requestNow } from "@/lib/utils";
-import { SectionTabs } from "@/components/layout/section-tabs";
+import { EventsTabs } from "@/components/events/events-tabs";
 import { buttonClasses } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EventCard } from "@/components/events/event-card";
@@ -89,7 +88,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
           </Link>
         ) : null}
       </header>
-      <SectionTabs sections={EVENT_SECTIONS} active={view} hrefFor={(v) => eventsHref({ ...listParams, view: v })} label="Events sections" testIdPrefix="events-tab" />
+      <EventsTabs active={view} params={listParams} />
       <EventFilters params={listParams} />
       {view === "foryou" && signedIn && !ctx.interests?.length ? <p className="text-xs text-gray-500">For you learns from what you save, open and follow. Pick your interests in the UniBuzz app to tune it.</p> : null}
       {events.length === 0 ? (

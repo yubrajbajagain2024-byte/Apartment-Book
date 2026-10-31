@@ -46,15 +46,42 @@ See "Events" in [../../README.md](../../README.md#events) for how it works. In s
 - `supabase/tests/staging/events.mjs`: 12/12 on staging on 2026-10-31 (Auth, the REST API, Storage, the sync's own code
   on an inline calendar, twice); every row it made deleted.
 
+## Previews (2026-10-31)
+
+- **Vercel's branch preview** (`apartment-book-git-events-vyass.vercel.app`, behind Vercel's login) reads production,
+  where 61 is not applied: its Events pages are empty and the console's Events tab errors until 61 goes live.
+- **A staging-backed preview** was run from the owner's Mac for review: a production build of the website on the local
+  network (port 3060) and a second Expo server (port 8082, its own Metro cache), both given staging's address and keys
+  per process, so no env file changed; their bundles were checked to name staging alone. Staging holds a demo student
+  (`unibuzz-demo-events@txstate.edu`, admin staff there; the password was given to the owner, not written down), four
+  demo organizations (Bobcat Robotics, Career Lab, Global Bobcats verified; Paw Film Society awaiting verification) with
+  twelve events, and **Texas State's real public calendar** as a feed. Remove with
+  `delete from public.event_feeds where url like '%trumba.com%'`, `delete from public.organizations where description like '%Demo organization%' or name = 'Paw Film Society'`
+  and the demo account deleted in Auth.
+- **Texas State's calendar** is Trumba's `calendar.1400280`: `https://www.trumba.com/calendars/calendar.1400280.ics`
+  (200 events, 181 with a picture). Its RSS has no machine-readable start, so use the ICS. Synced with the branch's own
+  code on staging: 200 inserted, none refused.
+- The real feed found what the unit tests had not, all fixed and now under test: HTML entities in ICS text
+  (`Texas A&amp;M`), HTML in descriptions, the calendar's "Event Type" custom field (97 of 200 events fell to Other
+  without it, 18 with it), pictures in the standard `IMAGE` property (now kept, and loaded straight from the calendar's
+  host on the website, since `next/image` resizes only our own Storage), a link without `https://` that the database
+  refused and that failed its whole batch (links are normalised, and the sync now keeps every row the database accepts
+  and reports the rest), and a daily exhibit repeated 75 times (For you shows a repeated event once).
+- A browser check of the staging preview, signed in as the demo student on desktop and phone sizes (the page then
+  crashed for every signed-in visitor: `/events` handed a function to a client component; fixed with
+  `components/events/events-tabs.tsx`, as Home and Housing do): For you, All, Weekend, Tech, search, an event page,
+  save and unsave, Saved, an organization page, the console's two-factor gate; 30 of 30 with no server error and no
+  request to production.
+
 ## Pending, and next steps
 
 1. The owner reviews PR #74; `npm run check` (6/6), `npm run test:shared` (238/238) and `npm run db:test` (48 suites,
    1721 checks) results are in [../testing.md](../testing.md).
 2. Production, each with the owner's approval: a full backup, migration 61 alone (the procedure in
    `supabase/CLAUDE.md`), `CRON_SECRET` set in Vercel's Production environment, the merge (which deploys the website),
-   the first feeds added in `/admin/events` (Texas State's calendar addresses), an EAS update so testers get the tab.
-3. `vercel.json` sits in `apps/web/`; if the Vercel project's Root Directory is the repository root, it must move there,
-   or the cron is never registered. The Hobby plan allows one run a day; "Sync now" in the console covers the rest.
-4. Not done on this branch: notifications for a followed organization's new event; an "Add to calendar" button; event
+   the first feed added in `/admin/events` (Texas State's calendar, below), an EAS update so testers get the tab.
+3. The Hobby plan allows one cron run a day; "Sync now" in the console covers the rest.
+4. `apps/web/vercel.json` is in the right place: the Vercel project's Root Directory is `apps/web` (checked 2026-10-31).
+5. Not done on this branch: notifications for a followed organization's new event; an "Add to calendar" button; event
    pictures deleted from Storage when a feed event goes (an organization's own are removed by the app when the uploader
    deletes the event); a per-campus choice of time zone in the console (a seed row for now).

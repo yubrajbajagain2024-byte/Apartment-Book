@@ -10,7 +10,7 @@ import { requestNow } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { buttonClasses } from "@/components/ui/button";
 import { ShareButton } from "@/components/common/share-button";
-import { CATEGORY_ICONS, EventStatusPill } from "@/components/events/event-card";
+import { CATEGORY_ICONS, EventStatusPill, isStorageImage } from "@/components/events/event-card";
 import { CountedLink, EventOpenTracker } from "@/components/events/event-open-tracker";
 import { EventSaveButton } from "@/components/events/event-save-button";
 import { OrganizationFollowButton } from "@/components/events/organization-follow-button";
@@ -68,7 +68,7 @@ export default async function EventPage({ params }: Props) {
       </Link>
 
       <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-brand-600 bg-aurora">
-        {event.image_url ? <Image src={event.image_url} alt="" fill priority sizes="(max-width: 768px) 100vw, 672px" className="object-cover" /> : <Icon className="absolute inset-0 m-auto h-16 w-16 text-white/90" aria-hidden />}
+        {event.image_url ? <Image src={event.image_url} alt="" fill priority unoptimized={!isStorageImage(event.image_url)} sizes="(max-width: 768px) 100vw, 672px" className="object-cover" /> : <Icon className="absolute inset-0 m-auto h-16 w-16 text-white/90" aria-hidden />}
       </div>
 
       {event.status === "cancelled" ? (

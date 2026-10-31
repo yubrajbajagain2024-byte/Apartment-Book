@@ -1,3 +1,4 @@
+import { decodeEntities, stripHtml, webUrl } from "./rss";
 import { addDays, isTimeZone, wallTimeToUtc, weekdayOf, type WallTime } from "./time";
 
 /**
@@ -15,6 +16,8 @@ export type ParsedEvent = {
   allDay: boolean;
   location: string | null;
   url: string | null;
+  /** A picture the calendar gives the event (RFC 7986 IMAGE, or an image ATTACH), https only. */
+  imageUrl: string | null;
   /** The calendar's own words for the kind of event (CATEGORIES), for categoryFromText(). */
   categories: string[];
   cancelled: boolean;
@@ -250,10 +253,33 @@ export function expandRule(start: WallTime, rule: Rule, zone: string, windowEnd:
 
 const first = (c: Component, name: string): Prop | undefined => c.props.find((p) => p.name === name);
 const all = (c: Component, name: string): Prop[] => c.props.filter((p) => p.name === name);
+/**
+ * A text property's words. Calendars exported from web tools (Trumba, Localist, LiveWhale) put HTML entities in their
+ * text ("Texas A&amp;M") and HTML in DESCRIPTION, so entities are decoded everywhere and tags dropped where there are any.
+ */
 const text = (c: Component, name: string): string | null => {
   const v = first(c, name)?.value;
-  const t = v ? unescapeIcsText(v).trim() : "";
+  const unescaped = v ? unescapeIcsText(v) : "";
+  const t = (/<[a-z/][^>]*>/i.test(unescaped) ? stripHtml(unescaped) : decodeEntities(unescaped)).trim();
   return t ? t : null;
+};
+/** A custom field that names the kind of event (Trumba's X-TRUMBA-CUSTOMFIELD;NAME="Event Type", and its like). */
+const TYPE_FIELD = /^(event\s*)?(type|types|category|categories)$/i;
+/** The calendar's own words for the kind of event: CATEGORIES, then any X- custom field named like a type or category. */
+const categoriesOf = (c: Component): string[] =>
+  c.props
+    .filter((p) => p.name === "CATEGORIES" || (p.name.startsWith("X-") && TYPE_FIELD.test((p.params.NAME ?? "").trim())))
+    .flatMap((p) => unescapeIcsText(p.value).split(","))
+    .map((s) => decodeEntities(s).trim())
+    .filter(Boolean);
+/** The event's picture: an IMAGE property (RFC 7986), else an ATTACH whose type is an image; https only. */
+const imageOf = (c: Component): string | null => {
+  for (const p of c.props) {
+    const isImage = p.name === "IMAGE" || (p.name === "ATTACH" && /^image\//i.test(p.params.FMTTYPE ?? ""));
+    const v = p.value.trim();
+    if (isImage && /^https:\/\/[^\s"<>]+$/i.test(v) && v.length <= 2000) return v;
+  }
+  return null;
 };
 const compact = (ms: number): string => new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
 
@@ -319,8 +345,9 @@ export function parseIcs(textOrLines: string, opts: IcsOptions): ParsedEvent[] {
       endsAt: endMs === null ? null : new Date(endMs).toISOString(),
       allDay: startTime.allDay,
       location: text(e, "LOCATION")?.replace(/\s+/g, " ").slice(0, 200) ?? null,
-      url: text(e, "URL") ?? null,
-      categories: all(e, "CATEGORIES").flatMap((p) => unescapeIcsText(p.value).split(",")).map((s) => s.trim()).filter(Boolean),
+      url: webUrl(text(e, "URL")),
+      imageUrl: imageOf(e),
+      categories: categoriesOf(e),
       cancelled: status === "CANCELLED",
     });
   };

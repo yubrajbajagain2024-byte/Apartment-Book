@@ -199,9 +199,10 @@ export function eventScore(e: EventSummary, ctx: ForYouContext, nowMs: number): 
 }
 
 /**
- * Upcoming events in For you order: by score, then time; what is over is left out; among the first five rows the same
- * organization does not take a third row in a row while something else scores within a point of it, so a busy club
- * does not fill the top of the page.
+ * Upcoming events in For you order: by score, then time; what is over is left out; an event a calendar repeats (a daily
+ * exhibit, a play's seven nights) appears once, at its best-scoring occurrence, since All events lists every one; among
+ * the first five rows the same organization does not take a third row in a row while something else scores within a
+ * point of it, so a busy club does not fill the top of the page.
  */
 export function rankEvents<T extends EventSummary>(events: T[], ctx: ForYouContext, nowMs: number): T[] {
   const scored = events
@@ -209,7 +210,13 @@ export function rankEvents<T extends EventSummary>(events: T[], ctx: ForYouConte
     .map((e) => ({ e, s: eventScore(e, ctx, nowMs) }))
     .sort((a, b) => b.s - a.s || Date.parse(a.e.starts_at) - Date.parse(b.e.starts_at) || (a.e.id < b.e.id ? -1 : 1));
   const out: T[] = [];
-  const rest = [...scored];
+  const titles = new Set<string>();
+  const rest = scored.filter(({ e }) => {
+    const key = `${e.organization_id ?? e.feed_id ?? ""}|${e.title.trim().replace(/\s+/g, " ").toLowerCase()}`;
+    if (titles.has(key)) return false;
+    titles.add(key);
+    return true;
+  });
   while (rest.length > 0) {
     let pick = 0;
     const candidate = rest[0]!.e.organization?.id;

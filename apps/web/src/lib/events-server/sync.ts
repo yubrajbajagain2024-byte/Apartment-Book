@@ -24,6 +24,8 @@ export type FeedSyncSummary = {
   updated: number;
   cancelled: number;
   duplicates: number;
+  /** Rows the database refused (a calendar's odd value), left out so the rest still land. */
+  skipped: number;
   itemsSeen: number;
   error: string | null;
 };
@@ -56,7 +58,7 @@ async function fetchFeed(feed: FeedToSync): Promise<Fetched> {
 }
 
 async function syncOne(admin: Client, feed: FeedToSync, nowMs: number): Promise<FeedSyncSummary> {
-  const summary: FeedSyncSummary = { id: feed.id, name: feed.name, status: "ok", inserted: 0, updated: 0, cancelled: 0, duplicates: 0, itemsSeen: 0, error: null };
+  const summary: FeedSyncSummary = { id: feed.id, name: feed.name, status: "ok", inserted: 0, updated: 0, cancelled: 0, duplicates: 0, skipped: 0, itemsSeen: 0, error: null };
   try {
     const fetched = await fetchFeed(feed);
     if (fetched.status === 304) {
@@ -71,10 +73,13 @@ async function syncOne(admin: Client, feed: FeedToSync, nowMs: number): Promise<
     summary.itemsSeen = parsed.length;
     const existing = await listFeedEventsForSync(admin, feed.id, new Date(windowStart).toISOString());
     const plan = planFeedSync(parsed, existing, feed, nowMs);
-    const result = await applyFeedSyncPlan(admin, feed, plan);
+    const { firstError, ...result } = await applyFeedSyncPlan(admin, feed, plan);
     Object.assign(summary, result);
-    await recordFeedSync(admin, feed.id, { status: "ok", etag: fetched.etag, itemsSeen: parsed.length });
-    console.info(`[events-sync] ${feed.name}: ${parsed.length} items, +${result.inserted} ~${result.updated} -${result.cancelled} (${result.duplicates} duplicates)`);
+    // A few refused rows still count as a sync that worked; the console shows why they were left out.
+    const note = result.skipped > 0 ? `${result.skipped} left out: ${firstError ?? ""}`.slice(0, 500) : null;
+    summary.error = note;
+    await recordFeedSync(admin, feed.id, { status: "ok", error: note, etag: fetched.etag, itemsSeen: parsed.length });
+    console.info(`[events-sync] ${feed.name}: ${parsed.length} items, +${result.inserted} ~${result.updated} -${result.cancelled} (${result.duplicates} duplicates, ${result.skipped} left out)`);
   } catch (e) {
     const message = (e instanceof Error ? e.message : String(e)).slice(0, 500);
     summary.status = "error";

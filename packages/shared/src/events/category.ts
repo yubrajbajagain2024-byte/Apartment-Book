@@ -16,14 +16,14 @@ const KEYWORDS: [EventCategory, RegExp][] = [
   ["career", /\b(careers?|jobs?|internships?|resumes?|résumés?|employers?|hiring|recruit\w*|networking|interview\w*|linkedin|professional development)\b/i],
   ["tech", /\b(tech|technology|coding|code|hackathons?|programming|software|robotics|ai|machine learning|data science|cyber\w*|startups?|engineering|computer science|developers?)\b/i],
   ["sports", /\b(games?|match|football|basketball|soccer|volleyball|baseball|softball|tennis|athletics?|intramurals?|tournaments?|track|swim\w*|golf|rec sports|bobcats?|kickoff|tailgate|esports)\b/i],
-  ["music", /\b(concerts?|music|bands?|choirs?|orchestra|recitals?|jazz|dj|open mic|symphony|acapella|a cappella|singers?)\b/i],
-  ["arts", /\b(arts?|gallery|theat(?:re|er)|exhibits?|exhibitions?|films?|dance|museum|poetry|design|photography|improv|comedy|screening|painting|crafts?)\b/i],
+  ["music", /\b(concerts?|music|bands?|choirs?|orchestra|recitals?|jazz|dj|open mic|symphony|acapella|a cappella|singers?|ensembles?|opera)\b/i],
+  ["arts", /\b(arts?|gallery|theat(?:re|er)|exhibits?|exhibitions?|films?|dance|museum|poetry|design|photography|improv|comedy|screening|painting|crafts?|performances?|showcase|collections)\b/i],
   ["wellness", /\b(wellness|yoga|meditation|health|fitness|counsel\w*|mental health|mindfulness|nutrition|5k|fun run|hike|wellbeing|well-being|therapy|stress)\b/i],
   ["service", /\b(volunteer\w*|service|donations?|drive|clean-?up|fundrais\w*|charity|community service|philanthropy|blood drive|food bank)\b/i],
   ["cultural", /\b(cultural?|heritage|international|diwali|lunar new year|festival|hispanic|latinx?|black history|pride|holi|eid|multicultural|celebration|fiesta|powwow)\b/i],
   ["faith", /\b(worship|bible|prayer|church|chapel|mass|fellowship|ministry|faith|islamic|muslim|jewish|hillel|ramadan|christian|catholic|hindu|sikh|buddhist|religious)\b/i],
-  ["academic", /\b(lectures?|seminars?|workshops?|class(?:es)?|study|exams?|finals|research|colloqui\w*|thesis|dissertation|tutoring|advising|library|academic|symposium|conference|panel|orientation|registration|commencement|graduation|info session|webinar)\b/i],
-  ["social", /\b(party|mixer|social|meet-?ups?|game night|trivia|hang-?out|movie night|karaoke|welcome|bingo|picnic|bbq|barbecue|dinner|lunch|breakfast|coffee|ice cream|meet and greet|homecoming)\b/i],
+  ["academic", /\b(lectures?|seminars?|workshops?|class(?:es)?|study|exams?|finals|research|colloqui\w*|thesis|dissertation|tutoring|advising|library|academic|symposium|conference|panel|orientation|registration|commencement|graduation|ceremony|info session|information session|webinar)\b/i],
+  ["social", /\b(party|mixer|social|meet-?ups?|game night|trivia|hang-?out|movie night|karaoke|welcome|bingo|picnic|bbq|barbecue|dinner|lunch|breakfast|coffee|ice cream|meet and greet|homecoming|student activity|student activities)\b/i],
 ];
 
 /**

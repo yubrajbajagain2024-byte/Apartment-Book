@@ -18,7 +18,7 @@ const STATUS_TONE = { ok: "green", unchanged: "gray", error: "red" } as const;
 function summaryLine(s: FeedSyncSummary): string {
   if (s.status === "error") return `Failed: ${s.error ?? "unknown error"}`;
   if (s.status === "unchanged") return "Unchanged since the last sync.";
-  return `${s.itemsSeen} items: ${s.inserted} new, ${s.updated} changed, ${s.cancelled} cancelled${s.duplicates ? `, ${s.duplicates} already listed elsewhere` : ""}.`;
+  return `${s.itemsSeen} items: ${s.inserted} new, ${s.updated} changed, ${s.cancelled} cancelled${s.duplicates ? `, ${s.duplicates} already listed elsewhere` : ""}${s.skipped ? `, ${s.skipped} left out (${s.error ?? "refused by the database"})` : ""}.`;
 }
 
 /**
