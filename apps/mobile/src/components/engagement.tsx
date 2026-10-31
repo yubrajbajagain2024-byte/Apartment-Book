@@ -1,16 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { getPostEngagement, likePost, toggleSaved, unlikePost, type PostEngagement, type PostTargetType } from "@apartment-book/shared";
-import { hapticLike, hapticSelect } from "@/lib/haptics";
+import { hapticLike, hapticSelect, hapticTap } from "@/lib/haptics";
 import { onPostEngagement } from "@/lib/posts-events";
 import { supabase } from "@/lib/supabase";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
 
+/**
+ * A post's or a listing's heart, TikTok's way: the tap is felt and seen at once, never after the network. The haptic is
+ * the first thing a tap does (a firm tick to like, a light one to unlike), then the heart and the count change; the
+ * server hears the taps one at a time, only the newest wish is sent next (so quick taps can never land out of order or be
+ * dropped), and its count wins once it has caught up. A failure puts back what the server last confirmed.
+ * `likeNow` is a double tap's: it always ticks and shows the like, and never unlikes.
+ */
 export function useLike(targetType: PostTargetType, targetId: string, initial: PostEngagement | undefined, userId: string | null, onNeedLogin: () => void) {
   const [state, setState] = useState({ liked: initial?.likedByMe ?? false, likes: initial?.likes ?? 0 });
   const [pending, setPending] = useState(false);
+  /** The heart as last shown, read by taps that come faster than renders. */
+  const shown = useRef(state);
+  shown.current = state;
+  /** True while taps are being sent: counts from elsewhere wait until the server has caught up. */
   const busy = useRef(false);
+  /** What the newest tap asked for, and what the server last confirmed (null: not known yet, the heart as loaded). */
+  const wanted = useRef<boolean | null>(null);
+  const confirmed = useRef<{ liked: boolean; likes: number } | null>(null);
   // Feeds load the counts after the cards are already on screen: adopt them when they arrive (but never over a tap in progress).
   const has = initial !== undefined;
   const initialLiked = initial?.likedByMe ?? false;
@@ -27,27 +41,62 @@ export function useLike(targetType: PostTargetType, targetId: string, initial: P
       }),
     [targetType, targetId],
   );
-  const toggle = useCallback(async () => {
-    if (!userId) return onNeedLogin();
-    if (pending) return;
-    const next = !state.liked;
-    if (next) hapticLike();
+
+  /** Sends the newest wish until the server has caught up with it, then reads the real count. */
+  const flush = useCallback(async () => {
+    if (!userId || busy.current) return;
     busy.current = true;
     setPending(true);
-    setState((s) => ({ liked: next, likes: Math.max(0, s.likes + (next ? 1 : -1)) }));
     try {
-      if (next) await likePost(supabase, userId, targetType, targetId);
-      else await unlikePost(supabase, userId, targetType, targetId);
+      let sent: boolean | null = null;
+      while (wanted.current !== null && wanted.current !== sent) {
+        const next: boolean = wanted.current;
+        if (next) await likePost(supabase, userId, targetType, targetId);
+        else await unlikePost(supabase, userId, targetType, targetId);
+        sent = next;
+      }
       const fresh = await getPostEngagement(supabase, targetType, targetId);
-      setState({ liked: fresh.likedByMe, likes: fresh.likes });
+      confirmed.current = { liked: fresh.likedByMe, likes: fresh.likes };
+      // A tap that came in during the read is sent by the next round; until then the heart keeps showing it.
+      if (wanted.current === fresh.likedByMe) setState(confirmed.current);
     } catch {
-      setState((s) => ({ liked: !next, likes: Math.max(0, s.likes + (next ? -1 : 1)) }));
+      if (confirmed.current) setState(confirmed.current);
+      wanted.current = null;
     } finally {
       busy.current = false;
       setPending(false);
     }
-  }, [userId, pending, state.liked, targetType, targetId, onNeedLogin]);
-  return { ...state, pending, toggle };
+    if (wanted.current !== null && confirmed.current && wanted.current !== confirmed.current.liked) void flush();
+  }, [userId, targetType, targetId]);
+
+  const set = useCallback(
+    (next: boolean) => {
+      confirmed.current ??= shown.current;
+      wanted.current = next;
+      const s = { liked: next, likes: Math.max(0, shown.current.likes + (next === shown.current.liked ? 0 : next ? 1 : -1)) };
+      shown.current = s;
+      setState(s);
+      void flush();
+    },
+    [flush],
+  );
+
+  const toggle = useCallback(() => {
+    if (!userId) return onNeedLogin();
+    const next = !shown.current.liked;
+    // Felt before anything else happens: no render, animation or request stands in front of it.
+    if (next) hapticLike();
+    else hapticTap();
+    set(next);
+  }, [userId, onNeedLogin, set]);
+
+  const likeNow = useCallback(() => {
+    if (!userId) return onNeedLogin();
+    hapticLike();
+    if (!shown.current.liked) set(true);
+  }, [userId, onNeedLogin, set]);
+
+  return { ...state, pending, toggle, likeNow };
 }
 
 export function useSave(targetType: PostTargetType, targetId: string, initial: boolean, userId: string | null, onNeedLogin: () => void) {

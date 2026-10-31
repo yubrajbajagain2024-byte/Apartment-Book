@@ -117,7 +117,8 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
   const meta = [subtitle, shortDate(post.created_at)].filter(Boolean).join(" · ");
 
   function doubleTap() {
-    if (!like.liked) void like.toggle();
+    // The tick and the like first (useLike's likeNow: never an unlike), then the big heart.
+    like.likeNow();
     heart.setValue(0);
     Animated.sequence([
       Animated.spring(heart, { toValue: 1, useNativeDriver: true, friction: 5, tension: 140 }),
@@ -151,7 +152,7 @@ export function InstaPost({ post, saved, engagement, preview, subtitle, active, 
     const now = Date.now();
     if (now - lastTextTap.current < 260) {
       lastTextTap.current = 0;
-      if (!like.liked) void like.toggle();
+      like.likeNow();
     } else lastTextTap.current = now;
   }
 

@@ -33,8 +33,11 @@ export type CollapsingHeader = {
  *
  * The lists start `height` points down, under the bar (see listInset): on iOS that is a content inset, so a list at
  * rest reports -height and the inset is added back before the clamp.
+ *
+ * `onFollowedScroll`, when given, hears every scroll event of the list the bar follows, with how far that list is from
+ * its top (the inset taken off): Home hands it to the bottom bar's collapse (lib/tab-bar-collapse.ts).
  */
-export function useCollapsingHeader(pages: number, height: number, initial = 0): CollapsingHeader {
+export function useCollapsingHeader(pages: number, height: number, initial = 0, onFollowedScroll?: (fromTop: number) => void): CollapsingHeader {
   const scrollYs = useRef<Animated.Value[]>([]);
   const selectors = useRef<Animated.Value[]>([]);
   if (scrollYs.current.length !== pages) {
@@ -57,6 +60,8 @@ export function useCollapsingHeader(pages: number, height: number, initial = 0):
   const hiddenJs = useRef<number[]>([]);
   const heightRef = useRef(height);
   heightRef.current = height;
+  const followedScroll = useRef(onFollowedScroll);
+  followedScroll.current = onFollowedScroll;
 
   const translateY = useMemo(() => {
     const max = Math.max(1, height);
@@ -110,6 +115,7 @@ export function useCollapsingHeader(pages: number, height: number, initial = 0):
             const was = fromTopJs.current[page] ?? 0;
             fromTopJs.current[page] = fromTop;
             hiddenJs.current[page] = Math.min(Math.max((hiddenJs.current[page] ?? 0) + fromTop - was, 0), Math.max(1, heightRef.current));
+            if (page === selected.current) followedScroll.current?.(fromTop);
             if (!revealed.current || page !== selected.current) return;
             // The page on screen scrolls down after a reveal: the bar is handed back to it.
             const delta = y - before;

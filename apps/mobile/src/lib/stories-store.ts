@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { groupStories, listStories, type Story, type StoryGroup } from "@apartment-book/shared";
+import { groupStories, listStories, listStoryMutes, setStoryMuted as saveStoryMuted, type Story, type StoryGroup } from "@apartment-book/shared";
 import { supabase } from "./supabase";
 
 /**
@@ -9,9 +9,14 @@ import { supabase } from "./supabase";
  * your own is shared (markStoriesStale) and on Home's pull to refresh. A story that passes its 24 hours while the app is
  * open leaves the tray at the next check. What may be seen is the database's decision (migration 58): this only orders
  * what it sent.
+ *
+ * The people whose stories this person has muted (migration 62) stay out of the tray (`groups`), but their stories are
+ * still here (`allGroups`): a story card in a chat, or their own profile, can still open one.
  */
 let stories: Story[] = [];
+let allGroups: StoryGroup[] = [];
 let groups: StoryGroup[] = [];
+let muted: ReadonlySet<string> = new Set();
 let loadedFor: string | null = null;
 let loadedAt = 0;
 let version = 0;
@@ -31,6 +36,12 @@ function subscribe(l: () => void) {
   };
 }
 
+/** The tray's groups from `stories`: everyone's, then without the muted people (your own always stays). */
+function regroup(now?: number): void {
+  allGroups = groupStories(stories, loadedFor, now);
+  groups = muted.size === 0 ? allGroups : allGroups.filter((g) => g.mine || !muted.has(g.author.id));
+}
+
 export function getStoryGroups(): StoryGroup[] {
   return groups;
 }
@@ -39,10 +50,12 @@ export async function refreshStories(meId: string): Promise<void> {
   if (inflight) return inflight;
   inflight = (async () => {
     try {
-      const fresh = await listStories(supabase, meId);
+      // The mutes are a filter on top: if they cannot be read, the last ones known stay in force.
+      const [fresh, mutes] = await Promise.all([listStories(supabase, meId), listStoryMutes(supabase, meId).catch(() => null)]);
       stories = fresh;
-      groups = groupStories(stories, meId);
+      if (mutes) muted = new Set(mutes);
       loadedFor = meId;
+      regroup();
       loadedAt = Date.now();
       emit();
     } catch {
@@ -66,15 +79,66 @@ export function noteStorySeen(storyId: string): void {
   const i = stories.findIndex((s) => s.id === storyId);
   if (i < 0 || stories[i]!.seen) return;
   stories = stories.map((s) => (s.id === storyId ? { ...s, seen: true } : s));
-  groups = groupStories(stories, loadedFor);
+  regroup();
   emit();
 }
 
 /** A story of your own was deleted: gone from the tray at once. */
 export function noteStoryDeleted(storyId: string): void {
   stories = stories.filter((s) => s.id !== storyId);
-  groups = groupStories(stories, loadedFor);
+  regroup();
   emit();
+}
+
+/** The heart on a story changed (or went back after the server said no): the viewer shows it on the next look too. */
+export function noteStoryLiked(storyId: string, liked: boolean): void {
+  if (!stories.some((s) => s.id === storyId && s.liked !== liked)) return;
+  stories = stories.map((s) => (s.id === storyId ? { ...s, liked } : s));
+  regroup();
+  emit();
+}
+
+/** You blocked this person: their stories leave at once (the database stops sending them on the next load). */
+export function noteStoryAuthorBlocked(authorId: string): void {
+  stories = stories.filter((s) => s.author.id !== authorId);
+  regroup();
+  loadedAt = 0;
+  emit();
+}
+
+/**
+ * The group a story viewer opened by id should show: the person's, by their id or by one of their stories' ids (a
+ * story card in a chat names the story). Muted people's stories are found too: only the tray leaves them out.
+ */
+export function findStoryGroup(id: string): StoryGroup | null {
+  return allGroups.find((g) => g.author.id === id || g.stories.some((s) => s.id === id)) ?? null;
+}
+
+/** Whether this person's stories are muted (the tray leaves them out). */
+export function useStoryMuted(authorId: string | null | undefined): boolean {
+  return useSyncExternalStore(subscribe, () => Boolean(authorId && muted.has(authorId)), () => Boolean(authorId && muted.has(authorId)));
+}
+
+/**
+ * Mute or unmute someone's stories: the tray changes at once and goes back if the server says no (the error is thrown
+ * for the caller to show). Muting never tells the other person.
+ */
+export async function setStoryMuted(meId: string, authorId: string, mute: boolean): Promise<void> {
+  const before = muted;
+  const next = new Set(muted);
+  if (mute) next.add(authorId);
+  else next.delete(authorId);
+  muted = next;
+  regroup();
+  emit();
+  try {
+    await saveStoryMuted(supabase, meId, authorId, mute);
+  } catch (e) {
+    muted = before;
+    regroup();
+    emit();
+    throw e;
+  }
 }
 
 /** Stories past their 24 hours leave the tray (groupStories drops them); nothing changes when none has. */
@@ -82,7 +146,7 @@ function dropExpired(): void {
   const now = Date.now();
   if (!stories.some((s) => Date.parse(s.expiresAt) <= now)) return;
   stories = stories.filter((s) => Date.parse(s.expiresAt) > now);
-  groups = groupStories(stories, loadedFor, now);
+  regroup(now);
   emit();
 }
 

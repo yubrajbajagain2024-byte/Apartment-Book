@@ -61,3 +61,19 @@ test("listingChatPrefill greets the poster by first name and names the post", as
   assert.equal(listingChatPrefill("  Leo  ", null), "Hi Leo! I saw your post and I'd like to chat.");
   assert.equal(listingChatPrefill("", undefined), "Hi there! I saw your post and I'd like to chat.");
 });
+
+test("a story card (migration 62): shared or a reply, its link /stories/<id>, never a post or a listing", async () => {
+  const { sharedPostOf, sharedPostFromStory, sharedPostPreview, sharedPostLabel, isStoryCard } = await import("../src/share.ts");
+  const id = "6d074520-5a10-43ee-903a-35779a1a1fcc";
+  const story = { id, author: { id: "u1", full_name: "Maya Patel", avatar_url: null }, photo: { url: "https://img.example/s.jpg", width: 1, height: 1, blur: null }, video: null };
+  const shared = sharedPostFromStory(story);
+  assert.deepEqual([shared.target_type, shared.kind, shared.path, shared.image_url, shared.author.name], ["story", "story", `/stories/${id}`, "https://img.example/s.jpg", "Maya Patel"]);
+  assert.equal(sharedPostFromStory(story, true).kind, "story_reply");
+  assert.equal(isStoryCard(shared), true);
+  // Stored cards read back: a reply stays a reply, anything else a share, the link always rebuilt.
+  assert.equal(sharedPostOf({ target_type: "story", target_id: id, kind: "story_reply", path: "/x" }).kind, "story_reply");
+  assert.equal(sharedPostOf({ target_type: "story", target_id: id, kind: "post", path: "https://evil.example" }).path, `/stories/${id}`);
+  assert.equal(sharedPostOf({ target_type: "story", target_id: id, kind: "listing" }).kind, "story");
+  assert.equal(sharedPostOf({ target_type: "post", target_id: id, kind: "story" }).kind, "post", "a post never takes a story's kind");
+  assert.deepEqual([sharedPostPreview({ kind: "story" }), sharedPostPreview({ kind: "story_reply" }), sharedPostLabel({ kind: "story" })], ["Sent a story", "Replied to a story", "View story"]);
+});

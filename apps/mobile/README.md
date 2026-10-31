@@ -120,9 +120,9 @@ sign in with `apartmentbook://dev-login?email=…&password=…` once that dialog
 ## Home and the tabs
 
 The bottom bar is Home, Explore, Messages, Events, Profile: five tabs (Profile is your own photo
-in a circle, ringed while the tab is on screen; the person icon signed out). There is no "+" in the bar: creating starts
-from Home: Orbit's floating "+", the menu under your photo (Upload) and the "+" over Reels open the create sheet (Post /
-Reel / Buzz / Snap). It floats over the content as a rounded
+in a circle, ringed while the tab is on screen; the person icon signed out). There is no "+" in the bar, and none at the
+top of Home: creating starts from the floating "+" at the bottom right of For you (X's compose button; Buzz has its pen in
+the same place) and the menu under your photo (Upload), which open the camera (Post / Reel / Buzz / Snap). It floats over the content as a rounded
 glass pill, low like Instagram's: just above the home indicator (12pt into the home-indicator inset, 22pt up from the screen's edge on a
 Face ID iPhone; 10pt up where there is no indicator) (`src/app/(tabs)/_layout.tsx`, its size and place in `src/lib/tab-bar.ts`): on iOS 26 real liquid glass, with what scrolls
 under it blurred through, elsewhere a translucent fill; the tab on screen sits in a soft aurora capsule with its icon filled. When you tap
@@ -131,7 +131,13 @@ so it stretches a touch in flight and settles as it lands. The new tab's symbol 
 to its plain look with no bounce, and the tabs make room for the capsule, GroupMe style, on a critically damped spring
 (`src/components/floating-tab-bar.tsx`, on Reanimated); every tab's list and floating button keeps `tabBarInset` clear
 under it. (FloatingTabBar can still hold an action in the middle, `action`, which the capsule passes behind but never
-stops on; the app's bar has none.) Search is the magnifier beside the bell in Home's top bar, which opens `src/app/search.tsx` (below); the people search the share sheet's Find people
+stops on; the app's bar has none.) While a page of Home (For you, Buzz), Explore or Events scrolls on, the bar collapses
+like Reddit's (iOS 26's tab bar minimising): it narrows to a circle at the bottom left holding just that tab's icon
+(Home's, Explore's or Events'), the other tabs fading as it goes, and the "+" (or Buzz's pen) becomes its twin at the
+bottom right (the same circle at the same height, as far in from the right edge as the circle is from the left); the
+moment the page scrolls back, or reaches its top, the whole bar returns the same way. A tap on the circle brings it back
+too, and so do another page of the tab, another tab or a screen reader, which always gets the whole bar. Messages and
+Profile keep the whole bar (`src/lib/tab-bar-collapse.ts`). Search is the magnifier beside the bell in Home's top bar, which opens `src/app/search.tsx` (below); the people search the share sheet's Find people
 and a profile's Find friends push is `src/app/find-people.tsx`. The Notifications bell in the top-right corner of Home's floating top bar opens every
 notification the database keeps for you (`src/app/notifications.tsx`: likes, comments and replies, follows,
 saves of your listings, places near campus, newest first; new messages and Snaps stay in Messages, with its unread
@@ -140,10 +146,17 @@ itself like any other in both themes); tapping one marks it read and opens what
 it is about, "Mark all read" sits in the header, and the bell's badge counts the unread live. Home opens on **For you**, a blend of posts and reels (anonymous Buzz threads stay on
 the Buzz page; the fixed pattern lives in `packages/shared/src/for-you.ts` and is shared with the website). Its
 three pages, For you | Buzz | Reels, sit side by side in a pager (Posts is a section without a tab: `HIDDEN_HOME_SECTIONS` in the shared constants keeps it out of the row and the pager while its feed, the post features and the data stay; its Following filter is reachable on the website's `/?tab=posts`; reels also run through For you): swipe left or right to move
-between them, or tap a label in the floating top bar. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in an aurora
+between them, or tap a label in the floating top bar. A post with several photos takes the swipes first, TikTok's way:
+from its last photo the next swipe on goes to the next section, from its first the next swipe back to the one before,
+so a carousel never keeps the finger (`src/lib/section-pager.ts`; Explore's three pages do the same; it never moves to
+another tab of the bottom bar). On iOS the carousel's own scroll gesture still takes a swipe that starts at its end,
+though it cannot move, so the pager never gets it and the touch used to end as a tap that opened the post: the carousel
+(`src/components/photo-carousel.tsx`) reads the finger from React Native's touches, which keep coming meanwhile, moves
+the pager by it and drops the tap; let go, the pager glides on (a quarter of the way, or a flick) or back. Reels' page
+needs none of this: every reel there is one video, so a sideways swipe on it is the pager's own. That bar has two rows, like X's (`src/components/home/home-top-tabs.tsx`): your photo in an aurora
 ring on the left, which opens your menu (`src/components/home/profile-menu.tsx`, as UniVerse's: a card with your photo,
 name and @username that opens your profile, then Upload, Saved, Settings, Community Guidelines, and Log out on its own;
-over Reels the bar's left slot holds a white "+" instead), the UniBuzz wordmark in the middle (it reads "Following" while
+over Reels too: the bar has no "+"), the UniBuzz wordmark in the middle (it reads "Following" while
 that feed shows) and the Notifications bell on the right; then the three labels spread across the row
 (`src/components/sliding-tabs.tsx`): the active one bold with a rounded aurora underline as wide as the label, sliding
 with the finger over a hairline; moving between sections, by tap or swipe, plays no haptic. Under the labels sits the Campus | Global
@@ -294,18 +307,20 @@ The Share button on posts, reels and listings opens a sheet of your friends, the
 note and Send, and each friend gets a chat message with the post as a card that opens it, the note under it; "Share to…"
 at the bottom is the system share sheet. It needs migration 17 (`supabase/migrations/20260926000000_shared_posts.sql`).
 
-The Profile tab is your profile, TikTok style (`src/components/profile/`, one `ProfileView` for the tab and for
-`/profile/[id]`): a top bar with Find friends, your name (the account sheet, Log out) and the menu (Settings and privacy,
-Saved, the legal pages, Log out); your photo with a "+" to change it, @username (made from your name at sign-up, changed
-in Settings) with a QR icon under three lines: the full name, the major, class year and university ("CS ’28 @ Texas
-State University", from Settings → Major and Graduation year) and the bio; then Following | Followers | Likes (every like
-on your posts, reels and listings), Edit profile / Share profile (a sheet with the profile's QR code and Share) / Find
-friends, then the tabs
-Posts | Classes | Reels | Saved | Liked | Listings as icons, TikTok style (the open one filled, with the sliding
-underline and a small mark of who can see that section: a lock for Only me, two people for Friends, a globe for
+The Profile tab is your profile (`src/components/profile/`, one `ProfileView` for the tab and for `/profile/[id]`), its
+top kept as the owner chose it (2026-10-31): the cover band with Find friends and the menu (Settings and privacy, Saved,
+the legal pages, Log out) as round buttons over it; your photo in its aurora ring with a "+" to change it, Share profile
+(a sheet with the profile's QR code and Share) and Edit profile beside it; your full name (the account sheet, Log out),
+@username (made from your name at sign-up, changed in Settings) with a QR icon, the university in a small pill with the
+major and class year beside it ("Computer Science · '28", from Settings → Major and Graduation year), the bio, and the
+card with Posts | Followers | Following | Likes (every like on your posts, reels and listings); then the tabs
+Posts | Classes | Reels | Saved | Liked | Listings as icons (the open one filled, with an underline as wide as the tab
+and a small mark of who can see that section: a lock for Only me, two people for Friends, a globe for
 Everyone; the filled icon and the mark crossfade with the swipe on the native side, like the underline, so they never
-wait for the pager to settle), over a three-column grid with view counts (Listings: your live
-apartments, roommate posts and items for sale, each square with its kind and title). The Classes tab lists classes by semester, this one first (up to 12 each; add your own there with the subject and course number as two boxes, "CS" and "3358", kept as the one code "CS 3358" the database checks, the section, the days and times it meets and the room; a hold on a class card offers Edit (the same form, filled in; Save moves you between course chats when the section changes) and Delete, which asks first, and there is no other way to change or remove one; once a class is in or changed, the form closes and a line under "Add class" says so, the button bringing it back). Listing a section puts you in that section's course chat, a group in Messages shared by everyone at your campus taking it this semester: the first classmate's listing creates it, removing the class leaves it, a notification tells you about both, it cannot be renamed or hand-filled, and it goes with the semester after a week's notice (migration 24).
+wait for the pager to settle), over Instagram's grid: three 3:4 tiles to a row (9:16 on Reels), edge to edge with a
+hairline between them and square corners, a play count on videos only (Listings: your live
+apartments, roommate posts and items for sale, each tile with its kind and title). A stacked profile has Back at the top
+left instead of Find friends. The Classes tab lists classes by semester, this one first (up to 12 each; add your own there with the subject and course number as two boxes, "CS" and "3358", kept as the one code "CS 3358" the database checks, the section, the days and times it meets and the room; a hold on a class card offers Edit (the same form, filled in; Save moves you between course chats when the section changes) and Delete, which asks first, and there is no other way to change or remove one; once a class is in or changed, the form closes and a line under "Add class" says so, the button bringing it back). Listing a section puts you in that section's course chat, a group in Messages shared by everyone at your campus taking it this semester: the first classmate's listing creates it, removing the class leaves it, a notification tells you about both, it cannot be renamed or hand-filled, and it goes with the semester after a week's notice (migration 24).
 Classes, Saved, Liked and Listings each have a setting (Everyone, Friends, Only me; friends are people you follow who
 follow you back), changed from the line at the top of the tab or in Settings → Privacy; by default Classes is Friends and
 Saved, Liked and Listings are Only me (migration 37). A visitor without access gets no tab for that section at all (the
@@ -481,9 +496,12 @@ the grid is the newest posts and reels, the suggestions the newest people, and t
 
 The fourth tab (`src/app/(tabs)/events.tsx`) is the campus's calendar: the big "Events" title with Saved at its right,
 For you | All events above a pager (Explore's layout: the labels, the inbox-style search box and one row of pills slide
-up under the title as a page scrolls), and the floating "+" to publish. The pills narrow both pages: when (Upcoming,
-Today, This week, Weekend: `eventDateRange` in packages/shared, on the campus's clock), a hairline, then the categories
-(`EVENT_CATEGORIES`). **For you** (`src/components/events/for-you-events-section.tsx`) ranks the campus's upcoming
+up under the title as a page scrolls), and the floating "+" to publish. Beside the search box is the Marketplace's
+round filter button (with a count of the choices in force); it opens a sheet (`src/components/events/event-filter-sheet.tsx`)
+with When and Event type: Academic, Career, Social, Sports, Music, Arts, Tech, Wellness, Cultural, Service, Faith and
+Other (`EVENT_CATEGORIES`), any number of them, and "Show results". The pills narrow both pages too: when (Upcoming,
+Today, This week, Weekend: `eventDateRange` in packages/shared, on the campus's clock), then, after a hairline, the
+event types in force, each a tap away from being dropped. **For you** (`src/components/events/for-you-events-section.tsx`) ranks the campus's upcoming
 events for the person (`rankEvents`: picked interests, the categories they keep saving and opening, the organizations
 they follow, how soon, how many others saved it; signed out, soonest and most saved first), asks what they are into
 the first time (the chips save `event_interests` and re-rank at once) and suggests organizations to follow while they
@@ -536,7 +554,8 @@ Buzz, so nothing on the Buzz page shows who is looking) and the Buzz label carri
   cards fold to "Hidden by the community · Tap to view". Under the alias line, the category its author picked ("📚
   Classes"; nothing when none). A day's prompt thread shows "✦ Daily prompt" where the alias
   would be and counts answers; an answer posted as its own buzz has the prompt as its title and "Daily prompt · See all
-  answers" linking to that thread. The FAB (a pen with the mask) and the "+" create sheet's Buzz open the composer.
+  answers" linking to that thread. The FAB (a pen with the mask, at the bottom right; it stays while the feed scrolls and
+  becomes the collapsed bottom bar's twin, opposite it) and the camera's BUZZ open the composer.
 - **Composer.** A full-height sheet (the system's page sheet on iPhone): "You're anonymous", Campus | Global with what
   each means, a category (one row of chips, `BUZZ_CATEGORIES`; optional, tap the chosen one again for none; the line
   under it says what belongs there; a database without `supabase/migrations/20261108000300_buzz_categories.sql` does

@@ -7,8 +7,8 @@ import { makeStyles, useColors } from "@/lib/theme-provider";
 import { linkHost } from "./shared-content";
 import { Icon } from "@/components/icon";
 
-const KIND_NAME: Record<SharedPost["kind"], string> = { post: "Post", reel: "Reel", listing: "Listing" };
-const KIND_ICON: Record<SharedPost["kind"], keyof typeof Ionicons.glyphMap> = { post: "images-outline", reel: "film-outline", listing: "home-outline" };
+const KIND_NAME: Record<SharedPost["kind"], string> = { post: "Post", reel: "Reel", listing: "Listing", story: "Story", story_reply: "Story" };
+const KIND_ICON: Record<SharedPost["kind"], keyof typeof Ionicons.glyphMap> = { post: "images-outline", reel: "film-outline", listing: "home-outline", story: "aperture-outline", story_reply: "aperture-outline" };
 
 /**
  * One row of a chat's Links tab. A web link shows its site in bold and the address under it; a shared post, reel or listing

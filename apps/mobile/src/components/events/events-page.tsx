@@ -13,7 +13,8 @@ export type EventsPageProps = {
   timeZone: string;
   q: string;
   dateFilter: EventDateFilter;
-  category: EventCategory | null;
+  /** The event types picked in the filter sheet: any of them; none picked is every type. */
+  categories: readonly EventCategory[];
 };
 
 /** The room between two rows. */
@@ -34,7 +35,7 @@ export function DayHeader({ label }: { label: string }) {
 
 /** Nothing to show: the words say whether a filter is in the way or the calendar is simply empty. */
 export function EventsEmpty({ filtered, campus }: { filtered: boolean; campus: boolean }) {
-  return <EmptyState icon="calendar-outline" title={filtered ? "No events match" : "Nothing on the calendar yet"} body={filtered ? "Try another day, category or word." : campus ? "Events from your campus's calendars and its clubs show up here as they are added." : "Join a campus to see its events."} />;
+  return <EmptyState icon="calendar-outline" title={filtered ? "No events match" : "Nothing on the calendar yet"} body={filtered ? "Try another day, event type or word." : campus ? "Events from your campus's calendars and its clubs show up here as they are added." : "Join a campus to see its events."} />;
 }
 
 /** `starts_at` and `ends_at` filters as the database takes them. */

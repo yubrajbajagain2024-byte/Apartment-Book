@@ -18,10 +18,10 @@ type Row = { type: "day"; key: string; label: string } | { type: "event"; key: s
 
 /**
  * All events, the Events tab's second page: everything the campus has coming, in time order, under one heading per
- * day on the campus's clock, a page at a time from the database (the bar's date pill, category and search narrow it).
+ * day on the campus's clock, a page at a time from the database (the bar's date pill, the event types picked in the filter sheet and the search narrow it).
  * The rows on screen stay while a new filter loads, so the page never blinks white.
  */
-export function AllEventsSection({ active, topInset, onScroll, universityId, timeZone, q, dateFilter, category }: EventsPageProps) {
+export function AllEventsSection({ active, topInset, onScroll, universityId, timeZone, q, dateFilter, categories }: EventsPageProps) {
   const colors = useColors();
   const { user } = useSession();
   const saved = savedEvents.useIds(user?.id ?? null);
@@ -29,11 +29,11 @@ export function AllEventsSection({ active, topInset, onScroll, universityId, tim
   const feed = useFeed<EventSummary>(
     async (page) => {
       const range = eventDateRange(dateFilter, Date.now(), timeZone);
-      const data = await listEvents(supabase, { universityId, from: iso(range.from), to: iso(range.to), category, q: q || undefined, limit: EVENTS_PAGE_SIZE, offset: (page - 1) * EVENTS_PAGE_SIZE });
+      const data = await listEvents(supabase, { universityId, from: iso(range.from), to: iso(range.to), categories, q: q || undefined, limit: EVENTS_PAGE_SIZE, offset: (page - 1) * EVENTS_PAGE_SIZE });
       // The database does not count: a short page is the last one.
       return { data, totalPages: data.length < EVENTS_PAGE_SIZE ? page : page + 1 };
     },
-    [universityId, timeZone, q, dateFilter, category],
+    [universityId, timeZone, q, dateFilter, categories],
   );
   const inset = useMemo(() => listInset(topInset), [topInset]);
   const listRef = useRef<FlatList<Row>>(null);
@@ -50,7 +50,7 @@ export function AllEventsSection({ active, topInset, onScroll, universityId, tim
     return out;
   }, [feed.items, timeZone]);
   const renderItem = useCallback(({ item }: { item: Row }) => (item.type === "day" ? <DayHeader label={item.label} /> : <EventCard event={item.event} timeZone={timeZone} withDay={false} saved={saved.has(item.event.id)} onToggleSave={toggleSave} />), [timeZone, saved, toggleSave]);
-  const filtered = Boolean(q) || category !== null || dateFilter !== "any";
+  const filtered = Boolean(q) || categories.length > 0 || dateFilter !== "any";
 
   return (
     <View style={{ flex: 1 }}>

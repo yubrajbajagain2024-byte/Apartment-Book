@@ -30,6 +30,7 @@ import { openHomeSection } from "@/lib/home-section";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useTabBarInset } from "@/lib/tab-bar";
+import { useCollapseOnScroll } from "@/lib/tab-bar-collapse";
 import { useTabReselect } from "@/lib/tab-reselect";
 import { BuzzViewerList } from "@/components/buzz/media";
 
@@ -43,7 +44,8 @@ import { BuzzViewerList } from "@/components/buzz/media";
  *    only: "Answer anonymously" and, once anyone has, its thread with the answers, which Hot then leaves out of the
  *    list below); the small-campus note; the cold start (an empty campus Hot feed moves to Global with a banner); the cards;
  *    skeletons, empty states, the error state, more as you scroll ("That's everything for now"); the FAB (pen + mask)
- *    and the composer. Home's own bar stays put on this page, as on UniVerse: Buzz never feeds its collapse.
+ *    and the composer. Home's own bar stays put on this page, as on UniVerse: Buzz never feeds its collapse. The bottom
+ *    bar does collapse to its Home button as the feed scrolls on, as on For you, and the FAB stays, beside it (X's way).
  *
  * Because posts publish after a random delay (jitter), there is no live push: the feed loads when it comes up, on pull to
  * refresh and after your own writes.
@@ -212,10 +214,26 @@ function Feed({ active, topInset }: { active: boolean; topInset: number }) {
     if (r) openComposer(r.promptId ? { promptId: r.promptId } : undefined);
   }, [active, composerRequest, openComposer]);
 
-  /* ---------- the filter bar and the FAB slide away as the feed scrolls down ---------- */
+  /* ---------- the filter bar slides away as the feed scrolls down; the bottom bar collapses ---------- */
 
   const scrollY = useRef(new Animated.Value(ios ? -insetTop : 0)).current;
-  const onScroll = useMemo(() => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true }), [scrollY]);
+  // The bottom bar collapses to its Home button as the feed scrolls on and comes back as it scrolls back, as on For you
+  // (lib/tab-bar-collapse.ts); the FAB rides down beside it. The inset is read through a ref, so the handler, and the
+  // list's native wiring, stay the same when the filter bar is measured.
+  const trackTabBar = useCollapseOnScroll(active && focused);
+  const insetRef = useRef(insetTop);
+  insetRef.current = insetTop;
+  const onScroll = useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+        useNativeDriver: true,
+        listener: (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+          const y = e.nativeEvent.contentOffset.y;
+          trackTabBar(Math.max(0, ios ? y + insetRef.current : y));
+        },
+      }),
+    [scrollY, trackTabBar, ios],
+  );
   const hidden = useMemo(() => {
     const clampTop = { inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: "clamp" as const, extrapolateRight: "extend" as const };
     const fromTop = ios ? Animated.add(scrollY, insetTop).interpolate(clampTop) : scrollY.interpolate(clampTop);
@@ -236,7 +254,6 @@ function Feed({ active, topInset }: { active: boolean; topInset: number }) {
   const noteRest = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     restingY.current = e.nativeEvent.contentOffset.y;
   }, []);
-  const fabY = useMemo(() => hidden.interpolate({ inputRange: [0, Math.max(1, filterHeight)], outputRange: [0, tabBar + 96], extrapolate: "clamp" }), [hidden, filterHeight, tabBar]);
   const onFilterLayout = useCallback((e: LayoutChangeEvent) => {
     const h = Math.round(e.nativeEvent.layout.height);
     setFilterHeight((prev) => (Math.abs(prev - h) > 1 ? h : prev));
@@ -378,7 +395,7 @@ function Feed({ active, topInset }: { active: boolean; topInset: number }) {
               <Segmented<BuzzScope> label="Feed scope" value={scope} options={SCOPES} onChange={chooseScope} />
             </View>
           </Animated.View>
-          <BuzzFab onPress={() => openComposer()} bottom={tabBar + 12} translateY={fabY} />
+          <BuzzFab onPress={() => openComposer()} bottom={tabBar + 12} />
           <BuzzToastHost bottom={tabBar + 84} enabled={active && focused} />
         </View>
         <BuzzComposer visible={composerOpen} onClose={() => setComposerOpen(false)} onAnswered={(threadId, replyId) => openThread(router, threadId, replyId)} />

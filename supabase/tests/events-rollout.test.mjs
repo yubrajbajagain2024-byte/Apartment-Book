@@ -23,9 +23,11 @@ const REST = [
   "20261109000100_business_hardening.sql",
   "20261110000000_business_hours.sql",
 ];
+// 62 (story actions) goes to production on its own too (story-actions-rollout.test.mjs); it is not part of this rehearsal.
+const AHEAD = ["20261114000000_story_actions.sql"];
 const check = (cond, message) => { if (!cond) throw new Error(message); };
 
-const { db, mk, as, asAnon, asService } = await boot({ live: true, skip: [...REST, EVENTS] });
+const { db, mk, as, asAnon, asService } = await boot({ live: true, skip: [...REST, EVENTS, ...AHEAD] });
 const one = async (p) => (await p).rows[0];
 const rows = async (p) => (await p).rows;
 const val = async (q, params = []) => { const r = await one(db.query(q, params)); return r[Object.keys(r)[0]]; };
@@ -85,7 +87,7 @@ await eventsWork("after the release");
 // --- 61's rollback on its own, with the release in place ---------------------------------------------------------------
 await expectOk("61's rollback leaves exactly the schema of a database that never had it (the release still applied)", async () => {
   await db.exec(read(ROLLBACK));
-  const reference = await boot({ live: true, skip: [EVENTS] });
+  const reference = await boot({ live: true, skip: [EVENTS, ...AHEAD] });
   const changed = diffCatalogs(await catalog(async (q) => (await reference.db.query(q)).rows), await catalog(async (q) => (await db.query(q)).rows));
   await reference.db.close();
   check(changed.length === 0, changed.join("; "));

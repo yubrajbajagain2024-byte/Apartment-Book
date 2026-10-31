@@ -401,6 +401,9 @@ export function sharedPostHref(shared: Pick<SharedPost, "target_type" | "target_
       return { pathname: "/roommates/[id]", params } as const;
     case "item":
       return { pathname: "/marketplace/[id]", params } as const;
+    // A story card (migration 62) opens the story viewer, which finds the story by its id while it lasts.
+    case "story":
+      return { pathname: "/stories/[id]", params } as const;
     default:
       return { pathname: "/posts/[id]", params } as const;
   }

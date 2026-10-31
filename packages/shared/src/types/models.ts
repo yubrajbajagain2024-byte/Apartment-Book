@@ -256,9 +256,12 @@ export type ProfileTile = {
 /** What a shared post, reel or listing looks like inside a chat message: a snapshot taken when it was sent, so the card
  * renders without another query and still reads sensibly if the original is deleted. `path` is the website path, which the
  * app maps onto its own screens. */
-export type SharedPostKind = "post" | "reel" | "listing";
+/** A story card (migration 62) is "story" when shared and "story_reply" when it answers the story in its author's chat. */
+export type SharedPostKind = "post" | "reel" | "listing" | "story" | "story_reply";
+/** What a card in a chat can point to: a post, a listing, or a story (which has no page on the website). */
+export type SharedTargetType = PostTargetType | "story";
 export type SharedPost = {
-  target_type: PostTargetType;
+  target_type: SharedTargetType;
   target_id: string;
   kind: SharedPostKind;
   path: string;

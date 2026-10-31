@@ -33,7 +33,7 @@ export type ShareDialogProps = {
 const NOTE_MAX = 500;
 const MAX_RECIPIENTS = 20;
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-const KIND_NAME: Record<SharedPost["kind"], string> = { post: "Post", reel: "Reel", listing: "Listing" };
+const KIND_NAME: Record<SharedPost["kind"], string> = { post: "Post", reel: "Reel", listing: "Listing", story: "Story", story_reply: "Story" };
 
 /** State for a share button: `show()` opens the sheet with the absolute address of `path`, `hide()` closes it. */
 export function useShareDialog(path: string): { open: boolean; url: string; show: () => void; hide: () => void } {

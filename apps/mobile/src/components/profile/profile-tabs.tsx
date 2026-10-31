@@ -27,13 +27,14 @@ export const PROFILE_TABS: { key: ProfileTabKey; label: string; icon: keyof type
 const VISIBILITY_ICON: Record<ProfileVisibility, keyof typeof Ionicons.glyphMap> = { private: "lock-closed", friends: "people", public: "globe-outline" };
 const VISIBILITY_NAME: Record<ProfileVisibility, string> = { private: "Only me", friends: "Friends", public: "Everyone" };
 
-/** The underline is this share of a tab's width, centred under its icon. */
-const UNDERLINE_SHARE = 0.58;
+/** The underline is this share of a tab's width, centred under its icon: the whole tab, Instagram's. */
+const UNDERLINE_SHARE = 1;
+const UNDERLINE_HEIGHT = 2;
 const ICON_SIZE = 24;
 
 /**
- * The row of tabs above a profile's grid, TikTok style: an icon per tab, the open one filled and in the text colour with
- * a short rounded underline, the others outlined and grey, a hairline under the row. The open tab alone carries a small
+ * The row of tabs above a profile's grid, Instagram style: an icon per tab, the open one filled and in the text colour
+ * with an underline as wide as the tab, the others outlined and grey, a hairline under the row. The open tab alone carries a small
  * mark of who can see that section (`badges`: a lock for Only me, two people for Friends, a globe for Everyone). A tab
  * with an entry in `locks` is explained to screen readers by it ("Only you can see your saved posts"); `counts` are
  * read out too but not drawn. `tabs` are the tabs this viewer gets, in order (a visitor gets no tab they may not open:
@@ -175,9 +176,9 @@ const useStyles = makeStyles((colors) => ({
   over: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
   badge: { position: "absolute", right: -16, top: -2 },
   // UNDERLINE_SHARE of the tab.
-  underline: { height: 3, width: "58%", borderRadius: 2, backgroundColor: "transparent" },
+  underline: { height: UNDERLINE_HEIGHT, width: `${UNDERLINE_SHARE * 100}%`, backgroundColor: "transparent" },
   // The open tab's underline wears the aurora, like the labels' underline in Home, Explore and Messages.
   underlineActive: { backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.auroraGlow, 90) },
   // On the row's bottom edge, where each tab's own underline sits.
-  slider: { position: "absolute", bottom: 0, height: 3, borderRadius: 2, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.auroraGlow, 90) },
+  slider: { position: "absolute", bottom: 0, height: UNDERLINE_HEIGHT, backgroundColor: colors.brand, experimental_backgroundImage: auroraGradient(colors.auroraGlow, 90) },
 }));

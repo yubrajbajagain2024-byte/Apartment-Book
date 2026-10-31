@@ -1172,6 +1172,20 @@ export type Database = {
         Update: { story_id?: string; viewer_id?: string; created_at?: string };
         Relationships: [];
       };
+      // Migration 62: a heart on someone else's story (read by the liker and the author), and the people whose stories
+      // someone has muted (their own to read). The API writes only the ids.
+      story_likes: {
+        Row: { story_id: string; user_id: string; created_at: string };
+        Insert: { story_id: string; user_id: string };
+        Update: { story_id?: string; user_id?: string };
+        Relationships: [];
+      };
+      story_mutes: {
+        Row: { user_id: string; author_id: string; created_at: string };
+        Insert: { user_id: string; author_id: string };
+        Update: { user_id?: string; author_id?: string };
+        Relationships: [];
+      };
       organizations: {
         Row: { id: string; university_id: string; name: string; kind: string; description: string | null; avatar_url: string | null; website: string | null; verified: boolean; verified_at: string | null; verified_by: string | null; status: string; follower_count: number; created_by: string | null; created_at: string; updated_at: string };
         Insert: { id?: string; university_id?: string; name: string; kind?: string; description?: string | null; avatar_url?: string | null; website?: string | null; verified?: boolean; verified_at?: string | null; verified_by?: string | null; status?: string; follower_count?: number; created_by?: string | null; created_at?: string; updated_at?: string };

@@ -27,9 +27,11 @@ import { Sheet, SheetFooter, SheetHeader } from "./sheet";
 /** Besides the snapshot, the sheet needs the website link for "Share to…" and, optionally, the words that go before it. */
 /**
  * `restricted`: the post is not Global (a campus post). The database refuses its card in a chat with anyone who cannot
- * see it, and sendSharedPost reports only who missed out, not why, so a failed send names that reason first.
+ * see it, and sendSharedPost reports only who missed out, not why, so a failed send names that reason first. `noun`
+ * names the thing in that reason ("post" unless given). Without `url` (a story, which has no page on the website) the
+ * sheet sends to friends only, with no "Share to…".
  */
-export type ShareOptions = { url: string; label?: string; restricted?: boolean };
+export type ShareOptions = { url?: string; label?: string; restricted?: boolean; noun?: string; onClosed?: () => void };
 type ShareRequest = { shared: SharedPost; options: ShareOptions; seq: number };
 type ShareSheetApi = {
   /** Opens the sheet over whatever is on screen. Selection, note and search start empty every time. */
@@ -58,6 +60,13 @@ export function ShareSheetProvider({ children }: { children: ReactNode }) {
   const [request, setRequest] = useState<ShareRequest | null>(null);
   const seq = useRef(0);
   const open = useCallback((shared: SharedPost, options: ShareOptions) => setRequest({ shared, options, seq: ++seq.current }), []);
+  // `onClosed` of an opening runs once that opening has gone (closed, or replaced by the next).
+  const shown = useRef<ShareRequest | null>(null);
+  useEffect(() => {
+    const before = shown.current;
+    shown.current = request;
+    if (before && before !== request) before.options.onClosed?.();
+  }, [request]);
   /** Given an opening's seq, closes the sheet only while that opening is still the one showing: a late close never shuts the next. */
   const close = useCallback((only?: number) => setRequest((r) => (only === undefined || r?.seq === only ? null : r)), []);
   const value = useMemo<ShareSheetApi>(() => ({ open, close: () => close() }), [open, close]);
@@ -197,7 +206,7 @@ function SheetBody({ shared, options, onClose, closeThen }: { shared: SharedPost
         const missed = recipients.filter((p) => failed.includes(p.id));
         setPicked(new Map(missed.map((p) => [p.id, p])));
         setStatus("idle");
-        alertWithHaptic("error", `Could not send to ${missed.map((p) => p.full_name).join(", ")}`, options.restricted ? "Some people in this chat can't see this post. If they should, check your connection and try again." : "Check your connection and try again.");
+        alertWithHaptic("error", `Could not send to ${missed.map((p) => p.full_name).join(", ")}`, options.restricted ? `Some people in this chat can't see this ${options.noun ?? "post"}. If they should, check your connection and try again.` : "Check your connection and try again.");
         return;
       }
       hapticSuccess();
@@ -212,6 +221,7 @@ function SheetBody({ shared, options, onClose, closeThen }: { shared: SharedPost
 
   /** The system share sheet, as the Share buttons opened before: the link with a line of words in front of it. */
   async function shareTo() {
+    if (!options.url) return;
     const label = options.label ?? shared.title ?? (shared.caption ? shared.caption.slice(0, 80) : `${shared.author.name} on ${APP_NAME}`);
     try {
       const result = await Share.share({ message: `${label} · ${options.url}`, url: options.url });
@@ -365,13 +375,15 @@ function SheetBody({ shared, options, onClose, closeThen }: { shared: SharedPost
             </View>
           </View>
         ) : null}
-        <Pressable onPress={() => void shareTo()} disabled={busy} accessibilityRole="button" accessibilityLabel="Share to…" style={({ pressed }) => [styles.secondary, pressed && { backgroundColor: colors.input }]}>
-          <View style={styles.secondaryIcon}>
-            <Icon name="share-outline" size={20} color={colors.text} />
-          </View>
-          <Text style={styles.secondaryText}>Share to…</Text>
-          <Icon name="chevron-forward" size={16} color={colors.faint} />
-        </Pressable>
+        {options.url ? (
+          <Pressable onPress={() => void shareTo()} disabled={busy} accessibilityRole="button" accessibilityLabel="Share to…" style={({ pressed }) => [styles.secondary, pressed && { backgroundColor: colors.input }]}>
+            <View style={styles.secondaryIcon}>
+              <Icon name="share-outline" size={20} color={colors.text} />
+            </View>
+            <Text style={styles.secondaryText}>Share to…</Text>
+            <Icon name="chevron-forward" size={16} color={colors.faint} />
+          </Pressable>
+        ) : null}
       </SheetFooter>
     </>
   );

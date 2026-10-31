@@ -11,10 +11,10 @@ import { Icon } from "@/components/icon";
 
 /** What VoiceOver calls each kind of square: "Reel: Move-in day…". */
 export const TILE_TYPE_LABELS: Record<ProfileTileType, string> = { post: "Post", reel: "Reel", apartment: "Apartment", roommate: "Roommate post", item: "Item" };
-/** Squares are 3:4, like TikTok's grid; reels (vertical video) are 9:16. The ratio is height over width. */
+/** Tiles are 3:4, like Instagram's and TikTok's grids; reels (vertical video) are 9:16. The ratio is height over width. */
 export const TILE_ASPECT = 4 / 3;
 export const REEL_ASPECT = 16 / 9;
-/** The squares' rounded corners. */
+/** The tiles' rounded corners by default (the search screen's grid); a profile's grid passes 0, Instagram's square corners. */
 export const TILE_RADIUS = 10;
 
 type ListingType = "apartment" | "roommate" | "item";
@@ -59,12 +59,13 @@ export function useOpenTile() {
 }
 
 /**
- * One square of a profile grid, TikTok style: the picture fills it; bottom left a play (videos, reels) or eye (photos) icon
- * with the view count, or a listing's kind (a house, two people, a price tag); top right a pin when pinned, otherwise the
- * stack icon of several photos. A words-only post, or a listing without photos, shows its words on a soft background.
- * `onLongPress` is only given for your own posts and reels (Pin to profile).
+ * One tile of a grid, Instagram style: the picture fills it; bottom left a play icon with the view count on a video or
+ * reel (a photo shows no count, as on Instagram), or a listing's kind (a house, two people, a price tag); top right a pin
+ * when pinned, otherwise the stack icon of several photos. A words-only post, or a listing without photos, shows its
+ * words on a soft background. `radius` rounds its corners (0 on a profile). `onLongPress` is only given for your own
+ * posts and reels (Pin to profile).
  */
-export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspect = TILE_ASPECT, onOpen, onLongPress }: { tile: ProfileTile; width: number; aspect?: number; onOpen: (tile: ProfileTile, origin?: ViewerOrigin) => void; onLongPress?: (tile: ProfileTile) => void }) {
+export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspect = TILE_ASPECT, radius = TILE_RADIUS, onOpen, onLongPress }: { tile: ProfileTile; width: number; aspect?: number; radius?: number; onOpen: (tile: ProfileTile, origin?: ViewerOrigin) => void; onLongPress?: (tile: ProfileTile) => void }) {
   const styles = useStyles();
   /** The square's frame, measured when it is tapped so the viewer can zoom open from it. */
   const self = useRef<ViewInstance>(null);
@@ -77,14 +78,14 @@ export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspe
   return (
     <Pressable
       ref={self}
-      onPress={() => void measureOrigin(self.current, TILE_RADIUS).then((origin) => onOpen(tile, origin))}
+      onPress={() => void measureOrigin(self.current, radius).then((origin) => onOpen(tile, origin))}
       onLongPress={onLongPress ? () => onLongPress(tile) : undefined}
       delayLongPress={350}
       accessibilityRole="button"
       accessibilityLabel={tileLabel(tile)}
       accessibilityActions={onLongPress ? [{ name: "longpress", label: pinLabel }] : undefined}
       onAccessibilityAction={onLongPress ? (e) => e.nativeEvent.actionName === "longpress" && onLongPress(tile) : undefined}
-      style={({ pressed }) => [styles.tile, { width, height: width * aspect }, pressed && { opacity: 0.85 }]}
+      style={({ pressed }) => [styles.tile, { width, height: width * aspect, borderRadius: radius }, pressed && { opacity: 0.85 }]}
     >
       {tile.imageUrl ? (
         <Image source={{ uri: tile.imageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={120} recyclingKey={tile.key} />
@@ -100,9 +101,9 @@ export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspe
         </View>
       )}
 
-      {tile.views !== null ? (
+      {tile.views !== null && tile.isVideo ? (
         <View style={styles.views} pointerEvents="none">
-          <Icon name={tile.isVideo ? "play" : "eye-outline"} size={13} color={ink} style={inkShadow} />
+          <Icon name="play" size={13} color={ink} style={inkShadow} />
           <Text style={[styles.viewsText, { color: ink }, inkShadow]}>{compactCount(tile.views)}</Text>
         </View>
       ) : listing ? (
@@ -125,7 +126,7 @@ export const ProfileGridTile = memo(function ProfileGridTile({ tile, width, aspe
  * (otherwise the stack icon of several photos), and at the bottom the kind and a two-line title over a fade. Listing squares
  * in Saved and Liked stay plain ProfileGridTile squares.
  */
-export const ListingGridTile = memo(function ListingGridTile({ tile, width, aspect = TILE_ASPECT, onOpen }: { tile: ProfileTile; width: number; aspect?: number; onOpen: (tile: ProfileTile) => void }) {
+export const ListingGridTile = memo(function ListingGridTile({ tile, width, aspect = TILE_ASPECT, radius = TILE_RADIUS, onOpen }: { tile: ProfileTile; width: number; aspect?: number; radius?: number; onOpen: (tile: ProfileTile) => void }) {
   const styles = useStyles();
   const colors = useColors();
   const kind: ListingType = isListing(tile.type) ? tile.type : "apartment";
@@ -134,7 +135,7 @@ export const ListingGridTile = memo(function ListingGridTile({ tile, width, aspe
   const ink = picture ? colors.onMedia : colors.muted;
   const inkShadow = picture ? styles.iconShadow : null;
   return (
-    <Pressable onPress={() => onOpen(tile)} accessibilityRole="button" accessibilityLabel={tileLabel(tile)} style={({ pressed }) => [styles.tile, { width, height: width * aspect }, pressed && { opacity: 0.85 }]}>
+    <Pressable onPress={() => onOpen(tile)} accessibilityRole="button" accessibilityLabel={tileLabel(tile)} style={({ pressed }) => [styles.tile, { width, height: width * aspect, borderRadius: radius }, pressed && { opacity: 0.85 }]}>
       {tile.imageUrl ? (
         <>
           <Image source={{ uri: tile.imageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" transition={120} recyclingKey={tile.key} />
