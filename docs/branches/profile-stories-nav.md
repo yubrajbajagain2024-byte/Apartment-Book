@@ -1,7 +1,8 @@
 # profile-stories-nav
 
-- **Owner:** Sunil. **As of 2026-10-31:** branched from `events` at `d631d96` (PR #74, not merged), because the Events
-  filter needs the Events tab; local only, not pushed. Written by an AI session with one forked session (Stories).
+- **Owner:** Sunil. **As of 2026-10-31:** branched from `events` at `d631d96`, because the Events filter needs the Events
+  tab; the work is one commit, `6180de8`; `main` merged in after PR #74 (Events) landed; pushed, no PR yet. Written by an
+  AI session with one forked session (Stories).
 - **Purpose:** the owner's brief: the app's Profile laid out like Instagram's with a rectangular post grid; Like,
   Message, Share Story, Report, Block and Mute in Stories; the create button at the bottom like X's; the bottom bar
   collapsing like Reddit's (only the Home icon left while a feed scrolls on, the whole bar back as it scrolls back) on
