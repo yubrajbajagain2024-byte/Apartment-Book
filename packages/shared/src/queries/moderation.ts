@@ -1,7 +1,7 @@
 import type { Client } from "../types/models";
 import { MESSAGE_MEDIA_BUCKET } from "../message-media";
 
-export type ReportTargetType = "apartment" | "item" | "roommate" | "profile" | "message" | "comment" | "post" | "buzz" | "buzz_comment";
+export type ReportTargetType = "apartment" | "item" | "roommate" | "profile" | "message" | "comment" | "post" | "buzz" | "buzz_comment" | "story";
 export type ReportReason = "spam" | "scam" | "harassment" | "inappropriate" | "other";
 
 export const REPORT_REASONS: { value: ReportReason; label: string }[] = [

@@ -6,8 +6,8 @@ import { useSession } from "@/lib/session";
  * What every create button on Home does: opens the live camera at once (app/compose), TikTok's way, starting a post;
  * SNAP, REEL and BUZZ (an anonymous thread, written right on the stage) sit beside POST along its bottom, and Upload
  * opens the library (`upload`: straight onto it). Signed out it goes to the login screen instead. Shared by Orbit's
- * floating "+" and Upload in the menu under your photo (ProfileMenuSheet); the "+" Home's top bar shows over the Reels
- * video opens the camera on REEL (the bottom bar has no "+").
+ * floating "+" at the bottom right (X's compose button, which rides down beside the bottom bar when it collapses) and
+ * Upload in the menu under your photo (ProfileMenuSheet). Home's top bar has no "+".
  */
 export function useCreateMenu(): (opts?: unknown) => void {
   const router = useRouter();

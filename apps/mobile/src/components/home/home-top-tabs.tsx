@@ -12,7 +12,6 @@ import { SCOPE_TOGGLE_SHOWN, useHomeScope } from "@/lib/home-scope";
 import { useSession } from "@/lib/session";
 import { auroraGradient, radius } from "@/lib/theme";
 import { makeStyles, useColors } from "@/lib/theme-provider";
-import { useCreateMenu } from "./create-menu";
 import { ProfileMenuSheet } from "./profile-menu";
 import { BuzzBarLayer, BuzzLabelMask, BuzzMeGlyph, BuzzStatusStripLayer, useBuzzBar } from "./buzz-top-bar";
 import { phosphor } from "@/lib/palette";
@@ -116,8 +115,8 @@ export function campusSegments(profile: { university_id: string | null; universi
  * is the pager's offset in points and `pageWidth` the width of one page: the underline slides, the labels crossfade (see
  * SlidingTabs) and the bar's solid background (colors.bar and its hairline) fades out towards Reels with the finger, all
  * on the native driver. `overVideo` says when the text, icons and the toggle turn white and glassy for the video: Home
- * flips it halfway between Posts and Reels. Creating starts from Orbit's floating "+" and the menu's Upload; over the
- * Reels video the left slot holds a "+" instead of your photo, white like the rest of the bar. `section` is the section committed once the pager settles: what screen readers hear as selected
+ * flips it halfway between Posts and Reels. Creating starts from the floating "+" at the bottom right (X's compose
+ * button) and the menu's Upload; your photo keeps the left slot over the Reels video too. `section` is the section committed once the pager settles: what screen readers hear as selected
  * follows it. `translateY` slides the whole bar up out of the way as the page on screen scrolls down and back as soon as
  * it scrolls up, Instagram style (see useCollapsingHeader). Memoized: Home mounting a page ahead of time leaves it alone.
  */
@@ -128,7 +127,6 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
   const [scope, setScope] = useHomeScope();
   const colors = useColors();
   const styles = useStyles();
-  const create = useCreateMenu();
   const [menuOpen, setMenuOpen] = useState(false);
   const overVideo = useOverVideo(overVideoStore);
   // Whether the page under the finger is Posts: flipped halfway, like overVideo, so the title and the toggle follow the swipe, not the settle.
@@ -173,25 +171,20 @@ export const HomeTopTabs = memo(function HomeTopTabs({ section, onSelect, overVi
         <BuzzBarLayer layer={buzzBar.layer} />
         <View style={styles.row}>
           <View style={styles.sideSlot}>
-            {overVideo ? (
-              <Pressable onPress={create} hitSlop={8} accessibilityRole="button" accessibilityLabel="Create" style={styles.side}>
-                <Icon name="add-circle-outline" size={30} color={fg} style={styles.shadow} />
-              </Pressable>
-            ) : (
-              <View style={styles.side}>
-                {/* Your photo is not drawn at all while the pager rests on Buzz; near it, it crossfades to a neutral glyph. */}
-                {buzzBar.avatarShown ? (
-                  <Animated.View style={[styles.sideLayer, buzzBar.avatarOpacity ? { opacity: buzzBar.avatarOpacity } : null]}>
-                    <Pressable onPress={() => (user ? setMenuOpen(true) : router.push("/(auth)/login"))} hitSlop={4} accessibilityRole="button" accessibilityLabel="Your menu" accessibilityHint="Your profile, Upload, Saved, Settings and more" style={styles.ring}>
-                      <View style={styles.ringGap}>
-                        {profile ? <Avatar name={profile.full_name} url={profile.avatar_url} size={PHOTO} online={false} transition={0} /> : <Icon name="person-circle" size={PHOTO} color={colors.faint} />}
-                      </View>
-                    </Pressable>
-                  </Animated.View>
-                ) : null}
-                {buzzBar.glyphShown ? <BuzzMeGlyph opacity={buzzBar.layer} onPress={() => router.push("/(tabs)/profile")} size={RING_SIZE - 6} /> : null}
-              </View>
-            )}
+            {/* Your photo and its menu on every page, Reels included: creating starts from the "+" at the bottom right (X's way), not up here. */}
+            <View style={styles.side}>
+              {/* Your photo is not drawn at all while the pager rests on Buzz; near it, it crossfades to a neutral glyph. */}
+              {buzzBar.avatarShown ? (
+                <Animated.View style={[styles.sideLayer, buzzBar.avatarOpacity ? { opacity: buzzBar.avatarOpacity } : null]}>
+                  <Pressable onPress={() => (user ? setMenuOpen(true) : router.push("/(auth)/login"))} hitSlop={4} accessibilityRole="button" accessibilityLabel="Your menu" accessibilityHint="Your profile, Upload, Saved, Settings and more" style={styles.ring}>
+                    <View style={styles.ringGap}>
+                      {profile ? <Avatar name={profile.full_name} url={profile.avatar_url} size={PHOTO} online={false} transition={0} /> : <Icon name="person-circle" size={PHOTO} color={colors.faint} />}
+                    </View>
+                  </Pressable>
+                </Animated.View>
+              ) : null}
+              {buzzBar.glyphShown ? <BuzzMeGlyph opacity={buzzBar.layer} onPress={() => router.push("/(tabs)/profile")} size={RING_SIZE - 6} /> : null}
+            </View>
           </View>
           {/* Two equal side slots keep the wordmark truly centred. */}
           <View style={styles.middle}>

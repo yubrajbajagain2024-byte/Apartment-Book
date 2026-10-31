@@ -161,7 +161,20 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
   const styles = useStyles();
   const [userPaused, setUserPaused] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [likeBusy, setLikeBusy] = useState(false);
+  /**
+   * The heart's taps, TikTok's way: felt and shown at once, sent one at a time with only the newest wish going next, so
+   * quick taps are never dropped or land out of order. `likeShown` is the heart as last shown (taps can come faster than
+   * renders); `likeConfirmed` what the server last agreed to, put back if it refuses.
+   */
+  const likeShown = useRef({ likedByMe: false, likes: 0 });
+  const likeWanted = useRef<boolean | null>(null);
+  const likeSending = useRef(false);
+  const likeConfirmed = useRef<{ likedByMe: boolean; likes: number } | null>(null);
+  // Between taps the heart is the reel's own (a like in the viewer, a fresh load); while taps are sent it is theirs.
+  if (likeWanted.current === null && !likeSending.current) {
+    likeShown.current = { likedByMe: reel.likedByMe, likes: reel.likes };
+    likeConfirmed.current = null;
+  }
   const [messageBusy, setMessageBusy] = useState(false);
   // A business's video tour (reels_feed knows only the person who posted the listing): the business, shown and linked,
   // and "Message" opens the inquiry chat, where the business can only reply.
@@ -363,23 +376,60 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
     burstAnim.current.start();
   }
 
-  async function toggleLike() {
+  /** The heart (or a double tap's like) changes now; the server hears it after, one tap at a time. */
+  function setLike(next: boolean) {
+    const now = likeShown.current;
+    likeConfirmed.current ??= { ...now };
+    likeWanted.current = next;
+    const shown = { likedByMe: next, likes: Math.max(0, now.likes + (next === now.likedByMe ? 0 : next ? 1 : -1)) };
+    likeShown.current = shown;
+    onPatch(key, shown);
+    void sendLikes();
+  }
+  async function sendLikes() {
+    const { sourceType, sourceId } = reel;
+    // A buzz has votes, not likes (toggleLike never gets here for one).
+    if (likeSending.current || !user || sourceType === "buzz") return;
+    likeSending.current = true;
+    try {
+      let sent: boolean | null = null;
+      while (likeWanted.current !== null && likeWanted.current !== sent) {
+        const next: boolean = likeWanted.current;
+        if (next) await likePost(supabase, user.id, sourceType, sourceId);
+        else await unlikePost(supabase, user.id, sourceType, sourceId);
+        sent = next;
+      }
+      likeConfirmed.current = { ...likeShown.current };
+    } catch {
+      if (likeConfirmed.current) {
+        likeShown.current = { ...likeConfirmed.current };
+        onPatch(key, likeConfirmed.current);
+      }
+    } finally {
+      likeSending.current = false;
+      likeWanted.current = null;
+    }
+  }
+
+  function toggleLike() {
     if (reel.sourceType === "buzz") return;
     if (!user) return login();
-    if (likeBusy) return;
-    const next = !reel.likedByMe;
-    const before = { likedByMe: reel.likedByMe, likes: reel.likes };
-    animateHeart(next);
+    const next = !likeShown.current.likedByMe;
+    // Felt before anything else happens: no render, animation or request stands in front of it.
     if (next) hapticLike();
-    setLikeBusy(true);
-    onPatch(key, { likedByMe: next, likes: Math.max(0, reel.likes + (next ? 1 : -1)) });
-    try {
-      if (next) await likePost(supabase, user.id, reel.sourceType, reel.sourceId);
-      else await unlikePost(supabase, user.id, reel.sourceType, reel.sourceId);
-    } catch {
-      onPatch(key, before);
-    } finally {
-      setLikeBusy(false);
+    else hapticTap();
+    animateHeart(next);
+    setLike(next);
+  }
+
+  /** A double tap's like: always felt, never an unlike. */
+  function likeNow() {
+    if (reel.sourceType === "buzz") return;
+    if (!user) return login();
+    hapticLike();
+    if (!likeShown.current.likedByMe) {
+      animateHeart(true);
+      setLike(true);
     }
   }
 
@@ -412,8 +462,8 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
     }
     if (now - lastTap.current < 260) {
       lastTap.current = 0;
+      likeNow();
       burst();
-      if (!reel.likedByMe) void toggleLike();
       return;
     }
     lastTap.current = now;
@@ -698,7 +748,7 @@ export const ReelItem = memo(function ReelItem({ reel: source, width, height, to
           </View>
         ) : (
         <View style={styles.rail} onLayout={(e) => setRailBox({ y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height })}>
-          <RailButton icon={reel.likedByMe ? "heart" : "heart-outline"} tint={reel.likedByMe ? { media: colors.like, page: colors.like } : undefined} label={compact(reel.likes)} onPress={unlessSwiped(() => void toggleLike())} a11y={reel.likedByMe ? "Unlike" : "Like"} selected={reel.likedByMe} scale={pop} edge={railEdge} />
+          <RailButton icon={reel.likedByMe ? "heart" : "heart-outline"} tint={reel.likedByMe ? { media: colors.like, page: colors.like } : undefined} label={compact(reel.likes)} onPress={unlessSwiped(toggleLike)} a11y={reel.likedByMe ? "Unlike" : "Like"} selected={reel.likedByMe} scale={pop} edge={railEdge} />
           {hasPublicComments(reel.sourceType) ? (
             commentsOff ? null : <RailButton icon="chatbubble-ellipses-outline" label={compact(reel.comments)} onPress={unlessSwiped(() => onOpenComments(reel))} a11y="Comments" edge={railEdge} />
           ) : (

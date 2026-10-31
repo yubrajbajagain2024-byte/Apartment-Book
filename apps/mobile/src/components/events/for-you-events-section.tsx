@@ -32,7 +32,7 @@ const NO_CONTEXT: ForYouContext = {};
  * known yet, it is soonest-and-most-saved first. The first time, the page asks what they are into: picking chips saves
  * the interests and re-ranks at once; while they follow few organizations, a row of the campus's to follow sits under it.
  */
-export function ForYouEventsSection({ active, topInset, onScroll, universityId, timeZone, q, dateFilter, category }: EventsPageProps) {
+export function ForYouEventsSection({ active, topInset, onScroll, universityId, timeZone, q, dateFilter, categories }: EventsPageProps) {
   const colors = useColors();
   const styles = useStyles();
   const router = useRouter();
@@ -45,11 +45,11 @@ export function ForYouEventsSection({ active, topInset, onScroll, universityId, 
     const now = Date.now();
     const range = eventDateRange(dateFilter, now, timeZone);
     const [events, ctx] = await Promise.all([
-      listEvents(supabase, { universityId, from: iso(range.from), to: iso(range.to), category, q: q || undefined, limit: FOR_YOU_EVENTS_POOL }),
+      listEvents(supabase, { universityId, from: iso(range.from), to: iso(range.to), categories, q: q || undefined, limit: FOR_YOU_EVENTS_POOL }),
       me ? getForYouContext(supabase, me).catch(() => NO_CONTEXT) : Promise.resolve(NO_CONTEXT),
     ]);
     return { events, ctx, now };
-  }, [me, universityId, timeZone, q, dateFilter, category]);
+  }, [me, universityId, timeZone, q, dateFilter, categories]);
   const organizations = useQuery(() => (me ? listOrganizations(supabase, { universityId, limit: 12 }) : Promise.resolve([] as Organization[])), [me, universityId]);
 
   // The interests as picked on this page, ahead of the next load: the list re-ranks the moment a chip is tapped.
@@ -135,7 +135,7 @@ export function ForYouEventsSection({ active, topInset, onScroll, universityId, 
         ) : null}
       </View>
     ) : null;
-  const filtered = Boolean(q) || category !== null || dateFilter !== "any";
+  const filtered = Boolean(q) || categories.length > 0 || dateFilter !== "any";
 
   return (
     <View style={{ flex: 1 }}>

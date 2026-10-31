@@ -30,6 +30,7 @@ import {
   replyText,
   revealListingIdentity,
   sendMessage,
+  isStoryCard,
   sharedPostLabel,
   sharedPostOf,
   snapActivityLabel,
@@ -86,15 +87,22 @@ function isOptimisticCopy(
   );
 }
 
-/** Where each kind of shared thing opens. The card links to one of these plus the id, never to the path stored in the message. */
-const SHARED_TARGET_BASE: Record<SharedPost["target_type"], string> = {
+/**
+ * Where each kind of shared thing opens. The card links to one of these plus the id, never to the path stored in the
+ * message. A story (migration 62) has no page on the website: its card links nowhere.
+ */
+const SHARED_TARGET_BASE: Record<Exclude<SharedPost["target_type"], "story">, string> = {
   post: "/posts/",
   apartment: "/apartments/",
   roommate: "/roommates/",
   item: "/marketplace/",
 };
 
-/** A post, reel or listing somebody sent: its picture, who posted it, its words and a "View post" footer. The whole card opens it. */
+/**
+ * A post, reel or listing somebody sent: its picture, who posted it, its words and a "View post" footer. The whole card
+ * opens it. A story sent from the app (shared, or a reply to it) shows its picture and says it opens in the app; once
+ * the story has gone its photo goes too (migration 59), and the card then says so.
+ */
 function SharedPostCard({
   shared,
   pending,
@@ -102,19 +110,30 @@ function SharedPostCard({
   shared: SharedPost;
   pending?: boolean;
 }) {
-  const label = sharedPostLabel(shared);
-  return (
-    <Link
-      href={`${SHARED_TARGET_BASE[shared.target_type]}${encodeURIComponent(shared.target_id)}`}
-      data-testid="shared-post"
-      aria-label={`${label}: ${shared.title ?? shared.caption ?? shared.author.name}`}
-      className={cn(
-        "mb-1 block w-64 max-w-full overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-sm hover:bg-gray-50",
-        pending && "opacity-60",
-      )}
-    >
+  const [gone, setGone] = useState(false);
+  const story = isStoryCard(shared);
+  const label = story ? (gone ? "Story no longer available" : `${sharedPostLabel(shared)} in the app`) : sharedPostLabel(shared);
+  const className = cn(
+    "mb-1 block w-64 max-w-full overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-sm",
+    !story && "hover:bg-gray-50",
+    pending && "opacity-60",
+  );
+  const ariaLabel = `${label}: ${shared.title ?? shared.caption ?? shared.author.name}`;
+  const body = (
+    <>
       {/* The snapshot's pictures can point anywhere, and they must never be able to break the chat: next/image only for hosts it serves. */}
-      {shared.image_url ? (
+      {story && shared.image_url && !gone ? (
+        // eslint-disable-next-line @next/next/no-img-element -- a story's photo is deleted with the story: the card must notice
+        <img
+          src={shared.image_url}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onError={() => setGone(true)}
+          className="aspect-[9/16] max-h-72 w-full bg-gray-100 object-cover"
+        />
+      ) : story ? null : shared.image_url ? (
         isOptimizableImage(shared.image_url) ? (
           <span className="relative block aspect-[4/5] max-h-52 w-full bg-gray-100">
             <Image
@@ -161,9 +180,21 @@ function SharedPostCard({
           {shared.caption}
         </span>
       ) : null}
-      <span className="mt-2 block border-t border-gray-100 px-3 py-2 text-xs font-semibold text-brand-700">
+      <span className={cn("mt-2 block border-t border-gray-100 px-3 py-2 text-xs font-semibold", story ? "text-gray-500" : "text-brand-700")}>
         {label}
       </span>
+    </>
+  );
+  if (shared.target_type === "story") {
+    return (
+      <div data-testid="shared-post" role="group" aria-label={ariaLabel} className={className}>
+        {body}
+      </div>
+    );
+  }
+  return (
+    <Link href={`${SHARED_TARGET_BASE[shared.target_type]}${encodeURIComponent(shared.target_id)}`} data-testid="shared-post" aria-label={ariaLabel} className={className}>
+      {body}
     </Link>
   );
 }

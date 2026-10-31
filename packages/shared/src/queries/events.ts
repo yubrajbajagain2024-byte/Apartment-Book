@@ -22,6 +22,8 @@ export type EventFilters = {
   from?: string;
   to?: string;
   category?: EventCategory | null;
+  /** Any of these categories (the app's filter sheet picks several); with `category` too, both must match. */
+  categories?: readonly EventCategory[];
   q?: string;
   organizationId?: string;
   limit?: number;
@@ -38,6 +40,7 @@ export async function listEvents(supabase: Client, filters: EventFilters = {}): 
   if (filters.from) query = query.or(`starts_at.gte.${filters.from},ends_at.gte.${filters.from}`);
   if (filters.to) query = query.lt("starts_at", filters.to);
   if (filters.category) query = query.eq("category", filters.category);
+  if (filters.categories && filters.categories.length > 0) query = query.in("category", [...filters.categories]);
   if (filters.organizationId) query = query.eq("organization_id", filters.organizationId);
   const q = filters.q?.trim();
   if (q) query = query.textSearch("tsv", q, { type: "websearch", config: "simple" });

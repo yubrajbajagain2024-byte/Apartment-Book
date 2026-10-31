@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Animated, FlatList, Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { Animated, FlatList, Pressable, StyleSheet, Text, View, type GestureResponderEvent, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { Image } from "expo-image";
 import { useIsFocused } from "expo-router";
 import { VideoView, type VideoPlayer } from "expo-video";
@@ -8,10 +8,13 @@ import { setVideosMuted, useVideosMuted, VIDEO_AUDIO_MODE, videosMuted } from "@
 import type { FeedMedia } from "@apartment-book/shared";
 import { makeStyles, useColors } from "@/lib/theme-provider";
 import { hapticSelect } from "@/lib/haptics";
+import { useSectionPager } from "@/lib/section-pager";
 import { Icon } from "@/components/icon";
 import { GlassIconButton } from "@/components/glass";
 
 const DOUBLE_TAP_MS = 260;
+/** How far a finger moves before the carousel decides whether a swipe is its photos' or the pager's. */
+const DECIDE = 10;
 
 type PhotoCarouselProps = {
   media: FeedMedia[];
@@ -53,6 +56,16 @@ function clock(seconds: number): string {
 /**
  * Swipeable photos and videos, one slide at a time, with a 1/3 counter and dots.
  * `videoLabel` is the pill shown when the first slide is a video: "Video tour" suits listings; pass another word, or null for no pill.
+ *
+ * On a page of Home's or Explore's pager of sections (lib/section-pager.ts) the carousel never keeps a finger it cannot
+ * use, TikTok's way: swipes go through the photos first, and from the last photo the next swipe on goes to the next
+ * section (from the first, back to the one before), the pager following the finger, then gliding on or back once let go.
+ *
+ * On iOS the list's own scroll gesture still takes a swipe that starts at its end, even with nothing left to scroll and
+ * no bounce, so nothing native moves the pager, and the touch would end as a tap that opens the post (measured on the
+ * simulator, 2026-10-31). React Native's touches keep coming through all the while, so the carousel reads the finger
+ * from them: a swipe that starts on the last photo going on (or the first going back) moves the pager by the finger's
+ * travel, and the tap it ends with is dropped. Elsewhere the carousel keeps every swipe and bounces at its ends as before.
  */
 export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, active = true, videoLabel = "Video tour", dots = true, onIndexChange, jump, chrome = "post" }: PhotoCarouselProps) {
   const watch = chrome === "watch";
@@ -63,10 +76,63 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
   const listRef = useRef<FlatList<FeedMedia>>(null);
   const height = width ? width / aspect : 0;
   const count = media.length;
+  const sectionPager = useSectionPager();
+  /** Where the carousel rests, in points: its offset as each scroll comes to rest. */
+  const resting = useRef(0);
+  /**
+   * The touch on the carousel, on a pager of sections: where it started, whether it is the photos' or the pager's (until
+   * the finger has moved DECIDE points, neither), how far it has moved and how fast (points a second, smoothed).
+   */
+  const touch = useRef<{ x: number; y: number; mode: "undecided" | "photos" | "pager"; outward: 1 | -1; dx: number; lastX: number; lastT: number; vx: number } | null>(null);
+  /** The touch went to the pager: the tap it ends with is not a tap on the photo. */
+  const handedOver = useRef(false);
+  const onTouchStart = (e: GestureResponderEvent) => {
+    handedOver.current = false;
+    touch.current = null;
+    const t = e.nativeEvent.touches[0];
+    if (!sectionPager || count < 2 || !width || !t || e.nativeEvent.touches.length > 1) return;
+    touch.current = { x: t.pageX, y: t.pageY, mode: "undecided", outward: 1, dx: 0, lastX: t.pageX, lastT: e.nativeEvent.timestamp, vx: 0 };
+  };
+  const onTouchMove = (e: GestureResponderEvent) => {
+    const s = touch.current;
+    const t = e.nativeEvent.touches[0];
+    if (!s || !t || !sectionPager || s.mode === "photos") return;
+    const dt = e.nativeEvent.timestamp - s.lastT;
+    if (dt > 0) s.vx = 0.7 * (((t.pageX - s.lastX) / dt) * 1000) + 0.3 * s.vx;
+    s.lastX = t.pageX;
+    s.lastT = e.nativeEvent.timestamp;
+    s.dx = t.pageX - s.x;
+    if (s.mode === "undecided") {
+      const dy = t.pageY - s.y;
+      if (Math.abs(dy) > DECIDE && Math.abs(dy) >= Math.abs(s.dx)) {
+        s.mode = "photos";
+        return;
+      }
+      if (Math.abs(s.dx) <= DECIDE) return;
+      // On the last photo going on, or on the first going back: the pager's. Anything else is the photos' own.
+      const last = (count - 1) * width;
+      const outward = s.dx < 0 ? resting.current >= last - 1 : resting.current <= 1;
+      if (!outward) {
+        s.mode = "photos";
+        return;
+      }
+      s.mode = "pager";
+      s.outward = s.dx < 0 ? 1 : -1;
+      handedOver.current = true;
+    }
+    // Only ever towards the section it set out for: the photos are still there the other way.
+    sectionPager.follow(s.outward === 1 ? Math.min(0, s.dx) : Math.max(0, s.dx));
+  };
+  const onTouchEnd = () => {
+    const s = touch.current;
+    touch.current = null;
+    if (s?.mode === "pager") sectionPager?.release(s.outward === 1 ? Math.min(0, s.dx) : Math.max(0, s.dx), s.vx);
+  };
 
   const onScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       if (!width) return;
+      resting.current = e.nativeEvent.contentOffset.x;
       const i = Math.max(0, Math.min(count - 1, Math.round(e.nativeEvent.contentOffset.x / width)));
       setIndex(i);
       onIndexChange?.(i);
@@ -93,6 +159,7 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
     const i = Math.max(0, Math.min(count - 1, jump.index));
     if (count > 1) {
       listRef.current?.scrollToIndex({ index: i, animated: false });
+      resting.current = i * width;
       setIndex(i);
       onIndexChange?.(i);
     }
@@ -111,6 +178,8 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
   const single = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => void (single.current && clearTimeout(single.current)), []);
   function tap() {
+    // The end of a swipe the pager took: not a tap on the photo.
+    if (handedOver.current) return;
     // Read at the moment it opens (after the wait for a second tap), so a full-screen view starts where the video is.
     // The viewer borrows the player as it opens (see openViewer); one already lent means a viewer is on its way.
     const press = onPress
@@ -138,29 +207,35 @@ export function PhotoCarousel({ media, aspect = 4 / 5, onPress, onDoubleTap, act
   return (
     <View style={{ width: "100%", backgroundColor: colors.mediaBg }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {width > 0 ? (
-        <FlatList
-          ref={listRef}
-          data={media}
-          horizontal
-          pagingEnabled
-          // A single photo has nothing to slide: leave sideways swipes to the Home pager around it.
-          scrollEnabled={count > 1}
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(m, i) => `${i}-${m.type === "photo" ? m.url : m.playbackUrl}`}
-          onMomentumScrollEnd={onScroll}
-          onScrollEndDrag={onScroll}
-          getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
-          renderItem={({ item, index: i }) => (
-            <Pressable onPress={tap} style={{ width, height }}>
-              {item.type === "photo" ? (
-                // The tiny blurred preview saved at upload shows at once, and the full photo fades in over it: no blank frames.
-                <Image source={{ uri: item.url }} placeholder={item.blur ? { uri: item.blur } : undefined} placeholderContentFit="cover" style={{ width, height }} contentFit="cover" transition={250} accessibilityLabel={`Photo ${i + 1} of ${count}`} />
-              ) : (
-                <VideoSlide media={item} index={i} width={width} height={height} playing={active && i === index} onPlayer={onPlayer} watch={watch} />
-              )}
-            </Pressable>
-          )}
-        />
+        // The touches over the list, read for a swipe past the first or last photo (see above); every swipe stays the list's own too.
+        <View onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
+          <FlatList
+            ref={listRef}
+            data={media}
+            horizontal
+            pagingEnabled
+            // A single photo has nothing to slide: leave sideways swipes to the Home pager around it.
+            scrollEnabled={count > 1}
+            // On a pager of sections the ends stay put, so a swipe past them belongs to the pager (see above).
+            bounces={!sectionPager}
+            overScrollMode={sectionPager ? "never" : undefined}
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(m, i) => `${i}-${m.type === "photo" ? m.url : m.playbackUrl}`}
+            onMomentumScrollEnd={onScroll}
+            onScrollEndDrag={onScroll}
+            getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+            renderItem={({ item, index: i }) => (
+              <Pressable onPress={tap} style={{ width, height }}>
+                {item.type === "photo" ? (
+                  // The tiny blurred preview saved at upload shows at once, and the full photo fades in over it: no blank frames.
+                  <Image source={{ uri: item.url }} placeholder={item.blur ? { uri: item.blur } : undefined} placeholderContentFit="cover" style={{ width, height }} contentFit="cover" transition={250} accessibilityLabel={`Photo ${i + 1} of ${count}`} />
+                ) : (
+                  <VideoSlide media={item} index={i} width={width} height={height} playing={active && i === index} onPlayer={onPlayer} watch={watch} />
+                )}
+              </Pressable>
+            )}
+          />
+        </View>
       ) : (
         <View style={{ width: "100%", aspectRatio: aspect }} />
       )}

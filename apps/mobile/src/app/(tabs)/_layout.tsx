@@ -62,10 +62,12 @@ function ProfileTabIcon({ focused, color, size }: { focused: boolean; color: Col
 /**
  * Home | Explore (Housing | Roommate | Marketplace) | Messages | Events | Profile: the campus's tools second, its calendar
  * fourth. Search is not a tab: the magnifier beside the bell in Home's top bar opens app/search.tsx (people, topics,
- * posts and what is popular on every campus). Creating starts from Home: Orbit's floating "+", Upload in the
- * menu under your photo, and the "+" over Reels open the live camera (SNAP | POST | REEL | BUZZ, see app/compose). The
- * bar is FloatingTabBar: a rounded glass pill floating over the tabs' content (see lib/tab-bar.ts for its size and the
- * room each tab keeps clear under it) with a capsule that slides to the tab on screen.
+ * posts and what is popular on every campus). Creating starts from Home: the floating "+" at the bottom right (X's
+ * compose button; Buzz's pen writes a buzz) and Upload in the menu under your photo open the live camera (SNAP | POST |
+ * REEL | BUZZ, see app/compose). The bar is FloatingTabBar: a rounded glass pill floating over the tabs' content (see
+ * lib/tab-bar.ts for its size and the room each tab keeps clear under it) with a capsule that slides to the tab on
+ * screen; while a page of Home (For you, Buzz), Explore or Events scrolls on it collapses to that tab's own button, like
+ * Reddit's (lib/tab-bar-collapse.ts).
  */
 export default function TabsLayout() {
   const { user, profile } = useSession();

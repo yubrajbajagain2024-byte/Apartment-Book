@@ -22,8 +22,8 @@ export type ModerationPriority = "p0" | "p1" | "p2" | "p3";
 export type ModerationSeverity = "none" | "low" | "medium" | "high" | "critical";
 export type ContentStatus = "active" | "held" | "hidden" | "removed" | "deleted";
 export type QueueSource = "rule_flag" | "rule_block_escalation" | "ai_flag" | "user_report" | "community_score" | "appeal" | "system";
-/** Content types: Buzz ('buzz', 'buzz_reply') is anonymous; the rest are public. */
-export type StaffEntityType = "buzz" | "buzz_reply" | "post" | "comment" | "apartment" | "item" | "roommate" | "profile" | "message";
+/** Content types: Buzz ('buzz', 'buzz_reply') is anonymous; the rest are public ('story' since migration 62). */
+export type StaffEntityType = "buzz" | "buzz_reply" | "post" | "comment" | "apartment" | "item" | "roommate" | "profile" | "message" | "story";
 
 export interface StaffQueueItem {
   id: string;

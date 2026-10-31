@@ -29,6 +29,10 @@ export type Story = {
   seen: boolean;
   /** How many people have seen it: the author's own count; 0 for anyone else's story (the database tells them only about themselves). */
   views: number;
+  /** Whether the person looking has liked it (migration 62; always false for their own, and before 62). */
+  liked: boolean;
+  /** How many people have liked it: the author's own count, like `views`; 0 for anyone else's story. */
+  likes: number;
 };
 
 /** One person's stories in the tray, oldest first, as Instagram plays them. */

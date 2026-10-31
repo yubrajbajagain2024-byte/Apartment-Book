@@ -1,10 +1,11 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from "react";
 import { Tabs } from "expo-router";
-import { Pressable, StyleSheet, Text, View, type ColorValue } from "react-native";
+import { Pressable, StyleSheet, Text, View, useWindowDimensions, type ColorValue } from "react-native";
 import Animated, { Extrapolation, interpolate, useAnimatedStyle, useSharedValue, withSpring, type SharedValue } from "react-native-reanimated";
 import { GlassView, isLiquidGlassAvailable } from "expo-glass-effect";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { TAB_BAR_HEIGHT, TAB_BAR_SIDE, tabBarBottom } from "@/lib/tab-bar";
+import { TAB_BAR_COLLAPSED_SCALE, TAB_BAR_HEIGHT, TAB_BAR_SIDE, tabBarBottom } from "@/lib/tab-bar";
+import { setTabBarCollapsed, tabBarCollapse, useTabBarCollapsed } from "@/lib/tab-bar-collapse";
 import { useReduceMotion, useReduceTransparency } from "@/lib/accessibility";
 import { auroraGradient } from "@/lib/theme";
 import { useAppTheme } from "@/lib/theme-provider";
@@ -58,6 +59,12 @@ const ACTIVE_SHARE = 1.5;
 const PILL_INSET = 6;
 /** The system tab bars' glyph size: SF Symbols at this size read level with the 11pt labels under them. */
 const ICON_SIZE = 26;
+/** The row's inset from the bar's sides. */
+const ROW_INSET = 2;
+/** What a label adds under its icon (its line and the gap above it): the collapsed bar drops the icon by half of it, to its middle. */
+const LABEL_LINE = 13;
+const LABEL_GAP = 2;
+const LABEL_ROOM = LABEL_LINE + LABEL_GAP;
 /** How the tabs make room for the one picked: critically damped, so no tab ever overshoots or wobbles as it settles. */
 const SPRING = { damping: 31, stiffness: 300, mass: 0.8 };
 /**
@@ -112,6 +119,13 @@ function restOf(groups: Group[], index: number): { left: number; width: number }
  * stops on it, and it stays put while the tabs on either side make room (see shareRow). The navigator's own events still fire
  * (tabPress can be prevented, tabLongPress is sent), each tab keeps its icon, title and badge from its screen options,
  * and screen readers hear "Home, tab, 1 of 5". Everything that moves runs on the UI thread (Reanimated).
+ *
+ * The bar collapses like Reddit's while a feed scrolls on (lib/tab-bar-collapse.ts): it narrows to a circle as tall
+ * as itself and shrinks a little from its bottom left corner, the row sliding so the tab on screen stays in the circle's
+ * middle while the labels and the capsule fade, so only that tab's icon is left. The row keeps its measured width the
+ * whole time (the bar clips it), so no tab is laid out again while it moves, and the other tabs fade as it goes. Home,
+ * Explore and Events collapse it, each to its own icon. A tap on the circle brings the whole bar back. A copy of the bar
+ * (`onSelect`, over the full-screen viewer) never collapses.
  */
 export function FloatingTabBar({ state, descriptors, emitter, navigateToTab, action, onSelect, ...rest }: TabBarProps & { action?: TabBarAction; onSelect?: (routeKey: string, focused: boolean) => void }) {
   const insets = useSafeAreaInsets();
@@ -168,20 +182,37 @@ export function FloatingTabBar({ state, descriptors, emitter, navigateToTab, act
     leftEdge.value = withSpring(left, forward ? TRAIL : LEAD);
     rightEdge.value = withSpring(right, forward ? LEAD : TRAIL);
   }, [state.index, groups, rowWidth, reduceMotion, progress, leftEdge, rightEdge]);
+  // Collapsing (see the note above): 0 with the whole bar, 1 collapsed. A copy of the bar stays whole.
+  const collapsible = !onSelect;
+  const collapsed = useTabBarCollapsed() && collapsible;
+  const { width: windowWidth } = useWindowDimensions();
+  const barWidth = windowWidth - TAB_BAR_SIDE * 2;
+  // The tab on screen's middle in the row at rest: the collapsed circle holds it in its own middle.
+  const focusRest = restOf(groups, state.index);
+  const focusCenter = ROW_INSET + focusRest.left + focusRest.width / 2;
+  const shrinkStyle = useAnimatedStyle(() => {
+    const c = collapsible ? tabBarCollapse.value : 0;
+    return { width: interpolate(c, [0, 1], [barWidth, TAB_BAR_HEIGHT]), transform: [{ scale: interpolate(c, [0, 1], [1, TAB_BAR_COLLAPSED_SCALE]) }] };
+  });
+  const rowSlide = useAnimatedStyle(() => ({ transform: [{ translateX: -(collapsible ? tabBarCollapse.value : 0) * (focusCenter - TAB_BAR_HEIGHT / 2) }] }));
+  const labelFade = useAnimatedStyle(() => ({ opacity: 1 - (collapsible ? tabBarCollapse.value : 0) }));
+  const iconDrop = useAnimatedStyle(() => ({ transform: [{ translateY: ((collapsible ? tabBarCollapse.value : 0) * LABEL_ROOM) / 2 }] }));
   const pillStyle = useAnimatedStyle(() => ({
     width: Math.max(0, rightEdge.value - leftEdge.value),
     transform: [{ translateX: leftEdge.value }],
+    opacity: 1 - (collapsible ? tabBarCollapse.value : 0),
   }));
 
   return (
-    <View style={[styles.bar, { bottom: tabBarBottom(insets), borderColor: colors.glassEdge }]}>
+    <Animated.View style={[styles.bar, { bottom: tabBarBottom(insets), borderColor: colors.glassEdge }, shrinkStyle]}>
       {/* An all but opaque fill first: the liquid glass on top samples it, so the bar keeps its glass light, its edge and a
           breath of the feed's colour, while the grey labels stay readable over any content. The glass answers a touch
           (interactive), as the system's own bars do. Reduce Transparency, or no liquid glass, leaves a solid bar. */}
       <View style={[styles.fill, { backgroundColor: reduceTransparency ? colors.bar : colors.glass }]} />
       {GLASS && !reduceTransparency ? <GlassView style={styles.fill} glassEffectStyle="regular" isInteractive colorScheme={isDark ? "dark" : "light"} /> : null}
-      {/* The row is measured empty first: a slot drawn before its width is known would keep a flex that overrides the widths later. */}
-      <View style={styles.row} onLayout={(e) => setRowWidth(e.nativeEvent.layout.width)}>
+      {/* The row is measured empty first: a slot drawn before its width is known would keep a flex that overrides the widths later.
+          It is as wide as the whole bar even while the bar is collapsed: the bar clips it, and it slides instead. */}
+      <Animated.View style={[styles.row, { width: barWidth - ROW_INSET * 2 }, rowSlide]} onLayout={(e) => setRowWidth(e.nativeEvent.layout.width)}>
         {/* The capsule behind the tab on screen: a faint wash of the aurora (the icon and label over it stay the text colour). */}
         {rowWidth > 0 ? <Animated.View pointerEvents="none" style={[styles.pill, { experimental_backgroundImage: auroraGradient(colors.auroraWash, 110) }, pillStyle]} /> : null}
         {rowWidth <= 0 ? null : state.routes.map((route, index) => {
@@ -211,7 +242,7 @@ export function FloatingTabBar({ state, descriptors, emitter, navigateToTab, act
                   </Pressable>
                 </View>
               ) : null}
-              <TabSlot index={index} progress={progress} group={group}>
+              <TabSlot index={index} progress={progress} group={group} fades={collapsible && !focused}>
                 <Pressable
                   onPress={onPress}
                   onLongPress={onLongPress}
@@ -221,7 +252,8 @@ export function FloatingTabBar({ state, descriptors, emitter, navigateToTab, act
                   testID={options.tabBarButtonTestID}
                   style={styles.tab}
                 >
-                  <View>
+                  {/* The tab on screen drops its icon to the middle as the bar collapses, and its label fades (the other tabs fade and are clipped away). */}
+                  <Animated.View style={focused ? iconDrop : undefined}>
                     {options.tabBarIcon ? options.tabBarIcon({ focused, color, size: ICON_SIZE }) : null}
                     {badge !== undefined && badge !== null ? (
                       <View style={[styles.badge, { backgroundColor: colors.dangerFill, borderColor: colors.bar }]}>
@@ -230,18 +262,20 @@ export function FloatingTabBar({ state, descriptors, emitter, navigateToTab, act
                         </Text>
                       </View>
                     ) : null}
-                  </View>
+                  </Animated.View>
                   {/* One line that shrinks a little rather than ending in "…" when a tab is narrow ("Messages" next to the lit tab on a small phone). */}
-                  <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} maxFontSizeMultiplier={1.2} style={[styles.label, focused && styles.labelOn, { color }]}>
+                  <Animated.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} maxFontSizeMultiplier={1.2} style={[styles.label, focused && styles.labelOn, { color }, focused ? labelFade : null]}>
                     {label}
-                  </Text>
+                  </Animated.Text>
                 </Pressable>
               </TabSlot>
             </Fragment>
           );
         })}
-      </View>
-    </View>
+      </Animated.View>
+      {/* Collapsed, the circle is one button: a tap brings the whole bar back (the tabs under it are clipped away anyway). */}
+      {collapsed ? <Pressable onPress={() => setTabBarCollapsed(false)} accessibilityRole="button" accessibilityLabel="Show all tabs" style={StyleSheet.absoluteFill} /> : null}
+    </Animated.View>
   );
 }
 
@@ -251,15 +285,18 @@ export function FloatingTabBar({ state, descriptors, emitter, navigateToTab, act
  * up its share of the room. Only ever a width, never a flex: each group's widths add up to the group exactly, at rest
  * and all the way through a move, so nothing beside it shifts.
  */
-function TabSlot({ index, progress, group, children }: { index: number; progress: SharedValue<number>; group: Group; children: ReactNode }) {
+function TabSlot({ index, progress, group, fades, children }: { index: number; progress: SharedValue<number>; group: Group; fades: boolean; children: ReactNode }) {
   const { members, idle, delta } = group;
   const style = useAnimatedStyle(() => {
     // 1 with the capsule on tab i, 0 a whole tab away, in between as it passes.
     const here = (i: number) => interpolate(Math.abs(progress.value - i), [0, 1], [1, 0], Extrapolation.CLAMP);
-    if (members.length < 2) return { width: idle };
+    // Every tab but the one on screen fades out as the bar collapses (and back as it returns), so none of them slides
+    // through the shrinking bar on its way out: only the tab on screen is left, whichever it is.
+    const opacity = fades ? 1 - tabBarCollapse.value : 1;
+    if (members.length < 2) return { width: idle, opacity };
     let others = 0;
     for (let k = 0; k < members.length; k++) if (members[k] !== index) others += here(members[k]!);
-    return { width: idle + delta * (here(index) - others / (members.length - 1)) };
+    return { width: idle + delta * (here(index) - others / (members.length - 1)), opacity };
     // No dependency list: Reanimated follows what the worklet captures (index, members, idle, delta).
   });
   return <Animated.View style={[styles.slot, style]}>{children}</Animated.View>;
@@ -267,14 +304,15 @@ function TabSlot({ index, progress, group, children }: { index: number; progress
 
 const styles = StyleSheet.create({
   // Floating over the content: a pill with a hairline edge, clipped so the glass takes its shape. No shadow (iOS would clip it).
-  bar: { position: "absolute", left: TAB_BAR_SIDE, right: TAB_BAR_SIDE, height: TAB_BAR_HEIGHT, borderRadius: TAB_BAR_HEIGHT / 2, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth },
+  // Its width is animated (it collapses to a circle), and it shrinks from its bottom left corner, where it stays.
+  bar: { position: "absolute", left: TAB_BAR_SIDE, height: TAB_BAR_HEIGHT, borderRadius: TAB_BAR_HEIGHT / 2, overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, transformOrigin: "left bottom" },
   fill: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, borderRadius: TAB_BAR_HEIGHT / 2 },
-  row: { flex: 1, flexDirection: "row", marginHorizontal: 2 },
+  row: { position: "absolute", top: 0, bottom: 0, left: ROW_INSET, flexDirection: "row" },
   pill: { position: "absolute", top: PILL_INSET, bottom: PILL_INSET, left: 0, borderRadius: 999 },
   slot: { height: "100%", flexGrow: 0, flexShrink: 0 },
   tab: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 2 },
   // 11pt: small labels read crisp a step larger; the tab on screen is heavier.
-  label: { fontSize: 11, fontWeight: "600", letterSpacing: 0, marginTop: 2 },
+  label: { fontSize: 11, lineHeight: LABEL_LINE, fontWeight: "600", letterSpacing: 0, marginTop: LABEL_GAP },
   labelOn: { fontWeight: "700" },
   badge: { position: "absolute", top: -5, right: -10, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
   badgeText: { fontSize: 10, fontWeight: "700", fontVariant: ["tabular-nums"] },

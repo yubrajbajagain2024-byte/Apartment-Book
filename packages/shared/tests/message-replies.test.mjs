@@ -20,6 +20,7 @@ test("replyKindOf follows the database's order: Snap, then a share, then files, 
   assert.equal(replyKindOf(base), "text");
   assert.equal(replyKindOf({ ...base, snap: { id: ID, kind: "image" }, shared_post: { target_type: "post", target_id: ID } }), "snap");
   assert.equal(replyKindOf({ ...base, shared_post: { target_type: "post", target_id: ID, kind: "reel" } }), "reel");
+  assert.equal(replyKindOf({ ...base, shared_post: { target_type: "story", target_id: ID, kind: "story_reply" } }), "story", "a story card is quoted as a story (migration 62)");
   assert.equal(replyKindOf({ ...base, shared_post: { target_type: "post", target_id: ID } }), "post");
   assert.equal(replyKindOf({ ...base, shared_post: { target_type: "apartment", target_id: ID } }), "listing");
   assert.equal(replyKindOf({ ...base, attachments: [att("audio")] }), "voice");

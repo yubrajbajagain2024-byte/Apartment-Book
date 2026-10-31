@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
+import { useIsFocused, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DEFAULT_HOUSING_SECTION, HOUSING_SECTIONS, ITEM_CATEGORIES, type HousingSection, type ItemCategoryValue } from "@apartment-book/shared";
 import { Fab } from "@/components/feed-header";
@@ -11,6 +11,8 @@ import { MarketplaceSection } from "@/components/housing/marketplace-section";
 import { RoommatesSection, type RoommateType } from "@/components/housing/roommates-section";
 import { SlidingTabs } from "@/components/sliding-tabs";
 import { useCollapsingHeader } from "@/lib/collapsing-header";
+import { useCollapseOnScroll } from "@/lib/tab-bar-collapse";
+import { followOffset, handOverTarget, SectionPagerContext, type SectionPager } from "@/lib/section-pager";
 import { auroraGradient, radius, space, textStyle } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 import { Icon } from "@/components/icon";
@@ -70,7 +72,11 @@ export default function HousingScreen() {
   const scrollX = useRef(new Animated.Value(start * width)).current;
   /** Pages are mounted the first time they come into view, so Roommates and the Marketplace do not load until someone looks at them. */
   const [mounted, setMounted] = useState<Set<number>>(() => new Set([start]));
-  const { translateY: floatShift, select: followPage, reveal: revealFloat, onScroll: onPageScroll } = useCollapsingHeader(ORDER.length, FLOAT, start);
+  // The bottom bar collapses to Explore's button as the page on screen scrolls on and comes back as it scrolls back, as
+  // on Home (lib/tab-bar-collapse.ts); another page starts with the whole bar.
+  const focused = useIsFocused();
+  const trackTabBar = useCollapseOnScroll(focused, index);
+  const { translateY: floatShift, select: followPage, reveal: revealFloat, onScroll: onPageScroll } = useCollapsingHeader(ORDER.length, FLOAT, start, trackTabBar);
 
   // The search and the filters, shared by the pages (what does not apply to a page is simply not used there).
   const [q, setQ] = useState("");
@@ -121,6 +127,40 @@ export default function HousingScreen() {
     if (i < 0 || i === indexRef.current) return;
     goTo(i);
   }
+
+  /**
+   * A swipe a listing's photo carousel on page `from` took past its last photo (or first): the pager follows the finger,
+   * never further than the page beside, and once let go glides on to it or back, as after a label tap
+   * (lib/section-pager.ts). A swipe the pager has itself is left alone.
+   */
+  const pagerDragging = useRef(false);
+  const handOver = useRef<number | null>(null);
+  const followCarousel = (from: number, dx: number) => {
+    if (pagerDragging.current || width <= 0) return;
+    if (handOver.current === null) {
+      handOver.current = from;
+      target.current = null;
+      revealFloat();
+    }
+    pager.current?.scrollTo({ x: followOffset(handOver.current, dx, width, ORDER.length - 1), animated: false });
+  };
+  const releaseCarousel = (dx: number, vx: number) => {
+    const from = handOver.current;
+    handOver.current = null;
+    if (from === null || width <= 0) return;
+    goTo(handOverTarget(from, dx, vx, width, ORDER.length - 1));
+  };
+  const carouselRef = useRef({ follow: followCarousel, release: releaseCarousel });
+  carouselRef.current = { follow: followCarousel, release: releaseCarousel };
+  /** What each page's photo carousels see of the pager: one value per page, the same for good. Never past the first or last page, so never to another tab. */
+  const sectionPagers = useMemo<SectionPager[]>(
+    () =>
+      ORDER.map((_, i) => ({
+        follow: (dx: number) => carouselRef.current.follow(i, dx),
+        release: (dx: number, vx: number) => carouselRef.current.release(dx, vx),
+      })),
+    [],
+  );
 
   // A later link to the tab naming a page (the old /marketplace address, say) moves the pager there.
   const linked = useRef(params.section);
@@ -284,23 +324,29 @@ export default function HousingScreen() {
           scrollEventThrottle={16}
           onContentSizeChange={place}
           onScrollBeginDrag={() => {
+            pagerDragging.current = true;
             target.current = null;
             // The labels come back for the swipe, wherever the page had scrolled them.
             revealFloat();
           }}
           onScroll={onPagerScroll}
+          onScrollEndDrag={() => {
+            pagerDragging.current = false;
+          }}
           onMomentumScrollEnd={onSettled}
           style={{ flex: 1 }}
         >
           {ORDER.map((s, i) => (
             <View key={s} style={{ width, flex: 1 }}>
-              {!mounted.has(i) ? null : s === "roommates" ? (
-                <RoommatesSection active={section === "roommates"} topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} type={type} filters={filters.roommates} filtered={activeFilterCount("roommates", filters) > 0} />
-              ) : s === "marketplace" ? (
-                <MarketplaceSection active={section === "marketplace"} topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} category={category} onCategoryChange={pickCategory} onSearchBusy={setBusy} filters={filters.marketplace} filtered={activeFilterCount("marketplace", filters) > 0} />
-              ) : (
-                <ApartmentsSection active={section === "apartments"} topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} filters={filters.apartments} filtered={activeFilterCount("apartments", filters) > 0} />
-              )}
+              <SectionPagerContext.Provider value={sectionPagers[i]!}>
+                {!mounted.has(i) ? null : s === "roommates" ? (
+                  <RoommatesSection active={section === "roommates"} topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} type={type} filters={filters.roommates} filtered={activeFilterCount("roommates", filters) > 0} />
+                ) : s === "marketplace" ? (
+                  <MarketplaceSection active={section === "marketplace"} topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} category={category} onCategoryChange={pickCategory} onSearchBusy={setBusy} filters={filters.marketplace} filtered={activeFilterCount("marketplace", filters) > 0} />
+                ) : (
+                  <ApartmentsSection active={section === "apartments"} topInset={FLOAT} onScroll={onPageScroll(i)} q={q} campus={CAMPUS} filters={filters.apartments} filtered={activeFilterCount("apartments", filters) > 0} />
+                )}
+              </SectionPagerContext.Provider>
             </View>
           ))}
         </Animated.ScrollView>

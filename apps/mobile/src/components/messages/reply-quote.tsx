@@ -16,6 +16,7 @@ const ICONS: Partial<Record<MessageReplyKind, IconName>> = {
   post: "image-outline",
   reel: "film-outline",
   listing: "home-outline",
+  story: "aperture-outline",
 };
 
 /**

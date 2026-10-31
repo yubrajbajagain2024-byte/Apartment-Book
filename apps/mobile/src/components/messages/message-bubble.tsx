@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Animated, Pressable, StyleSheet, Text, View, type ViewInstance } from "react-native";
 import Reanimated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Image } from "expo-image";
@@ -10,6 +10,7 @@ import {
   formatDayLabel,
   formatMessageTime,
   replyOf,
+  isStoryCard,
   sharedPostLabel,
   sharedPostOf,
   snapOf,
@@ -336,20 +337,24 @@ const PHOTO_RADIUS = 18;
  * the chat's photo width (4:5 for a post or a listing, taller for a reel), with who posted it and its words on a soft
  * shade along the bottom and nothing else (what it is, the screen reader still hears). One without a picture is a card
  * of its words. A tap opens it: a post or reel with a picture full screen in the viewer (the Reels feed follows it), a
- * words-only post its own screen, a listing its detail screen.
+ * words-only post its own screen, a listing its detail screen. A story (shared, or a reply to it) is as tall as a reel
+ * and opens the story viewer; once the story has gone its photo goes too (migration 59), and the card then says so.
  */
 function SharedPostBubble({ shared, width, dimmed, onLongPress }: { shared: SharedPost; width: number; dimmed: boolean; onLongPress?: () => void }) {
   const styles = useStyles();
   const router = useRouter();
-  const label = sharedPostLabel(shared);
-  const line = shared.title ?? shared.caption;
+  const story = isStoryCard(shared);
+  const [gone, setGone] = useState(false);
+  const label = story && gone ? "Story no longer available" : sharedPostLabel(shared);
+  // A story has no words of its own: the shade says what the card is ("View story", "Replied to a story").
+  const line = shared.title ?? shared.caption ?? (story ? label : null);
   /** The picture, measured when it is tapped so the viewer can zoom open from it. */
   const picture = useRef<ViewInstance>(null);
   const open = () => {
     if (shared.target_type === "post" && shared.image_url) void measureOrigin(picture.current, PHOTO_RADIUS).then((origin) => openViewer(router, { entries: [entryForPost(shared.target_id, shared.image_url)], index: 0, then: "reels", origin }));
     else router.push(sharedPostHref(shared));
   };
-  if (!shared.image_url) {
+  if (!shared.image_url || gone) {
     return (
       <Pressable
         onPress={open}
@@ -379,7 +384,7 @@ function SharedPostBubble({ shared, width, dimmed, onLongPress }: { shared: Shar
       </Pressable>
     );
   }
-  const height = Math.round(width / (shared.kind === "reel" ? 0.65 : 0.8));
+  const height = Math.round(width / (shared.kind === "reel" || story ? 0.65 : 0.8));
   return (
     <Pressable
       onPress={open}
@@ -390,7 +395,7 @@ function SharedPostBubble({ shared, width, dimmed, onLongPress }: { shared: Shar
       style={({ pressed }) => [styles.photo, { width, height }, dimmed && styles.dim, pressed && { opacity: 0.85 }]}
     >
       <View ref={picture} collapsable={false} style={StyleSheet.absoluteFill}>
-        <Image source={{ uri: shared.image_url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} accessibilityLabel={line ?? "Shared picture"} />
+        <Image source={{ uri: shared.image_url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} accessibilityLabel={line ?? "Shared picture"} onError={story ? () => setGone(true) : undefined} />
       </View>
       <View style={styles.shade} pointerEvents="none">
         <View style={styles.shadeRow}>

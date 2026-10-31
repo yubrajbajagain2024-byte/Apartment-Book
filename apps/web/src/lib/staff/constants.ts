@@ -105,6 +105,7 @@ export const SURFACE_LABEL: Record<string, string> = {
   roommate: "Roommate post",
   profile: "Profile",
   message: "Message",
+  story: "Story",
 };
 export function surfaceLabel(s: string): string {
   return SURFACE_LABEL[s] ?? s;
@@ -154,7 +155,7 @@ export const AUDIT_ACTIONS: readonly string[] = [
   "strike_add", "strike_revoke", "appeal_create", "appeal_decide", "role_grant", "role_revoke", "rule_pack_toggle", "reporter_viewed", "dm_context_viewed",
 ];
 export const AUDIT_TARGETS: readonly string[] = [
-  "buzz", "buzz_reply", "post", "comment", "apartment", "item", "roommate", "profile", "message", "user", "appeal", "rule_pack", "queue",
+  "buzz", "buzz_reply", "post", "comment", "apartment", "item", "roommate", "profile", "message", "story", "user", "appeal", "rule_pack", "queue",
 ];
 
 export type LimitationId = "G1" | "G2" | "G3" | "G4" | "G5" | "A1" | "U1" | "U2";

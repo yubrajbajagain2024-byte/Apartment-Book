@@ -10,9 +10,10 @@ import { boot, read, expectOk, done } from "./harness.mjs";
 import { BUZZ_GUIDELINES_VERSION, BUZZ_CATEGORIES } from "../../packages/shared/src/buzz/constants.ts";
 import { catalog, diffCatalogs, isBuzz, BUZZ_DATA_SQL, DATA_HELPER_SQL, DROP_DATA_HELPER_SQL } from "./catalog.mjs";
 
-// 61 (Events) goes to production on its own, ahead of this release, like 58 to 60 did (events-rollout.test.mjs): it is
-// left out here so the database starts in production's state as it is.
-const AHEAD = ["20261113000000_events.sql"];
+// 61 (Events) and 62 (story actions) go to production on their own, ahead of this release, like 58 to 60 did
+// (events-rollout.test.mjs, story-actions-rollout.test.mjs): they are left out here so the database starts in
+// production's state as it is.
+const AHEAD = ["20261113000000_events.sql", "20261114000000_story_actions.sql"];
 const PENDING = [
   "20261103000300_discover.sql",
   "20261104000100_discover_audience.sql",

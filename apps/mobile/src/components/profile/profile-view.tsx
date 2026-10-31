@@ -46,6 +46,7 @@ import { openCompose } from "@/lib/compose-nav";
 import { hapticTap, alertWithHaptic, refreshWithHaptic } from "@/lib/haptics";
 import { errorText, useQuery } from "@/lib/hooks";
 import { emitPostPinned, onPostPinned, onPostRemoved } from "@/lib/posts-events";
+import { setStoryMuted, useStoryMuted } from "@/lib/stories-store";
 import { useSession } from "@/lib/session";
 import { tabBarInset } from "@/lib/tab-bar";
 import { SITE_URL, supabase } from "@/lib/supabase";
@@ -63,9 +64,14 @@ import { LockedNotice, VisibilityRow } from "./visibility-row";
 import { useTabReselect } from "@/lib/tab-reselect";
 import { Icon } from "@/components/icon";
 
-/** Space between the squares of the grid, across and down, and from the grid to the screen's edges. */
-const GAP = 6;
-const GRID_INSET = 8;
+/**
+ * Space between the tiles of the grid, across and down, and from the grid to the screen's edges: Instagram's grid, edge
+ * to edge with a hairline of the screen between square-cornered 3:4 tiles.
+ */
+const GAP = 2;
+const GRID_INSET = 0;
+/** The tiles' corners: square, as on Instagram (the search screen's grid keeps its rounded ones). */
+const GRID_TILE_RADIUS = 0;
 /** Between the header and the tabs row: part of the header, so it goes up with it. */
 const TABS_GAP = 14;
 const NO_TILES: ProfileTile[] = [];
@@ -528,9 +534,9 @@ type TilesPageProps = PageFrame & {
 };
 
 /**
- * Posts, Reels, Saved, Liked or Listings: the squares three to a row, loading more as you scroll, and under them a lock,
- * a spinner, an empty tab, an error or "loading more". Listings show their kind and title on the square (as on the
- * website); the other tabs keep TikTok's plain squares.
+ * Posts, Reels, Saved, Liked or Listings: the tiles three to a row, edge to edge (Instagram's grid: 3:4 tiles, 9:16 on
+ * Reels), loading more as you scroll, and under them a lock, a spinner, an empty tab, an error or "loading more".
+ * Listings show their kind and title on the tile (as on the website); the other tabs keep plain picture tiles.
  */
 const TilesPage = memo(function TilesPage(props: TilesPageProps) {
   const { index, link, header, pageWidth, tabsHeight, active, refreshing, topInset, tab, grid, own, tileWidth, onOpen, onPin, gate, gateMessage, onRetryGate, visibility, savingVisibility, onChangeVisibility } = props;
@@ -548,7 +554,7 @@ const TilesPage = memo(function TilesPage(props: TilesPageProps) {
   tiles.current = grid.tiles;
   const openInGrid = useCallback((tile: ProfileTile, origin?: ViewerOrigin) => onOpen(tile, tiles.current, origin), [onOpen]);
   const renderTile = useCallback<ListRenderItem<ProfileTile>>(
-    ({ item }) => (tab === "listings" ? <ListingGridTile tile={item} width={tileWidth} onOpen={onOpen} /> : <ProfileGridTile tile={item} width={tileWidth} aspect={tab === "reels" ? REEL_ASPECT : TILE_ASPECT} onOpen={openInGrid} onLongPress={onPin} />),
+    ({ item }) => (tab === "listings" ? <ListingGridTile tile={item} width={tileWidth} radius={GRID_TILE_RADIUS} onOpen={onOpen} /> : <ProfileGridTile tile={item} width={tileWidth} aspect={tab === "reels" ? REEL_ASPECT : TILE_ASPECT} radius={GRID_TILE_RADIUS} onOpen={openInGrid} onLongPress={onPin} />),
     [tab, tileWidth, onOpen, openInGrid, onPin],
   );
 
@@ -715,6 +721,8 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
   const classesOpen = own || accessQ.data?.classes === true;
   const classesQ = useQuery(() => listProfileClasses(supabase, userId), [userId, viewerId, classesOpen]);
   const blockedQ = useQuery(() => (viewerId && !own ? isBlocked(supabase, viewerId, userId) : Promise.resolve(false)), [viewerId, userId, own]);
+  /** Whether you have muted this person's stories (lib/stories-store.ts): More offers the other choice. */
+  const storiesMuted = useStoryMuted(own ? null : userId);
 
   const access = own ? OWNER_ACCESS : accessQ.data;
   const canSee = (section: ProfileSection) => own || access?.[section] === true;
@@ -961,6 +969,12 @@ export function ProfileView({ userId, topBar = false }: { userId: string; topBar
     if (!user) return needLogin();
     const me = user.id;
     show([
+      // Muting hides their stories from your tray; they are not told. The tray changes at once and goes back on an error.
+      {
+        label: storiesMuted ? "Unmute stories" : "Mute stories",
+        icon: storiesMuted ? "volume-high-outline" : "volume-mute-outline",
+        onPress: () => void setStoryMuted(me, userId, !storiesMuted).then(hapticTap, (e) => alertWithHaptic("error", storiesMuted ? "Could not unmute" : "Could not mute", errorText(e))),
+      },
       {
         label: blocked ? "Unblock" : "Block",
         icon: "ban-outline",

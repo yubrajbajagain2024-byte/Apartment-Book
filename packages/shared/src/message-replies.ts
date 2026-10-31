@@ -6,7 +6,7 @@ import type { MessageAttachmentKind } from "./message-media";
  * What the message answered was, when it had no words (or besides them). The database decides this from the original
  * message when the reply is sent, in replyKindOf()'s order; the apps show a matching label and icon.
  */
-export type MessageReplyKind = "text" | "photo" | "video" | "voice" | "file" | "snap" | "post" | "reel" | "listing";
+export type MessageReplyKind = "text" | "photo" | "video" | "voice" | "file" | "snap" | "post" | "reel" | "listing" | "story";
 
 /**
  * What a reply carries about the message it answers (messages.reply_to): a snapshot the database builds from the
@@ -26,7 +26,7 @@ export type MessageReply = {
 /** How much of the original's text the snapshot keeps (the database cuts there too). */
 export const REPLY_TEXT_MAX_LENGTH = 140;
 
-const KINDS: readonly MessageReplyKind[] = ["text", "photo", "video", "voice", "file", "snap", "post", "reel", "listing"];
+const KINDS: readonly MessageReplyKind[] = ["text", "photo", "video", "voice", "file", "snap", "post", "reel", "listing", "story"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The snapshot stored on a message, if it is one. Anything malformed (old rows, hand-made JSON) reads as "no reply". */
@@ -75,6 +75,8 @@ export function replyKindOf(m: ReplySourceMessage): MessageReplyKind {
   const shared = m.shared_post && typeof m.shared_post === "object" ? (m.shared_post as Record<string, unknown>) : null;
   if (shared) {
     const type = typeof shared.target_type === "string" ? shared.target_type : "";
+    // A story card (migration 62) is quoted as a story; any other card that is not a post is a listing.
+    if (type === "story") return "story";
     if (type && type !== "post") return "listing";
     return shared.kind === "reel" ? "reel" : "post";
   }
@@ -109,6 +111,7 @@ const LABELS: Record<MessageReplyKind, string> = {
   post: "Post",
   reel: "Reel",
   listing: "Listing",
+  story: "Story",
 };
 
 /** What the quote says: the original's words, or what it was ("Photo", "Voice message", …) when it had none. */

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from "react-native";
-import { useRouter } from "expo-router";
+import { useIsFocused, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EVENT_CATEGORIES, EVENT_DATE_FILTERS, EVENT_SECTIONS, type EventCategory, type EventDateFilter, type EventSection } from "@apartment-book/shared";
 import { AllEventsSection } from "@/components/events/all-events-section";
+import { DEFAULT_EVENT_FILTERS, EventFilterSheet, eventFilterCount, type EventFilterChoice } from "@/components/events/event-filter-sheet";
 import { categoryIcon } from "@/components/events/event-glyphs";
 import { ForYouEventsSection } from "@/components/events/for-you-events-section";
 import { Fab } from "@/components/feed-header";
@@ -11,6 +12,7 @@ import { Icon, type IconName } from "@/components/icon";
 import { SlidingTabs } from "@/components/sliding-tabs";
 import { useCampusTimeZone } from "@/lib/campus-time-zone";
 import { useCollapsingHeader } from "@/lib/collapsing-header";
+import { useCollapseOnScroll } from "@/lib/tab-bar-collapse";
 import { useSession } from "@/lib/session";
 import { auroraGradient, radius, space, textStyle } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
@@ -24,14 +26,18 @@ const PILLS_ROW = 42;
 const FLOAT = TABS_ROW + SEARCH_ROW + PILLS_ROW;
 /** How much of the next pill stays in sight when the pills row scrolls to the chosen one. */
 const PEEK = 36;
-/** A glyph for each date pill; Upcoming has none, as "All" has none. */
+/** Each event type's name, for its chip in the pills row. */
+const CATEGORY_LABELS = Object.fromEntries(EVENT_CATEGORIES.map((c) => [c.value, c.label])) as Record<EventCategory, string>;
+/** A glyph for each date pill; Upcoming has none. */
 const DATE_ICONS: Partial<Record<EventDateFilter, IconName>> = { today: "today-outline", week: "calendar-number-outline", weekend: "sunny-outline" };
 
 /**
  * Events, the fourth tab, laid out like Explore: the big "Events" title with Saved at its right, then For you | All
  * events above a pager with Home's sliding underline, the inbox's search box (it searches events' titles, words and
- * places), and one row of pills that narrow both pages: when (Upcoming, Today, This week, Weekend), a hairline, then
- * the categories. Everything comes from the campus's own calendars and its verified clubs, departments and
+ * places) with the Marketplace's round filter button beside it, and one row of pills that narrow both pages: when
+ * (Upcoming, Today, This week, Weekend), then, after a hairline, the event types picked in the filter sheet, each with
+ * an "×" to drop it. The button opens EventFilterSheet (When, and any number of event types: Academic, Career, Sports,
+ * Social, Arts and the rest) and counts the choices in force. Everything comes from the campus's own calendars and its verified clubs, departments and
  * organizations (migration 61); For you ranks it for the person, All events is time order under day headings. The
  * floating "+" publishes an event for an organization the person belongs to. Everyone's events for someone without a
  * campus; the campus's clock for the times (lib/campus-time-zone).
@@ -56,7 +62,11 @@ export default function EventsScreen() {
   const scrollX = useRef(new Animated.Value(0)).current;
   /** All events is mounted the first time it comes into view, so it does not load until someone looks at it. */
   const [mounted, setMounted] = useState<Set<number>>(() => new Set([0]));
-  const { translateY: floatShift, select: followPage, reveal: revealFloat, onScroll: onPageScroll } = useCollapsingHeader(ORDER.length, FLOAT, 0);
+  // The bottom bar collapses to Events' button as the page on screen scrolls on and comes back as it scrolls back, as
+  // on Home (lib/tab-bar-collapse.ts); the other page starts with the whole bar.
+  const focused = useIsFocused();
+  const trackTabBar = useCollapseOnScroll(focused, index);
+  const { translateY: floatShift, select: followPage, reveal: revealFloat, onScroll: onPageScroll } = useCollapsingHeader(ORDER.length, FLOAT, 0, trackTabBar);
 
   const [text, setText] = useState("");
   const [q, setQ] = useState("");
@@ -65,8 +75,13 @@ export default function EventsScreen() {
     const t = setTimeout(() => setQ(text.trim()), 300);
     return () => clearTimeout(t);
   }, [text]);
-  const [dateFilter, setDateFilter] = useState<EventDateFilter>("any");
-  const [category, setCategory] = useState<EventCategory | null>(null);
+  /** When and which event types: the pills set When, the filter sheet both. */
+  const [filters, setFilters] = useState<EventFilterChoice>(DEFAULT_EVENT_FILTERS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const { dateFilter, categories } = filters;
+  const setDateFilter = (next: EventDateFilter) => setFilters((f) => (f.dateFilter === next ? f : { ...f, dateFilter: next }));
+  const dropCategory = (drop: EventCategory) => setFilters((f) => ({ ...f, categories: f.categories.filter((c) => c !== drop) }));
+  const activeFilters = eventFilterCount(filters);
   const section: EventSection = ORDER[index] ?? "foryou";
 
   const show = useCallback(
@@ -124,13 +139,13 @@ export default function EventsScreen() {
     if (i !== indexRef.current) show(i);
   }
 
-  // The pills row scrolls just enough to keep the chosen category in full view, Explore's way.
+  // The pills row scrolls just enough to keep the chosen date pill in full view, Explore's way.
   const pillsRow = useRef<ScrollViewInstance>(null);
   const pillBoxes = useRef(new Map<string, { x: number; width: number }>());
   const pillsOffset = useRef(0);
   const pillsViewport = useRef(0);
   const pillsContent = useRef(0);
-  const chosenPill = category ? `c:${category}` : `d:${dateFilter}`;
+  const chosenPill = `d:${dateFilter}`;
   useEffect(() => {
     const box = pillBoxes.current.get(chosenPill);
     if (!box || pillsViewport.current <= 0) return;
@@ -161,7 +176,7 @@ export default function EventsScreen() {
       </Text>
     </Pressable>
   );
-  const pageProps = { topInset: FLOAT, universityId, timeZone, q, dateFilter, category };
+  const pageProps = { topInset: FLOAT, universityId, timeZone, q, dateFilter, categories };
 
   return (
     <View style={styles.screen}>
@@ -190,6 +205,15 @@ export default function EventsScreen() {
                 </Pressable>
               ) : null}
             </View>
+            {/* The Marketplace's round filter button beside the box: it opens the sheet and counts the choices in force. */}
+            <Pressable onPress={() => setFiltersOpen(true)} hitSlop={6} accessibilityRole="button" accessibilityLabel={activeFilters > 0 ? `Filters, ${activeFilters} on` : "Filters"} accessibilityHint="Pick when, and which types of event" style={({ pressed }) => [styles.filterButton, activeFilters > 0 && styles.filterButtonOn, pressed && { opacity: 0.7 }]}>
+              <Icon name="options-outline" size={22} color={activeFilters > 0 ? colors.brand : colors.text} />
+              {activeFilters > 0 ? (
+                <View style={styles.filterBadge}>
+                  <Text style={styles.filterBadgeText}>{activeFilters}</Text>
+                </View>
+              ) : null}
+            </Pressable>
           </View>
           <ScrollView
             ref={pillsRow}
@@ -208,9 +232,17 @@ export default function EventsScreen() {
             accessibilityRole="tablist"
           >
             {EVENT_DATE_FILTERS.map((f) => pill(`d:${f.value}`, f.label, dateFilter === f.value, () => setDateFilter(f.value), DATE_ICONS[f.value]))}
-            <View style={styles.pillDivider} />
-            {pill("c:all", "All", category === null, () => setCategory(null))}
-            {EVENT_CATEGORIES.map((c) => pill(`c:${c.value}`, c.label, category === c.value, () => setCategory(category === c.value ? null : c.value), categoryIcon(c.value).name))}
+            {categories.length > 0 ? <View style={styles.pillDivider} /> : null}
+            {/* The event types in force, picked in the sheet: a tap drops one. */}
+            {categories.map((c) => (
+              <Pressable key={`c:${c}`} onPress={() => dropCategory(c)} accessibilityRole="button" accessibilityLabel={`${CATEGORY_LABELS[c]}, remove filter`} style={({ pressed }) => [styles.chip, styles.chipSelected, pressed && { opacity: 0.7 }]}>
+                <Icon name={categoryIcon(c).name} size={14} color={colors.brand} />
+                <Text style={[styles.chipText, styles.chipTextSelected]} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+                  {CATEGORY_LABELS[c]}
+                </Text>
+                <Icon name="close" size={14} color={colors.brand} />
+              </Pressable>
+            ))}
           </ScrollView>
         </Animated.View>
         <Animated.ScrollView
@@ -240,6 +272,15 @@ export default function EventsScreen() {
         </Animated.ScrollView>
         <Fab href="/events/new" label="Create event" hint="Publish an event for a club, organization or department you belong to" />
       </View>
+      <EventFilterSheet
+        open={filtersOpen}
+        value={filters}
+        onApply={(next) => {
+          setFilters(next);
+          setFiltersOpen(false);
+        }}
+        onClose={() => setFiltersOpen(false)}
+      />
     </View>
   );
 }
@@ -258,7 +299,12 @@ const useStyles = makeStyles((colors) => ({
   float: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 2, backgroundColor: colors.bar },
   tabs: { height: TABS_ROW, flexDirection: "row", marginHorizontal: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   pills: { height: PILLS_ROW, flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: 20 },
-  // The hairline between the date pills and the categories: two choices, one row.
+  // The Marketplace's filter button exactly (app/(tabs)/housing.tsx).
+  filterButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.input, alignItems: "center", justifyContent: "center" },
+  filterButtonOn: { backgroundColor: colors.brandSoft },
+  filterBadge: { position: "absolute", top: 3, right: 3, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  filterBadgeText: { fontSize: 10, fontWeight: "700", color: colors.onBrand },
+  // The hairline between the date pills and the event types picked in the sheet.
   pillDivider: { width: StyleSheet.hairlineWidth, height: 22, backgroundColor: colors.border, marginHorizontal: 2 },
   chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: colors.input },
   chipSelected: { backgroundColor: colors.brandSoft },
