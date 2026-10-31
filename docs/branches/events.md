@@ -1,7 +1,7 @@
 # events
 
-- **Owner:** Sunil. **As of 2026-10-31:** branched from `main` at PR #73 (`05ac276`); pushed (`1192000`), **PR #74 open**
-  (https://github.com/yubrajbajagain2024-byte/UniBuzz/pull/74). Written by an AI session with two forked sessions (one
+- **Owner:** Sunil. **As of 2026-10-31:** branched from `main` at PR #73 (`05ac276`); merged with PR #74 (https://github.com/yubrajbajagain2024-byte/UniBuzz/pull/74) on
+  2026-10-31 at 03:43 UTC, which deployed the website; migration 61 is not on production. Written by an AI session with two forked sessions (one
   for the app, one for the website).
 - **Purpose:** the owner's brief: the bottom bar becomes Home, Explore, Messages, Events, Profile (Discover's search
   moves to a magnifier beside the bell; Housing, Roommates and the Marketplace stay in Explore; Orbit, Buzz and Reels in

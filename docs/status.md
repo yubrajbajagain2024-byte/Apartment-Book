@@ -45,13 +45,15 @@ details in [branches/](branches/README.md). Refer to an item below by its title.
 
 ## Open work, in priority order
 
-- **Events** (branch `events`, 2026-10-31, PR #74 open; [branches/events.md](branches/events.md)): the bar is
+- **Events** (PR #74, merged and deployed 2026-10-31 03:43 UTC; [branches/events.md](branches/events.md)): the bar is
   Home, Explore, Messages, Events, Profile; the Events tab (For you | All events, date and category pills, search,
   saved), event pages, organizations that students create and staff verify, the university's ICS and RSS feeds synced
   by the website, the console's Events section; migration 61, written, rehearsed offline and applied on staging, **not
-  on production**. Reviewed on 2026-10-31 through a staging-backed preview with Texas State's real calendar synced. To
-  ship, each with the owner's approval: a full backup and 61 alone (as 58 to 60 went), `CRON_SECRET` in Vercel's
-  Production environment, the merge, Texas State's calendar feed added in `/admin/events`, an EAS update.
+  on production**: until it is, the website's Events pages show empty states and the console's Events tab shows an
+  error (the apps are unchanged until an EAS update). Reviewed on 2026-10-31 through a staging-backed preview with Texas
+  State's real calendar synced. Still to do, each with the owner's approval: a full backup and 61 alone (as 58 to 60
+  went), `CRON_SECRET` in Vercel's Production environment, Texas State's calendar feed added in `/admin/events`, an EAS
+  update.
 - **Apply the pending migrations.** One run of `db:setup` from `main` in database-URL mode
   ([supabase/CLAUDE.md](../supabase/CLAUDE.md)), after a backup, applies them in file order: 44 and
   46 together, 49 and 50 (Business v2), 51 to 54 (Buzz), 55 and 56 (Business v2, PR #51), once
