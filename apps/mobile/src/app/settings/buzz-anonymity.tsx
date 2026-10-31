@@ -13,7 +13,7 @@ import { makeStyles } from "@/lib/theme-provider";
 type Section = { title: string; body?: string; points?: string[] };
 
 /**
- * UniVerse's BuzzAnonymityPage, in this app's words (Search and Orbit for Discover and Orbit, "hide an anon" as the
+ * UniVerse's BuzzAnonymityPage, in this app's words (Search and Orbit for Explore and Orbit, "hide an anon" as the
  * menu says it) plus the one rule this app adds: posts publish after a short random delay.
  */
 const SECTIONS: Section[] = [

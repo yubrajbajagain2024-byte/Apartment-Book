@@ -16,6 +16,11 @@ export type Enums<T extends keyof Database["public"]["Enums"]> =
   Database["public"]["Enums"][T];
 
 export type University = Tables<"universities">;
+/** Migration 61: an organization that publishes events, and a feed the sync reads (staff and the server alone see feeds). */
+export type Organization = Tables<"organizations">;
+export type OrganizationMember = Tables<"organization_members">;
+export type EventRow = Tables<"events">;
+export type EventFeed = Tables<"event_feeds">;
 export type Profile = Tables<"profiles">;
 export type Apartment = Tables<"apartments">;
 export type RoommatePost = Tables<"roommate_posts">;

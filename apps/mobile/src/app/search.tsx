@@ -18,7 +18,6 @@ import type { ViewerOrigin } from "@/lib/reel-viewer";
 import { useSession } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 import { useTabBarInset } from "@/lib/tab-bar";
-import { useTabReselect } from "@/lib/tab-reselect";
 import { radius, space } from "@/lib/theme";
 import { makeStyles, useAppTheme } from "@/lib/theme-provider";
 
@@ -31,14 +30,15 @@ const ACCOUNTS_AFTER = 2;
 const NOBODY: DiscoverAccount[] = [];
 
 /**
- * Discover, the second tab: Instagram's search tab for every campus at once. The box at the top finds people, topics
- * and posts (DiscoverSearch, once something is typed); under it, what is popular: trending topics, then the posts and
+ * The search screen, opened from the magnifier beside the bell in Home's top bar (and from Explore's and Profile's
+ * searches of people): Instagram's search for every campus at once. The box at the top, focused as the screen opens,
+ * finds people, topics and posts (DiscoverSearch, once something is typed); under it, what is popular: trending topics, then the posts and
  * reels with the most going on lately, laid out as Instagram's Explore grid (a tall tile beside four squares, then a
  * row of three), with accounts to follow from every university a little way down. Everywhere by default; your own
  * campus at a tap. The rankings come from the database (migration 44, refreshed every 10 minutes), so the grid reloads
- * quietly when the tab comes back; a tap on the tab you are on scrolls back to the top. Works signed out.
+ * quietly when the screen comes back. Works signed out; the chevron at the left goes back.
  */
-export default function DiscoverScreen() {
+export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const styles = useStyles();
   const { colors, isDark } = useAppTheme();
@@ -77,7 +77,6 @@ export default function DiscoverScreen() {
   const { quietRefresh } = grid;
   useFocusEffect(useCallback(() => quietRefresh(), [quietRefresh]));
   const list = useRef<FlatList<Item>>(null);
-  useTabReselect(() => list.current?.scrollToOffset({ offset: 0, animated: true }));
 
   const [refreshing, setRefreshing] = useState(false);
   const { refresh: refreshGrid } = grid;
@@ -144,10 +143,14 @@ export default function DiscoverScreen() {
     <View style={styles.screen}>
       <View style={[styles.chrome, { paddingTop: insets.top }]}>
         <View style={styles.searchRow}>
+          <Pressable onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
+            <Icon name="chevron-back" size={26} color={colors.text} />
+          </Pressable>
           <View style={styles.search}>
             <Icon name="search" size={18} color={colors.muted} />
             <TextInput
               ref={input}
+              autoFocus
               value={text}
               onChangeText={setText}
               onFocus={() => setFocused(true)}
@@ -203,7 +206,9 @@ const useStyles = makeStyles((colors) => ({
   screen: { flex: 1, backgroundColor: colors.bg },
   chrome: { backgroundColor: colors.bar, zIndex: 2 },
   // The inbox's box: a 46pt pill with 12pt above and below.
-  searchRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: space.lg, paddingVertical: space.md },
+  // The chevron sits where a native header's would, a little into the screen's margin.
+  back: { width: 32, height: 44, alignItems: "center", justifyContent: "center", marginLeft: -space.sm },
   search: { flex: 1, height: 46, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.input, borderRadius: radius.pill, paddingHorizontal: 16 },
   input: { flex: 1, fontSize: 16, color: colors.text, paddingVertical: 0 },
   cancel: { fontSize: 16, fontWeight: "600", color: colors.brand },

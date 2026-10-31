@@ -6,7 +6,9 @@ migration's production status is in [docs/migrations.md](../docs/migrations.md).
 ## Access rules
 
 - Closed to the API entirely, read only through `security definer` functions: `user_activity`, the
-  `buzz_*` tables, `snaps`, `staff*`, `account_restrictions`, `media_jobs`.
+  `buzz_*` tables, `snaps`, `staff*`, `account_restrictions`, `media_jobs`, `event_feeds` (staff
+  read and write them through `events_console_*`; the website's sync uses the service role).
+  `event_engagement` is written by `record_event_click()` alone and read by its own student.
   `anonymous_listing_owners` is readable by the poster alone. In the `uploads` bucket (public: an
   address serves to anyone who has it), a file is read and listed through the API by its uploader
   only (migration 60); a post's and a story's photos must be their author's own uploads. Buzz anonymity depends on only the
@@ -53,7 +55,9 @@ Supabase's `auth` and `storage` schemas.
   fresh connections: test code that depends on one there.
 - `tests/staging/` needs a real Supabase project, the staging one (`STAGING_SUPABASE_REF`; the scripts
   refuse production): `business-portal.mjs`; `stories.mjs`, Stories through Auth, the REST API and
-  Storage; and `release-rehearsal.mjs`, which rehearses a release step by step (see its header).
+  Storage; `events.mjs`, Events through the same (it applies 61 on staging when missing); and
+  `release-rehearsal.mjs`, which rehearses a release step by step (see its header) and expects every
+  migration that went live ahead of the release (58 to 61) to be applied on staging first.
   Staging's `media_jobs` grows on its own: leave it out of row-count comparisons.
 
 ## Production
@@ -71,10 +75,11 @@ Supabase's `auth` and `storage` schemas.
     emails. Only for a fresh or local project, or with the real `SITE_URL` (and
     `BUSINESS_SITE_URL`) plus `SKIP_ENV=1`.
 - A migration that needs only what production already has may go live ahead of a pending release,
-  alone (58 did, 2026-10-30): rehearse it offline on production's state (`boot({ live: true, skip })`,
-  as `tests/stories-rollout.test.mjs` does) and on staging, apply it as below, then take it out of
-  the release lists (`PENDING` in `tests/production-rollout.test.mjs`, `RELEASE` in
-  `tests/staging/release-rehearsal.mjs`).
+  alone (58 to 60 did, 2026-10-30; 61 is written to): rehearse it offline on production's state
+  (`boot({ live: true, skip })`, as `tests/stories-rollout.test.mjs` and `tests/events-rollout.test.mjs`
+  do) and on staging, apply it as below, then take it out of the release lists (`PENDING` in
+  `tests/production-rollout.test.mjs`, `RELEASE` in `tests/staging/release-rehearsal.mjs`) and out of
+  the `AHEAD` skips in the rollout suites.
 - To apply one migration alone, run the file in one transaction together with
   `insert into public._migrations (name) values ('<file name>')`, then
   `notify pgrst, 'reload schema'` when it adds functions. To roll one back, the same with its

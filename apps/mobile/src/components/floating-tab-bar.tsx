@@ -12,7 +12,7 @@ import { useAppTheme } from "@/lib/theme-provider";
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>["tabBar"]>>[0];
 
 /**
- * An action in the middle of the bar (a "+", say; the app's bar has none since Discover took its place): its icon alone, centred in its slot (the label is for screen
+ * An action in the middle of the bar (a "+", say; the app's bar has none: creating starts from Home): its icon alone, centred in its slot (the label is for screen
  * readers). It opens something rather than going somewhere, so it never takes the capsule.
  */
 export type TabBarAction = { label: string; hint?: string; icon: (p: { color: ColorValue; size: number }) => ReactNode; onPress: () => void };

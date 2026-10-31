@@ -42,6 +42,12 @@ open work is in [status.md](status.md).
   longer holds a Buzz for review); PR #42 adds the root `CLAUDE.md`; PRs #43 and #44 are opened
   from two merged branches and conflict with `main`; PR #45 restructures the AI documentation into
   one shared `CLAUDE.md` plus `docs/`; PRs #46 and #47 are opened from two more merged branches.
+- **2026-10-30:** migrations 58, 59 and 60 reach production on their own, ahead of the Business v2
+  release (19:30, 20:30 and 21:46 UTC); PRs #69 to #73 merge (Stories, their media, the upload
+  folders and the full backup, the business portal made instant).
+- **2026-10-31:** branch `events`: the app's bar becomes Home, Explore, Messages, Events, Profile,
+  and the Discover tab becomes the search screen behind a magnifier beside the bell; migration 61
+  (Events) is written and applied on staging, not on production.
 
 ## The AI documentation
 

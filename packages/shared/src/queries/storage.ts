@@ -1,8 +1,8 @@
 import { MAX_IMAGE_SIZE_BYTES, STORAGE_BUCKET } from "../constants";
 import type { Client } from "../types/models";
 
-/** Each kind is a folder of the uploads bucket: <kind>/<uploader>/… (Buzz's: buzz/anon/…). "stories" is kept to its owner (migration 59). */
-export type UploadKind = "apartments" | "items" | "roommates" | "avatars" | "messages" | "posts" | "buzz" | "stories";
+/** Each kind is a folder of the uploads bucket: <kind>/<uploader>/… (Buzz's: buzz/anon/…). "stories" is kept to its owner (migration 59); "events" and "organizations" hold an event's picture and an organization's (migration 61). */
+export type UploadKind = "apartments" | "items" | "roommates" | "avatars" | "messages" | "posts" | "buzz" | "stories" | "events" | "organizations";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"]);
 

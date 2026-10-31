@@ -11,9 +11,10 @@ const TABS = [
   { href: "/admin/audit", label: "Audit", match: (p: string) => p.startsWith("/admin/audit") },
   { href: "/admin/metrics", label: "Metrics", match: (p: string) => p.startsWith("/admin/metrics") },
   { href: "/admin/rules", label: "Rules", match: (p: string) => p.startsWith("/admin/rules") },
+  { href: "/admin/events", label: "Events", match: (p: string) => p.startsWith("/admin/events") },
 ] as const;
 
-/** Queue · Users · Appeals · Audit · Metrics · Rules, with the open counts on Queue and Appeals. */
+/** Queue · Users · Appeals · Audit · Metrics · Rules · Events, with the open counts on Queue and Appeals. */
 export function StaffTabs({ queueCount, appealCount }: { queueCount: number | null; appealCount: number | null }) {
   const path = usePathname() ?? "/admin";
   return (

@@ -119,7 +119,7 @@ sign in with `apartmentbook://dev-login?email=…&password=…` once that dialog
 
 ## Home and the tabs
 
-The bottom bar is Home, Discover, Messages, Explore, Profile: five tabs in Instagram's order (Profile is your own photo
+The bottom bar is Home, Explore, Messages, Events, Profile: five tabs (Profile is your own photo
 in a circle, ringed while the tab is on screen; the person icon signed out). There is no "+" in the bar: creating starts
 from Home: Orbit's floating "+", the menu under your photo (Upload) and the "+" over Reels open the create sheet (Post /
 Reel / Buzz / Snap). It floats over the content as a rounded
@@ -131,7 +131,7 @@ so it stretches a touch in flight and settles as it lands. The new tab's symbol 
 to its plain look with no bounce, and the tabs make room for the capsule, GroupMe style, on a critically damped spring
 (`src/components/floating-tab-bar.tsx`, on Reanimated); every tab's list and floating button keeps `tabBarInset` clear
 under it. (FloatingTabBar can still hold an action in the middle, `action`, which the capsule passes behind but never
-stops on; the app's bar has none.) Search is the Discover tab (below); the people search the share sheet's Find people
+stops on; the app's bar has none.) Search is the magnifier beside the bell in Home's top bar, which opens `src/app/search.tsx` (below); the people search the share sheet's Find people
 and a profile's Find friends push is `src/app/find-people.tsx`. The Notifications bell in the top-right corner of Home's floating top bar opens every
 notification the database keeps for you (`src/app/notifications.tsx`: likes, comments and replies, follows,
 saves of your listings, places near campus, newest first; new messages and Snaps stay in Messages, with its unread
@@ -435,7 +435,7 @@ screenshots to `e2e/screenshots/`. They need [Maestro](https://maestro.mobile.de
 ```bash
 cd apps/mobile
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed.mjs      # test users and sample posts (the test account and Leo follow each other, so Leo is a friend to share with; Maya lists CS 3358 and MATH 3398 for this semester, visible to everyone); prints the login, writes e2e/.sim-state.json
-e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you (no Campus | Global toggle signed out), swipes to Buzz, opens Notifications from the bell in Home's top-right corner (signed out: the log-in prompt), Discover (bottom tab: the search box over the grid), Messages (bottom tab), Explore (Housing, Roommate, swipe back, Marketplace), Profile (several flows at once is fine)
+e2e/run.sh e2e/flows/00-signed-out.yaml                 # lands on For you (no Campus | Global toggle signed out), swipes to Buzz, opens Notifications from the bell in Home's top-right corner (signed out: the log-in prompt), Events (bottom tab: For you | All events), Messages (bottom tab), Explore (Housing, Roommate, swipe back, Marketplace), Profile (several flows at once is fine)
 EMAIL=... PASSWORD=... e2e/run.sh e2e/flows/01-signed-in.yaml   # your own profile (adds CS 1428 under Classes and removes it, Saved says only you can see it), then likes, comments (write, heart, reply, delete from the hold menu), shares the top post with Leo and finds the card in your chat with him (Messages), votes, replies, the Campus | Global toggle under the labels (skipped while it is hidden), follows and unfollows Maya (her Classes tab shows CS 3358, her Listings tab her apartment), opens your own Followers (Leo) and Maya's Mutual friends (none: Leo follows her one way), as the seeded account
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-seed-thread.mjs   # nested replies and votes for 03-buzz-thread.yaml (Buzz v2 writes are service-role only)
 SUPABASE_ACCESS_TOKEN=sbp_... node e2e/sim-cleanup.mjs  # removes the test data afterwards
@@ -454,9 +454,10 @@ its rail in place of the comments one; the chat opens with a first message
 about the post. `hasPublicComments()` in `packages/shared` decides it for the app and the website; Marketplace items have none either
 (the seller is reached through Inbox or Message), while posts, reels, apartments and Buzz keep their threads.
 
-## Discover
+## Search
 
-The second tab (`src/app/(tabs)/discover.tsx`) is Instagram's search tab for every campus at once. The box at the top
+The search screen (`src/app/search.tsx`, opened from the magnifier beside the bell in Home's top bar; it was the
+Discover tab until Events took that place in the bar) is Instagram's search for every campus at once. The box at the top
 finds people (any university: `searchPeople`), topics (#tags, by their start) and posts (the start of each word typed),
 under Top | Accounts | Topics | Posts (`src/components/discover/discover-search.tsx`); a tag typed in full always offers
 its page. With the box empty it shows what is popular: trending topics, then the posts and reels with the most going on
@@ -472,9 +473,37 @@ scores every post and reel of the last 90 days (likes, comments and views agains
 (recent use, weighted by engagement and by how many different people use it) and every student account (followers, new
 followers, engagement on recent posts) every 10 minutes (pg_cron), and the readers (`discover_feed`, `discover_accounts`,
 `discover_topics`, `discover_topic_posts`, the searches) run as the caller, so blocks, posts hidden by moderators,
-suspended accounts and business sessions stay out exactly as everywhere else. Before migration 44 the tab still works:
+suspended accounts and business sessions stay out exactly as everywhere else. Before migration 44 the screen still works:
 the grid is the newest posts and reels, the suggestions the newest people, and topics are empty
 (`packages/shared/src/queries/discover.ts`).
+
+## Events
+
+The fourth tab (`src/app/(tabs)/events.tsx`) is the campus's calendar: the big "Events" title with Saved at its right,
+For you | All events above a pager (Explore's layout: the labels, the inbox-style search box and one row of pills slide
+up under the title as a page scrolls), and the floating "+" to publish. The pills narrow both pages: when (Upcoming,
+Today, This week, Weekend: `eventDateRange` in packages/shared, on the campus's clock), a hairline, then the categories
+(`EVENT_CATEGORIES`). **For you** (`src/components/events/for-you-events-section.tsx`) ranks the campus's upcoming
+events for the person (`rankEvents`: picked interests, the categories they keep saving and opening, the organizations
+they follow, how soon, how many others saved it; signed out, soonest and most saved first), asks what they are into
+the first time (the chips save `event_interests` and re-rank at once) and suggests organizations to follow while they
+follow few. **All events** (`all-events-section.tsx`) is time order under day headings ("Today", "Tomorrow", "Thu,
+Nov 12"), a page at a time. Each row (`event-card.tsx`) is the picture or the category's glyph, the title, when, where,
+who is holding it and the category, with the bookmark; cancelled events stay, greyed and marked. An event's page
+(`src/app/events/[id].tsx`) adds the organization with a Follow pill, Save | Share | Directions, the registration link
+as the one big button and, for the organization's members, Edit, Cancel and Delete. Saved events are
+`src/app/events/saved.tsx` and a group on Saved; interests `src/app/events/interests.tsx`.
+
+Events come from two places (migration 61, `supabase/migrations/20261113000000_events.sql`): the university's own
+ICS and RSS calendars, which staff add in the website's console and the website syncs (`event_feeds`, source `feed`),
+and verified clubs, student organizations and departments (`organizations`), whose members publish their own
+(`src/app/events/new.tsx`, `edit/[id].tsx`, the form in `src/components/events/event-form.tsx`). Any student creates
+an organization (`src/app/organizations/new.tsx`) and owns it; until staff verify it, its events are `pending` and show
+to its members alone. An organization's page (`src/app/organizations/[id].tsx`) has its events, its people, Follow,
+and for owners Edit and Members (`members/[id].tsx`: add by name, make owner or editor, remove; the database keeps one
+owner). The saved and followed sets are read once and flipped optimistically for the whole app
+(`src/lib/event-saves-store.ts`, `organization-follows-store.ts`, built on `id-set-store.ts`); times are shown on the
+campus's clock (`src/lib/campus-time-zone.ts`, `universities.timezone`). Sharing sends the website's `/events/<id>`.
 
 ## Buzz
 

@@ -18,9 +18,11 @@ writes itself. Leave those two alone.
 State University. Sign-up is limited to the email domains on the `universities` table
 (`txstate.edu` today), checked by the form and by a `before insert` trigger on `auth.users`.
 
-- **Social network first.** Lead with people, posts, Stories, Orbit, Buzz, Reels and messages. Housing,
-  roommates and the Marketplace are supporting tools on the Explore tab; they must not set the
-  app's identity, navigation or wording outside Explore.
+- **Social network first.** Lead with people, posts, Stories, Orbit, Buzz, Reels and messages. The
+  bar is Home, Explore, Messages, Events, Profile (search is the magnifier beside the bell). Events
+  is the campus's calendar: the university's feeds and verified organizations. Housing, roommates
+  and the Marketplace are supporting tools on the Explore tab; they must not set the app's
+  identity, navigation or wording outside Explore.
 - **Three surfaces, one Supabase project:** UniBuzz for students (Next.js website and Expo app);
   UniBuzz Business at `/business` (its own host once `NEXT_PUBLIC_BUSINESS_SITE_URL` is set), where
   businesses never start conversations; CampConnect Admin for staff (the website's `/admin`
@@ -41,19 +43,22 @@ State University. Sign-up is limited to the email domains on the `universities` 
 ```
 apps/web/src/
   app/(app)/       the site: /, apartments, roommates, marketplace, posts, reels, buzz, messages,
-                   profile, notifications, saved, search, settings, deals, two-factor, and admin/
-                   (staff console: queue, rules, users, appeals, audit, metrics)
+                   events, organizations, profile, notifications, saved, search, settings, deals,
+                   two-factor, and admin/ (staff console: queue, rules, users, appeals, audit,
+                   metrics, events)
   app/(auth)/      login, signup     app/auth/  auth callbacks     app/business/  the portal
-  app/api/         buzz (moderated writes), video (Mux uploads + webhooks), geocode
+  app/api/         buzz (moderated writes), video (Mux uploads + webhooks), geocode, events/sync
+                   (the feed sync, run by Vercel Cron and the console)
   app/             also privacy, terms, guidelines, design, sitemap, robots, manifest
   components/      UI by area (home, feed, posts, buzz, messages, profile, housing, business, staff, …)
-  lib/             actions/ (server actions), supabase/ (clients), buzz-server/ (server-only),
-                   staff/, business/, mux.ts, env.ts      proxy.ts: auth guard + the portal's host
+  lib/             actions/ (server actions), supabase/ (clients), buzz-server/ and events-server/
+                   (server-only), staff/, business/, mux.ts, env.ts   proxy.ts: auth guard + the portal's host
 apps/web/e2e/      Playwright: home-feed.mjs, release-smoke.mjs (every page of each role), business-sidebar.mjs
 apps/mobile/       Expo app (expo-router): apps/mobile/CLAUDE.md
 packages/shared/   everything that is not UI: types/ (incl. database.ts), schemas/ (zod), queries/
-                   (every read and write), buzz/, trust-safety/, constants.ts, for-you.ts, discover.ts,
-                   profile.ts, snaps.ts, stories.ts, calls.ts, share.ts, format.ts, …
+                   (every read and write), buzz/, trust-safety/, events/ (calendar parsers, the sync
+                   plan, wall-clock time), constants.ts, for-you.ts, events.ts, discover.ts, profile.ts,
+                   snaps.ts, stories.ts, calls.ts, share.ts, format.ts, …
 packages/moderation/  the Buzz moderation engine (rule packs, PII detector, policy); server-only
 supabase/          migrations/, rollbacks/, tests/, applied-outside-repo/, functions/, seed.sql
 scripts/           supabase-setup.mjs (db:setup), e2e-check.mjs (db:check), e2e-home-feed.mjs,

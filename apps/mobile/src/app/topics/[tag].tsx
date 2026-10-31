@@ -17,7 +17,7 @@ import { makeStyles, useColors } from "@/lib/theme-provider";
 type Order = "top" | "recent";
 
 /**
- * A topic's page (a #tag tapped in a caption, Discover's Trending row or its search): the tag, how many posts carry it,
+ * A topic's page (a #tag tapped in a caption, the search screen's Trending row or its results): the tag, how many posts carry it,
  * and their grid from every campus, the hottest first or the newest first, as Instagram's hashtag pages. Squares open
  * the viewer with the rest of the grid to swipe through.
  */

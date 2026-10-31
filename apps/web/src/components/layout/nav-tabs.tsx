@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Compass, Home, MessageCircle, UserRound, type LucideIcon } from "lucide-react";
+import { CalendarDays, Compass, Home, MessageCircle, UserRound, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UnreadBadge } from "./unread-badge";
 
@@ -24,6 +24,8 @@ const HOUSING_PREFIXES = ["/apartments", "/roommates", "/marketplace"];
 const HOME: NavTab = { href: "/", label: "Home", icon: Home, match: (p) => p === "/" || (!isMyBuzzes(p) && HOME_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`))) };
 const HOUSING: NavTab = { href: "/apartments", label: "Explore", icon: Compass, match: (p) => HOUSING_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`)) };
 const MESSAGES: NavTab = { href: "/messages", label: "Messages", icon: MessageCircle, match: (p) => p.startsWith("/messages") };
+/** Events = the campus's events (For you, All, Saved) and the organizations that publish them (migration 61). */
+const EVENTS: NavTab = { href: "/events", label: "Events", icon: CalendarDays, match: (p) => p === "/events" || p.startsWith("/events/") || p === "/organizations" || p.startsWith("/organizations/") };
 /** Profile = your own profile (never someone else's) plus the pages the app's Profile tab lists (Saved, Settings). Signed out, /profile/me redirects to login. */
 const PROFILE: NavTab = {
   href: "/profile/me",
@@ -33,10 +35,10 @@ const PROFILE: NavTab = {
 };
 
 /** Desktop header tabs. Search is not a tab: the header's search box is the search entry point on every screen, like TikTok's magnifier. */
-export const NAV_TABS: NavTab[] = [HOME, HOUSING, MESSAGES];
+export const NAV_TABS: NavTab[] = [HOME, HOUSING, MESSAGES, EVENTS];
 
-/** Phone bottom bar, mirroring the app: Home, Explore, Messages, Profile. Search lives in the header (a magnifier on phones). */
-export const PHONE_TABS: NavTab[] = [HOME, HOUSING, MESSAGES, PROFILE];
+/** Phone bottom bar, mirroring the app: Home, Explore, Messages, Events, Profile. Search lives in the header (a magnifier on phones). */
+export const PHONE_TABS: NavTab[] = [HOME, HOUSING, MESSAGES, EVENTS, PROFILE];
 
 export function NavTabs({ unread, userId }: { unread: number; userId: string | null }) {
   const pathname = usePathname();
