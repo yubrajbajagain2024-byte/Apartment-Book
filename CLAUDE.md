@@ -103,9 +103,12 @@ App, device and EAS commands: [apps/mobile/CLAUDE.md](apps/mobile/CLAUDE.md).
 
 ## Workflow
 
-- Branch from `main` and land work through a **reviewed pull request**. Never push to `main`.
+- Branch from `main` and land work through a **pull request**. Never push to `main`.
 - **Every push to `main` deploys the website to production** (Vercel is connected to Git). Merging
   is deploying, so a migration the code needs must already be live.
+- **Sunil and Ankur (`ProXteller`) each merge their own pull requests** into `main` once the checks
+  below pass, without waiting for the other's approval: the author's merge is that deploy's
+  approval. The other production writes below still need the owner's approval.
 - Before opening a PR, check what it would bring (`git log origin/main..<branch>`); a branch that
   is already merged needs none, whatever GitHub's "Compare & pull request" banner suggests. Then
   run `npm run check`, the tests your change touches (`npm run db:test` for any SQL), and the

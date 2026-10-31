@@ -47,7 +47,9 @@ open work is in [status.md](status.md).
   folders and the full backup, the business portal made instant).
 - **2026-10-31:** branch `events`: the app's bar becomes Home, Explore, Messages, Events, Profile,
   and the Discover tab becomes the search screen behind a magnifier beside the bell; migration 61
-  (Events) is written and applied on staging, not on production.
+  (Events) is written and applied on staging, not on production. PR #74 merges it at 03:43 UTC
+  (deployed; 61 still not applied). Sunil and Ankur may merge their own pull requests from then on
+  ([decisions.md](decisions.md)).
 
 ## The AI documentation
 
