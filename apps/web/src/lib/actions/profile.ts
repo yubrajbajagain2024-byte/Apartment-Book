@@ -100,11 +100,25 @@ export async function addUniversityAction(_prev: FormState, formData: FormData):
   return { success: `${parsed.data.name} was added. You can now select it above.` };
 }
 
-/** Permanently delete the signed-in user's account, then sign out. */
-export async function deleteAccountAction(): Promise<void> {
+/**
+ * Permanently delete the signed-in user's account, then sign out. The database can refuse a staff account
+ * (CampConnect Admin's migration 14, live: staff need a session that passed two-factor sign-in, and the only owner
+ * is refused outright); the reason comes back to the form instead of an error page.
+ */
+export async function deleteAccountAction(): Promise<{ error?: string }> {
   await requireUser("/settings/profile");
   const supabase = await createClient();
-  await deleteMyAccount(supabase);
+  try {
+    await deleteMyAccount(supabase);
+  } catch (error) {
+    const message = errorMessage(error, "Could not delete your account. Please try again.");
+    return {
+      error:
+        message === "Two-factor authentication required"
+          ? "Staff accounts need two-factor sign-in before they can be deleted: confirm it's you at /two-factor and try again, or ask an owner to remove you from the team in CampConnect Admin first."
+          : message,
+    };
+  }
   await supabase.auth.signOut();
   redirect("/?deleted=1");
 }

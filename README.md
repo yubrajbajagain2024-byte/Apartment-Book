@@ -45,7 +45,7 @@ These help with everyday student life and keep students in their community. They
 
 1. **UniBuzz:** the social network for students, as an app for iOS and Android and a website.
 2. **UniBuzz Business:** a portal at `/business` for local businesses, from apartment communities to restaurants, cafés, shops, startups and services. They post updates, products, deals and events and housing listings, run Sponsored ads in For You, Reels and Housing after the UniBuzz team's review, answer student inquiries (students always write first), read analytics and run a team with roles (Business v2, migrations 49 and 50).
-3. **CampConnect Admin:** managing users, businesses, content and platform security. It covers the staff console at `/admin` on the website and the separate CampConnect Admin staff app (see [Buzz (anonymous)](#buzz-anonymous)).
+3. **CampConnect Admin:** managing users, businesses, content and platform security. It covers the staff console at `/admin` on the website (see [Buzz (anonymous)](#buzz-anonymous)) and the separate CampConnect Admin staff app (see [Admin app (CampConnect Admin)](#admin-app-campconnect-admin)).
 
 ### Business model and design
 
@@ -382,6 +382,164 @@ The staging project (`campconnect-staging`) is built like production: this repo'
 
 **Presence (migration 40).** Testing presence on staging showed that Supabase Realtime checks a private channel's join with a broadcast read, so migration 22's presence policy, which allowed only presence reads, refused every join: "Active now" and the green dots stay empty. Migration 40 (`20261102000000_presence_channel_join.sql`) allows reading that one topic for either kind, still only for people who show their status (sending stays presence only, so there are no broadcasts to read); `supabase/tests/presence-channel-join.test.mjs` checks it.
 
+## Admin app (CampConnect Admin)
+
+Staff run UniBuzz from **CampConnect Admin**, a separate Next.js app in `apps/admin` that talks to the **same Supabase project** as the website and the mobile app: whatever staff change there applies to both at once, and the admin app has no student features. The website keeps one staff console of its own, the Buzz Trust & Safety console at `/admin` (see [Buzz (anonymous)](#buzz-anonymous)); where CampConnect Admin's tables exist, the two share the staff list and the two-factor rule.
+
+```bash
+npm run dev            # website on http://localhost:3000 and the admin app on http://localhost:3001
+npm run dev:admin      # the admin app alone
+```
+
+The admin app needs its own `apps/admin/.env.local` (`npm run db:setup` writes it next to the website's, from `ADMIN_URL`; `apps/admin/.env.example` lists every variable). It uses the same Supabase URL and anon key, its own public URL in `NEXT_PUBLIC_SITE_URL` and the website's address in `NEXT_PUBLIC_MAIN_SITE_URL` for "open on site" links. Its `/auth/callback` (and `/auth/confirm`, where invitation links land) must be in Supabase's redirect allow-list: the setup script adds `<ADMIN_URL>/auth/**`; by hand: Authentication → URL Configuration → Redirect URLs.
+
+Its database side came from the `step-admin` branch: migrations 14 to 17 (staff roles, invitations, the append-only audit log, moderation support, the dashboard queries, a hardening) are on production and kept in `supabase/applied-outside-repo/`, whose README has their security review and the plan for bringing them into `supabase/migrations/`; migration 18 (invitation emails) is on production but in no folder of this repo yet (docs/branches/step-admin.md). `boot({ live: true })` in `supabase/tests/harness.mjs` is production's order, with them.
+
+### Who gets in
+
+Three gates, in order, and the database is the authority behind all of them:
+
+1. **Sign in** (`/login`, email + password or Google). There is no sign-up: accounts are created on the website or through a staff invitation. A student who signs in is told the account is not on the team (`/no-access`) and offered the way out; nothing of the app is shown.
+2. **Staff row.** The layout asks the database (`admin_me`) whether the person is staff and not suspended. Staff permissions live in tables the API cannot read or write (`staff`, `staff_invites`, `staff_audit_log`: row-level security on, no policies, no grants).
+3. **Second factor.** Every page except Security needs a session that verified an authenticator-app code (JWT claim `aal = 'aal2'`); the proxy sends anyone else to `/security`. Every database function behind every button re-checks role **and** second factor in SQL (`staff_require`), so opening a page grants nothing.
+
+The app is never indexed (`robots.txt` disallows everything, every response carries `X-Robots-Tag: noindex, nofollow` and `Cache-Control: private, no-store`), and its session cookies are its own: being signed in on the website does not sign you in here, and the other way round.
+
+### Roles
+
+| Role | Can do |
+| --- | --- |
+| Owner | Everything: add owners, admins and moderators, change anyone's role, remove anyone, withdraw any invitation |
+| Admin | Run the app day to day: add and remove moderators and withdraw moderator invitations, delete content permanently. Cannot touch owners or other admins |
+| Moderator | Moderation: review reports, hide and restore content, suspend and unsuspend people (never staff of equal or higher rank), look up accounts, retry media jobs and run the worker. Sees the team (but not who among the owners and admins lacks a second factor) and, in the audit log, moderation activity plus their own actions. No access to pending invitations; cannot change the team; cannot delete content permanently |
+
+Nobody can change their own role or remove themselves, and the last owner can never be demoted or deleted; a database trigger refuses it even for SQL run as the project owner. Every administrative action is a database function (`admin_staff_add`, `admin_user_suspend`, `admin_content_hide`, …) that checks the caller's role in SQL before doing anything. The pages and server actions run the same checks (`apps/admin/src/lib/admin.ts`) only to hide what a person cannot do. The Analytics and Business sections, for owners and admins, are described in docs/technical-reference.md ("CampConnect Admin: Analytics and Business").
+
+### Two-factor authentication
+
+Every action needs a verified second factor, not only the sign-in. Staff set up an authenticator app (Google Authenticator, 1Password, Authy…) at `/security`; after a code is verified, Supabase Auth re-issues the session with the claim `aal = 'aal2'`, and each admin function checks that claim in SQL (`Two-factor authentication required` otherwise). Turning an authenticator on or off is written to the audit log by a database trigger on Supabase Auth's factor table, so the entry cannot be forged from a session that only has a password.
+
+### Becoming the first owner
+
+Either run the setup script against the project (it bootstraps the owner without touching the seed, the env files or the auth URLs; run it with `DRY_RUN=1` first, which must list nothing you do not expect):
+
+```bash
+SKIP_ENV=1 SKIP_SEED=1 SKIP_AUTH=1 ADMIN_OWNER_EMAIL=you@txstate.edu \
+SUPABASE_ACCESS_TOKEN=sbp_xxx SUPABASE_PROJECT_REF=<ref> npm run db:setup
+```
+
+or do it in the Supabase **SQL Editor**: `select public.admin_bootstrap_owner('you@txstate.edu');`. On a database built from this repo alone, run the four files of `supabase/applied-outside-repo/` in order first: the setup script only reads `supabase/migrations/`, and the admin functions are not there.
+
+The result is `added` (the account exists and is confirmed), `invited` (no confirmed account yet: the owner role is claimed the moment that address confirms its sign-up) or `already owner`. The owner does not have to be a student: sign-ups are normally limited to university addresses, but an address with a pending staff invitation may sign up too, so an invited Gmail owner uses **Continue with Google** (on the website or on the admin app's login page) or the invitation email the Supabase dashboard can send under Authentication → Users → Invite, and is owner as soon as the account exists. It refuses an address that has signed up but not confirmed its email yet, and a second owner (more owners are added from the Staff page); running it again with a corrected address withdraws the earlier, mistyped invitation (logged as `invite.revoke` with the reason `bootstrap superseded`). The function cannot be called through the API at all.
+
+### What the app does
+
+| Page | What is there |
+| --- | --- |
+| Overview | Open reports, active suspensions, hidden content, the media queue, people, listings, posts and staff at a glance (migration 16's `admin_overview_stats`), the newest open reports, recent audit activity and your own account state |
+| Reports | The queue people fill from the website and the app (open, reviewed, dismissed, all; "Load older" paging). A report opens on a review page with the reported content, the reporter's words, the actions, and the decision form. Hiding, deleting or suspending from that page records the matching decision on the report |
+| Flagged | Content hidden automatically because enough different people reported it, from `admin_auto_hidden_list`, a function of a report auto-hide migration that is not in this repo yet (the page shows a setup notice until it is live). Tabs: waiting for review, kept hidden, restored, deleted, all; each row opens the content page with **Keep hidden**, **Restore** and **Delete permanently** |
+| Content | Look up anything by pasting its website link or id, and the list of everything currently hidden (`admin_hidden_content_list`). The review screen shows the author (for Buzz, revealed to staff on purpose and logged as `content.view`), text, photos (signed from the private quarantine bucket when hidden), videos and type-specific fields, with **Hide** (reversible, reason shown to the owner), **Restore**, and, for admins and owners, **Delete permanently** behind a typed confirmation |
+| Users | Browse everyone newest first, suspended accounts or staff (`admin_users_list`), or search by name or email. A person's page shows profile, activity counts, reports filed and received, the suspension history, and **Suspend** (reason the person sees, duration, staff note) or **Lift**. A staff target needs a strictly higher role; nobody suspends themselves |
+| Media | The clean-up queue (`media_jobs`): pending, failing and done counts, whether the worker's storage, Mux and cron credentials are configured, every job with its attempts, next try and last error, **Retry now** per job and **Run the worker now** |
+| Staff | The team, pending invitations and adding people by email |
+| Audit log | Every team change, security event and moderation action, newest first, linking to the person, report or content concerned |
+| Security | Set up, verify and remove the authenticator |
+| Analytics, Business | Owners and admins: the advertising operation (docs/technical-reference.md, "CampConnect Admin: Analytics and Business") |
+
+### Invitation emails (migration 18)
+
+Inviting an owner, admin or moderator on the Staff page sends a real email, if the admin app can. The steps:
+
+1. The database records the invitation (role, who invited, open for 7 days).
+2. The admin app asks Supabase Auth to send the invitation (`inviteUserByEmail`, through the project's SMTP settings). Supabase creates the invitee's account at once: unconfirmed, no password.
+3. `admin_invite_email_result()` records the outcome (sent or failed, when, how often, the error) and **binds** the invitation to that account. Only that account can ever claim it, so someone signing up with the same address cannot take the role.
+4. The invitee opens the link. It works once and expires after the project's email-link time (one hour unless changed). Opening it confirms the address, which proves they own the mailbox, and that is when they become staff.
+5. They land on the admin app's `/password` page (staff only), choose a password of at least 12 characters, and go straight to `/security` for mandatory two-factor setup. Nothing else opens before that.
+
+The Staff page shows each pending invitation as "Email sent", "Email failed" with Supabase's reason, or "No email sent", with its expiry. It offers **Send again**, which renews the 7 days and sends a new link, and **Withdraw**. Withdrawing also deletes the account the email created, if nobody has opened or used it, so an old link leads nowhere. An expired invitation is not accepted (logged as `invite.expired`) until it is sent again. Owners and admins can also email a team member a **password-reset** link; there is no anonymous "forgot password" form. Every step is in the audit log: `invite.email_sent`, `invite.email_failed`, `invite.resend`, `invite.expired`, `invite.accepted` (with "via email link").
+
+To send emails, the admin app needs `SUPABASE_SERVICE_ROLE_KEY` on its own Vercel project. Without it, invitations are saved and the confirmation says plainly that no email went out. The key does **not** turn the media worker on (below).
+
+Delivery is Supabase's: its built-in email service sends only a few emails per hour, and only to members of your Supabase organization. To invite anyone, set up custom SMTP, for example Resend or Postmark, both of which have free tiers. `SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=… ADMIN_URL=… npm run auth:email` reports the project's email settings without changing anything (every argument is explicit: it has no default project): SMTP, rate limit, link lifetime, whether the invitation template is the server-verified one, whether the admin app's `/auth/**` is an allowed redirect, Confirm email and TOTP. With `--apply`, and after the owner's approval, it adds the redirect, installs the invitation template, and sets SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_SENDER_EMAIL`) and `INVITE_LINK_HOURS` when given. It never touches the password-reset template, which the mobile app uses.
+
+Tests: the database side of invitation emails is checked by `staff-invite-email.test.mjs` on the `step-admin` branch, with migration 18, which this repo does not have. `apps/admin/e2e/invite-links.mjs` covers expired and malformed links, the password page's gate, and the worker staying off. `apps/admin/e2e/invite-flow.mjs` is the whole flow for a **staging** Supabase project: invite, link, password, two-factor, dashboard, reuse refused, withdraw. It refuses to run against production.
+
+### Adding staff, and the audit log
+
+From the Staff page an owner or admin types an email address and picks a role. A confirmed account is added at once; any other address is invited and becomes staff when it confirms its sign-up (the same mechanism as the first owner). An address outside the university can be invited as well: the invitation lets it sign up, through Google sign-in or a dashboard invitation, since the website's sign-up form itself only takes university addresses. An address somebody has already signed up with but not confirmed is refused (that person confirms and logs in first, then is added from the list). An invitation is only honoured by an account created after it: when the account predates the invitation the role is not granted, the log gets an `invite.held` row, and an admin adds the person from the list once sure who holds the account. Invitations also go with the inviter's authority: they are withdrawn automatically (and logged with the reason) when the inviter is demoted below the invited role or removed from the team, and disappear when the inviter deletes their account. Everything is written to `staff_audit_log` with who did it, to whom and the details, and the Audit log page shows it newest first. The log is append-only: nobody, staff included, can edit or delete rows through the API.
+
+### Supabase settings
+
+- **Authentication → Multi-Factor**: TOTP (authenticator app) must be enabled. The setup script turns it on when `ADMIN_OWNER_EMAIL` is given together with an access token.
+- **Authentication → Providers → Email**: keep **Confirm email** on. Invitations are claimed on confirmation, so an unconfirmed address can never become staff.
+- **Authentication → URL Configuration → Redirect URLs**: both apps need their callback: `https://<website>/auth/callback` and `https://<admin app>/auth/**` (plus the two localhost ones for development). `npm run db:setup` adds them (`SITE_URL`, `ADMIN_URL`).
+- Lost authenticator: delete the person's factor in **Authentication → Users** (open the user, Multi-factor), then they set it up again at `/security`. Everything stays blocked for them until they do.
+- **Staff deleting their own account**: the database refuses to delete a staff account from a session without a verified second factor, and refuses the only owner outright. On the website, staff confirm it's them at `/two-factor` first (the same authenticator), or leave the team first (an owner or admin removes them on the Staff page) and then delete their account like anyone else; the website's form says so. The only owner cannot leave until another owner exists.
+
+### Moderation support (migration 15)
+
+Migration 15 adds the database side of moderation. Every rule is enforced in Supabase itself, so neither app nor a direct API call can get around it:
+
+| Addition | What it does |
+| --- | --- |
+| Account restrictions (`account_restrictions`) | A suspension with the reason the person sees, a note only staff see, who issued it and an optional end date. The moment it is saved, a trigger on every content table (listings, posts, comments, messages, chats, Buzz, media) refuses the person's inserts and updates, the storage policies refuse their uploads, their profile cannot be edited, and `auth.users.banned_until` stops their next login and token refresh (the website's sign-in form says the account is suspended). Their existing listings and posts disappear for everyone else while it lasts. `my_restriction()` tells the apps what to show them. Suspending someone who is already suspended updates the open row; lifting early clears everything. A suspended account cannot delete itself (that would erase the restriction and let the same address sign up again; a timed suspension ends on its own, otherwise support deletes the account from the dashboard), cannot move its files in Storage, and its saves no longer notify listing owners. A suspended staff member loses every admin power the moment the suspension is saved |
+| Content moderation status (`hidden_at`, `hidden_reason`) | Reversible removal for apartments, roommate posts, items, posts and reels, comments, messages, Buzz threads and replies. Hidden rows vanish from feeds, profiles, search, the map, detail pages and the reels feed; the owner still sees their own row with the reason but cannot un-hide it (a trigger pins the two moderation columns against owner updates), and hidden content accepts no new likes, comments or saves. The copies of a hidden message or comment in notifications and in the chat preview are cleared too. Restoring clears it. On Buzz, which is Buzz v2 on production, a hide becomes a removal: the thread or reply leaves every feed and shows only a placeholder on its page (see [Buzz (anonymous)](#buzz-anonymous)). Because photos sit in a public bucket and videos on Mux, hiding also queues media jobs (below) that move the photos to a private `quarantine` bucket and disable the video's playback; restoring queues the reverse |
+| Permanent deletion | A separate, deliberate act: admins and owners only, a reason required, and the full content (including its author) is written to the audit log before the row goes. Moderators cannot do it |
+| Report review fields | `reviewed_by`, `reviewed_at`, `decision` (dismissed, content hidden, content deleted, user suspended, warning, no action) and `notes` on `reports`, with list, resolve and reopen functions. Reporters can still follow the status of their own report, but the review itself (decision, notes, reviewer) is kept out of the API by column privileges, so a Buzz report can never tell its reporter that the anonymous author was suspended. The report list never names the author of a Buzz target; only `admin_content_get` does, and every such look is logged |
+| Admin action log | Nothing new: every function writes to `staff_audit_log` through `staff_log()` with the actor and the reason (`user.suspend`, `user.unsuspend`, `content.hide`, `content.restore`, `content.delete`, `content.view`, `report.resolve`, `report.reopen`, `media.retry`) |
+| Media jobs (`media_jobs`) | The cleanup queue, generalised. Deleting a listing, post, message or account (by its owner, by staff or by a cascade) queues `delete_object`, `delete_prefix` and `mux_delete` jobs; hiding and restoring queue `quarantine`/`release` and `mux_disable`/`mux_enable`. Only media the row's author could have uploaded is ever queued (their own folder, or the anonymous Buzz folder, on this project's storage; videos they own), so a row that names someone else's photo or video never becomes that person's deletion. Supabase does not allow touching Storage from SQL, so the admin app's worker (below) claims jobs (`media_jobs_claim`), performs them and reports `media_jobs_done` or `media_jobs_failed`; failures back off (10, 40, 90… minutes) and come back, and staff can see the queue and retry a job at once (not one a worker claimed in the last 15 minutes and has not reported failed) |
+
+Buzz stays anonymous through all of this: a suspension never changes what Buzz shows (a suspect's threads vanishing together would point at them), hides are per thread or reply, the id sequences of the closed tables are revoked (a live reply counter would defeat the publication jitter), and the queue cannot be read by users. The same audit also closed a pre-existing hole unrelated to moderation: a chat member could re-point their membership row into any conversation whose id they knew; the policy now requires them to already be a member.
+
+### Dashboard queries (migration 16) and hardening (migration 17)
+
+`20261103100100_hardening.sql` closes two doors found by the production-readiness audit: the API roles lose `TRUNCATE` on every public table (Supabase grants it by default and row-level security does not govern it; the apps never truncate, so nothing changes for them), and `delete_my_account()` is no longer callable by `anon`.
+
+`20261103100000_admin_dashboard.sql` adds four **read-only** functions for the admin app, all behind `staff_require('moderator')`: `admin_overview_stats()` (the overview counts), `admin_users_list(filter, limit, before)` (browse people newest first: all, suspended or staff), `admin_hidden_content_list(type, limit, before)` (everything hidden, across the eight tables, newest hide first) and `admin_report_get(id)` (one report for the review page, same shape and same Buzz rule as the queue). The hidden-content list carries no Buzz author and shows a Buzz row's published time, never its real `created_at`. Until the migration is applied, the admin app shows a short "database update needed" notice where these are used and keeps working from the older functions (search, the suspended list, the report queue).
+
+### The media worker
+
+The worker moves and deletes files, so it runs **only when switched on explicitly**: `MEDIA_WORKER_ENABLED=true` on the admin project, as well as the service-role key. The key alone, which invitation emails need, never starts it. Every path goes through one check inside the worker: after a hide, restore or delete, the Media page button, and the cron endpoint, which answers 503 while the switch is off. The deploy script refuses to deploy with `MEDIA_WORKER_ENABLED`, Mux keys or `CRON_SECRET` present unless `--allow-worker` is given.
+
+The worker lives in the admin app (`apps/admin/src/lib/media-worker.ts`) and needs server-only variables there: `SUPABASE_SERVICE_ROLE_KEY` for Storage (quarantine, release, delete) and the media queue, `MUX_TOKEN_ID` + `MUX_TOKEN_SECRET` for videos (delete playback ids to disable, create a public one and refresh the row's `videos` snapshot to re-enable, delete assets). It runs in three ways: right after every hide, restore and permanent deletion (after the response is sent); from the Media page's **Run the worker now**; and as a scheduled retry sweep through `GET /api/media/worker`, which Vercel's cron (`apps/admin/vercel.json`, daily) calls with `Authorization: Bearer <CRON_SECRET>` (set `CRON_SECRET` in the project; without it the endpoint is off). The service-role key never reaches the browser and is used for nothing but the queue and storage moves. Each job is idempotent (a file already moved, already deleted or an asset already gone counts as done), and anything that fails keeps its error on the Media page and is retried with back-off.
+
+### Test before launch
+
+| Check | Proven by |
+| --- | --- |
+| Normal users cannot access admin data or actions | `supabase/tests/launch-checklist.test.mjs` (1): every admin function answers "Not allowed" to a student, with or without a second factor; the staff, restriction and media tables are unreadable; visitors get "permission denied". `admin-dashboard.test.mjs` repeats this for migration 16. Browser: `apps/admin/e2e/admin.mjs` (signed-out visitors are sent to login on every page; with `E2E_USER_EMAIL`/`E2E_USER_PASSWORD` a student lands on "not on the team" and never sees the shell) |
+| Users cannot give themselves admin permissions | (2): direct writes to `staff`/`staff_invites` are refused, so is the bootstrap through the API, adding or re-roling yourself, and a moderator promoting anyone |
+| Suspensions work on web and mobile, including existing sessions | (3): the same database rules serve both apps. A user is suspended while signed in and their next insert, message, Buzz post (even through the website's server), chat, upload and profile edit all fail; `banned_until` blocks the next login; lifting restores everything on the same session |
+| Removed content cannot be fetched through another route | (4): a hidden listing, reel and Buzz thread are fetched by id, by text search, by owner, by radius search, through the reels feed and through Buzz (out of the feed, a placeholder on its page), as another user, as a visitor and as staff reading normally: nothing comes back; its photos and video are queued for quarantine |
+| Restoring content works | (5): everything reappears and the hide jobs are superseded by release jobs |
+| Every action records its reason and administrator | (6): suspend, lift, hide, restore and delete rows carry the actor's id, email and name and the reason or note; the log cannot be edited through the API |
+| Failed media cleanup is retried | (7): a claimed job that fails keeps its error and a later retry time, staff see it and can retry it at once, the second claim succeeds and the stats count it |
+
+`npm run db:test` runs these five suites with the rest, all on production's order (`boot({ live: true })`): `admin.test.mjs` covers migration 14 (the bootstrap, the closed tables, the two-factor gate on every function, what each role may do, the last-owner guard, invite claiming and the audit log), `moderation-support.test.mjs` covers migration 15 in depth, `launch-checklist.test.mjs` is the seven-point list above, `admin-dashboard.test.mjs` covers migration 16 (the gate, the counts, browsing, the hidden list's Buzz rules, one report), and `permissions-audit.test.mjs` enumerates the whole function and table surface (every `admin_*` function refuses students and visitors, internal helpers and the worker functions are unreachable from the API, the closed tables, sequences and the quarantine bucket are locked, reporters cannot read or change review columns, TRUNCATE is gone, and the service role can do exactly the worker's work). `campconnect-admin-buzz.test.mjs` checks the admin app's moderation against Buzz v2. One rule for applying migrations by hand: never re-run an older migration after a newer one (11 to 13 recreate Buzz functions and upload policies that 15 hardens); `npm run db:setup` applies only what `public._migrations` lacks, in one transaction per file, and refuses a pending file older than the newest applied name unless `ALLOW_OUT_OF_ORDER=1` (`DRY_RUN=1` lists what it would do without changing anything). The browser check needs the admin dev server: `npm run dev:admin`, then `BASE=http://localhost:3001 node apps/admin/e2e/admin.mjs` (signed-out gates, robots and caching headers, the worker endpoint's secret, and the staff flow through every page when `ADMIN_E2E_EMAIL`, `ADMIN_E2E_PASSWORD` and `ADMIN_E2E_TOTP_SECRET` are set).
+
+The shared package exposes the same functions for the mobile app: `getMyStaffAccess`, `listStaff`, `listStaffInvites`, `addStaff`, `setStaffRole`, `removeStaff`, `revokeStaffInvite`, `resendStaffInvite`, `recordInviteEmail` and `listAuditLog` in `packages/shared/src/queries/admin.ts`, plus `getMfaStatus`, `startTotpEnrollment`, `confirmTotpEnrollment`, `verifyTotp` and `removeMfaFactor` in `queries/mfa.ts`, the moderation functions (`getMyRestriction`, `suspendUser`, `hideContent`, `restoreContent`, `deleteContentPermanently`, `listReports`, `resolveReport`, the media job helpers…) in `queries/admin-moderation.ts`, and the dashboard reads (`getOverviewStats`, `listUsers`, `listHiddenContent`, `getReport`) in `queries/admin-dashboard.ts`. The database enforces the rules either way, so an admin screen in the app needs no extra backend, and `getMyRestriction()` is how either app shows a suspended person why they cannot post.
+
+### Deploying the admin app
+
+The admin app ships with security headers (no framing, no sniffing, strict referrer, HSTS), `noindex` and `no-store` on every response, and `server-only` guards on the files that hold the service role and Mux access, so a client component can never import them.
+
+It is its own Vercel project, not connected to Git (merging deploys the website, never the admin app). Fastest: `vercel login` once, then `npm run deploy:admin` (a plan that changes nothing) and `npm run deploy:admin -- --apply`, which needs the owner's approval: the script creates or updates the project with Root Directory `apps/admin`, sets only the public variables below, refuses to run if worker secrets are present, deploys the committed tree without touching the website's `.vercel` link, and probes the result (login page, noindex, worker endpoint off). The manual route, in the Vercel dashboard: **Add New → Project**, import the same repository, set **Root Directory** to `apps/admin`, and add the variables from `apps/admin/.env.example`:
+
+| Variable | Value |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | the same as the website's |
+| `NEXT_PUBLIC_SITE_URL` | the admin app's own URL (its `*.vercel.app` address or `https://admin.<your domain>`) |
+| `NEXT_PUBLIC_MAIN_SITE_URL` | the website's URL |
+| `NEXT_PUBLIC_GOOGLE_LOGIN` | `off` until the Google provider is enabled in Supabase |
+
+Then add `https://<admin app>/auth/**` to Supabase's redirect allow-list, sign in on the deployed URL and pass Security (the session there is separate from localhost). Keep Vercel's Deployment Protection **on** for this project if you like an extra wall in front of the login page; the app does not depend on it. The daily worker sweep in `apps/admin/vercel.json` is picked up automatically (Pro plans may schedule it more often). Add a second owner first (the only owner cannot step back or delete their account), then admins and moderators; each person enrols an authenticator on first sign-in.
+
+Two switches stay off until decided deliberately, each a production change that needs the owner's approval:
+
+- **Invitation emails:** `npm run auth:email` (read-only report) shows what is missing; then custom SMTP plus the admin app's redirect and the invitation template with `npm run auth:email -- --apply` (with `SMTP_*` set), and `SUPABASE_SERVICE_ROLE_KEY` on the **admin** Vercel project only, **not** `MEDIA_WORKER_ENABLED`; then `npm run deploy:admin -- --apply` (`pbpaste | node scripts/deploy-admin.mjs --apply --service-key-stdin; pbcopy < /dev/null` stores the key only after Supabase accepted it, then deploys). Check on the Staff page that a test invitation says "Email sent", and run `apps/admin/e2e/invite-flow.mjs` against a staging project for the whole flow.
+- **The media worker** (moves and deletes files): look at the Media page first; every pending job is listed with its kind and file or video. When you agree with them, add `MEDIA_WORKER_ENABLED=true`, `MUX_TOKEN_ID`/`MUX_TOKEN_SECRET` (a Mux token with Video read+write) and a random `CRON_SECRET` (`openssl rand -hex 32`) to the **admin** project only, redeploy, and press **Run the worker now** once while watching the results. From then on hides, restores and deletions run it immediately and the daily cron retries failures. To pause it again, remove `MEDIA_WORKER_ENABLED` and redeploy (the service-role key can stay for invitation emails).
+
 ## Video tours (Mux)
 
 Video is the main attraction, so it gets a real pipeline:
@@ -434,6 +592,7 @@ apartment-book/
 │  │  ├─ src/lib/supabase/    # Supabase clients for browser and server
 │  │  ├─ src/proxy.ts         # auth guard: refreshes sessions, protects private routes
 │  │  └─ e2e/                 # home-feed.mjs: Playwright check of the navigation, Home, Housing and the profile page on a desktop and a phone viewport
+│  ├─ admin/                  # CampConnect Admin, the separate staff app on port 3001 (see "Admin app (CampConnect Admin)")
 │  └─ mobile/                 # Expo app for iOS and Android (see apps/mobile/README.md)
 │     ├─ src/app/(tabs)/      # bottom tabs: index.tsx (Home), discover.tsx (search, and what is popular on every campus), messages, housing.tsx (the Explore tab: Housing | Roommate | Marketplace), profile; create starts from the "+" on your photo in Home's top bar, and the bell (notifications.tsx) sits in its top-right corner
 │     ├─ src/components/      # UI: home (the Home pager), housing (the Housing pager), profile (the TikTok-style profile), post cards, carousels, forms…
@@ -449,9 +608,11 @@ apartment-book/
 │     └─ tests/               # unit tests (npm run test:shared)
 ├─ supabase/
 │  ├─ migrations/             # database schema, policies and functions, one file per change (first: 20260906000000_init.sql)
+│  ├─ applied-outside-repo/   # CampConnect Admin's four migrations, as production received them (read its README)
 │  ├─ tests/                  # offline database tests in PGlite (npm run db:test)
 │  └─ seed.sql                # starter list of universities
-├─ scripts/                   # supabase-setup.mjs (one-shot setup), e2e-check.mjs and e2e-home-feed.mjs (live backend checks)
+├─ scripts/                   # supabase-setup.mjs (one-shot setup), e2e-check.mjs and e2e-home-feed.mjs (live backend checks),
+│                             # deploy-admin.mjs (the admin app's Vercel project), configure-auth-email.mjs (Auth email settings for staff invitations)
 ├─ turbo.json                 # Turborepo task pipeline (typecheck -> lint -> build, with caching)
 └─ package.json               # npm workspaces root
 ```
